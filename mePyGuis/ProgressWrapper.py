@@ -1,6 +1,7 @@
 import sys
 
 from PyQt4 import QtGui
+from PyQt4.QtCore import Qt
 
 from ColoredProgressBar import ColoredProgressBar
 from utils import CallBackMethod, natSort
@@ -55,12 +56,17 @@ class ProgressWrapper(QtGui.QDialog):
                 line.setFrameShape(QtGui.QFrame.HLine)
                 l.addWidget(line)
 
+            p = QtGui.QScrollArea()
+            p.setWidgetResizable(True)
+            p.setVerticalScrollBarPolicy(2)
+            p.setMaximumHeight(min(500, 40*len(indGroups)))
+            l.addWidget(p)
+
             k = QtGui.QWidget()
-            l.addWidget(k)
+            p.setWidget(k)
 
             o = QtGui.QGridLayout(k)
-            o.setContentsMargins(0, 0, 0, 0)
-
+            o.setContentsMargins(5,5,5,5)
             for i, indGroup in enumerate(natSort(indGroups.keys())):
                 text = QtGui.QLabel(indGroup)
                 o.addWidget(text,i,0)
@@ -68,7 +74,7 @@ class ProgressWrapper(QtGui.QDialog):
                 w = QtGui.QWidget()
                 o.addWidget(w,i,1)
                 t = QtGui.QGridLayout(w)
-                t.setContentsMargins(0, 0, 0, 0, )
+                t.setContentsMargins(0, 0, 0, 0)
 
                 crow = 0
                 ccol = 0

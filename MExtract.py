@@ -710,14 +710,15 @@ def _integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colload
         u.newData = re[1]
         table.applyFunction(u.matchIntegratedDataToTable)
 
-    processingParams=[]
-    processingParams.append("FPREINT_ppm=%s"%str(ppm))
-    processingParams.append("FPREINT_maxRTShift=%s"%str(maxRTShift))
-    processingParams.append("FPREINT_scales=%s"%str(scales))
-    processingParams.append("FPREINT_reintegrateIntensityCutoff=%s"%str(reintegrateIntensityCutoff))
-    processingParams.append("FPREINT_positiveScanEvent=%s"%str(positiveScanEvent))
-    processingParams.append("FPREINT_negativeScanEvent=%s"%str(negativeScanEvent))
-    table.addComment("# %s"%("%s"%(", ".join(processingParams))))
+    if writeConfig:
+        processingParams=[]
+        processingParams.append("FPREINT_ppm=%s"%str(ppm))
+        processingParams.append("FPREINT_maxRTShift=%s"%str(maxRTShift))
+        processingParams.append("FPREINT_scales=%s"%str(scales))
+        processingParams.append("FPREINT_reintegrateIntensityCutoff=%s"%str(reintegrateIntensityCutoff))
+        processingParams.append("FPREINT_positiveScanEvent=%s"%str(positiveScanEvent))
+        processingParams.append("FPREINT_negativeScanEvent=%s"%str(negativeScanEvent))
+        table.addComment("# %s"%("%s"%(", ".join(processingParams))))
 
     # save the re-integrated data matrix to the input file
     TableUtils.saveFile(table, toF)
@@ -1313,6 +1314,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             grps.endGroup()
 
             grpi=0
+            groupsToAdd=[]
             for grp in grps.childGroups():
                 if str(grp) != "Settings" and str(grp) != "ExperimentDescription" and str(grp) != "ExperimentResults" and str(grp) != "MetExtract":
                     grps.beginGroup(grp)
@@ -1337,10 +1339,13 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                 kids.append(os.path.split(str(groupFile))[0].replace("\\", "/") + "/" + str(
                                     grps.value(kid).toString()).replace("\\", "/"))
 
-                    self.addGroup(name=grp, files=kids, minGrpFound=minFound, omitFeatures=omitFeatures, useForMetaboliteGrouping=useForMetaboliteGrouping, color=color)
+                    groupsToAdd.append(Bunch(name=grp, files=kids, minGrpFound=minFound, omitFeatures=omitFeatures, useForMetaboliteGrouping=useForMetaboliteGrouping, color=color))
 
                     grps.endGroup()
                 grpi += 1
+
+            for grpToAdd in natSort(groupsToAdd, key=lambda x:x.name):
+                self.addGroup(name=grpToAdd.name, files=grpToAdd.files, minGrpFound=grpToAdd.minGrpFound, omitFeatures=grpToAdd.omitFeatures, useForMetaboliteGrouping=grpToAdd.useForMetaboliteGrouping, color=grpToAdd.color)
 
             grps.beginGroup("ExperimentResults")
             if grps.contains("GroupSaveFile"):
