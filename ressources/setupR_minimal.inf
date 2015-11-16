@@ -1,0 +1,11 @@
+[Setup]
+Lang=en
+Group=R
+NoIcons=1
+SetupType=user
+Components=main,i386
+Tasks=
+[R]
+MDISDI=MDI
+HelpStyle=HTML
+Internet=Standard

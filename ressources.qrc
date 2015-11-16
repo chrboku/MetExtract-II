@@ -1,0 +1,20 @@
+<RCC>
+  <qresource prefix="AllExtract">
+    <file>ressources/AllExtract.png</file>
+  </qresource>
+  <qresource prefix="MEIcon_Large">
+    <file>ressources/MEIcon_Large.png</file>
+  </qresource>
+  <qresource prefix="MEIcon">
+    <file>ressources/MEIcon.ico</file>
+  </qresource>
+  <qresource prefix="Documentation">
+    <file>ressources/Documentation.png</file>
+  </qresource>
+  <qresource prefix="TracExtract">
+    <file>ressources/TracExtract.png</file>
+  </qresource>
+  <qresource prefix="FragExtract">
+    <file>ressources/FragExtract.png</file>
+  </qresource>
+</RCC>

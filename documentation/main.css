@@ -1,0 +1,226 @@
+/* Some missing bootstrap additions */
+/* Side notes for calling out things
+-------------------------------------------------- */
+ 
+/* Base styles (regardless of theme) */
+.bs-callout {
+  margin: 20px 0;
+  padding: 15px 30px 15px 15px;
+  border: 1px solid #bbb;
+  border-left: 5px solid #bbb;
+}
+
+.bs-callout-fullWidth {
+  width: 100%;
+}
+
+.bs-callout h4 {
+  margin-top: 0;
+}
+.bs-callout p:last-child {
+  margin-bottom: 0;
+}
+.bs-callout code,
+.bs-callout .highlight {
+  background-color: #fff;
+}
+ 
+/* Themes for different contexts */
+.bs-callout-danger {
+  #background-color: #fcf2f2;
+  border-color: firebrick;
+}
+.bs-callout-warning {
+  #background-color: #fefbed;
+  border-color: rgba(255,165,0,.5);
+}
+.bs-callout-info {
+  #background-color: #f0f7fd;
+  border-color: rgba(38,135,175,.5);
+}
+
+/*
+ * Row with equal height columns
+ * --------------------------------------------------
+ */
+.row-eq-height {
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: -ms-flexbox;
+  display:         flex;
+}
+
+html {
+    background-color: #fff;
+    -webkit-font-smoothing: antialised;
+}
+
+body {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 12px;
+    line-height: 1.5em;
+    color: #545454;
+    background-color: #fff;
+    -webkit-box-shadow: 0 0 2px rgba(0, 0, 0, 0.06);
+    -moz-box-shadow: 0 0 2px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 0 2px rgba(0, 0, 0, 0.06);
+    margin-left: 26px;
+}
+
+body .jumbotron {
+    background: rgba(0,0,0,0.75);
+    color: rgba(255,255,255,0.9);
+    margin-left: -26px;
+    margin-bottom: -20px;
+    background-image: url(./background.jpg); 
+    background-size: 100% 100%;
+    padding-bottom: 15px;
+}
+.jumbotron h1 {
+    font-size: xx-large;
+    margin-left: 0px;
+}
+
+.jumbotron p {
+    font-size: 12px;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: darkslategrey;
+    font-weight: 600;
+    line-height: 1.3em;
+}
+h1, h2, h3, h4 {
+    margin-left: -20px;
+}
+
+h2 {
+    border-bottom-width: 3px;
+    border-bottom-color: darkslategrey;
+    border-bottom-style: solid;
+    margin-top: 1.8em;
+}
+
+h5, h6 {
+    font-size: large;
+}
+
+.bs-callout h4 {
+    color: #888;
+    margin-left: 0px;
+}
+.bs-callout-danger h4 {
+    color: rgba(178,34,34,.75);
+}
+.bs-callout-warning h4 {
+    color: rgba(255,165,0,.75);
+}
+.bs-callout-info h4 {
+    color: rgba(38,135,175,.75);
+}
+
+dt {
+    color: darkslategray;
+}
+
+dd {
+    margin-bottom: 5px;
+}
+
+a {
+    color: #0083e8; 
+}
+
+b, strong {
+    font-weight: 600;
+}
+
+samp {
+    display: true;
+}
+
+.inactive {
+    color: lightgrey;
+}
+
+.autoCalculated {
+    color: lightslategrey;   
+}
+
+figure {
+    background: transparent;
+    display: block;
+}
+
+img {
+    border-bottom: 2px solid slategrey;
+    padding-bottom: 10px; 
+}
+
+.bigLogo {
+    position: absolute; 
+    padding-left: 50px;
+    border-bottom: none;
+}
+
+dl hr {
+    margin-top: -1px;
+    margin-bottom: 7px;
+    border-width: 1px;
+    border-color: lightgrey;
+}
+
+
+@keyframes colorize {
+    0% {
+        -webkit-filter: grayscale(100%);
+    }
+    100% {
+        -webkit-filter: grayscale(0%);
+    }
+}
+
+@-webkit-keyframes colorize {
+    0% {
+        -webkit-filter: grayscale(100%);
+    }
+    100% {
+        -webkit-filter: grayscale(0%);
+    }
+}
+
+
+pre.code {
+    background-color: rgba(240,245,254,1);   
+    border-style: solid;
+    border-width: 3px;
+    border-color: rgba(120, 165, 252, 1);
+}
+
+
+.bs-callout h4:nth-of-type(1) { 
+    font-size: x-large;
+}
+
+
+.movie-align-right {
+    text-align: right;
+}
+.movie-align-center {
+    text-align: center;
+}
+
+.tbody-center-align {
+    text-align:center
+}
+
+.footer {
+    background-color: rgba(39,39,39,1);
+    color: rgba(152,152,152,1);
+    margin-left: -26px;
+}
+
+
+.justifiedText {
+    text-align: justify;   
+}
