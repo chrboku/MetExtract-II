@@ -114,7 +114,7 @@ class Table:
         return colType is not None
 
     # bulk-update: perform a function for each row present in the table
-    def applyFunction(self, func, where="", pwMaxSet=None, pwValSet=None):
+    def applyFunction(self, func, where="", pwMaxSet=None, pwValSet=None, showProgressIndicator=False):
         if len(where) > 0:
             where = "WHERE " + where
 
@@ -122,6 +122,11 @@ class Table:
         cols = self.getColumns()
         r = range(1, 1 + len(cols))
 
+        numOfCols=0
+        for row in self.curs.execute(self.updateQuery("SELECT __internalID FROM :table:")):
+            numOfCols+=1
+
+        done=0
         for row in self.curs.execute(self.updateQuery("SELECT __internalID, :allCols: FROM :table: %s" % where)):
             iID = row[0]
             data = {}
@@ -138,15 +143,26 @@ class Table:
                     "UPDATE :table: SET %s WHERE __internalID=%d" % (", ".join(["%s=?" % x for x in f.keys()]), iID)),
                                 [f[x] for x in f.keys()]))
 
+            done+=1
+            if showProgressIndicator:
+                print "\rApplying.. |%-30s| %.1f%%"%("*"*int((1.*done/numOfCols)*30), (1.*done/numOfCols)*100),
+        if showProgressIndicator:
+            print ""
+
         if pwMaxSet!=None: pwMaxSet(len(updates))
         if pwValSet!=None: pwValSet(0)
 
-        done=0
+        doneS=0
         for update in updates:
-            #print update
             self.curs.execute(self.updateQuery(update[0]), update[1])
             done+=1
             if pwValSet!=None: pwValSet(done)
+
+            doneS+=1
+            if showProgressIndicator:
+                print "\rUpdating.. |%-30s| %.1f%%"%("*"*int((1.*doneS/len(updates))*30), (1.*doneS/numOfCols)*100),
+        if showProgressIndicator:
+            print ""
 
         self.conn.commit()
 

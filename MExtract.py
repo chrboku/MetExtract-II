@@ -1352,7 +1352,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 resFile = str(grps.value("GroupSaveFile").toString())
 
                 if resFile.startswith("./"):
-                    resFile = os.path.split(groupFile)[0] + "/" + resFile
+                    resFile = os.path.split(str(groupFile))[0] + "/" + resFile
 
                 self.ui.groupsSave.setText(resFile)
                 self.loadGroupsResultsFile(resFile)
@@ -1363,8 +1363,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
             if forceLoadSettings or (askLoadSettings and QtGui.QMessageBox.question(self, "MetExtract","Do you want to load the associated settings with this group?",
                                                                                        QtGui.QMessageBox.Yes | QtGui.QMessageBox.No) == QtGui.QMessageBox.Yes):
-                self.loadSettingsFile(groupFile)
-            self.grpFile = groupFile
+                self.loadSettingsFile(str(groupFile))
+            self.grpFile = str(groupFile)
             self.grpFileEdited = False
     #</editor-fold>
 

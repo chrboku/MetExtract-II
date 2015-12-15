@@ -312,10 +312,10 @@ class RunIdentification:
             "CREATE TABLE allXICs(id INTEGER PRIMARY KEY, avgmz REAL, xcount INTEGER, loading INTEGER, polarity TEXT, xic TEXT, xicL TEXT, xicfirstiso TEXT, xicLfirstiso TEXT, xicLfirstisoconjugate TEXT, times TEXT, scanCount INTEGER)")
         curs.execute("DROP TABLE IF EXISTS chromPeaks")
         curs.execute(
-            "CREATE TABLE chromPeaks(id INTEGER PRIMARY KEY, tracer INTEGER, eicID INTEGER, NPeakCenter INTEGER, NPeakCenterMin REAL, NPeakScale FLOAT, NSNR REAL, NPeakArea REAL, mz REAL, lmz REAL, xcount INTEGER, xcountId INTEGER, LPeakCenter INTEGER, LPeakCenterMin REAL, LPeakScale FLOAT, LSNR REAL, LPeakArea REAL, Loading INTEGER, peaksCorr FLOAT, heteroAtoms TEXT, NBorderLeft INTEGER, NBorderRight INTEGER, LBorderLeft INTEGER, LBorderRight INTEGER, adducts TEXT, heteroAtomsFeaturePairs TEXT, massSpectrumID INTEGER, ionMode TEXT, assignedMZs INTEGER, fDesc TEXT, peaksRatio FLOAT, peaksRatioMp1 FLOAT, peaksRatioMPm1 FLOAT, isotopesRatios TEXT, peakType TEXT, assignedName TEXT)")
+            "CREATE TABLE chromPeaks(id INTEGER PRIMARY KEY, tracer INTEGER, eicID INTEGER, NPeakCenter INTEGER, NPeakCenterMin REAL, NPeakScale FLOAT, NSNR REAL, NPeakArea REAL, mz REAL, lmz REAL, xcount INTEGER, xcountId INTEGER, LPeakCenter INTEGER, LPeakCenterMin REAL, LPeakScale FLOAT, LSNR REAL, LPeakArea REAL, Loading INTEGER, peaksCorr FLOAT, heteroAtoms TEXT, NBorderLeft INTEGER, NBorderRight INTEGER, LBorderLeft INTEGER, LBorderRight INTEGER, adducts TEXT, heteroAtomsFeaturePairs TEXT, massSpectrumID INTEGER, ionMode TEXT, assignedMZs INTEGER, fDesc TEXT, peaksRatio FLOAT, peaksRatioMp1 FLOAT, peaksRatioMPm1 FLOAT, isotopesRatios TEXT, mzDiffErrors TEXT, peakType TEXT, assignedName TEXT)")
         curs.execute("drop table if exists allChromPeaks")
         curs.execute(
-            "CREATE TABLE allChromPeaks(id INTEGER PRIMARY KEY, tracer INTEGER, eicID INTEGER, NPeakCenter INTEGER, NPeakCenterMin REAL, NPeakScale FLOAT, NSNR REAL, NPeakArea REAL, mz REAL, lmz REAL, xcount INTEGER, xcountId INTEGER, LPeakCenter INTEGER, LPeakCenterMin REAL, LPeakScale FLOAT, LSNR REAL, LPeakArea REAL, Loading INTEGER, peaksCorr FLOAT, heteroAtoms TEXT, NBorderLeft INTEGER, NBorderRight INTEGER, LBorderLeft INTEGER, LBorderRight INTEGER, adducts TEXT, heteroAtomsFeaturePairs TEXT, ionMode TEXT, assignedMZs INTEGER, fDesc TEXT, peaksRatio FLOAT, peaksRatioMp1 FLOAT, peaksRatioMPm1 FLOAT, isotopesRatios TEXT, peakType TEXT, assignedName TEXT, comment TEXT)")
+            "CREATE TABLE allChromPeaks(id INTEGER PRIMARY KEY, tracer INTEGER, eicID INTEGER, NPeakCenter INTEGER, NPeakCenterMin REAL, NPeakScale FLOAT, NSNR REAL, NPeakArea REAL, mz REAL, lmz REAL, xcount INTEGER, xcountId INTEGER, LPeakCenter INTEGER, LPeakCenterMin REAL, LPeakScale FLOAT, LSNR REAL, LPeakArea REAL, Loading INTEGER, peaksCorr FLOAT, heteroAtoms TEXT, NBorderLeft INTEGER, NBorderRight INTEGER, LBorderLeft INTEGER, LBorderRight INTEGER, adducts TEXT, heteroAtomsFeaturePairs TEXT, ionMode TEXT, assignedMZs INTEGER, fDesc TEXT, peaksRatio FLOAT, peaksRatioMp1 FLOAT, peaksRatioMPm1 FLOAT, isotopesRatios TEXT, mzDiffErrors TEXT, peakType TEXT, assignedName TEXT, comment TEXT)")
         curs.execute("DROP TABLE IF EXISTS featureGroups")
         curs.execute("CREATE TABLE featureGroups (id INTEGER PRIMARY KEY, featureName TEXT, tracer INTEGER)")
         curs.execute("DROP TABLE IF EXISTS featureGroupFeatures")
@@ -980,7 +980,7 @@ class RunIdentification:
                                              NXIC=eic, LXIC=eicL, times=times, fDesc=[], adducts=[], heteroAtomsFeaturePairs=[],
                                              NBorderLeft=peakN.peakLeftFlank, NBorderRight=peakN.peakRightFlank,
                                              LBorderLeft=peakL.peakLeftFlank, LBorderRight=peakL.peakRightFlank,
-                                             isotopeRatios=[])
+                                             isotopeRatios=[], mzDiffErrors=Bunch())
                             lb = int(min(peak.NPeakCenter - peak.NBorderLeft, peak.LPeakCenter - peak.LBorderLeft))
                             rb = int(max(peak.NPeakCenter + peak.NBorderRight, peak.LPeakCenter + peak.LBorderRight)) + 1
                             peak1 = eic[lb:rb]
@@ -1327,6 +1327,33 @@ class RunIdentification:
 
 
 
+            def findMZDifferenceRelativeToXnForMZs(mzFrom, mzTo, xCount, loading, fromScan, toScan, mzxml, scanEvent, ppm):
+                diffs=[]
+                for curScanNum in range(fromScan, toScan):
+                    scan = mzxml.getIthMS1Scan(curScanNum, scanEvent)
+                    if scan is not None:
+
+                        mzBounds = scan.findMZ(mzTo, ppm)
+                        mzBounds = scan.getMostIntensePeak(mzBounds[0], mzBounds[1])
+                        if mzBounds != -1:
+                            peakMZ = scan.mz_list[mzBounds]
+
+                            refBounds = scan.findMZ(mzFrom, ppm)
+                            refBounds = scan.getMostIntensePeak(refBounds[0], refBounds[1])
+
+                            if refBounds != -1:
+                                isoPeakMZ = scan.mz_list[refBounds]
+
+                                diffs.append((abs(isoPeakMZ-peakMZ)-1.00335*xCount/loading)*1000000./mzFrom)
+
+                return diffs
+
+            diffs=findMZDifferenceRelativeToXnForMZs(peak.mz, peak.mz + self.xOffset * peak.xCount / peak.loading, peak.xCount, peak.loading,
+                                                     int(max(peak.NPeakCenter - peak.NBorderLeft, peak.LPeakCenter - peak.LBorderLeft)),
+                                                     int(min(peak.NPeakCenter + peak.NBorderRight, peak.LPeakCenter + peak.LBorderRight)) + 1,
+                                                     mzxml, scanEvent, self.ppm)
+            peak.mzDiffErrors=Bunch(mean=mean(diffs), sd=sd(diffs), vals=diffs)
+
         for i in range(len(chromPeaks)):
             peak = chromPeaks[i]
             curs.execute("UPDATE chromPeaks SET heteroAtoms=? WHERE id=?",
@@ -1338,6 +1365,11 @@ class RunIdentification:
                          (base64.b64encode(dumps(peak.isotopeRatios)), peak.id))
             curs.execute("UPDATE allChromPeaks SET isotopesRatios=? WHERE id=?",
                          (base64.b64encode(dumps(peak.isotopeRatios)), peak.id))
+
+            curs.execute("UPDATE chromPeaks SET mzDiffErrors=? WHERE id=?",
+                         (base64.b64encode(dumps(peak.mzDiffErrors)), peak.id))
+            curs.execute("UPDATE allChromPeaks SET mzDiffErrors=? WHERE id=?",
+                         (base64.b64encode(dumps(peak.mzDiffErrors)), peak.id))
 
         self.printMessage("%s: Annotating feature pairs done." % tracer.name)
 
@@ -1994,7 +2026,7 @@ class RunIdentification:
                                                  "c.peaksCorr AS peaksCorr, c.assignedMZs AS assignedMZs, c.heteroAtoms AS HAs, c.adducts AS ADs, "
                                                  "c.fDesc AS DSc, t.id AS tracer, t.name AS tracerName, "
                                                  "c.peaksRatio AS peaksRatio, c.peaksRatioMp1 AS peaksRatioMp1, c.peaksRatioMPm1 as peaksRatioMPm1, "
-                                                 "c.isotopesRatios AS isotopeRatios FROM "
+                                                 "c.isotopesRatios AS isotopeRatios , c.mzDiffErrors as mzDiffErrors FROM "
                                                  "chromPeaks c INNER JOIN featureGroupFeatures g ON c.id=g.fID INNER JOIN tracerConfiguration t ON c.tracer=t.id", newObject=ChromPeakPair):
             chromPeak.NPeakCenterMin=chromPeak.NPeakCenterMin/60.
             chromPeak.LPeakCenterMin=chromPeak.LPeakCenterMin/60.
@@ -2002,6 +2034,7 @@ class RunIdentification:
             setattr(chromPeak, "adducts", loads(base64.b64decode(chromPeak.ADs)))
             setattr(chromPeak, "fDesc", loads(base64.b64decode(chromPeak.DSc)))
             setattr(chromPeak, "isotopeRatios", loads(base64.b64decode(chromPeak.isotopeRatios)))
+            setattr(chromPeak, "mzDiffErrors", loads(base64.b64decode(chromPeak.mzDiffErrors)))
             chromPeaks.append(chromPeak)
 
         if self.metabolisationExperiment:
@@ -2017,7 +2050,7 @@ class RunIdentification:
 
         csvFile = open(forFile + ".tsv", "w")
         csvFile.write(
-            "Num\tMZ\tL_MZ\tD_MZ_Error\tRT\tXn\tCharge\tScanEvent\tIonisation_Mode\tTracer\tArea_N\tArea_L\tFold\tPeakRatio\tLeftBorder_N\tRightBorder_N\tLeftBorder_L\tRightBorder_L\tGroup_ID\tCorr\tAdducts\tHetero_Elements")
+            "Num\tMZ\tL_MZ\tD_MZ_Error_ppm\tD_MZ_Peak_Error_mean_ppm\tD_MZ_Peak_Error_sd_ppm\tRT\tXn\tCharge\tScanEvent\tIonisation_Mode\tTracer\tArea_N\tArea_L\tFold\tPeakRatio\tLeftBorder_N\tRightBorder_N\tLeftBorder_L\tRightBorder_L\tGroup_ID\tCorr\tAdducts\tHetero_Elements")
         if len(chromPeaks)>1:
             i=1
             for isoRatio in chromPeaks[0].isotopeRatios:
@@ -2058,6 +2091,7 @@ class RunIdentification:
             csvFile.write("\t".join([str(x) for x in [chromPeak.id, chromPeak.mz,
                                                       chromPeak.lmz,
                                                       (chromPeak.lmz-chromPeak.mz-mzDelta * chromPeak.xCount / chromPeak.loading) * 1000000. / chromPeak.mz,
+                                                      chromPeak.mzDiffErrors.mean, chromPeak.mzDiffErrors.sd,
                                                       chromPeak.NPeakCenterMin, chromPeak.xCount, chromPeak.loading,
                                                       scanEvent, chromPeak.ionMode, chromPeak.tracerName,
                                                       chromPeak.NPeakArea, chromPeak.LPeakArea,
@@ -2650,10 +2684,10 @@ class RunIdentification:
     def writeIntermediateMZXMLDataToNewMZXMLFile(self, mzxml, newMZXMLData):
         try:
             self.printMessage("Writing MzXML file..")
-            if ".mzxml" in self.file:
+            if ".mzxml" in self.file.lower():
                 toFile=self.file[0:self.file.lower().rfind(".mzxml")]+".proc.mzXML"
                 mzxml.resetMZData(self.file, toFile, newMZXMLData)
-            elif ".mzml" in self.file:
+            elif ".mzml" in self.file.lower() and False:  ## mzml export currently not supported
                 toFile=self.file[0:self.file.lower().rfind(".mzml")]+"proc.mzML"
                 self.printMessage("Only mzXML files can be written")
             else:
@@ -2812,17 +2846,17 @@ class RunIdentification:
                 ######################################################################################
 
                 self.postMessageToProgressWrapper("value", curTracerProgress + 0.35 * tracerProgressWidth)
-                self.postMessageToProgressWrapper("text", "%s: Separating homologues" % tracer.name)
+                self.postMessageToProgressWrapper("text", "%s: Separating feature pairs" % tracer.name)
 
                 def reportFunction(curVal, text):
                     self.postMessageToProgressWrapper("value",
                                                       curTracerProgress + 0.35 * tracerProgressWidth + 0.3 * curVal * tracerProgressWidth)
-                    self.postMessageToProgressWrapper("text", "%s: Separating homologues (%s)" % (tracer.name, text))
+                    self.postMessageToProgressWrapper("text", "%s: Separating feature pairs (%s)" % (tracer.name, text))
 
                 chromPeaks = self.findChromatographicPeaksAndWriteToDB(mzbins, mzxml, tracerID, reportFunction)
 
                 self.printMessage(
-                    "%s: Separating homologues done. pos: %d neg: %d chromatographic peaks (including mismatches)" % (
+                    "%s: Separating feature pairs done. pos: %d neg: %d chromatographic peaks (including mismatches)" % (
                         tracer.name, len([c for c in chromPeaks if c.ionMode == "+"]),
                         len([c for c in chromPeaks if c.ionMode == "-"])))
                 # endregion

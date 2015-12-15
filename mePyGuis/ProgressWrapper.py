@@ -57,16 +57,19 @@ class ProgressWrapper(QtGui.QDialog):
                 l.addWidget(line)
 
             p = QtGui.QScrollArea()
+            p.setStyleSheet("QScrollArea { border-width: 0px;border-style: solid;border-color: rgb(170, 170, 170);}")
             p.setWidgetResizable(True)
             p.setVerticalScrollBarPolicy(2)
-            p.setMaximumHeight(min(500, 40*len(indGroups)))
+            p.setMaximumHeight(min(500, 40*len(indGroups))-(10 if len(indGroups)>1 else 0))
+            p.setContentsMargins(0,0,0,0)
             l.addWidget(p)
 
             k = QtGui.QWidget()
+            k.setContentsMargins(0,0,0,0)
             p.setWidget(k)
 
             o = QtGui.QGridLayout(k)
-            o.setContentsMargins(5,5,5,5)
+            o.setContentsMargins(0,0,0,0)
             for i, indGroup in enumerate(natSort(indGroups.keys())):
                 text = QtGui.QLabel(indGroup)
                 o.addWidget(text,i,0)

@@ -426,6 +426,9 @@ class ChromPeakPair:
         if args.has_key("isotopeRatios"):
             self.isotopeRatios = args["isotopeRatios"]
             argsUsed += 1
+        if args.has_key("mzDiffErrors"):
+            self.mzDiffErrors = args["mzDiffErrors"]
+            argsUsed += 1
 
         assert argsUsed == len(args), "Not all agruments used %d %d" % (argsUsed, len(args))
 
