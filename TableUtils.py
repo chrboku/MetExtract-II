@@ -114,7 +114,7 @@ class Table:
         return colType is not None
 
     # bulk-update: perform a function for each row present in the table
-    def applyFunction(self, func, where="", pwMaxSet=None, pwValSet=None, showProgressIndicator=False):
+    def applyFunction(self, func, where="", pwMaxSet=None, pwValSet=None, showProgress=False):
         if len(where) > 0:
             where = "WHERE " + where
 
@@ -144,9 +144,9 @@ class Table:
                                 [f[x] for x in f.keys()]))
 
             done+=1
-            if showProgressIndicator:
+            if showProgress:
                 print "\rApplying.. |%-30s| %.1f%%"%("*"*int((1.*done/numOfCols)*30), (1.*done/numOfCols)*100),
-        if showProgressIndicator:
+        if showProgress:
             print ""
 
         if pwMaxSet!=None: pwMaxSet(len(updates))
@@ -159,9 +159,9 @@ class Table:
             if pwValSet!=None: pwValSet(done)
 
             doneS+=1
-            if showProgressIndicator:
+            if showProgress:
                 print "\rUpdating.. |%-30s| %.1f%%"%("*"*int((1.*doneS/len(updates))*30), (1.*doneS/numOfCols)*100),
-        if showProgressIndicator:
+        if showProgress:
             print ""
 
         self.conn.commit()
@@ -215,11 +215,11 @@ class Table:
         self.curs.execute(self.__updateTableName("UPDATE :table: SET %s %s" % (",".join(sets), where)))
 
     # add a new column to the table (in-memory only)
-    def addColumn(self, col, colType):
+    def addColumn(self, col, colType, defaultValue=""):
         if self.hasColumn(col):
             raise Exception("Column %s already exists" % col)
 
-        self.curs.execute(self.__updateTableName("ALTER TABLE :table: ADD COLUMN %s %s" % (col, colType)))
+        self.curs.execute(self.__updateTableName("ALTER TABLE :table: ADD COLUMN %s %s DEFAULT '%s'" % (col, colType, defaultValue)))
         self.conn.commit()
         self.saved = False
 

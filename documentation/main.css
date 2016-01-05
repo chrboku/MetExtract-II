@@ -155,6 +155,11 @@ figure {
 img {
     border-bottom: 2px solid slategrey;
     padding-bottom: 10px; 
+    margin-top: 50px;
+}
+
+figcaption {
+    margin-bottom: 50px;
 }
 
 .bigLogo {
@@ -223,4 +228,17 @@ pre.code {
 
 .justifiedText {
     text-align: justify;   
+}
+
+.infoTable {
+    border: 2px solid orange;
+    border-spacing: 3px;
+}
+
+.infoTable td, th {
+    border: 2px solid orange;
+    padding: 10px;
+}
+.infoTable th {
+    border: 2px solid slategrey;
 }

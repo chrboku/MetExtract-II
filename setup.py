@@ -28,6 +28,10 @@ from MetExtractII_Main import MetExtractVersion
 
 import matplotlib
 
+import sys
+sys.path.append("C:/Users/cbueschl/Documents/Dropbox/IFA Tulln/Archive/PyMetExtract/PyMetExtract")
+from TableUtils import TableUtils
+
 
 
 
@@ -299,6 +303,7 @@ try:
     copy("C:/Users/cbueschl/Desktop/implTest/LTQ_Orbitrap_XL/10_Remus_DON.mzXML", "./dist/sampleData/LTQ_Orbitrap_XL/10_Remus_DON.mzXML")
     copy("C:/Users/cbueschl/Desktop/implTest/LTQ_Orbitrap_XL/10_CM_DON.mzXML", "./dist/sampleData/LTQ_Orbitrap_XL/10_CM_DON.mzXML")
     copy("C:/Users/cbueschl/Desktop/implTest/Orbitrap.grp", "./dist/sampleData/DON_in_Wheat.grp")
+    copy("C:/Users/cbueschl/Desktop/implTest/Orbitrap_LAC.grp", "./dist/sampleData/DON_in_Wheat_LAC.grp")
 
     replaceInFile("python \"%METEXTRACTLOCATION%/MExtract.py\"", "\"%METEXTRACTLOCATION%/MExtract.exe\"",
                   filein="C:/Users/cbueschl/Desktop/implTest/_processExperiment_LTQOrbitrapXL.bat",

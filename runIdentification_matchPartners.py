@@ -397,7 +397,7 @@ def matchPartners(mzXMLData, labellingElement, useCValidation, intensityThres, i
                                                         else:
                                                             pass ## accept peak
 
-                                                        # 3. check if the observed M+1/M ratoi fiths the theoretical one
+                                                        # 3. check if the observed M+1/M ratio fits the theoretical one
                                                         if peakCountLeft > 1:
                                                             observedRatioM = curScan.intensity_list[isoM_p1] / curPeakIntensity
                                                             adjRatio=0
@@ -437,10 +437,12 @@ def matchPartners(mzXMLData, labellingElement, useCValidation, intensityThres, i
                                                         skipOtherLoadings = True
                                                         # endregion
 
-                            if True:  ## select best fit
+                            if False:  ## select best fit
                                 if len(curPeakDetectedIonPairs)>0:
                                     bestFit=None
                                     bestFitPPMDiff=1000000000
+
+                                    ## TODO select best fit based on isotopic pattern (e.g. intensity)
 
                                     for mt in curPeakDetectedIonPairs:
                                         if abs(mt.lmz-mt.mz-mt.xCount*1.00335)*1000000./mt.mz < bestFitPPMDiff:

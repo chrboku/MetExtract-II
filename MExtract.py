@@ -2455,7 +2455,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             it.myType = "MZs"
             count = 0
             children=[]
-            if True and True:
+            if True and False:
                 for mzRes in SQLSelectAsObject(self.currentOpenResultsFile.curs, "SELECT id, mz, xcount, scanid, loading, scantime, intensity FROM MZs ORDER BY scanid"):
                     d = QtGui.QTreeWidgetItem(it, [str(s) for s in [mzRes.mz, mzRes.xcount, mzRes.scanid, mzRes.scantime/60., mzRes.loading, mzRes.intensity]])
                     d.myType = "mz"
@@ -2470,7 +2470,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             it.myType = "MZBins"
             self.ui.res_ExtractedData.addTopLevelItem(it)
             mzbins = []
-            if True and True:
+            if True and False:
                 for mzbin in SQLSelectAsObject(self.currentOpenResultsFile.curs, "SELECT id, mz FROM MZBins ORDER BY mz"):
                     mzbins.append(mzbin)
             count = 0
@@ -2525,8 +2525,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 if len(lk) > 0:
                     heteroAtoms = ", ".join(lk)
 
-                d = QtGui.QTreeWidgetItem([str(row.mz) + "(/" + str(row.ionMode) + str(row.Loading) + ") ", str(row.xcount), adducts, heteroAtoms,
-                                           "%.2f" % (float(row.NPeakCenterMin) / 60.), "%.0f" % (float(row.NPeakScale)),
+                d = QtGui.QTreeWidgetItem([str(row.mz) + "(/" + str(row.ionMode) + str(row.Loading) + ") ", "%.2f" % (float(row.NPeakCenterMin) / 60.),
+                                           str(row.xcount), adducts, heteroAtoms, "%.0f" % (float(row.NPeakScale)),
                                            "%.2f" % (float(row.LPeakCenterMin) / 60.), "%.0f" % (float(row.LPeakScale)), "%.3f"%(row.peaksCorr),
                                            str(row.tracerName), "%.3f"%(row.peaksRatio)])
 
@@ -2616,8 +2616,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     xp.peaksCorr = float(row.peaksCorr)
                     xp.peaksRatio = float(row.peaksRatio)
                     g = QtGui.QTreeWidgetItem(
-                        [str(xp.mz) + "(/" + str(row.ionMode) + str(row.Loading) + ") ", str(xp.xCount), adducts, heteroAtoms,
-                         "%.2f" % (xp.NPeakCenterMin / 60.), str(xp.NPeakScale), "%.2f" % (xp.LPeakCenterMin / 60.),
+                        [str(xp.mz) + "(/" + str(row.ionMode) + str(row.Loading) + ") ", str(xp.xCount), "%.2f" % (xp.NPeakCenterMin / 60.),
+                         adducts, heteroAtoms, str(xp.NPeakScale), "%.2f" % (xp.LPeakCenterMin / 60.),
                          str(xp.LPeakScale), "%.3f"%(xp.peaksCorr), str(xp.tracer), "%.3f"%(xp.peaksRatio)])
                     g.myType = "feature"
                     g.myID = int(row.cpID)
@@ -2627,7 +2627,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     sumRt = sumRt + xp.NPeakCenterMin
                     cpCount += 1
                 d.setText(1, str(cpCount))
-                d.setText(4, "%.2f" % (sumRt / cpCount / 60.))
+                d.setText(2, "%.2f" % (sumRt / cpCount / 60.))
                 children.append(d)
                 count += 1
             it.addChildren(children)
@@ -2855,7 +2855,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
             it.myType = "Feature Groups"
 
-            self.sortTreeChildren(self.ui.res_ExtractedData.topLevelItem(3), 4)
+            self.sortTreeChildren(self.ui.res_ExtractedData.topLevelItem(3), 2)
 
             self.filterEdited(str(self.ui.dataFilter.text()))
 
@@ -3141,7 +3141,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 self.ui.chromPeakName.setText("")
 
                 self.ui.res_ExtractedData.setHeaderLabels(QtCore.QStringList(
-                    ["MZ", "xCount", "Adducts", "Hetero atoms", "M Rt (min)", "M Scale", "M' Rt (min)", "M' Scale", "Corr", "Tracer", "Ratio"]))
+                    ["MZ", "xCount", "M Rt (min)", "Adducts", "Hetero atoms", "M Scale", "M' Rt (min)", "M' Scale", "Corr", "Tracer", "Ratio"]))
 
                 if item.myType == "Features":
                     mzs = []
@@ -3425,7 +3425,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             #<editor-fold desc="#featureGroup results">
             elif item.myType == "featureGroup" or item.myType == "Feature Groups":
                 self.ui.res_ExtractedData.setHeaderLabels(
-                    QtCore.QStringList(["Name", "Peaks", "Adducts", "Hetero atoms", "Avg. M Rt (min)", "M Scale", "M' Rt (min)", "M' Scale", "Corr", "Tracer", "Ratio"]))
+                    QtCore.QStringList(["Name", "# Peaks", "Avg. M Rt (min)", "Adducts", "Hetero atoms", "M Scale", "M' Rt (min)", "M' Scale", "Corr", "Tracer", "Ratio"]))
 
 
                 item.setBackgroundColor(0, QColor(predefinedColors[(useColi) % len(predefinedColors)]))

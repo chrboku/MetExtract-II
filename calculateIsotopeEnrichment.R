@@ -1,3 +1,16 @@
+# example
+# Calculate isotopic enrichment using M+1 and M (or M'-1 and M')
+# Note: Use determined number of carbon atoms (delta M' and M) only in AllExtract data processing or 
+#       to determine the isotopic enrichment of the 13C-labelled tracer
+Cn=37
+ratioOfMpOneToM=.6
+substitutions=1
+
+
+################################################################################
+################################################################################
+######################## Function definitions
+
 # calculate ratio of M+s relative to M (or M'-s relative to M')
 getNormalisedIsotopePatternRatio<-function(a,s,p){
   return( (p^(a-s)) * ((1.-p)^s) * choose(a,s) / (p^a) )
@@ -13,27 +26,48 @@ getIsotopicEnrichment<-function(a,s,r){
 }
 
 
-# example
-# Calculate isotopic enrichment using M+1 and M (or M'-1 and M')
-# Note: Use determined number of carbon atoms (delta M' and M) only in AllExtract data processing or 
-#       to determine the isotopic enrichment of the 13C-labelled tracer
-substitutions=1
 
-Cn=10
-ratioOfMpOneToM=.15
-print(sprintf("Enrichment is %.2f%% at a ratio of %.4f with Cn %d at M+%d/M (or M'-%d/M')", getIsotopicEnrichment(Cn, substitutions, ratioOfMpOneToM)*100, ratioOfMpOneToM, Cn, substitutions, substitutions))
+################################################################################
+################################################################################
+######################## Calculate isotopic enrichment
+
+enrichment=getIsotopicEnrichment(Cn, substitutions, ratioOfMpOneToM)
+
+
+
+
+################################################################################
+################################################################################
+######################## Display results
+
+print(sprintf("Enrichment is %.2f%% at a ratio of %.4f with Cn %d at M+%d/M (or M'-%d/M')", enrichment*100, ratioOfMpOneToM, Cn, substitutions, substitutions))
+
+
+
+################################################################################
+################################################################################
+######################## Show results as a theoretical mass spectra
 
 CnPos=0:Cn
-natRatios=getAbsoluteIsotopePatternRatio(Cn, CnPos, 0.9893)
-labRatios=getAbsoluteIsotopePatternRatio(Cn, CnPos, 0.96)
+natRatios=getAbsoluteIsotopePatternRatio(Cn, CnPos, 0.9893)     ## 98.93% is the natural enrichment with 13C
+labRatios=getAbsoluteIsotopePatternRatio(Cn, CnPos, enrichment)
 
-labRatios2=c(0,0,getAbsoluteIsotopePatternRatio(Cn-2, CnPos[0:(length(CnPos)-2)], 0.96))*.5+labRatios
-labRatios2=labRatios2/max(labRatios2)
+op <- par(mfrow = c(2,1),
+          oma = c(1,2,0,0) + 0.1,
+          mar = c(0,0,2,0) + 0.1)
 
-m=rbind(natRatios, rev(labRatios), rev(labRatios2))
-rownames(m)=c("Natural", "Labelled", "Labelled-Mixed")
+## theoretical abundances
+m=rbind(natRatios, rev(labRatios))
+rownames(m)=c("Natural", "Labelled")
 
-barplot(m, beside=T, col=c("olivedrab", "firebrick", "slategrey"))
-legend("top", legend=rownames(m), col=c("olivedrab", "firebrick", "slategrey"), lwd=5)
+barplot(m, beside=T, col=c("Olivedrab", "Firebrick"), main="Theoretical ratios")
+legend("top", legend=rownames(m), col=c("Olivedrab", "Firebrick"), lwd=5, box.lwd = 0, box.col="white")
+
+## normalised theoretical abundances
+m=rbind(natRatios/natRatios[1], rev(labRatios)/labRatios[1])
+rownames(m)=c("Natural", "Labelled")
+
+barplot(m, beside=T, col=c("Olivedrab", "Firebrick"), main="Normalised, theoretical ratios")
+par(op)
 
 
