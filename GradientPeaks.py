@@ -3,11 +3,6 @@ from math import floor
 from utils import Bunch
 
 
-showDebugInfo=False
-if showDebugInfo:
-    import matplotlib.pyplot as plt
-    predefinedColors = ["FireBrick", "YellowGreen", "SteelBlue", "DarkOrange", "Teal", "CornflowerBlue","DarkOliveGreen", "SlateGrey", "CadetBlue", "DarkCyan", "Black", "DarkSeaGreen", "DimGray","GoldenRod", "LightBlue", "MediumTurquoise", "RoyalBlue"]
-
 
 
 class Peak:
@@ -31,30 +26,33 @@ class GradientPeaks:
         self.minIncreaseRatio = minIncreaseRatio
         self.expTime = expTime
 
-
+    ### Find any local maximum in a series. Checking and verification of that peak will be performed later
     def getLocalMaxima(self, y, mInt=0):
-
         maxima=[]
 
+        ## include left start of series if possible
         if y[0]>=mInt and y[0]>y[1]:
             maxima.append(0)
 
+        ## check any signal except the start and ending
         for i in range(1, len(y)-1):
             if y[i]>=mInt and y[i-1]<y[i]>y[i+1]:
                 maxima.append(i)
 
+        ## include right ending of series if possible
         if y[len(y)-1]>=mInt and y[len(y)-2]<=y[len(y)-1]:
             maxima.append(len(y)-1)
 
         return maxima
 
 
-
+    ### Add up all intensities between the peak's left and right flank
     def calculatePeakArea(self, x, y, peak):
         peak.peakArea=sum([y[i] for i in range(peak.peakIndex-peak.peakLeftFlank, peak.peakIndex+peak.peakRightFlank+1)])
 
         return True
 
+    ### expand a local maxima by following its gradient to the bottom
     def expandPeak(self, peak, x, y):
 
         # find left border
@@ -103,11 +101,6 @@ class GradientPeaks:
 
         return peakWidthValid
 
-    def checkForNoisePeak(self, peak, x, y):
-        return ((y[peak.peakIndex]-y[peak.peakIndex+peak.peakRightFlank])/y[peak.peakIndex+peak.peakRightFlank])>=self.minFlankToCenterRatio and \
-               ((y[peak.peakIndex]-y[peak.peakIndex-peak.peakLeftFlank])/y[peak.peakIndex-peak.peakLeftFlank])>=self.minFlankToCenterRatio
-
-
     def calcPeakProperties(self, x, y, peak):
         peak.leftDelta=(y[peak.peakIndex]-y[peak.peakIndex-peak.peakLeftFlank])/(x[peak.peakIndex]-x[peak.peakIndex-peak.peakLeftFlank])
         peak.rightDelta=(y[peak.peakIndex]-y[peak.peakIndex+peak.peakRightFlank])/(x[peak.peakIndex+peak.peakRightFlank]-x[peak.peakIndex])
@@ -117,27 +110,10 @@ class GradientPeaks:
         return True
 
 
-    def checkPeakDelta(self, x, y, peak):
-        #if peak.leftInflectionDelta<=(3*peak.leftDelta):
-        #    return True
-        #if peak.rightInflectionDelta<=(3*peak.rightDelta):
-        #    return True
-        #return False
-        return True
-
-
 
 
     def findPeaks(self, x, y):
-        # calculate first derivate of y
-        if False:  # remove me
-            diffy = numpy.diff(y)
-            localMaxs = (numpy.diff(numpy.sign(diffy)) < 0).nonzero()[0] + 1
-
-            # remove those local maxima, which are below the set intensity threshold self.minInt
-            localMaxs=[l for l in localMaxs if y[l]>self.minInt]
-        else:
-            localMaxs=self.getLocalMaxima(y, self.minInt)
+        localMaxs=self.getLocalMaxima(y, self.minInt)
 
         # check local maxima for peaks
         peaks = []
@@ -145,10 +121,8 @@ class GradientPeaks:
             peak = Peak(peakIndex=localMax)
             # calculate peak borders and expand peak, check if within expected chromatographic width
             usePeak = self.expandPeak(peak, x, y)
-            usePeak = usePeak and self.checkForNoisePeak(peak, x, y)
             usePeak = usePeak and self.calculatePeakArea(x, y, peak)
             usePeak = usePeak and self.calcPeakProperties(x, y, peak)
-            usePeak = usePeak and self.checkPeakDelta(x, y, peak)
 
             if usePeak:
                 peaks.append(peak)
@@ -176,12 +150,12 @@ if __name__=="__main__":
     t = Chromatogram()
 
     if True:
-        mzXMLFile="C:/Users/cbueschl/Desktop/implTest/LTQ_Orbitrap_XL/Remus_DON_1_Base.mzXML"
-        mz = 297.13261
-        cn = 15
-        ppm = 50.
+        mzXMLFile="F:/160112_238_posneg_Labelled_wheat_experiment/160112_posneg_236_12C13C_fullyLab_Remus_DON_1.mzXML"
+        mz = 375.14439
+        ppm = 8.
+        cn=20
 
-    if True:
+    if False:
         mzXMLFile="E:/Cambridge/Jan_2015/wetransfer-cd97f3/QE_PR493_PV_051014-AIF-02.mzXML"
         mzXMLFile="E:/Cambridge/Apr_2015/wetransfer-2d73b0/RNA-elegans-large_150328005031.mzXML"
         mzXMLFile="E:/Cambridge/Apr_2015/wetransfer-2d73b0/RNA-elegans-small.mzXML"
@@ -197,20 +171,24 @@ if __name__=="__main__":
     filterLine=[i for i in t.getFilterLines(includeMS2=False)][0]
     print filterLine
     eicN, times, scanIds = t.getEIC(mz, ppm, filterLine=filterLine)
-    eicN = smoothDataSeries(times, eicN, windowLen=2, window="Gaussian")
     eicL, times, scanIds = t.getEIC(mz+cn*1.00335, ppm, filterLine)
-    eicL = smoothDataSeries(times, eicL, windowLen=2, window="Gaussian")
     timesMin=[t/60. for t in times]
+
+    import matplotlib.pyplot as plt
+    plt.plot(timesMin, eicN)
+    plt.plot(timesMin, [-e for e in eicL])
+
+    eicN = smoothDataSeries(times, eicN, windowLen=2, window="Gaussian")
+    eicL = smoothDataSeries(times, eicL, windowLen=2, window="Gaussian")
 
     eic=eicN
 
 
-    import matplotlib.pyplot as plt
 
     plt.plot(timesMin, eicN)
     plt.plot(timesMin, [-e for e in eicL])
 
-    gp=GradientPeaks(minInt=100, minIntFlanks=10, minIncreaseRatio=.05, expTime=[5, 45])
+    gp=GradientPeaks(minInt=100, minIntFlanks=10, minIncreaseRatio=.05, expTime=[3, 45])
     #gp=GradientPeaks(minInt=50000, minIntFlanks=5000, minIncreaseRatio=.05, expTime=[5,250], minFlankToCenterRatio=1)
     peaks=gp.findPeaks(times, eicN)
     peaksL=gp.findPeaks(times, eicL)
@@ -251,7 +229,7 @@ if __name__=="__main__":
         #pdf=pdf/max(pdf)
         #plt.plot(timesMin[lind:rind], pdf, color="yellow")
 
-
+    import MExtract
     from MassSpecWavelet import MassSpecWavelet
 
     cp=MassSpecWavelet("./MassSpecWaveletIdentification.R")
@@ -259,10 +237,12 @@ if __name__=="__main__":
 
     peaks=cp.getPeaksFor(times, eic, scales=[3,19])
 
+    for peak in peaks:
+        peak.peakAtTime=times[peak.peakIndex] / 60.
 
     from utils import printObjectsAsTable
     print "MassSpecWavelet"
-    printObjectsAsTable(peaks, ["peakLeftFlank", "peakIndex", "peakRightFlank"])
+    printObjectsAsTable(peaks, ["peakAtTime", "peakLeftFlank", "peakIndex", "peakRightFlank"])
     for peak in peaks:
         lind=int(peak.peakIndex-peak.peakLeftFlank)
         rind=int(peak.peakIndex+peak.peakRightFlank)

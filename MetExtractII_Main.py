@@ -16,7 +16,7 @@
 #    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 # current MetExtract version
-MetExtractVersion = "beta_v2.4.7"
+MetExtractVersion = "beta_v2.5.0"
 
 
 from mePyGuis.ModuleSelectionWindow import Ui_MainWindow

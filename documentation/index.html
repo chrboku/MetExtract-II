@@ -171,15 +171,17 @@
                     <div class="bs-callout bs-callout-info s-callout-fullWidth">
                         <h4><a href="">Download for Windows 7</a></h4>
                         <p>Follow the instructions of the setup. It will also ask to install and configure R automatically.</p>
-                        <p>Note: The <a href="http://www.microsoft.com/en-us/download/details.aspx?id=29">Microrosft C++ Redistributables 2008</a> tools are required on Windows XP without service pack 1</p>
+                        
                     </div>
                 </div>
-                <div class="col-md-6 row-eq-height ">
-                    <div class="bs-callout bs-callout-fullWidth">
+                <!--
+                <div class="col-md-6 row-eq-height">
+                    <div class="bs-callout bs-callout-fullWidth" >
                         <h4>Mac OS<br> (10.9 or newer)</h4>
                         <p>under development</p>
                     </div>
                 </div>
+                -->
             </div>
 
             <h3>Configuration of R</h3>
@@ -203,18 +205,10 @@
                 <div class="col-md-12 row-eq-height">
                     <div class="bs-callout bs-callout-danger">
                         <h4>R_HOME environment variable</h4>
-                        <p>An environment variable named 'R_HOME' is likely to cause problems with MetExtract II. Please rename this variable when using MetExtract II and undo the renaming after using MetExtract II. </p>
+                        <p>An environment variable named 'R_HOME' may cause problems with MetExtract II. Please rename this variable when using MetExtract II and undo the renaming after using MetExtract II. </p>
                     </div>
                 </div>
             </div>
-            <!--<div class="col-md-6 row-eq-height">
-                        <div class="bs-callout">
-                            <h4>Mac OS<br> (10.9 or newer)</h4>
-                            <p>Download and install <a href="http://www.r-project.org/">R</a>
-                            </p>
-                            <p>Required R-packages will be automatically installed upon the first use of MetExtract II</p>
-                        </div>
-                    </div>-->
 
             <h3>Sample dataset</h3>
 
@@ -228,25 +222,25 @@
                         <dt></dt>
                         <dd><strong>LC-HRMS files</strong></dd>
                         <dt>CM_DON.mzXML</dt>
-                        <dd>The raw, centroided LC-HRMS data from an LTQ Orbitrap XL instrument of a wheat plant (genotype CM) treated with native and U-<sup>13</sup>C-labelled DON</dd>
+                        <dd>Sample material of a wheat plant (genotype CM) treated with native and U-<sup>13</sup>C-labeled DON was analyzed on an LTQ Orbitrap XL instruemnt in the positive ionzation mode (TracExtract data)</dd>
                         <dt>Remus_DON.mzXML</dt>
-                        <dd>The raw, centroided LC-HRMS data from an LTQ Orbitrap XL instrument of a wheat plant (genotype Remus) treated with native and U-<sup>13</sup>C-labelled DON</dd>
+                        <dd>Sample material of a wheat plant (genotype Remus) treated with native and U-<sup>13</sup>C-labeled DON was analyzed on an LTQ Orbitrap XL instrument in the positive ionization mode (TracExtract data)</dd>
                         <dt>WheatEar_DON_posneg.mzXML</dt>
-                        <dd>The raw, centroided LC-HRMS data from an Exactive Orbitrap instrument with fast-polairty switching ESI of a wheat plant (genotype Remus) treated with native and U-<sup>13</sup>C-labelled DON</dd>
+                        <dd>Sample material of a wheat plant (genotype Remus) once grown under native conditions and once grown under <sup>13</sup>C-enriched conditions in a special phyto-box. The sample containing material of both plants was analyzed with an Orbitrap Exactive instrument and fast-polarity switchin ESI (AllExtract data)</dd>
                         <dt>Fg_CID25.mzXML</dt>
-                        <dd>LC-HRMS/MS of 6 unknown fungal metabolites with CID (CE 25) on an LTQ Orbitrap XL instrument in positive ionisation mode</dd>
+                        <dd>LC-HRMS/MS of 6 unknown fungal metabolites with CID (CE 25) on an LTQ Orbitrap XL instrument in positive ionization mode (FragExtract data)</dd>
                         <dt>Fg_CID35.mzXML</dt>
-                        <dd>LC-HRMS/MS of 6 unknown fungal metabolites with CID (CE 35) on an LTQ Orbitrap XL instrument in positive ionisation mode</dd>
+                        <dd>LC-HRMS/MS of 6 unknown fungal metabolites with CID (CE 35) on an LTQ Orbitrap XL instrument in positive ionization mode (FragExtract data)</dd>
                         <br>
                         
                         <dt></dt>
                         <dd><strong>Group compilations and settings</strong></dd>
                         <dt>DON_in_Wheat.grp</dt>
-                        <dd>The group compilation and settings used for the experiment analysed with the LTQ Orbitrap XL instrument. With this settings the isotopologs of the native and consistently labelled isotopologs must be present and are also verified. Drag'n'drop it onto TracExtract to load the experiment compilation (LC-HRMS files and parameter settings). </dd>
+                        <dd>The group compilation and settings used for the experiment analyzed with the LTQ Orbitrap XL instrument. With this settings the isotopologs of the native and consistently labeled isotopologs must be present and are also verified. Drag'n'drop it onto TracExtract to load the experiment compilation (LC-HRMS files and parameter settings). </dd>
                         <dt>DON_in_Wheat_LAC.grp</dt>
-                        <dd>The group compilation and settings used for the experiment analysed with the LTQ Orbitrap XL instrument. This settings only check the isotopologs of the native and consistently labelled isotopologs if they are above the predefined threshold (see option “Consider isotopolog abundance”). Drag'n'drop it onto TracExtract to load the experiment compilation (LC-HRMS files and parameter settings). </dd>
+                        <dd>The group compilation and settings used for the experiment analyzed with the LTQ Orbitrap XL instrument. This settings only check the isotopologs of the native and consistently labeled isotopologs if they are above the predefined threshold (see option "Consider isotopolog abundance"). Drag'n'drop it onto TracExtract to load the experiment compilation (LC-HRMS files and parameter settings). </dd>
                         <dt>Exactive_posneg.grp</dt>
-                        <dd>The group compilation and settings used for the experiment analysed with the Exactive Orbitrap instrument using fast-polarity switching ESI. Drag'n'drop it onto TracExtract to load the experiment compilation (LC-HRMS files and parameter settings). </dd>
+                        <dd>The group compilation and settings used for the experiment analyzed with the Exactive Orbitrap instrument using fast-polarity switching ESI. Drag'n'drop it onto TracExtract to load the experiment compilation (LC-HRMS files and parameter settings). </dd>
                         <dt>FragExtract.grp</dt>
                         <dd>The group compilation and settings used for the LC-HRMS/MS experiment of 6 unknown fungal metabolites</dd>
                         <br>
@@ -256,6 +250,8 @@
                         <dt>_processExperiment_LTQOrbitrapXL.bat</dt>
                         <dd>A bat file for processing several experiments or experiments consisting of many files automatically</dd>
                     </dl>
+                    
+                    <p>The datasets presented in the publication <a href="http://dx.doi.org/TODO">TODO</a> are available from TODO Bioinformatics online as <a href="http://TODO">supplementary data</a>.</p>
                 </div>
             </div>
         </div>
@@ -272,32 +268,32 @@
 
 
     <div id="scope" class="container">
-        <h2>Stable isotope labelling</h2>
-        <p>Stable isotope labelling (SIL) assisted and LC-HRMS based experiments have become increasingly popular in targeted and untargeted metabolomics research. Applications include fluxomics approaches, true biology derived metabolite discovery, improved unknown metabolite annotation, relative and absolute quantification using internal standardisation, and precursor metabolism studies among many others. Despite its many possible applications, only few data processing tools are available as of yet. </p>
-        <p>For example, <a href="http://dx.doi.org/10.1093/bioinformatics/bts674">Chokkathukalam et al. (2013)</a> published the R-package mzMatch-ISO, which creates a comprehensive summary for all metabolites detected in a SILL experiment and <a href="http://dx.doi.org/10.1021/ac403384n">Huang et al. (2014)</a> presented X<sup>13</sup>CMS, which is an extension to the popular XCMS package (<a href="http://dx.doi.org/10.1186/1471-2105-9-504">Tautenhahn et al. (2008)</a>) and aimed at detecting <sup>13</sup>C-labelled compounds besides non-labelled metabolites in SIL assisted, untargeted metabolomics experiments. Other tools are Allocator (<a href="http://dx.doi.org/10.1371/journal.pone.0113909">Kessler et al. (2014)</a>) and HiTIME (<a href="http://dx.doi.org/10.1021/ac504767d">Lemming et al. (2015)</a>) among others. </p>
+        <h2>Stable isotope labeling</h2>
+        <p>Stable isotope labeling (SIL) assisted and LC-HRMS based experiments have become increasingly popular in targeted and untargeted metabolomics research. Applications include fluxomics approaches, true biology derived metabolite discovery, improved unknown metabolite annotation, relative and absolute quantification using internal standardisation, and precursor metabolism studies among many others. Despite the methods many possible applications, only few data processing tools are available as of yet. </p>
+        <p>For example, <a href="http://dx.doi.org/10.1093/bioinformatics/bts674">Chokkathukalam et al. (2013)</a> published the R-package mzMatch-ISO, which creates a comprehensive summary for all metabolites detected in a SILL experiment and <a href="http://dx.doi.org/10.1021/ac403384n">Huang et al. (2014)</a> presented X<sup>13</sup>CMS, which is an extension to the popular XCMS package (<a href="http://dx.doi.org/10.1186/1471-2105-9-504">Tautenhahn et al. (2008)</a>) and aimed at detecting <sup>13</sup>C-labeled compounds besides non-labeled metabolites in SIL assisted, untargeted metabolomics experiments. Other tools are Allocator (<a href="http://dx.doi.org/10.1371/journal.pone.0113909">Kessler et al. (2014)</a>), HiTIME (<a href="http://dx.doi.org/10.1021/ac504767d">Lemming et al. (2015)</a>) and NTFD (<a href="http://dx.doi.org/10.1093/bioinformatics/btt119">Hiller et al. (2013)</a>) among others. </p>
         <h3>MetExtract II</h3>
-        <p>The presented software package is designed for the comprehensive detection of truly biology-derived metabolites or tracer-derived biotransformation products in liquid chromatography high resolution mass spectrometry (LC-HRMS) full scan data. The software requires mixtures of uniformly or partially labelled and non-labelled (i.e. naturally composed) biological samples. Such mixtures form specific and highly unique isotopolog patterns for all metabolites or biotransformation products (see figure 1). Each such detected substance is annotated with the total number of labelled atoms. Moreover, the software also supports LC-HRMS/MS data and facilitates spectral cleaning and improved annotation of unknown metabolite ions and their fragments.</p>
+        <p>The presented software package is designed for the comprehensive detection of truly biology-derived metabolites or tracer-derived biotransformation products in liquid chromatography high resolution mass spectrometry (LC-HRMS) full scan data. The software requires mixtures of uniformly or partially labeled and non-labeled (i.e. isotopically unmodified) biological samples. Such mixtures form specific and highly unique isotopolog patterns for all metabolites or biotransformation products or a studied tracer substance (see figure 1). Each such detected substance is annotated with the total number of labeled atoms. Moreover, the software also supports LC-HRMS/MS data and facilitates spectral cleaning and improved annotation of unknown metabolite ions and their fragments.</p>
         <p>The presented software suite consists of 3 modules designed for different workflows:</p>
         <div class="row row-eq-height">
             <div class="col-md-4 row-eq-height">
                 <div class="bs-callout">
-                    <strong>Full metabolome labelling (FML)</strong>
+                    <strong>Full metabolome labeling (FML)</strong>
                     <br>
-                    <small>Module AllExtract is designed for the untargeted detection of all metabolites of a biologocial system under investigation. Each detected compount represents a true metabolite of the samples and is annotated with its exact number of carbon atoms. See figure 1b and 2b for an example. <br>See <a href="http://dx.doi.org/10.1007/s11306-013-0611-0">Bueschl and Kluger et al. (2014)</a> for the biological workflow.</small>
+                    <small>Module <strong>AllExtract</strong> is designed for the untargeted detection of all metabolites of a biologocial system under investigation. Each detected compount represents a true metabolite of the samples and is annotated with its exact number of carbon atoms. See figure 1b and 2b for an example. <br>See <a href="http://dx.doi.org/10.1007/s11306-013-0611-0">Bueschl and Kluger et al. (2014)</a> for the biological and experimental workflow.</small>
                 </div>
             </div>
             <div class="col-md-4 row-eq-height">
                 <div class="bs-callout">
                     <strong>Tracer-fate studies (TFS)</strong>
                     <br>
-                    <small>Module TracExtract is designed for the untargeted detection of all biotransformation products of either an endogenic or exogenic tracer substance under investigation. Only the number of labelled atoms originating from the tracer substance can be detected. See figure 1c and 2c for an example. <br>See <a href="http://dx.doi.org/10.1021/ac503290j">Kluger and Bueschl et al. (2014)</a> for the biological workflow.</small>
+                    <small>Module <strong>TracExtract</strong> is designed for the untargeted detection of all biotransformation products of either an endogenic or exogenic tracer substance under investigation. Only the number of labeled atoms originating from the tracer substance can be detected. See figure 1c and 2c for an example. <br>See <a href="http://dx.doi.org/10.1021/ac503290j">Kluger and Bueschl et al. (2014)</a> for the biological and experimental workflow.</small>
                 </div>
             </div>
             <div class="col-md-4 row-eq-height">
                 <div class="bs-callout">
                     <strong>SIL assisted (LC)-HRMS/MS</strong>
                     <br>
-                    <small>Module FragExtract is designed for the annotation of LC-HRMS/MS data derived from both non-labelled and labelled metabolites. It automatically selected relevant MS/MS signals and annotates their relationship to aid in metabolite identification. <br>See <a href="http://dx.doi.org/10.1021/ac501358z">Neumann et al. (2014)</a> for the experimental workflow.</small>
+                    <small>Module <strong>FragExtract</strong> is designed for the annotation of LC-HRMS/MS data derived from both non-labeled and labeled metabolites. It automatically selected relevant MS/MS signals and annotates their relationship to aid in metabolite identification. <br>See <a href="http://dx.doi.org/10.1021/ac501358z">Neumann et al. (2014)</a> for the experimental workflow.</small>
                 </div>
             </div>
         </div>
@@ -314,86 +310,93 @@
 
     <div class="container">
         <h2>Notation</h2>
-        <p>In the following the notation and terms used in MetExtract II are summarised for completeness.</p>
+        <p>The following notation and terms are used in MetExtract II:</p>
         <h3>Molecule forms</h3>
-        <p>MetExtract II requires sample material from native and labelled samples to be concurrently analysed in the same LC-HRMS(/MS) run. The labelled samples may either be uniformly labelled (i.e. all atoms of the labelling element are replaced with the labelling isotope) or partially labelled (only a constant part of a metabolite is labelled with the labelling isotope). Moreover, the isotopic enrichment with the labelling isotope must be equal in all atoms that may be labelled. The enrichment with the used labelling-isotope must be very high (above 98%) and the isotope patterns of the native and the labelled metabolite forms must be clearly separated. Figure 1 shows different native and <sup>13</sup>C-labelled molecules of the metabolite deoxynivalenol-GSH (different isotopologs are not shown).
+        <p>MetExtract II requires sample material of native and labeled samples to be concurrently analyzed in the same LC-HRMS(/MS) run. The labeled samples may either be uniformly labeled (i.e. all atoms of the labeling element are replaced with the labeling isotope) or partially labeled (only a constant part of a metabolite is labeled with the labeling isotope). Moreover, the isotopic enrichment with the labeling isotope must be equal in all atoms that may be labeled. The enrichment with the used labeling-isotope must be very high (above 98%) and the isotope patterns of the native and the labeled metabolite forms must be clearly separated. Figure 1 shows different native and <sup>13</sup>C-labeled molecules of the metabolite deoxynivalenol-GSH (different isotopologs are not shown).
         </p>
         <p>
             <div class="row row-eq-height">
                 <div class="col-md-4 row-eq-height">
-                    <img class="caption" src="figures/STRUCT_Native_DON_GSH.png" width="95%" data-caption="Fig 1a: A <strong>native DON-GSH</strong> molecule consiting only of <sup>12</sup>C atoms (black C atoms). See figure 2a for the isotope pattern observed with LC-HRMS." />
+                    <img class="caption" src="figures/STRUCT_Native_DON_GSH.png" width="95%" data-caption="Fig 1a: A <strong>native DON-GSH</strong> molecule consiting only of <sup>12</sup>C atoms (black C atoms). See figure 2a for the isotope pattern observed with LC-HRMS. The sum formula of this molecule is <sup>12</sup>C<sub>25</sub><sup>1</sup>H<sub>37</sub><sup>16</sup>O<sub>12</sub><sup>14</sup>N<sub>3</sub><sup>34</sup>S" />
                 </div>
                 <div class="col-md-4 row-eq-height">
-                    <img class="caption" src="figures/STRUCT_ULabelled_DON_GSH.png" width="95%" data-caption="Fig 1b: A <strong>uniformly <sup>13</sup>C-labelled DON-GSH</strong> molecule consisting only of <sup>13</sup>C atoms (red C atoms). See figure 2b for the isotope pattern observed with LC-HRMS." />
+                    <img class="caption" src="figures/STRUCT_ULabelled_DON_GSH.png" width="95%" data-caption="Fig 1b: A <strong>uniformly <sup>13</sup>C-labeled DON-GSH</strong> molecule consisting only of <sup>13</sup>C atoms (red C atoms). See figure 2b for the isotope pattern observed with LC-HRMS. The sum formula of this molecule is <sup>13</sup>C<sub>25</sub><sup>1</sup>H<sub>37</sub><sup>16</sup>O<sub>12</sub><sup>14</sup>N<sub>3</sub><sup>34</sup>S" />
                 </div>
                 <div class="col-md-4 row-eq-height">
-                    <img class="caption" src="figures/STRUCT_PartiallyLabelled_DON_GSH.png" width="95%" data-caption="Fig 1c: A <strong>partially <sup>13</sup>C-labelled DON-GSH</strong> molecule. Only the tracer is labelled, which consists entirely of <sup>13</sup>C atoms (red C atoms), while the conjugated GSH moiety that originates from a wheat plant is not labelled and thus consists only of <sup>12</sup>C atoms (black C atoms). See figure 2c for the isotope pattern observed with LC-HRMS." />
+                    <img class="caption" src="figures/STRUCT_PartiallyLabelled_DON_GSH.png" width="95%" data-caption="Fig 1c: A <strong>partially <sup>13</sup>C-labeled DON-GSH</strong> molecule. Only the studied tracer (the DON) is labeled, which consists entirely of <sup>13</sup>C atoms (red C atoms), while the conjugated GSH moiety that originates from a wheat plant is not labeled and thus consists only of <sup>12</sup>C atoms (black C atoms). See figure 2c for the isotope pattern observed with LC-HRMS. The sum formula of this molecule is <sup>13</sup>C<sub>15</sub><sup>12</sup>C<sub>10</sub><sup>1</sup>H<sub>37</sub><sup>16</sup>O<sub>12</sub><sup>14</sup>N<sub>3</sub><sup>34</sup>S" />
                 </div>
             </div>
         </p>
         <h3>MS signal / Ion signal</h3>
-        <p>An MS signal or ion signal corresponds to a centroided peak in a mass spectrum and consists of an m/z value and an abundance value. Additionally, for each MS signal its scan number, retention time and ionisation polarity is known.</p>
+        <p>An MS signal or ion signal corresponds to a centroided peak in a mass spectrum and consists of an <i>m/z</i> value and an abundance value. Additionally, for each MS signal its scan number, retention time and ionization polarity is known.</p>
         <h3>Feature</h3>
-        <p>A feature denotes a chromatographic peak of a single isotopolog. It has a defined m/z window and a retention time window. All MS signals present within these windows belong to that feature and thus the chromatographic peak. Different isotopologs of an ion are not convoluted to one feature but are represented as individual features.</p>
+        <p>A feature denotes a chromatographic peak of a single isotopolog. It has a defined <i>m/z</i> window and a retention time window. All MS signals present within these windows belong to that feature and thus the chromatographic peak. Different isotopologs of an ion are not convoluted to one feature but are represented as individual features.</p>
         <h3>Isotope pattern/distribution</h3>
         <p>
-            Native metabolites mixed with labelled metabolites (e.g. <sup>13</sup>C) form typical isotope patterns in LC-HRMS(/MS) data. As <sup>13</sup>C is suggested as the main labelling element the isotope patterns are exemplified with <sup>13</sup>C-labelling:</p>
+            Native metabolites mixed with labeled metabolites (e.g. <sup>13</sup>C) form typical isotope patterns in LC-HRMS(/MS) data. As <sup>13</sup>C is suggested as the main labeling element the isotope patterns are exemplified with <sup>13</sup>C-labeling:</p>
         <ul>
             <li><strong>Isotope pattern of a native metabolite (grey peaks in figure 2)</strong>
-                <p>Any non-labelled substance consisting of carbon atoms may show an descending isotope pattern towards higher m/z values (grey peaks in figure 2). The ratios of these different isotopolog signals depend on the total number of carbon atoms present in the substance. In MetExtract II these isotopologs are termed as following:</p>
+                <p>Any non-labeled substance consisting of carbon atoms may show an descending isotope pattern towards higher <i>m/z</i> values (grey peaks in figure 2). The ratios of these different isotopolog signals depend on the total number of carbon atoms present in the substance. In MetExtract II these isotopologs are termed as following:</p>
                 <ul>
-                    <li>M is the non-labelled, monoisotopic feature of a native metabolite. Each carbon atoms is a <sup>12</sup>C isotope.</li>
-                    <li>M+1 is the feature, in which one <sup>12</sup>C isotope of M is replaced with one <sup>13</sup>C isotope. </li>
-                    <li>M+2 is the feature, in which two <sup>12</sup>C isotopes of M are replaced with two <sup>13</sup>C isotopes. </li>
+                    <li>M is the non-labeled, monoisotopic feature of a native metabolite. Each carbon atoms is a <sup>12</sup>C isotope. All other atoms are the principal isotope of the respective element (e.g. <sup>1</sup>H for hydrogen or <sup>16</sup>O for oxygen</li>
+                    <li>M+1 is the feature, in which one <sup>12</sup>C isotope of M is replaced with one <sup>13</sup>C isotope</li>
+                    <li>M+2 is the feature, in which two <sup>12</sup>C isotopes of M are replaced with two <sup>13</sup>C isotopes</li>
                     <li>..</li>
-                    <li>M+C<sub>n</sub> is theoretically also possible but very unlikely and thus considered non-existent (with few exceptions).</li>
+                    <li>M+C<sub>n</sub> is theoretically possible but very unlikely and thus considered non-existent (with some exceptions)</li>
                 </ul>
             </li>
             <br>
-            <li><strong>Isotope pattern of a <sup>13</sup>C-labelled metabolite (red peaks in figure 2)</strong>
-                <p>Any labelled part of a metabolite (either fully labelled or partially labelled) shows an ascending isotope pattern towards higher mz values in LC-HRMS full scan data. The ratios of these different isotopolog signals depend on the total number of labelled carbon atoms present in the substance as well as the enrichment with <sup>13</sup>C. These isotopologs of a labelled metabolite are termed as follows:</p>
+            <li><strong>Isotope pattern of a <sup>13</sup>C-labeled metabolite (red peaks in figure 2)</strong>
+                <p>Any labeled part of a metabolite (either fully labeled or partially labeled) shows an ascending isotope pattern towards higher <i>m/z</i> values in LC-HRMS full scan data. The ratios of these different isotopolog signals depend on the total number of labeled carbon atoms present in the substance as well as the enrichment with <sup>13</sup>C. These isotopologs of a labeled metabolite are termed as follows:</p>
                 <ul>
-                    <li><strong>Uniformly labelled metabolite</strong>
-                        <p>In a uniformly labelled metabolite all carbon atoms are replaced with <sup>13</sup>C. No carbon atom position specific labelling are allowed.</p>
+                    <li><strong>Uniformly labeled metabolite (AllExtract experiment)</strong>
+                        <p>In a uniformly labeled metabolite all carbon atoms are replaced with <sup>13</sup>C. No carbon atom position specific labeling are allowed</p>
                         <ul>
+                            <li>M'-C<sub>n</sub> is theoretically possible but very unlikely and thus considered non-existent (with some exceptions)</li>
                             <li>.. </li>
-                            <li>M'-1 is the feature of a labelled metabolite, in which one <sup>13</sup>C isotope of M' is replaced with one <sup>12</sup>C isotope.</li>
-                            <li>M' is the fully/uniformly labelled feature of the labelled metabolite, which consists only <sup>13</sup>C isotopes at each carbon atom.</li>
+                            <li>M'-1 is the feature of a labeled metabolite, in which one <sup>13</sup>C isotope of M' is replaced with one <sup>12</sup>C isotope</li>
+                            <li>M' is the fully/uniformly labeled feature of the labeled metabolite, which consists only <sup>13</sup>C isotopes at each carbon atom. All other atoms are the principal isotope of the respective element (e.g. <sup>1</sup>H for hydrogen or <sup>16</sup>O for oxygen</li>
                         </ul>
                     </li>
                     <br>
-                    <li><strong>Partially labelled biotransformation product</strong>
-                        <p>A biotransformation product of a tracer substance may contain carbon atoms that originate from the labelled tracer and others that originate from a part conjugated to the tracer. These conjugated moieties always come from the biological system under investigation and are not labelled. Thus, such a metabolite consists of labelled and a non-labelled part/non-labelled parts. As a result the isotope pattern of the partially <sup>13</sup>C-labelled biotransformation product is a combination of two isotope patterns and defined as following:</p>
+                    <li><strong>Partially labeled biotransformation product (TracExtract experiment)</strong>
+                        <p>A biotransformation product of a tracer substance may contain carbon atoms that originate from the labeled tracer and others that originate from a part conjugated to the tracer. These conjugated moieties always come from the biological system under investigation and are not labeled. Thus, such a metabolite consists of labeled and a non-labeled part/non-labeled parts. As a result the isotope pattern of the partially <sup>13</sup>C-labeled biotransformation product is a combination of two isotope patterns and defined as following:</p>
                         <ul>
+                            <li>M'-C<sub>n_labeled</sub> is theoretically possible but very unlikely and thus considered non-existent (with some exceptions)</li>
                             <li>..</li>
-                            <li>M'-1 is the feature of a labelled biotransformation product in which one <sup>13</sup>C isotope of the labelled tracer is replaced by a <sup>12</sup>C isotope.</li>
-                            <li>M' is the partially labelled feature of the labelled biotransformation product. The part that originates from the labelled tracer is fully and uniformly labelled with <sup>13</sup>C isotopes. Any other part, which comes from the biological system under investigation, is not labelled and monoisotopic and thus contains only <sup>12</sup>C isotopes. </li>
-                            <li>M'+1 is the feature of a labelled biotransformation product in which one <sup>12</sup>C isotope of the non-labelled conjugated moiety is replaced by a <sup>13</sup>C isotope.</li>
+                            <li>M'-1 is the feature of a labeled biotransformation product in which one <sup>13</sup>C isotope of the labeled tracer is replaced by a <sup>12</sup>C isotope.</li>
+                            <li>M' is the partially labeled feature of the labeled biotransformation product. The part that originates from the labeled tracer is fully and uniformly labeled with <sup>13</sup>C isotopes. Any other part, which comes from the biological system under investigation, is not labeled and monoisotopic and thus contains only <sup>12</sup>C isotopes. All other atoms are the principal isotope of the respective element (e.g. <sup>1</sup>H for hydrogen or <sup>16</sup>O for oxygen</li>
+                            <li>M'+1 is the feature of a labeled biotransformation product in which one <sup>12</sup>C isotope of the non-labeled conjugated moiety is replaced by a <sup>13</sup>C isotope</li>
                             <li>..</li>
+                            <li>M'+C<sub>n_native</sub> is theoretically possible but very unlikely and thus considered non-existent (with some exceptions)</li>
                         </ul>
+                        <br>
+                        <p>Additionally to these isotopologs, mixed forms such as M'-2+1 or M'-1+1, which would have the same <i>m/z</i> value as M'-1 and M', of partially labeled biotransformation products are possible. However, the relative abundances of such isotopologs are usually very low and thus these can be ignored for the purpose presented here</p>
                     </li>
                 </ul>
             </li>
         </ul>
+        <br>
+        <p>The isotopolog ratios are calculated relative to the principal isotopolog of either a native (M) or a partially or uniformly labeled metabolite (M') ions. Such ratios are stated as M'-1/M'. Brackets are left out for the sake of simplicity </p>
         <p>
             <div class="row row-eq-height">
                 <div class="col-md-4 row-eq-height">
-                    <img class="caption" src="figures/MSScan_Native_DON_GSH.png" width="95%" data-caption="Fig 2a: Isotope patterns of <strong>native DON-GSH</strong> molecules consiting only of <sup>12</sup>C atoms." />
+                    <img class="caption" src="figures/MSScan_Native_DON_GSH.png" width="95%" data-caption="Fig 2a: Isotope patterns of <strong>native DON-GSH</strong> molecules consiting only of <sup>12</sup>C atoms. See figure 1c for a native molecule." />
                 </div>
                 <div class="col-md-4 row-eq-height">
-                    <img class="caption" src="figures/MSScan_ULabelled_DON_GSH.png" width="95%" data-caption="Fig 2b: Isotope patterns of <strong>native> (grey) and <strong>uniformly <sup>13</sup>C-labelled DON-GSH</strong> (red) molecules consisting only of <sup>13</sup>C atoms." />
+                    <img class="caption" src="figures/MSScan_ULabelled_DON_GSH.png" width="95%" data-caption="Fig 2b: Isotope patterns of <strong>native</strong> (grey) and <strong>uniformly <sup>13</sup>C-labeled DON-GSH</strong> (red) molecules consisting only of <sup>13</sup>C atoms. See figure 1b for a uniformly <sup>13</sup>C-labeled molecule." />
                 </div>
                 <div class="col-md-4 row-eq-height">
-                    <img class="caption" src="figures/MSScan_PartiallyLabelled_DON_GSH.png" width="95%" data-caption="Fig 2c: Isotope patterns of <strong>native</strong> and <strong>partially <sup>13</sup>C-labelled DON-GSH</strong> molecules. See figure 1c for the partially labelled molecule." />
+                    <img class="caption" src="figures/MSScan_PartiallyLabelled_DON_GSH.png" width="95%" data-caption="Fig 2c: Isotope patterns of <strong>native</strong> (grey) and <strong>partially <sup>13</sup>C-labeled DON-GSH</strong> (red) molecules. See figure 1c for a partially labeled molecule." />
                 </div>
             </div>
         </p>
 
         <h3>Feature pair</h3>
-        <p>Two or three isotope patterns originating from non-labelled and uniformly/partially labelled metabolite ions as depitcted in figures 2b and 2c are called a feature pair. Each feature pair consists of the monoisotopic non-labelled feature, the uniformly or partially labelled feature as well as their isotopologs. All participating features posess a highly similar chromatographic peak shape. Each feature pair is annotated with the calculated number of labelled atoms.</p>
+        <p>Two or three isotope patterns originating from non-labeled and uniformly/partially labeled metabolite ions as depitcted in figures 2b and 2c are called a feature pair. Each feature pair consists of the monoisotopic non-labeled feature, the uniformly or partially labeled feature as well as their isotopologs. All participating features posess a highly similar chromatographic peak shape. Each feature pair is annotated with the calculated number of labeled atoms</p>
 
         <h3>Feature group</h3>
-        <p>A feature group is derived from convoluting all feature pairs originating from the same metabolite. Since the individual monoisotopic non-labelled features of a particular metabolite (e.g. adducts, in-source fragments) are generated in the ion source of the mass spectrometer after the chromatographic separation, a retention time window and the Pearson correlation coefficients are used to convolute different feature pairs into feature groups. Each feature group represents an individual metabolite. </p>
+        <p>A feature group represents all feature pairs detected for the same metabolite. Since the individual monoisotopic non-labeled features of a particular metabolite (e.g. adducts, in-source fragments) are generated in the ion source of the mass spectrometer after the chromatographic separation, a retention time window and the Pearson correlation coefficients are used to convolute different feature pairs into feature groups. Each feature group represents an individual metabolite</p>
     </div>
 
 
@@ -410,24 +413,24 @@
             <h2>File conversion</h2>
             <div class="bs-callout bs-callout-warning">
                 <h4>Prerequisite &amp; limitations</h4>
-                <p>MetExtract is designed to work with centroid LC-HRMS(/MS) data and does not support profile mode data. It requires the natural and labelled compounds to be analysed as mixtures present in the same sample and does not support the evaluation of data obtained from separate, successively measured non-labelled and labelled samples. It does not support fluxomics experiments or other non-uniformly labelled metabolites. Moreover, it requires a high isotopic enrichment with the isotope used for labelling.</p>
+                <p>MetExtract is designed to work with centroid LC-HRMS(/MS) data and does not support profile mode data. It requires the natural and labeled compounds to be analyzed as mixtures present in the same sample and does not support the evaluation of data obtained from separate, successively measured non-labeled and labeled samples. It does not support fluxomics experiments or other non-uniformly labeled metabolites as it requires a high isotopic enrichment with the isotope used for labeling</p>
             </div>
-            <p>MetExtract requires the LC-HRMS(/MS) data in the MzXML format (Pedrioli <i>et al.</i>2004 DOI:<a href="https://dx.doi.org/10.1038/nbt1031">10.138/nbt1031</a>). Some instrument manufacturers provide tools for exportint their proprietary formats to MzXML; for others open source software can be used for the conversion. </p>
-            <p>Besides the MzXML format, MetExtract also requires centroid LC-HRMS(/MS) data since it does not support profile mode data. </p>
+            <p>MetExtract requires the LC-HRMS(/MS) data in the mzXML (Pedrioli <i>et al.</i> 2004 DOI:<a href="https://dx.doi.org/10.1038/nbt1031">10.138/nbt1031</a>) or mzML format (Martens <i>et al.</i> 2011 DOI:<a href="http://dx.doi.org/10.1074/mcp.R110.000133">10.1074/mcp.R110.000133</a>). Some instrument manufacturers provide tools for exportint their proprietary formats to mzXML or mzML; for others open source software can be used for the conversion. </p>
+            <p>Besides the mzXML format, MetExtract also requires centroid LC-HRMS(/MS) data since it does not support profile mode data. </p>
             <h3>ReAdW</h3>
-            <p>ReAdW, a command line tool, is capable of converting Thermo Fischer Raw files (Orbitrap format) into MzXML. It can be downloaded from <a href="http://tools.proteomecenter.org/wiki/index.php?title=Software:ReAdW.">http://tools.proteomecenter.org/wiki/index.php?title=Software:ReAdW.</a>
+            <p>ReAdW, a command line tool, is capable of converting Thermo Fischer Raw files (Orbitrap format) into mzXML. It can be downloaded from <a href="http://tools.proteomecenter.org/wiki/index.php?title=Software:ReAdW.">http://tools.proteomecenter.org/wiki/index.php?title=Software:ReAdW.</a>
             </p>
-            <p>The option –c is used to centroid data from profile mode using the Thermo Fischer centroidation algorithm. The X-Calibur software suite must be installed and accessible for ReAdW.</p>
+            <p>The option –c is used to centroid data from profile mode using the Thermo Fischer centroidation algorithm. The X-Calibur software suite from Thermo Fisher Scientific must be installed and accessible for ReAdW.</p>
             <h3>Proteo Wizard</h3>
             <p>The program msConvert is a part of the ProteoWizard software package and has a graphical user interface, multi core support, and is capable of importing different MS vendor data formats. It can be downloaded from <a href="http://proteowizard.sourceforge.net/.">http://proteowizard.sourceforge.net/.</a>
             </p>
-            <p>Before the conversion is started, please make sure to add “peakPicking” filter (options 1-), select the “mzXML” output format and discard the “scanHeader” filter. In case MSMS experiments are also recorded in the respective measurement files, do not use the “msLevel” filter. Compression of mzXML files is not supported by MetExtract II as of yet. </p>
+            <p>Before the conversion is started, add "peakPicking" filter (options 1-), select the "mzXML" output format and discard the "scanHeader" filter. In case MSMS experiments are also recorded in the respective measurement files, do not use the "msLevel" filter. Compression of mzXML files is not supported by MetExtract II as of yet. </p>
 
 
         </div>
         <div id="viewer" class="container">
             <h2>MZxml viewer</h2>
-            <p>An open source viewer for converted MzXML files is TOPPView from the OpenMS package. It can be downloaded from <a href="http://open-ms.sourceforge.net">http://open-ms.sourceforge.net</a> (Sturm et al. (2008)). The viewer allows easy navigation among the LC-HRMS(/MS) files and also provides a convenient way to evaluate m/z value differences or estimate labelling-enrichment parameters.</p>
+            <p>An open source viewer for converted mzXML files is TOPPView from the OpenMS package. It can be downloaded from <a href="http://open-ms.sourceforge.net">http://open-ms.sourceforge.net</a> (Sturm et al. (2008)). The viewer allows easy navigation among the LC-HRMS(/MS) files and also provides a convenient way to evaluate <i>m/z</i> value differences or estimate labeling-enrichment parameters.</p>
         </div>
     </div>
 
@@ -452,7 +455,7 @@
                 <dt>Input page</dt>
                 <dd>In this tab the user can specify measurement groups and the corresponding LC-HRMS(/MS) measurement files.</dd>
                 <dt>Process page</dt>
-                <dd>In this tab all labelling-specific and LC-HRMS(/MS) instrument related settings have to be specified and data processing is also started from this tab.</dd>
+                <dd>In this tab all labeling-specific and LC-HRMS(/MS) instrument related settings have to be specified and data processing is also started from this tab.</dd>
                 <dt>Results page</dt>
                 <dd>The Results tab provides graphical representations of the extracted information from the input files.</dd>
             </dl>
@@ -471,16 +474,16 @@
 
             <h2>Input tab page</h2>
             <h3>AllExtract and TracExtract</h3>
-            <p>AllExtract and FragExtract allow to briefly describe the performed and analysed metabolomics experiment. This information is not used for any processing steps stored with any created data processing result. This information can be entered in the Experiment, Operator, Experiment ID, and Comments controls. </p>
+            <p>AllExtract and FragExtract allow to briefly describe the performed and analyzed metabolomics experiment. This information is not used for any processing steps stored with any created data processing result. This information can be entered in the Experiment, Operator, Experiment ID, and Comments controls. </p>
 
             <p>AllExtract and FragExtract are designed to work with centroid full scan LC-HRMS(/MS) measurement files. Such files are loded in groups each representing a certain, biological condition (e.g. treatment or control). After a group has been defined, MetExtract will automatically try parsing the specified LC-HRMS(/MS) files to check if they are valid (see section "File validation").</p>
             <div class="row row-eq-height">
                 <div class="col-md-7 row-eq-height">
                     <div>
                         <span><h4>Define new group</h4></span>
-                        <p>To define a new group click on the button “Add group”. A dialog will appear where the group name and the respective LC-HRMS(/MS) files need to be specified. With a click on “Add file(s)” the user can select the MzXML files for this group. Files already loaded can be selected and removed with the “Remove selected” button. </p>
-                        <p>During the process of adding a group the user can specify how often a particular feature has to be found within this group to be accepted for further data processing (Option “Minimum found”). If “omit features” is checked, all features not fulfilling the “Minimum found” option will be rejected for the final data matrix.</p>
-                        <p>When the dialog is closed, the newly defined group is displayed in the “Groups” list of the input tab. Moreover, MetExtract will try to parse all LC-HRMS(/MS) files of this new group to check, if they can be read and match with the remaining groups and LC-HRMS(/MS) files.</p>
+                        <p>To define a new group click on the button "Add group". A dialog will appear where the group name and the respective LC-HRMS(/MS) files need to be specified. With a click on "Add file(s)" the user can select the mzXML files for this group. Files already loaded can be selected and removed with the "Remove selected" button. </p>
+                        <p>During the process of adding a group the user can specify how often a particular feature has to be found within this group to be accepted for further data processing (Option "Minimum found"). If "omit features" is checked, all features not fulfilling the "Minimum found" option will be rejected for the final data matrix.</p>
+                        <p>When the dialog is closed, the newly defined group is displayed in the "Groups" list of the input tab. Moreover, MetExtract will try to parse all LC-HRMS(/MS) files of this new group to check, if they can be read and match with the remaining groups and LC-HRMS(/MS) files.</p>
                         <dl class="dl-horizontal">
                             <dt>Group name</dt>
                             <dd>Define a name for this new group or change the name of an existing group</dd>
@@ -508,28 +511,28 @@
 
 
             <h4>Edit existing group</h4>
-            <p>To edit a previously defined group double click on its name in the “Groups” list in the input tab. Files can be added or deleted from the group. Additionally, Parameter settings such as for “minimum found” and “Omit features” as well as the group name can be changed.</p>
+            <p>To edit a previously defined group double click on its name in the "Groups" list in the input tab. Files can be added or deleted from the group. Additionally, Parameter settings such as for "minimum found" and "Omit features" as well as the group name can be changed.</p>
 
             <h4>Delete group</h4>
-            <p>To delete an already defined group, select it and click on “Delete group”. </p>
+            <p>To delete an already defined group, select it and click on "Delete group". </p>
 
             <h4>Large/many groups</h4>
-            <p>If an experiment consists of large groups (10 or more files) and/or many different groups (10 or more groups), the file validation step after each group manipulation (creation, deletion or modification of a group) may take a while. To inactivate this step, check the “Don’t update” box. MetExtract will then not update and validate the LC-HRMS(P/MS) files after any group operation. With a click on "Update" this verification step can be initiated at any time and should be done once all groups have been defined/changed.</p>
+            <p>If an experiment consists of large groups (10 or more files) and/or many different groups (10 or more groups), the file validation step after each group manipulation (creation, deletion or modification of a group) may take a while. To inactivate this step, check the "Don’t update" box. MetExtract will then not update and validate the LC-HRMS(P/MS) files after any group operation. With a click on "Update" this verification step can be initiated at any time and should be done once all groups have been defined/changed.</p>
 
             <h4>File validation</h4>
-            <p>The file validation is a functionality, which has to be used before data processing is started. It checks if all specified input files are valid according to the MzXML schema and can be imported by MetExtract. If one or several files are incorrectly formatted or cannot be read, MetExtract will display an error. Additionally, all MS scan types will be extracted and displayed in the drop-down menues "Scan event(s) Positive" and "Scan event(s) Negative". Only if all measurement files share at least one common scan event, the data processing may be started in the "Calulcation page".</p>
-            <p>MetExtract supports quasi-parallel processing of fast polarity switching ionisation. For this, select the respective scan event (m/z range, resolution) once for the positive and once for the negative ionisation mode. MetExtract will analyse the two modes independently and convolute the individual feature pairs from both modes.</p>
+            <p>The file validation is a functionality, which has to be used before data processing is started. It checks if all specified input files are valid according to the mzXML schema and can be imported by MetExtract. If one or several files are incorrectly formatted or cannot be read, MetExtract will display an error. Additionally, all MS scan types will be extracted and displayed in the drop-down menues "Scan event(s) Positive" and "Scan event(s) Negative". Only if all measurement files share at least one common scan event, the data processing may be started in the "Calulcation page".</p>
+            <p>MetExtract supports quasi-parallel processing of fast polarity switching ionization. For this, select the respective scan event (<i>m/z</i> range, resolution) once for the positive and once for the negative ionization mode. MetExtract will analyze the two modes independently and convolute the individual feature pairs from both modes.</p>
             <p>Note: Processing of LC-HRMS(/MS) data obtained from different MS scan types is not supported. All input files have to share at least one scan type. For example, LC-HRMS(/MS) data from an experiment using polarity switching should not be processed conjointly with data obtained from a positive-mode only LC-HRMS(/MS) analysis. Moreover, it is not supported to process data from different LC-HRMS instruments at the same time. </p>
             <div class="row row-eq-height">
                 <div class="col-md-6 row-eq-height">
                     <div>
                         <h4>Select ion modes</h4>
-                        <p>The ion modes of LC-HRMS scans in all loaded mzXML files will be displayed in two combo boxes each showing either those scan events of the positive or negative ionisation mode (figure 4). Only such scan events present in all loaded mzXML files will be shown. LC-HRMS/MS scan events will not be included.</p>
-                        <p>mzXML files with either positive or negative ionisation mode can also be loaded but not be processed in parallel.</p>
+                        <p>The ion modes of LC-HRMS scans in all loaded mzXML files will be displayed in two combo boxes each showing either those scan events of the positive or negative ionization mode (figure 4). Only such scan events present in all loaded mzXML files will be shown. LC-HRMS/MS scan events will not be included.</p>
+                        <p>mzXML files with either positive or negative ionization mode can also be loaded but not be processed in parallel.</p>
                     </div>
                 </div>
                 <div class="col-md-6 row-eq-height">
-                    <img class="caption" src="figures/PosNegModeSelection.png" width="95%" data-caption="Fig 4: Positive and negative ionisation mode selection" />
+                    <img class="caption" src="figures/PosNegModeSelection.png" width="95%" data-caption="Fig 4: Positive and negative ionization mode selection" />
                 </div>
             </div>
 
@@ -541,7 +544,7 @@
                 <div class="col-md-4 row-eq-height">
                     <div>
                         <h4>Automatic MSMS scan event match</h4>
-                        <p>FragExtract will try to automatically match corresponding MSMS scan events of the native and the uniformly <sup>13</sup>C-labelled precursors. This match is based on the precursor <i>m/z</i>, which must be a multiple of 1.00335 between the two MS/MS scan events as well as similar retention time for both scan events. </p>
+                        <p>FragExtract will try to automatically match corresponding MSMS scan events of the native and the uniformly <sup>13</sup>C-labeled precursors. This match is based on the precursor <i>m/z</i>, which must be a multiple of 1.00335 between the two MS/MS scan events as well as similar retention time for both scan events. </p>
                         <p>This automatic match will fail, if two MS/MS targets share the same <i>m/z</i> values and scan events but elute at a different retention time. In such a case right click on the name of the target with the correct match and select 'Duplicate'. The target will be duplicated.</p>
                     </div>
                 </div>
@@ -556,13 +559,13 @@
             </div>
 
             <h4>MSMS targets</h4>
-            <p>For each MS/MS target to be analysed with FragExtract, the following information need to be provided:</p>
+            <p>For each MS/MS target to be analyzed with FragExtract, the following information need to be provided:</p>
             <dl class="dl-horizontal">
                 <dt>Target name</dt>
                 <dd>The name of the MS/MS target. If not specified, a random name (Unknown target XX) will be created</dd>
                 <dt>Sum formula</dt>
                 <dd>The sum formula of the neutral precursor metabolite. If it is not specified, putative sum formulas will be automatically searched for</dd>
-                <dt>MzXML file</dt>
+                <dt>mzXML file</dt>
                 <dd>The mzXML file in which this MS/MS target was recorded</dd>
                 <dt>MZ</dt>
                 <dd>The <i>m/z</i> value of the native, monoisotopic precursor</dd>
@@ -577,7 +580,7 @@
                 <dt>Target M</dt>
                 <dd>The MS/MS scan event of the native, monoisotopic precursor ion</dd>
                 <dt>Target M'</dt>
-                <dd>The MS/MS scan event of the U-<sup>13</sup>C-labelled precursor ion</dd>
+                <dd>The MS/MS scan event of the U-<sup>13</sup>C-labeled precursor ion</dd>
                 <dt>Full scan</dt>
                 <dd>The scan event of the LC-HRMS full scans</dd>
             </dl>
@@ -622,7 +625,7 @@
             </div>
             <div class="bs-callout bs-callout-warning">
                 <h4>Large experiments</h4>
-                <p>Processing many files at the same time (e.g. more than 50 samples analysed with an LTQ Orbitrap instrument) may cause a memory error. This is a bug in the current implementation and will be resolved in further version of the software.
+                <p>Processing many files at the same time (e.g. more than 50 samples analyzed with an LTQ Orbitrap instrument) may cause a memory error. This is a bug in the current implementation and will be resolved in further version of the software.
                     <br>If this error occurs, please consider processing the data during the steps <b>Individual files processing</b> and <b>Re-integration</b> during multiple files processing sequentially for some files (e.g. less than 50). The <b>Bracketing of feature pairs</b> step must, however, be performed with al LC-HRMS files together.
                     <br>Alternatively, the <b>Command line</b> parameters may also be used for automated processing. </p>
             </div>
@@ -637,7 +640,7 @@
 
 
             <h3>Individual files processing</h3>
-            <p>To perform feature extraction for each file separately, the checkbox entitled “Individual files processing” has to be checked. MetExtract will process each file separately and extract corresponding <sup>12</sup>C and <sup>13</sup>C features and feature pairs. Also, all parameter settings used for this feature pair extraction are located in the “Individual files processing” section of the “Process tab page”.</p>
+            <p>To perform feature extraction for each file separately, the checkbox entitled "Individual files processing" has to be checked. MetExtract will process each file separately and extract corresponding <sup>12</sup>C and <sup>13</sup>C features and feature pairs. Also, all parameter settings used for this feature pair extraction are located in the "Individual files processing" section of the "Process tab page".</p>
 
             <div class="bs-callout bs-callout-warning">
                 <h4>Database file</h4> For each processed LC-HRMS(/MS) file, MetExtract generates a database file named &lt;FileName&gt;.identified.sqlite. This database contains all extracted feature pairs from the respective file and is used for subsequent bracketing of several measurement files as well as results visualisation.</div>
@@ -651,53 +654,53 @@
                     `f(a,s,p)= (p^(a-s)*(1-p)^s*({::}_s^a))/(p^a)`
                 </p>
                 <br>
-                <p>This formula can be rewritten and used for determining the enrichment of the labelling-isotope in SIL experiments. The enrichment of <sup>13</sup>C is calculated using a highly abundant feature pair in the recorded LC-HRMS(/MS) data. For this feature pair the number of carbon atoms (a) can directly be calculated from the mz difference between M and M'. The ratio (r) of [M'-s]/[M'] is further required as well as the number of exchanges (s), for which usually 1 is chosen. With the rewritten formula the enrichment of <sup>13</sup>C in the labelled isotopologs is determined: </p>
+                <p>This formula can be rewritten and used for determining the enrichment of the labeling-isotope in SIL experiments. The enrichment of <sup>13</sup>C is calculated using a highly abundant feature pair in the recorded LC-HRMS(/MS) data. For this feature pair the number of carbon atoms (a) can directly be calculated from the <i>m/z</i> difference between M and M'. The ratio (r) of [M'-s]/[M'] is further required as well as the number of exchanges (s), for which usually 1 is chosen. With the rewritten formula the enrichment of <sup>13</sup>C in the labeled isotopologs is determined: </p>
                 <br>
                 <p style="text-align:center">
                     `p= (({::}_s^a)^(1/s))/(({::}_s^a)^(1/s)+r^(1/s))`
                 </p>
 
-                <p>Calculating the isotopic enrichment in the labelled metabolite form is exemplified with an uniformly <sup>13</sup>C-labelled metabolite shown in figure 5. It has 22 carbon atoms in total and is fully <sup>13</sup>C-labelled. Using the ratio M+1/M (rn=0.23) the native <sup>12</sup>C enrichment is calculated to be 99.96%, which is in good agreement with the natural <sup>12</sup>C enrichment of 98.93%. Consequently, using the ratio of M'-1/M' (rl=0.38) the <sup>13</sup>C enrichment in the uniformly labelled metabolite is determined to be 98.3%.</p>
-                <img class="caption" src="figures/Sample_X2.png" data-caption="Fig 5: This uniformly labelled metabolite has an mz difference between M' and M of 22.07379 and a charge of 1 (determined using the mz difference between M+1 and M) which corresponds to 22 carbon atoms. The ratios M+1/M and M'-1/M' are approximately 0.23 and 0.38. " />
+                <p>Calculating the isotopic enrichment in the labeled metabolite form is exemplified with an uniformly <sup>13</sup>C-labeled metabolite shown in figure 5. It has 22 carbon atoms in total and is fully <sup>13</sup>C-labeled. Using the ratio M+1/M (rn=0.23) the native <sup>12</sup>C enrichment is calculated to be 99.96%, which is in good agreement with the natural <sup>12</sup>C enrichment of 98.93%. Consequently, using the ratio of M'-1/M' (rl=0.38) the <sup>13</sup>C enrichment in the uniformly labeled metabolite is determined to be 98.3%.</p>
+                <img class="caption" src="figures/Sample_X2.png" data-caption="Fig 5: This uniformly labeled metabolite has an <i>m/z</i> difference between M' and M of 22.07379 and a charge of 1 (determined using the <i>m/z</i> difference between M+1 and M) which corresponds to 22 carbon atoms. The ratios M+1/M and M'-1/M' are approximately 0.23 and 0.38. " />
             </div>
 
 
 
 
             <h3>AllExtract - Labelling configuration</h3>
-            <p>The most informative labelling element in SIL-assisted metabolomics approaches is carbon as it is a constituent of virtually any metabolite. Labelling with <sup>13</sup>C isotopes will result in the typical SIL associated pattern shown in figure 2. Other elements (e.g. N, S, P) will result in very different isotopolog patterns (see figure 6). For this experimental setup a different extraction method may be used which deduces the feature pairs not based on the isotopic patterns of the labelling element but rather on identical natural carbon isotopic distributions. This option is only available if carbon is not used as the labelling element. </p>
+            <p>The most informative labeling element in SIL-assisted metabolomics approaches is carbon as it is a constituent of virtually any metabolite. Labelling with <sup>13</sup>C isotopes will result in the typical SIL associated pattern shown in figure 2. Other elements (e.g. N, S, P) will result in very different isotopolog patterns (see figure 6). For this experimental setup a different extraction method may be used which deduces the feature pairs not based on the isotopic patterns of the labeling element but rather on identical natural carbon isotopic distributions. This option is only available if carbon is not used as the labeling element. </p>
 
 
             <p>
                 <div class="row row-eq-height">
                     <div class="col-md-4 row-eq-height">
-                        <img class="caption" src="figures/MSScan_15NLabelling.png" data-caption="Fig 6a: Theoretical isotope pattern for labelling with an isotope other than <sup>13</sup>C." />
+                        <img class="caption" src="figures/MSScan_15NLabelling.png" width="110%" data-caption="Fig 6a: Theoretical isotope pattern for labeling with an isotope other than <sup>13</sup>C." />
                     </div>
                     <div class="col-md-7 col-md-offset-1 row-eq-height">
-                        <img class="caption" src="figures/Sample_15NLabelling.png" data-caption="Fig 6b: Observed isotope pattern for a metabolite labelled with <sup>15</sup>N having a total of 5-N atoms." />
+                        <img class="caption" src="figures/Sample_15NLabelling.png" width="100%" data-caption="Fig 6b: Observed isotope pattern for a metabolite labeled with <sup>15</sup>N having a total of 5-N atoms." />
                     </div>
                 </div>
             </p>
             <div class="bs-callout bs-callout-warning">
-                <h4>Relative isotope abundances</h4> For several different labelling elements predefined relative isotope abundances are shown when the respective labelling isotope is specified. Please ensure that these relative isotope abundances match the experimental setup.
+                <h4>Relative isotope abundances</h4> For several different labeling elements predefined relative isotope abundances are shown when the respective labeling isotope is specified. Ensure that these relative isotope abundances match the experimental setup
             </div>
             <dl class="dl-horizontal">
                 <dt>Isotope N</dt>
-                <dd>Predominant isotope in nature of the labelling-element (e.g. <sup>12</sup>C, <sup>14</sup>N)</dd>
+                <dd>Predominant isotope in nature of the labeling-element (e.g. <sup>12</sup>C, <sup>14</sup>N)</dd>
                 <dt>Isotopic N abundance</dt>
                 <dd>Relative abundance of the predominant isotope in natural environments (e.g. 98.93% for <sup>12</sup>C)</dd>
                 <dt>Isotope L</dt>
-                <dd>Isotope used for labelling. Must be of the same element as Isotope A</dd>
+                <dd>Isotope used for labeling. Must be of the same element as Isotope A</dd>
                 <dt>Isotopic L abundance</dt>
-                <dd>Isotopic enrichment in the labelled metabolites. Must be equal in all labelled metabolites.</dd>
+                <dd>Isotopic enrichment in the labeled metabolites. Must be equal in all labeled metabolites.</dd>
                 <dt>Use Carbon validation</dt>
-                <dd>Select to test either the isotope pattern of the native and labelled metabolite (unchecked state; only recommended for <sup>13</sup>C labelling) or if the carbon isotope patterns of the native and labelled metabolite form shall be compared (checked state; recommended for labelling applications that do not use <sup>13</sup>C as the main labelling isotope). The second option is only available for non-<sup>13</sup>C labelling experiments.</dd>
+                <dd>Select to test either the isotope pattern of the native and labeled metabolite (unchecked state; only recommended for <sup>13</sup>C labeling) or if the carbon isotope patterns of the native and labeled metabolite form shall be compared (checked state; recommended for labeling applications that do not use <sup>13</sup>C as the main labeling isotope). The second option is only available for non-<sup>13</sup>C labeling experiments.</dd>
             </dl>
 
 
 
             <h3>Tracer metabolisation experiment - Labelling configuration</h3>
-            <p>To define a tracer under investigation, press the button “Tracer setup” in the labelling-section. A new window will open where the used tracers and labelling associated parameters can be specified. Figure 7 shows the tracer configuration dialog with DON (deoxynivalenol) as a configured tracer.</p>
+            <p>To define a tracer under investigation, press the button "Tracer setup" in the labeling-section. A new window will open where the used tracers and labeling associated parameters can be specified. Figure 7 shows the tracer configuration dialog with DON (deoxynivalenol) as a configured tracer.</p>
             <h4>Define tracer</h4>
 
             <p>Each row in the dialog represents one tracer. For each tracer the following parameters have to be specified:</p>
@@ -705,11 +708,11 @@
                 <dt>Tracer</dt>
                 <dd>The name of the used tracer</dd>
                 <dt>Element count</dt>
-                <dd>The number of atoms of the labelling element per formula unit of the tracer substance</dd>
+                <dd>The number of atoms of the labeling element per formula unit of the tracer substance</dd>
                 <dt>Isotope N</dt>
-                <dd>The major natural isotope of the labelling element (e.g., <sup>12</sup>C or <sup>14</sup>N)</dd>
+                <dd>The major natural isotope of the labeling element (e.g., <sup>12</sup>C or <sup>14</sup>N)</dd>
                 <dt>Isotope L</dt>
-                <dd>The used labelling-isotope in the labelled tracer form</dd>
+                <dd>The used labeling-isotope in the labeled tracer form</dd>
                 <dt>Natural abundance isotope N (%)</dt>
                 <dd>The isotopic abundance of Isotope A (e.g. 98.93% for <sup>12</sup>C)</dd>
                 <dt>Enriched abundance isotope L (%)</dt>
@@ -718,9 +721,9 @@
                 <dt>Amount natural</dt>
                 <dd>The amount of natural tracer form used</dd>
                 <dt>Amount enriched</dt>
-                <dd>The amount of the labelled tracer form used</dd>
+                <dd>The amount of the labeled tracer form used</dd>
                 <dt class="inactive">Ratio (N:L)</dt>
-                <dd class="inactive">Theoretical intensity ratio of the monoisotopic <sup>12</sup>C to <sup>13</sup>C-labelled ion signals of the tracer. This field cannot be specified. Its value is calculated automatically from the other tracer-specific parameter settings</dd>
+                <dd class="inactive">Theoretical intensity ratio of the monoisotopic <sup>12</sup>C to <sup>13</sup>C-labeled ion signals of the tracer. This field cannot be specified. Its value is calculated automatically from the other tracer-specific parameter settings</dd>
                 <dt>Max. negative bias</dt>
                 <dd>Maximum allowed negative ratio bias relative to 'Ratio (native:enriched)' (i.e. 'Ratio (native:enriched)'-'Max. negative bias'). If the specified tracer is an endogenous substance to the biological system, use 9999999</dd>
                 <dt>Max. positive bias</dt>
@@ -729,21 +732,21 @@
                 <dd class="inactive">Currently unused</dd>
             </dl>
             <p>
-                <img class="caption" src="figures/defineTracerDialog.png" data-caption="Fig 7: Tracer dialog with <sup>12</sup>C and <sup>13</sup>C deoxynivalenol (DON) configured as the used tracer. As both isotopolog forms have a different enrichment of the respective carbon isotope, the mono-isotopic ratio is only 0.92 although equal amounts (50:50) were mixed and applied to the organism of interest. Moreover, all 15 Carbon atoms of the labelled deoxynivalenol tracer were equally enriched with <sup>13</sup>C. See figure 8 for the LC-HRMS data for this configured tracer." />
+                <img class="caption" src="figures/defineTracerDialog.png" data-caption="Fig 7: Tracer dialog with <sup>12</sup>C and <sup>13</sup>C deoxynivalenol (DON) configured as the used tracer. As both isotopolog forms have a different enrichment of the respective carbon isotope, the mono-isotopic ratio is only 0.92 although equal amounts (50:50) were mixed and applied to the organism of interest. Moreover, all 15 Carbon atoms of the labeled deoxynivalenol tracer were equally enriched with <sup>13</sup>C. See figure 8 for the LC-HRMS data for this configured tracer." />
             </p>
             <p>
-                <img class="caption" src="figures/Sample_DON_Tracer.png" data-caption="Fig 8: Native and uniformly <sup>13</sup>C-labelled DON-tracer. Although an equal amount of native and labelled DON has be spiked into the sample, the relative ratio M:M' is slightly different. This bias is explained by the high isotopic enrichment in the <sup>13</sup>C-labelled tracer form, which is approximately 99.5%.">
+                <img class="caption" src="figures/Sample_DON_Tracer.png" data-caption="Fig 8: Native and uniformly <sup>13</sup>C-labeled DON-tracer. Although an equal amount of native and labeled DON has be spiked into the sample, the relative ratio M:M' is slightly different. This bias is explained by the high isotopic enrichment in the <sup>13</sup>C-labeled tracer form, which is approximately 99.5%.">
             </p>
 
 
 
             <h4>Use of several tracers in one experiment</h4>
-            <p>To analyse the metabolism of several exogenous tracers concurrently in a biological system, the following prerequisites have to be fulfilled:</p>
+            <p>To analyze the metabolism of several exogenous tracers concurrently in a biological system, the following prerequisites have to be fulfilled:</p>
             <ul>
                 <li>
                     <p>The expected native to enriched intensity ratios of the different tracers must not be identical
-                        <br> E.g.: Use a 1+1 mixture of the non-labelled and labelled analogue for the first tracer (expected intensity ratio is 1), for the second use e.g. 1.7 (1.7:1), for the third use 2.4 (2.4:1).
-                        <br> If possible, use less amount of the labelled tracer</p>
+                        <br> E.g.: Use a 1+1 mixture of the non-labeled and labeled analogue for the first tracer (expected intensity ratio is 1), for the second use e.g. 1.7 (1.7:1), for the third use 2.4 (2.4:1).
+                        <br> If possible, use less amount of the labeled tracer</p>
                 </li>
                 <li>
                     <p>The expected intensity ratio values &plusmn; tolerated bias intervals of the studied tracer substances must not overlap.
@@ -752,15 +755,15 @@
             </ul>
 
             <h3>Pre-selection of heavy isotopes X</h3>
-            <p>To detect putative native and labelled metabolite ions and fragments, MetExtract tests a certain range of possible carbon atoms. This range needs to be specified by the user:</p>
+            <p>To detect putative native and labeled metabolite ions and fragments, MetExtract tests a certain range of possible carbon atoms. This range needs to be specified by the user:</p>
             <ul>
                 <li>
-                    <p>Full metabolome labelling
+                    <p>Full metabolome labeling
                         <br> The range can be arbitrary but should not include a too low atom count (e.g. less than 3) or a too high atom count (e.g. more than 65 if the enrichment with <sup>13</sup>C is approximately 98.5%)</p>
                 </li>
                 <li>
                     <p>Tracer-fate studies
-                        <br> For tracer metabolisation experiments the maximum number of labelled atoms can roughly be chosen as twice the number of labelled atoms present in the tracer. E.g. Since DON has 15 carbon atoms, the search for metabolisation products can be restricted to a maximum of 30 carbon atoms, which will include metabolites containing two DON tracer units)</p>
+                        <br> For tracer metabolisation experiments the maximum number of labeled atoms can roughly be chosen as twice the number of labeled atoms present in the tracer. E.g. Since DON has 15 carbon atoms, the search for metabolisation products can be restricted to a maximum of 30 carbon atoms, which will include metabolites containing two DON tracer units)</p>
                 </li>
             </ul>
 
@@ -775,22 +778,27 @@
 
             <h3>Parameter settings for MS signal processing</h3>
             <p>The following parameter settings are located in the section MZ picking. These settings are related to the mass accuracy and expected isotopolog ratio accuracy of the used mass spectrometer.</p>
-            <p>The time interval of the chromatogram during which MetExtract inspects mass spectra and EIC chromatograms, is specified in the input fields “Start (min)” and “End (min)”. Only MS spectra and EIC peaks between these time points of the LC-HRMS run are considered during data processing.</p>
-            <p>An optional intensity threshold can be specified in the field “Intensity threshold”. All centroided MS signals above this intensity threshold are assumed to be putative MS signals of monoisotopic ions with natural isotopic composition or putative MS signals of a labelled ion. Required isotopolog signals may also be lower than this threshold to be recognised by MetExtract. </p>
-            <p>The input field “Max. number of charges” specifies the max. allowed charge state of an ion to be considered for data processing by MetExtract. An ion's charge state is determined using its carbon isotope pattern. </p>
-            <p>The field “Max. mass deviation (+/- ppm)” specifies the maximum tolerated mass deviation of M' as well as M+1 and M'-1 in ppm, relative to the calculated m/z value of the observed MS signal M. E.g. in case of <sup>13</sup>C labelling M' = M + n * 1.00335 / z. </p>
+            <p>The time interval of the chromatogram during which MetExtract inspects mass spectra and EIC chromatograms, is specified in the input fields "Start (min)" and "End (min)". Only MS spectra and EIC peaks between these time points of the LC-HRMS run are considered during data processing.</p>
+            <p>An optional intensity threshold can be specified in the field "Intensity threshold". All centroided MS signals above this intensity threshold are assumed to be putative MS signals of monoisotopic ions with natural isotopic composition or putative MS signals of a labeled ion. Required isotopolog signals may also be lower than this threshold to be recognised by MetExtract. </p>
+            <p>The input field "Max. number of charges" specifies the max. allowed charge state of an ion to be considered for data processing by MetExtract. An ion's charge state is determined using its carbon isotope pattern. </p>
+            <p>The field "Max. mass deviation (+/- ppm)" specifies the maximum tolerated mass deviation of M' as well as M+1 and M'-1 in ppm, relative to the calculated <i>m/z</i> value of the observed MS signal M. E.g. in case of <sup>13</sup>C labeling M' = M + n * 1.00335 / z. </p>
 
-            <p>The parameters “Isotopologs N” and “Isotopologs L” specify how many isotopologs of the natural and the labelled isotopologs must be present and are verified in the respective patterns (e.g. a value of 2 for "Isotopologs N" means that the isotopologs M and M+1 must be present for the native ion form). If “1” is used, MetExtract will only check for and use the two corresponding MS signals M and M' for confirmation. </p>
+            <p>The parameters "Isotopologs N" and "Isotopologs L" specify how many isotopologs of the natural and the labeled isotopologs must be present and are verified in the respective patterns (e.g. a value of 2 for "Isotopologs N" means that the isotopologs M and M+1 must be present for the native ion form). If "1" is used, MetExtract will only check for and use the two corresponding MS signals M and M' for confirmation. </p>
 
-            <p>The parameters “Intensity abundance error” for “Non-labelled ion (&plusmn;)” and “Labelled ion (&plusmn;)” specify the maximium relative deviation between the expected and the observed ion intensity ratios of M+y relative to M and M`-x relative to M'. A parameter setting of e.g. 0.2 corresponds to a maximum tolerated relative isotopic abundance error of 20% compared to the theoretically expected one. In case of a tracer-fate experiment, the ratios of M'-y to M' are corrected by the factor M'+y to M' to account for possible moieties conjugated to the studied tracer substance. </p>
+            <p>The parameters "Intensity abundance error" for "Non-labeled ion (&plusmn;)" and "Labelled ion (&plusmn;)" specify the maximium relative deviation between the expected and the observed ion intensity ratios of M+y relative to M and M`-x relative to M'. A parameter setting of e.g. 0.2 corresponds to a maximum tolerated relative isotopic abundance error of 20% compared to the theoretically expected one. In case of a tracer-fate experiment, the ratios of M'-y to M' are corrected by the factor M'+y to M' to account for possible moieties conjugated to the studied tracer substance. </p>
 
 
+        
             <h4>Low abundant isotopolog signals</h4>
-            <p>The isotope patterns of native and / or partly or uniformly labelled metabolites have characteristic abundances relative to their monoisotopic or consistently labelled isotopologs. Depending on the abundance of the metabolite in a particular sample, these signals of the respective isotopologs may be present. But in some cases (e.g. low number of carbon atoms) these signals will be hardly observed and thus incorrectly not detected using the strict isotopolog filtering system of MetExtract II (parameters “Isotopologs N” and “Isotopologs L”). </p>
-            <p>To circumvent this problem, the option “Consider isotopolog abundance” may be used. This will instruct the isotope matching algorithm of MetExtract II to consider the observed signal intensity of putative isotopologs. Only when the calculated signal abundance of an isotopolog is above the set intensity threshold the presence of this isotopolog is verified. If the calculated signal abundance is however below that set threshold, the isotopolog must not be present in the data.
-            <p>If this option is used, the option "Min. spectra (&ge;)" should be set to a higher value (e.g. 2.5 times the number before) and the option "Min. corr (&ge;)" should also be set to a higher threshold to verify the chromatographic peaks of the monoisotopic and the consistently labelled isotopologs.
-            </p>
-            <p>This option makes the metabolite detection algorithm of MetExtract II more sensitive (and slower). But at the same time the number of incorrectly matched signals is also increased, which leads to a higher number of false-positives. Thus, this option should be used with caution and the generated results should be carefully reviewed before further analysis of the dataset.
+            <p>The isotope patterns of native and partly or uniformly labeled metabolites have characteristic abundances relative to their monoisotopic or consistently labeled isotopologs. Depending on the abundance of the metabolite in a particular sample, these signals of the respective isotopologs may be present in the LC-HRMS data. But in some cases (e.g. low number of carbon atoms and / or low abundance of the monoisotopic or labeled metabolite) these signals can hardly be observed and thus incorrectly not detected using the strict isotopolog filtering system of MetExtract II (parameters "Isotopologs N" and "Isotopologs L"). </p>
+            <p>To circumvent this problem, the option "Consider isotopolog abundance" may be used. When checked, it will instruct the isotope matching algorithm of MetExtract II to consider the observed signal intensity of putative isotopologs. Only when the calculated signal abundance of an isotopolog is above the specified intensity threshold (parameter "Isotopologs threshold (&ge;)") the presence of this isotopolog is verified. If the calculated abundance is lower than the set intensity threshold, the respective isotopolog signal is not required to be present in the LC-HRMS data.
+            <p>With this option active, the metabolite detection algorithm of MetExtract II is more sensitive. At the same time the number of incorrectly matched signals is also increased, which leads to a higher number of false-positives. Thus, this option should be used with caution and the generated results should be carefully reviewed before further analysis of the dataset. To counteract these problems, the following settings may be adapted: 
+                <dl class="dl-horizontal">
+                    <dt>Min. spectra (&ge;)</dt>
+                    <dd>This option should be set to a higher value to account for the low abundant peak flanks that will also be matched with this new setting</dd>
+                    <dt>Min. corr (&ge;)</dt>
+                    <dd>The peak shape comparison should also be set to a higher value (e.g. 0.7 or 0.8 depending on the LC method and the expected chromatographic peaks)</dd>
+                </dl>
             </p>
             <p>Additionally, in many LC-HRMS systems the chromatographic peak shapes of low abundant ions tend to show increased noise. This complicates the automated feature pair grouping mechanisms of MetExtract II resulting in not correctly convoluted feature groups.
             </p>
@@ -798,7 +806,7 @@
             </p>
 
 
-            <img class="caption" width="90%" src="figures/LowIsotopeAbundanceProblem.png" data-caption="Fig 9: Illustration of 3 feature pairs belonging to the same metabolite (all three feature pairs show perfect co-elution in A). The highly abundant feature pair M<sub>1</sub> and M'<sub>1</sub>  clearly shows chromatographic peaks for its isotopologs (M<sub>1</sub>+1 and M'<sub>1</sub>-1). On the other hand, the feature pairs M<sub>2</sub> and M<sub>2</sub> are less abundant and thus their respective isotopolog singals are even lesser abundant. For example, M'<sub>2</sub>-1 was not recorded at all and M'<sub>3</sub>-1 was only above the required threshold in a few scans. While feature pairs M<sub>1</sub> and M<sub>3</sub> were detected successfully in the dataset DON_in_Wheat.grp, feature pair M<sub>2</sub> was only detected with the adapted settings that consider the isotopologs abundances in dataset DON_in_Wheat_LAC.grp." />
+            <img class="caption" width="90%" src="figures/LowIsotopeAbundanceProblem.png" data-caption="Fig 9: Illustration of 3 feature pairs belonging to the same metabolite (all three feature pairs show perfect co-elution in A). In B, the highly abundant feature pair M<sub>1</sub> (grey) clearly shows chromatographic peaks for its isotopologs (M<sub>1</sub>+1 and M'<sub>1</sub>-1). The feature pairs M<sub>2</sub> (green) and M<sub>3</sub> (red) are less abundant and thus their respective isotopolog singals are even lesser abundant. For example, M'<sub>2</sub>-1 was not recorded at all and M'<sub>3</sub>-1 was only above the required threshold in a few scans. While feature pairs M<sub>1</sub> and M<sub>3</sub> were detected successfully in the dataset DON_in_Wheat.grp, feature pair M<sub>2</sub> was only detected with the adapted settings that consider the isotopologs abundances in dataset DON_in_Wheat_LAC.grp since the required isotopolog signals of M'<sub>2</sub>-1 were not present in the LC-HRMS data. C shows a magnified section of the depiction in B." />
         
             <table class="infoTable">
                 <tr>
@@ -824,7 +832,7 @@
                     <td>8.2 min</td>
                 </tr>
             </table>
-            <p>Table 1: Comparison of the detected number of metabolites detected in the datasets DON_in_Wheat.grp and DON_in_Wheat_LAC.grp</p>
+            <p class="tabCaption">Table 1: Comparison of the detected number of metabolites detected in the datasets DON_in_Wheat.grp and DON_in_Wheat_LAC.grp</p>
             <br><br>
 
 
@@ -843,23 +851,23 @@
 
 
                 <h3>Chromatographic peak picking</h3>
-                <p>The next step in the AllExtract and TracExtract modules detect and separate different chromatographic peaks of metabolites having the same mz value but a different retention time. An example is illustrated in figure 10. The following steps are carried out for each remaining subcluster of MS signal from the previous processing step:
+                <p>The next step in the AllExtract and TracExtract modules detect and separate different chromatographic peaks of metabolites having the same <i>m/z</i> value but a different retention time. An example is illustrated in figure 10. The following steps are carried out for each remaining subcluster of MS signal from the previous processing step:
                 </p>
                 <p>
                     <ol>
-                        <li>EIC chromatograms of the detected MS signal pairs (monoisotopic non- and uniformly labelled ions) are extracted from the data in a predefined m/z interval around the average m/z values using the processing parameter “EIC ppm”. </li>
+                        <li>EIC chromatograms of the detected MS signal pairs (monoisotopic non- and uniformly labeled ions) are extracted from the data in a predefined <i>m/z</i> interval around the average <i>m/z</i> values using the processing parameter "EIC ppm". </li>
                         <li>The MassSpecWavelet algorithm described by Du et al. (2006) is used for separating different chromatographic peaks in a single EIC. </li>
                     </ol>
                     <p>
-                        <img class="caption" width="90%" src="figures/chromPeaks.png" data-caption="Fig 10: Illustration of chromatographic peak detection in the EICs of the native (M) and labelled (M') metabolite ion Only such peaks present in both EICs at approximately the same retention time with a high Pearson correlation coefficient are considered to coelute and represent a valid feature pair of a native and labelled metabolite." />
+                        <img class="caption" width="90%" src="figures/chromPeaks.png" data-caption="Fig 10: Illustration of chromatographic peak detection in the EICs of the native (M) and labeled (M') metabolite ion Only such peaks present in both EICs at approximately the same retention time with a high Pearson correlation coefficient are considered to coelute and represent a valid feature pair of a native and labeled metabolite." />
                     </p>
                     <p>The parameter "EIC width (&plusmn;)" defined the ppm width that is used for extracting the EICs of M and M' for each remaining subcluster from the previous data processing steps. </p>
                     <p>An optional EIC smoothing step may be used. This can be activated with the field "Smoothing window". Several options are available. If used, the smoothing window size must also be specified with the parameter "Window size". Note: the option "Window size" is only available when smoothing is used.</p>
                     <p>The minimum and maximum width of chromatographic peaks may be specified with the parameters "Min. scale" and "Max. scale". Both are specified in number of scans. </p>
                     <p>The maxmimul allowed peak center error is specified with the field "Center error" in the "Peak matching" category". Like the peak scale parameters this value also uses number of scand between two peak centers. </p>
-                    <p>The minimum Pearson correlation between two chromatographic peaks of a native and labelled metabolite ion is specified with the parameter "Min. corr (&ge;)". </p>
+                    <p>The minimum Pearson correlation between two chromatographic peaks of a native and labeled metabolite ion is specified with the parameter "Min. corr (&ge;)". </p>
 
-                    <p>Each such detected and verified feature pair is considered a metabolite ion derived from a native and a labelled ion of the same metabolite. </p>
+                    <p>Each such detected and verified feature pair is considered a metabolite ion derived from a native and a labeled ion of the same metabolite. </p>
 
 
 
@@ -868,18 +876,18 @@
                     <h3>Post processing of detected feature pairs</h3>
                     <p>After feature pairs have been detected they are further annotated with putative hetero atoms and convoluted into feature groups each representing a metabolite. </p>
                     <h4>Hetero atom annotation</h4>
-                    <p>After feature pairs have been detected, MetExtract searches for isotopolog mass peaks originating from other elements than the one used for labelling. Such hetero atoms must consist of at least two main isotopes. Chloride, for example, consists of the two main-isotopes <sup>35</sup>Cl and <sup>37</sup>Cl. <sup>35</sup>Cl, with an relative abundance of 75%, is the more abundant isotope expected to be predominantly incorporated into molecules. However, since the less frequent <sup>37</sup>Cl has a quite high abundance of 24% it is recorded in most mass spectra for substances with chloride atoms.</p>
+                    <p>After feature pairs have been detected, MetExtract searches for isotopolog mass peaks originating from other elements than the one used for labeling. Such hetero atoms must consist of at least two main isotopes. Chloride, for example, consists of the two main-isotopes <sup>35</sup>Cl and <sup>37</sup>Cl. <sup>35</sup>Cl, with an relative abundance of 75%, is the more abundant isotope expected to be predominantly incorporated into molecules. However, since the less frequent <sup>37</sup>Cl has a quite high abundance of 24% it is recorded in most mass spectra for substances with chloride atoms.</p>
 
-                    <p>Isotopes having a positive m/z offset compared to the most abundant isotope of the respective element are searched at M’+isotope_mz, while isotopes with a negative m/z offset (e.g. <sup>54</sup>Fe) the search for respective mass peaks is performed at M-isotope_mz</p>
-                    <p>Several hetero isotopes show similar m/z value offsets and similar relative isotopolog abundances. Depending on the HRMS device, these may or may not be separated. MetExtract will report all possible hetero isotopologs. </p>
+                    <p>Isotopes having a positive <i>m/z</i> offset compared to the most abundant isotope of the respective element are searched at M’+isotope_<i>m/z</i>, while isotopes with a negative <i>m/z</i> offset (e.g. <sup>54</sup>Fe) the search for respective mass peaks is performed at M-isotope_<i>m/z</i></p>
+                    <p>Several hetero isotopes show similar <i>m/z</i> value offsets and similar relative isotopolog abundances. Depending on the HRMS device, these may or may not be separated. MetExtract will report all possible hetero isotopologs. </p>
                     <p>The maximum allowed ratio error for a hetero atom isotopolog is specified with the parameter "Intensity error (&plusmn;)"</p>
                     <p>Background noise signals may also be incorrectly interpreted as MS signals originating from hetero atom isotopologs, since isotopologs are generally very low abundant MS signals (e.g. <sup>34</sup>S). Consequently, they need to be present in several consecutive MS scans to be correctly found. The parameter "Min. scans" defines the number of times a hetero atom isotopolog must be detected to be reported. </p>
-                    <p>Hetero atoms are configured by clicking on the “Hetero atoms configuration” button. The following information is required for every possible hetero isotope:</p>
+                    <p>Hetero atoms are configured by clicking on the "Hetero atoms configuration" button. The following information is required for every possible hetero isotope:</p>
                     <dl class="dl-horizontal">
                         <dt>Isotope</dt>
-                        <dd>Name of the isotope (e.g. <sup>34</sup>S)</dd>
-                        <dt>&Delta; m/z</dt>
-                        <dd>The m/z ratio offset compared to the elements most abundant isotope with a charge of 1</dd>
+                        <dd>Identifier of the isotope (e.g. <sup>34</sup>S)</dd>
+                        <dt>&Delta; <i>m/z</i></dt>
+                        <dd>The <i>m/z</i> ratio offset compared to the elements most abundant isotope with a charge of 1</dd>
                         <dt>Rel. ab [%]</dt>
                         <dd>The abundance of the isotope relative to the element's most abundant isotope. (e.g. The natural abundances of chloride are 76% for <sup>35</sup>Cl and 24% for <sup>37</sup>Cl. Therefore, their ratio is 24 % / 76 % = 0.32 = 32 %)</dd>
                         <dt>Min. atoms</dt>
@@ -891,7 +899,7 @@
 
 
                     <h4>Feature convolution</h4>
-                    <p>Ionisation by electro-spray may give rise to several ion species for the same metabolite (e.g. adducts, in-source fragments or dimers). To convolute all ion species of a particular metabolite into a feature group, the Pearson correlation coefficient is used again for finding feature pairs with highly similar retention time and chromatographic peak shapes. The parameter "Min. corr. (&plusmn;)" in the section "Feature convolution" specifies the minimun Pearson correlation two chromatographic peaks of two feature pairs must have in order to be convoluted into one feature group. </p>
+                    <p>Ionisation by ES may give rise to several ion species for the same metabolite (e.g. adducts, in-source fragments or dimers). To convolute all ion species of a particular metabolite into a feature group, the Pearson correlation coefficient is used for finding feature pairs with highly similar retention time and chromatographic peak shapes. The parameter "Min. corr. (&plusmn;)" in the section "Feature convolution" specifies the minimun Pearson correlation the two chromatographic peaks of the monoisotopcic isotopolog of two feature pairs must have in order to be convoluted into one feature group. </p>
                     <p> Close co-eluting metabolites may be incorrectly merged into a feature group consiting of different metabolites (see figure 11a and 11b). To split a feature group consisting of incorrectly convoluted feature pairs, HCA is used. Only such subclusters, which show a large number of highly correlated feature pairs are not further split. In the example in figure 11b, 5 feature groups are incorrectly convoluted. Using the parameter 'Min. connections' (relative amount of highly connected feature pairs in a feature group) this feature group was split into 5 feature groups. As shown in figure 11c, the feature pairs in each of these new feature groups show better co-elution. </p>
 
                     <p>
@@ -907,16 +915,16 @@
                             </div>
                         </div>
                     </p>
-                    <p>Subsequently, each feature group is annotated with commonly observed adducts and in-source fragments. This is done by comparing the mz value of M as well as the determined number of labelled atoms between all feature pairs of a feature group. If the difference between two feature pairs cannot be explained with two adducts observed in the respective ionisation modes, putative neutral losses of in-source fragments are calculated using the Seven Golden Rules algoritm (<a href="http://dx.doi.org/10.1186/1471-2105-8-105">Kind and Fiehn 2007</a>). Adducts and elements that shall be used for the generation of neutral losses can be specified in a dialog that is accessed using the button "Relationship configuration". </p>
+                    <p>Subsequently, each feature group is annotated with commonly observed adducts and in-source fragments. This is done by comparing the <i>m/z</i> value of M as well as the determined number of labeled atoms between all feature pairs of a feature group. If the difference between two feature pairs cannot be explained with two adducts observed in the respective ionization modes, putative neutral losses of in-source fragments are calculated using the Seven Golden Rules algoritm (<a href="http://dx.doi.org/10.1186/1471-2105-8-105">Kind and Fiehn 2007</a>). Adducts and elements that shall be used for the generation of neutral losses can be specified in a dialog that is accessed using the button "Relationship configuration". </p>
                     <dl class="dl-horizontal">
                         <dt></dt>
                         <dd><strong>Adducts used for feature pair annotations</strong></dd>
                         <dt>Adduct</dt>
                         <dd>The name of the adduct (e.g. M+Na, M+H…)</dd>
                         <dt>MZ offset</dt>
-                        <dd>The mz shift obtained by transforming the neutral molecule M to the respective ion species. E.g. for a protonated ion ([M+H]<sup>+</sup>) the mz offset is 1.007278</dd>
+                        <dd>The <i>m/z</i> shift obtained by transforming the neutral molecule M to the respective ion species. E.g. for a protonated ion ([M+H]<sup>+</sup>) the <i>m/z</i> offset is 1.007278</dd>
                         <dt>Polarity</dt>
-                        <dd>Specifies the ionisation polarity in which the adduct is observed. Only “+” and “-“ for the positive and negative mode are allowed.</p>
+                        <dd>Specifies the ionization polarity in which the adduct is observed. Only "+" and "-" for the positive and negative mode are allowed.</p>
                         
                         <br>
                         <dt></dt>
@@ -934,7 +942,7 @@
                     </dl>
                     <div class="bs-callout bs-callout-warning">
                         <h4>Conjugated moieties in tracer experiments</h4>
-                        <p>Biotransformation products of a tracer may have conjugated moieties that have additional atoms of the labelling element. A neutral loss may not reduce the number of labelled atoms for two features but the neutral loss may still contain the heavier isotope of the labelling element. Thus, the number of labelled atoms is used only in AllExtract for the generation of putative neutral losses. In TracExtract the number of labelled atoms is ignored. </p>
+                        <p>Biotransformation products of a tracer may have conjugated moieties that have additional atoms of the labeling element. A neutral loss may not reduce the number of labeled atoms for two features but the neutral loss may still contain the heavier isotope of the labeling element. Thus, the number of labeled atoms is used only in AllExtract for the generation of putative neutral losses. In TracExtract the number of labeled atoms is ignored. </p>
                     </div>
 
 
@@ -949,15 +957,15 @@
                         <dt>Num</dt>
                         <dd>ID of the feature pair. Note: It's named Num to prevent Excel from opening it in the wrong format.</dd>
                         <dt>MZ</dt>
-                        <dd>Average mz value of M</dd>
+                        <dd>Average <i>m/z</i> value of M</dd>
                         <dt>L_MZ</dt>
-                        <dd>Average mz value of M'</dd>
+                        <dd>Average <i>m/z</i> value of M'</dd>
                         <dt>D_MZ</dt>
                         <dd>Mz difference between M and M'</dd>
                         <dt>RT</dt>
                         <dd>Retention time in minutes of the detected chromatographic peak of M</dd>
                         <dt>Xn</dt>
-                        <dd>Number of atoms of the labelling element</dd>
+                        <dd>Number of atoms of the labeling element</dd>
                         <dt>Charge</dt>
                         <dd>Charge state of the ion</dd>
                         <dt>ScanEvent</dt>
@@ -965,7 +973,7 @@
                         <dt>Ionisation_Mode</dt>
                         <dd>The polarity in which this feature pair was detected</dd>
                         <dt>Tracer</dt>
-                        <dd>The configured tracer, for which this feature pair was detected. In an AllExtract experiment FML (full metabolome labelling) will be written</dd>
+                        <dd>The configured tracer, for which this feature pair was detected. In an AllExtract experiment FML (full metabolome labeling) will be written</dd>
                         <dt>Area_N</dt>
                         <dd>The peak area of the chromatographic peak of M determined by the peak picking</dd>
                         <dt>Area_L</dt>
@@ -993,7 +1001,7 @@
                         <dt>Adducts</dt>
                         <dd>Ion species (e.g. adducts), which have been annotated for this feature pair. (May be several if not unique)</dd>
                         <dt>Hetero_Elements</dt>
-                        <dd>This field includes isotopologs of elements not used for the labelling (e.g. <sup>24</sup>S). Each annotation is given with the number of atoms of the respective lement as well as the observed and expected ratios</dd>
+                        <dd>This field includes isotopologs of elements not used for the labeling (e.g. <sup>24</sup>S). Each annotation is given with the number of atoms of the respective lement as well as the observed and expected ratios</dd>
                     </dl>
                 </p>
 
@@ -1001,7 +1009,7 @@
                 <p>For each input file a PDF file may be created which contains the same information as the TSV output file. Each detected feature pair is additionally visualised (mass spectra, EICs of M and M') on a PDF page. Moreover, all chromatographic peaks of M for all convoluted feature groups are illustrated.</p>
 
                 <h4>mzXML file</h4>
-                <p>This option allows saving the detected feature pairs in a new mzXML file. This mzXML file will only contain MS signals of feature pairs detected with MetExtract. All other signals that do not originate from native and labelled substances and their ions are not saved. Depending on the selected options (M, M+1, M'-1, M'), isotopologs of the detected feature pairs may also be included.</p>
+                <p>This option allows saving the detected feature pairs in a new mzXML file. This mzXML file will only contain MS signals of feature pairs detected with MetExtract. All other signals that do not originate from native and labeled substances and their ions are not saved. Depending on the selected options (M, M+1, M'-1, M'), isotopologs of the detected feature pairs may also be included.</p>
                 <div class="bs-callout bs-callout-warning">
                     <p>Saving the results to a new mzXML file may only work for certain input data. If this option does not work with a certain instrument, please contact the authors. Currently, this export functionality has only been tested the following instrument(s):
                         <ul>
@@ -1013,11 +1021,11 @@
                 <h3>Multiple files annotation <small>Only avaialbe in the modules AllExtract and TracExtract</small></h3>
                 <p>The section "Multiple files annotation" provides parameters for matching extracted feature pairs in all processed LC-HRMS data files. </p>
                 <h4>Bracket results</h4>
-                <p>The matching is performed using the mz value and retention time of M as well as the determined number of labelled atoms. The field "Max. mz width (&plusmn; ppm)" defines the maximum allowed difference in mz of M for two feature pairs detected in different LC-HRMS files to be matched. The matching is performed using HCA. Those subclusters, which have less ppm difference between their highest and lowest mz value of M are kept. It is recommended to set this parameter to a multiple (2-3) of the parameter "Mass deviation (&plusmn; ppm)". Subsequently, all chromatographic peaks detected within this mz cluster are again clustered using their retention time. All clusters of less than "Time window (min)" belong to the same chromatographic peak. </p>
+                <p>The matching is performed using the <i>m/z</i> value and retention time of M as well as the determined number of labeled atoms. The field "Max. <i>m/z</i> width (&plusmn; ppm)" defines the maximum allowed difference in <i>m/z</i> of M for two feature pairs detected in different LC-HRMS files to be matched. The matching is performed using HCA. Those subclusters, which have less ppm difference between their highest and lowest <i>m/z</i> value of M are kept. It is recommended to set this parameter to a multiple (2-3) of the parameter "Mass deviation (&plusmn; ppm)". Subsequently, all chromatographic peaks detected within this <i>m/z</i> cluster are again clustered using their retention time. All clusters of less than "Time window (min)" belong to the same chromatographic peak. </p>
                 <h5>Align chromatograms</h5>
                 <p>For slight retention time shift, an optional alignment step may be performed. This alignment is realised with the R-package PTW (<a href="http://cran.fhcrc.org/web/packages/ptw/index.html">Polynomial time warping</a>). By default, no alignment is performed.</p>
                 <h4>Re-integrate missing feature pairs</h4>
-                <p>To fill up the created data matrix, a semi-targeted re-integration step is performed after bracketing of feature pairs. This step searches for chromatographic peaks that were not detected in some of the analysed LC-HRMS files but successfully detected in other. Most ofter, low abundant features are missed due to the even lower abundance of the required isotopolog MS signals. </p>
+                <p>To fill up the created data matrix, a semi-targeted re-integration step is performed after bracketing of feature pairs. This step searches for chromatographic peaks that were not detected in some of the analyzed LC-HRMS files but successfully detected in other. Most ofter, low abundant features are missed due to the even lower abundance of the required isotopolog MS signals. </p>
                 <h4>Output</h4>
                 <p>The output of feature pair bracketing is a two-dimensional data matrix consisting of all detected feature pairs and their abundances in the different LC-HRMS files. Moreover, each detected feature pair is annotated with: </p>
                 <dl class="dl-horizontal">
@@ -1028,15 +1036,15 @@
                     <dt>Num</dt>
                     <dd>ID of the feature pair. Note: It's named Num to prevent Excel from opening it in the wrong format.</dd>
                     <dt>MZ</dt>
-                    <dd>Average mz value of M in all detected LC-HRMS files</dd>
+                    <dd>Average <i>m/z</i> value of M in all detected LC-HRMS files</dd>
                     <dt>L_MZ</dt>
-                    <dd>Average mz value of M' in all detected LC-HRMS files</dd>
+                    <dd>Average <i>m/z</i> value of M' in all detected LC-HRMS files</dd>
                     <dt>D_MZ</dt>
                     <dd>Mz difference between M and M'</dd>
                     <dt>RT</dt>
                     <dd>Retention time in minutes of the detected chromatographic peak of M</dd>
                     <dt>Xn</dt>
-                    <dd>Number of atoms of the labelling element</dd>
+                    <dd>Number of atoms of the labeling element</dd>
                     <dt>Charge</dt>
                     <dd>Charge state of the ion</dd>
                     <dt>ScanEvent</dt>
@@ -1044,7 +1052,7 @@
                     <dt>Ionisation_Mode</dt>
                     <dd>The polarity in which this feature pair was detected</dd>
                     <dt>Tracer</dt>
-                    <dd>The configured tracer, for which this feature pair was detected. In an AllExtract experiment FML (full metabolome labelling) will be stated</dd>
+                    <dd>The configured tracer, for which this feature pair was detected. In an AllExtract experiment FML (full metabolome labeling) will be stated</dd>
                     <dt>OGroup</dt>
                     <dd>Feature groups have been numbered. This column specifies the number of the feature group, to which this feature pair has been assigned to. All feature pairs with the same number in this column belong to the same feature group</dd>
                     <dt>Ion</dt>
@@ -1056,7 +1064,7 @@
                     
                     <br>
                     <dt></dt>
-                    <dd><strong>For each analysed LC-HRMS file, the following columns are created:</strong>
+                    <dd><strong>For each analyzed LC-HRMS file, the following columns are created:</strong>
                     </dd>
                     <dt>&lt;FileName&gt;_Area_N</dt>
                     <dd>The peak area of the extracted ion chromatographic peak of M determined by the peak picking in the respective LC-HRMS file</dd>
@@ -1069,7 +1077,7 @@
                     <br>
 
                     <dt></dt>
-                    <dd><strong>Additionally, for each analysed LC-HRMS file, the following column is created:</strong>
+                    <dd><strong>Additionally, for each analyzed LC-HRMS file, the following column is created:</strong>
                     </dd>
                     <dt>&lt;FileName&gt;_fold</dt>
                     <dd>The ratio of M:M' of the feature pair in the respective LC-HRMS file</dd>
@@ -1082,12 +1090,21 @@
                     <dd>The count, in how many data files extracted ion chromatographic peaks for both M and M' have been found (after re-integration of initially missed peaks)</dd>
 
                 </dl>
+                <br>
+                <div class="bs-callout bs-callout-warning">
+                <h4>Note</h4>
+                <p>The IDs of feature pairs as well as of feature groups (&lt;FileName&gt;) are unique within a certain LC-HRMS analysis. They are not matched across files and thus cannot be compared</p>
+            </div>
 
                 <h3>Start data processing</h3>
-                <p>To start the data processing, press the “Start” button located on the right bottom of the calulcate page. MetExtract will ask to save the current file/group compilation as well as the specified settings for data processing. Once started, a progress dialog will display the status and the current operation per file.</p>
+                <p>To start the data processing, press the "Start" button located on the right bottom of the calulcate page. MetExtract will ask to save the current file/group compilation as well as the specified settings for data processing. Once started, a progress dialog will display the status and the current operation per file.</p>
 
                 <h4>Parallel processing</h4>
-                <p>Since many operations of MetExtract can be parallelized (e.g. feature pair detection in individual LC-HRMS(/MS) data files), multi core systems and paralled computation are supported. The default number of cores MetExtract will use is one less than available on the executing PC to not block the computer for office work. To use all available cores, the box “Keep one core unused” must be unchecked.</p>
+                <p>Since many operations of MetExtract can be parallelized (e.g. feature pair detection in individual LC-HRMS(/MS) data files), multi core systems and paralled computation are supported. The default number of cores MetExtract will use is one less than available on the executing PC to not block the computer for office work. To use all available cores uncheck the box "Keep one core unused"</p>
+
+                <h4>Processing dialog</h4>
+                <p>During the processing of the specified LC-HRMS files, a dialog will be shown. It will show the overall process (first label and progress bar) of all files. Then, for each CPU core, a separate label and progress bar will be shown, which illustrate the status of the currently processed files. At the botton of the dialog, a tabular overview will be displayed showing which files have already been processed successfully or are currently being processed. Figure 12 shows an example of this dialog with 4 experimental groups and 7 parallel file processings</p>
+                <img class="caption" src="figures/processingDialog.png" width="70%" data-caption="Fig 12: Sample processing dialog with 4 experimental groups and 7 parallel file processings. Green indicates successfully processed files, orange files that are currently being processedn and grey files are pending to be processed. " />
         </div>
 
 
@@ -1102,7 +1119,7 @@
         <div id="resultsTab" class="container">
 
             <h2>Results Tab Page</h2>
-            <p>Results of data processing can be visualized in the third tab named “Sample results”. Select a processed file from the drop-down list on the left top of the page. The results of the selected file will be presented in the list underneath. Once a result is clicked on, the headers of the list will change accordingly. This list is divided into the following five categories:</p>
+            <p>Results of data processing can be visualized in the third tab named "Sample results". Select a processed file from the drop-down list on the left top of the page. The results of the selected file will be presented in the list underneath. Once a result is clicked on, the headers of the list will change accordingly. This list is divided into the following five categories:</p>
             <dl class="dl-horizontal">
                 <dt>MZs</dt>
                 <dd>All detected MS signal pairs in the individual scans are listed</dd>
@@ -1116,7 +1133,7 @@
                 <dd>The used data processing parameters are listed</dd>
             </dl>
             <h3>External viewer</h3>
-            <p>To view the raw-mzXML file in an external viewer use the button “open MzXML file externally”. It will be opened with the default application for mzXML files. </p>
+            <p>To view the raw-mzXML file in an external viewer use the button "open mzXML file externally". It will be opened with the default application for mzXML files. </p>
             <h3>MZs</h3>
             <p>The category "MZs" shows all MS signals from all scans of the original data file that showed the mirror symmetric isotopic patterns and fulfilled all parameter settings for this processing step. The only plot available for this result category is the main plot. It shows a scatter plot of all native MS singals detected. If a specific ion signal is selected, it will be coloured. </p>
 
@@ -1124,25 +1141,25 @@
             <p>The category "MZ bins" shows all clusters remaining after MS signal clustering. Only the main plot is available for a graphical illustration of these bins. A selected bin will be colour highlighted among all extracted MZ bins. </p>
 
             <h3>Feature pairs</h3>
-            <p>The category "Feature pairs" shows detected feature pairs. For a feature pair two plots are available. The main plot shows the chromatographic peaks of the natural and labelled ion forms. The intensities of the labelled metabolite ions have negative intensities while the native metabolite ions are depicted with positive intensities. The second plot for each feature is its mass spectrum (see figure 12). </p>
-            <img class="caption" src="figures/resultsFeaturePairs.png" width="90%" data-caption="Fig 12: Sample mass spectra for a [M+H]<sup>+</sup> and a [M+Na]<sup>+</sup> feature pair both having 30 carbon atoms and a charge of 1 detected with AllExtract." />
+            <p>The category "Feature pairs" shows detected feature pairs. For a feature pair two plots are available. The main plot shows the chromatographic peaks of the natural and labeled ion forms. The intensities of the labeled metabolite ions have negative intensities while the native metabolite ions are depicted with positive intensities. The second plot for each feature is its mass spectrum (see figure 13). </p>
+            <img class="caption" src="figures/resultsFeaturePairs.png" width="90%" data-caption="Fig 13: Sample mass spectra for a [M+H]<sup>+</sup> and a [M+Na]<sup>+</sup> feature pair both having 30 carbon atoms and a charge of 1 detected with AllExtract. The yellow bars indicate the putative <i>m/z</i> ratios for alternative pairings and are intented to help assess if the two MS signals were matched correctly or not. The higher yellow bars have the same charge, while the lower yellow bars have a charge increased by one (e.g. 2 instead of 1). The small yellow band in the green stripe of the isotopologs of the matched signal pars indicate the theoretical ratio of either the native or the labeled signal. " />
 
             <h3>Feature groups</h3>
-            <p>The category "Feature groups" shows convoluted feature groups. For each feature group three plots are available. The main plot shows an overlay of all feature pairs convoluted into the selected feature group. Intensities of differently abundant feature pairs are noarmalised to 1 if the field Normalise is selected. The second plot shows an illustration the correlation and similarity of all feature pairs in this feature group. The third plot depicts an annotated MS scan for this feature group. (see figure 13)</p>
-            <img class="caption" src="figures/resultsFeatureGroup.png" width="95%" data-caption="Fig 13: In plot a the chromatographic peaks of M (pos. int.) and M' (neg. int.) of all feature pairs convoluted to the same feature group are shown, while in b a graphical representation of their similarities is illustrated" />
+            <p>The category "Feature groups" shows convoluted feature groups. For each feature group three plots are available. The main plot shows an overlay of all feature pairs convoluted into the selected feature group. Intensities of differently abundant feature pairs are noarmalised to 1 if the field Normalise is selected. The second plot shows an illustration the correlation and similarity of all feature pairs in this feature group. The third plot depicts an annotated MS scan for this feature group (see figure 14)</p>
+            <img class="caption" src="figures/resultsFeatureGroup.png" width="95%" data-caption="Fig 14: In plot a the chromatographic peaks of M (pos. int.) and M' (neg. int.) of all feature pairs convoluted to the same feature group are shown, while in b a graphical representation of their similarities is illustrated" />
 
 
             <h3>Filters</h3>
-            <p>MetExtract offers the possibility to filter all results for certain criteria. The filter can be entered in the text field “Filter” in the “Sample results” tab. It is applied to each result category. The entered text is first split into chunks using the space character. Each i-th chunk is a filter for the i-th column in the results tab. </p>
-            <p>EXAMPLE 1: If the user wants to search for feature pairs with a mz value of 297.1333 for M, the text “297.1333” is entered in the field “Filter”. MetExtract will then only show results having the text 297.1333 in the first column. If the search shall be further restricted to 15 carbon atoms, the user must enter “297.1333 15”. This will also search in the second column for the text 15 and only show those feature pairs, which have 15 or 115 or 1500 carbon atoms.</p>
-            <p>EXAMPLE 2: If the user wants to search for 297.1333 +- 1 amu the filter must be set to “297.1333+-1”. This will instruct MetExtract to search for mz value of M within the range of 296.1333-298.1333 amu. It is also possible to search within a specific ppm window. The filter must then be set to “297.1333+-5ppm”. </p>
+            <p>MetExtract offers the possibility to filter all results for certain criteria. The filter can be entered in the text field "Filter" in the "Sample results" tab. It is applied to each result category. The entered text is first split into chunks using the space character. Each i-th chunk is a filter for the i-th column in the results tab. </p>
+            <p>EXAMPLE 1: If the user wants to search for feature pairs with a <i>m/z</i> value of 297.1333 for M, the text "297.1333" is entered in the field "Filter". MetExtract will then only show results having the text 297.1333 in the first column. If the search shall be further restricted to 15 carbon atoms, the user must enter "297.1333 15". This will also search in the second column for the text 15 and only show those feature pairs, which have 15 or 115 or 1500 carbon atoms.</p>
+            <p>EXAMPLE 2: If the user wants to search for 297.1333 +- 1 amu the filter must be set to "297.1333+-1". This will instruct MetExtract to search for <i>m/z</i> values of M within the range of 296.1333-298.1333 amu. It is also possible to search within a specific ppm window. The filter must then be set to "297.1333+-5ppm". </p>
 
 
             <h3>Results view - FragExtract</h3>
-            <p>FragExtract shows analysed LC-HRMS/MS targets and detected fragment peaks in form of a hierarchical tree. The first level of the tree are the LC-HRMS/MS targets (<span style="color: #B5E61D">green box</span> in figure 14). It includes the name (column "Target name"), <i>m/z</i> value of the native precursor ion (column "MZ"), its total number of labelled carbon atoms (column "Cn", either user defined or generated sum formulas of the parent (column "Sum formula"), the charge of the precursor ion (column "Charge"), the scan number of the MS/MS scan used for analyis of the native precursor ion (column "Native scan num"), the scan number of the MS/MS scan used for analysis of the U-<sup>13</sup>C-labelled precursor ion (column "Labelled scan num"), The scan event of the LC-HRMS full scan(s), and the scan events of the LC-HRMS/MS scans of the native and the U-<sup>13</sup>C-labelled precursor ions.</p>
-            <p>The next level lists detected MS/MS fragment peaks found for both the native and the U-<sup>13</sup>C-labelled precursor ions (<span style="color: #00A2E8">blue box</span> in figure 14). Only those peaks present as both forms with approximately the same relative intensity and a defined &Delta;<i>m/z</i> value corresponding to the total number of carbon atoms in the respective fragment ion, are shown. Each such fragment peak is annotated with its assigned peak number (column "Target name", form "Peak XX"), the <i>m/z</i> value of the fragment peak derived from the monoisotopic precursor ion (column "MZ"), the determined number of carbon atoms for this fragment peak (column "Cn") followed by the calculated <i>m/z</i> value of the U-<sup>13</sup>C-labelled fragment ion pendant, a generated sum formula for the fragment peak (column "Sum formula"), the adduct of the generated sum formula (column "Charge"), the neutral loss of the fragment in respect to the used precursor ion (column "Native scan num"), and the relative intensity of the fragment peak in the LC-HRMS/MS scan of the native precursor ion (column "Labelled scan num"). If several putative sum formulas could be calculated for one fragment ion, a start ("*") is shown instead of the sum formula (<span style="color: #FFC90E">orange box</span> in figure 14, first row). All generated sum formulas are then shown one level beneath the annotated fragment peak (redundant information is not shown). </p>
+            <p>FragExtract shows analyzed LC-HRMS/MS targets and detected fragment peaks in form of a hierarchical tree. The first level of the tree are the LC-HRMS/MS targets (for example CouAgm in the <span style="color: #B5E61D">green box</span> in figure 15). It includes the name (column "Target name"), <i>m/z</i> value of the native precursor ion (column "MZ"), its total number of labeled carbon atoms (column "Cn"), either user defined or generated sum formulas of the parent (column "Sum formula"), the charge of the precursor ion (column "Charge"), the scan number of the MS/MS scan used for analyis of the native precursor ion (column "Native scan num"), the scan number of the MS/MS scan used for analysis of the U-<sup>13</sup>C-labeled precursor ion (column "Labelled scan num"), The scan event of the LC-HRMS full scan(s), and the scan events of the LC-HRMS/MS scans of the native and the U-<sup>13</sup>C-labeled precursor ions.</p>
+            <p>The next level lists detected MS/MS fragment peaks found for both the native and the U-<sup>13</sup>C-labeled precursor ions (<span style="color: #00A2E8">blue box</span> in figure 15). Only those peaks present as both forms with approximately the same relative intensity and a defined &Delta;<i>m/z</i> value corresponding to the total number of carbon atoms in the respective fragment ion, are shown. Each such fragment peak is annotated with its assigned peak number (column "Target name", form "Peak XX"), the <i>m/z</i> value of the fragment peak derived from the monoisotopic precursor ion (column "MZ"), the determined number of carbon atoms for this fragment peak (column "Cn") followed by the calculated <i>m/z</i> value of the U-<sup>13</sup>C-labeled fragment ion pendant, a generated sum formula for the fragment peak (column "Sum formula"), the adduct of the generated sum formula (column "Charge"), the neutral loss of the fragment in respect to the used precursor ion (column "Native scan num"), and the relative intensity of the fragment peak in the LC-HRMS/MS scan of the native precursor ion (column "Labelled scan num"). If several putative sum formulas could be calculated for one fragment ion, a start ("*") is shown instead of the sum formula (<span style="color: #FFC90E">orange box</span> in figure 15, first row). All generated sum formulas are then shown one level beneath the annotated fragment peak (redundant information is not shown). </p>
 
-            <img class="caption" src="figures/FragExtract_Results.png" width="95%" data-caption="Fig 14: FragExtract results view with three MS/MS targets measured in one LC-HRMS/MS file. Both MS/MS spectra of the native, monoisotopic and the U-<sup>13</sup>C-labelled metabolite are illustrated (the MS/MS spectra of the U-<sup>13</sup>C-labelled metabolite is depicted with negative intensity values). Seven fragment peaks were automatically matched with their respective pendants  and annotated with their total number of carbon atoms as well as putative sum formulas." />
+            <img class="caption" src="figures/FragExtract_Results.png" width="95%" data-caption="Fig 15: FragExtract results view with three MS/MS targets (CouHPut, CouAgm, Unknown MS feature) measured in one LC-HRMS/MS file. Both MS/MS spectra of the native, monoisotopic and the U-<sup>13</sup>C-labeled metabolite are illustrated (the MS/MS spectra of the U-<sup>13</sup>C-labeled metabolite ion is depicted with negative intensity values). Seven fragment peaks were automatically matched with their respective pendants  and annotated with their total number of carbon atoms as well as putative sum formulas." />
 
             <p>Results of FragExtract processing can easily be exported in tab-separated table format. To copy the results of all MS/MS targets in a LC-HRMS/MS file, right-click on the top-level item named "MSMS targets" and select "Copy". To copy the results of a single target, right-click on the target name and select "Copy". The copied information can then be transfered to e.g. Excel via the paste operation (Strg+v). The table contains information about the precursor-ions and the extracted MS/MS peaks as well as generated sum formulas. </p>
 
@@ -1155,48 +1172,62 @@
     <div>
         <div class="container">
             <h2>Command line processing</h2>
-            <p>The module AllExtract and TracExtract may be started automatically from the command line using several parameters:</p>
-
+            <p>The modules AllExtract and TracExtract can be started from the command line and support batch-wise processing. The following parameters may be used for this:</p>
+            <br>
             <dl class="dl-horizontal">
                 <dt>-m &lt;ModuleName&gt;</dt>
-                <dd>Module selection (either 'AllExtract' or 'TracExtract')</dd>
+                <dd>Module selection (either 'AllExtract' or 'TracExtract'). This parameter must always be specified</dd>
                 <br>
-                <dt>-g 'FileName'</dt>
-                <dd>Select the group file. Associated settings from this group file are not automatically loaded. </dd>
-                <dt>-l 'FileName'</dt>
+                <dt>-g &lt;FileName&gt;</dt>
+                <dd>Select the group file. Associated settings from this group file are not automatically loaded</dd>
+                <dt>-l &lt;FileName&gt;</dt>
                 <dd>Select the settings file used for processing. Associated groups are not automatically loaded</dd>
                 <br>
-                <dt>-u TrueOrFalse</dt>
+                <dt>-u &lt;True or False&gt;</dt>
                 <dd>Override setting for individual files processing</dd>
-                <dt>-i TrueOrFalse</dt>
+                <dt>-i &lt;True or False&gt;</dt>
                 <dd>Override setting for multiple files processing</dd>
-                <dt>-o TrueOrFalse</dt>
-                <dd>&nbsp;- Override setting for multiple files bracketing</dd>
-                <dt>-p TrueOrFalse</dt>
-                <dd>&nbsp;- Override setting for re-integration of processed files</dd>
+                <dt>-o &lt;True or False&gt;</dt>
+                <dd>Override setting for multiple files bracketing</dd>
+                <dt>-p &lt;True or False&gt;</dt>
+                <dd>Override setting for re-integration of processed files</dd>
                 <br>
                 <dt>-x</dt>
                 <dd>Instructs MetExtract to reduce the output and do not inform the user about problems</dd>
                 <dt>-e</dt>
-                <dd>Instructs MetExtract to quit when processing has finished</dd>
+                <dd>Instructs MetExtract to quit after processing has finished</dd>
                 <dt>-s</dt>
                 <dd>Instructs MetExtract to start the processing automatically</dd>
                 <dt>-c NumberOfCores</dt>
                 <dd>Set the number of cores to be used for processing. Defaults to 1 less than available (min. 1)</dd>
             </dl>
-            Note: If directories with wide space characters (e.g. space) are used the respective values of the parameters (-g and -l) need to be specified under quotation marks
+            <p>Note: If directories with wide space characters (e.g. space) are used the respective values of the parameters (-g and -l) need to be specified under quotation marks</p>
 
-            <div class="bs-callout bs-callout-warning">
-                <h4>Important</h4>
-                <p>The parameter m (module selection) must always be specified</p>
-            </div>
 
-            <p>For example, the command line <pre>&gt;&nbsp;<span style="color: firebrick;">MExtract.exe -m TracExtract -g 'E:\Cdata_15\_1K.grp' -l 'E:\Cdata_15\_1K.grp' -x -s -e</span></pre>opens a new TracExtract window (parameter <span style="color: firebrick;">-m</span>) and loads the group and settings file <span style="color: firebrick;">'E:\Cdata_15\_1K.grp'</span>. While parameter <span style="color: firebrick;">-g</span> loads only the groups from the file, parameter <span style="color: firebrick;">-l</span> only loads the settings stored in the respective file. It is not possible to load the settings and the groups with a single parameter. The output is reduced (parameter <span style="color: firebrick;">-x</span>), calculations are started automatically (parameter <span style="color: firebrick;">-s</span>) and once all files have been processed, TracExtract quits (parameter <span style="color: firebrick;">-x</span>). </p>
+            <p>For example, the command line 
+                <pre>&gt;&nbsp;<span style="color: firebrick;">MExtract.exe -m TracExtract -g 'E:\Cdata_15\_1K.grp' -l 'E:\Cdata_15\_1K.grp' -x -s -e</span></pre>
+            starts a new TracExtract instance (parameter <span style="color: firebrick;">-m TracExtract</span>) and loads the group and settings file <span style="color: firebrick;">'E:\Cdata_15\_1K.grp'</span>. While parameter <span style="color: firebrick;">-g</span> loads only the groups from the file, parameter <span style="color: firebrick;">-l</span> only loads the settings stored in the respective file. It is not possible to load the settings and the groups with a single parameter. The output is reduced (parameter <span style="color: firebrick;">-x</span>), calculations are started automatically (parameter <span style="color: firebrick;">-s</span>) and once all files have been processed, TracExtract quits (parameter <span style="color: firebrick;">-x</span>). </p>
         </div>
     </div>
 
     <br>
     <br>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <div class="footer">
         <div class="container">
@@ -1235,23 +1266,6 @@
     <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=AM_HTMLorMML-full"></script>
 
     <script type="text/javascript" src="jquery.dropdown.min.js"></script>
-
-    <!--
-
-                <a href="#" data-jq-dropdown="#jq-dropdown-1234">dropdown</a>
-
-                <div id="jq-dropdown-1234" class="jq-dropdown jq-dropdown-tip">
-                    <ul class="jq-dropdown-menu">
-                        <li><a href="#1">Item 1</a></li>
-                        <li><a href="#2">Item 2</a></li>
-                        <li><a href="#3">Item 3</a></li>
-                        <li class="jq-dropdown-divider"></li>
-                        <li><a href="#4">Item 4</a></li>
-                        <li><a href="#5">Item 5</a></li>
-                        <li><a href="#5">Item 6</a></li>
-                    </ul>
-                </div>
--->
 
     <script type="text/javascript">
         $(document).ready(function () {

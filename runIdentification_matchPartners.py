@@ -444,6 +444,7 @@ def matchPartners(mzXMLData, labellingElement, useCValidation, intensityThres, i
 
                                     ## TODO select best fit based on isotopic pattern (e.g. intensity)
 
+
                                     for mt in curPeakDetectedIonPairs:
                                         if abs(mt.lmz-mt.mz-mt.xCount*1.00335)*1000000./mt.mz < bestFitPPMDiff:
                                             bestFit=mt
@@ -452,6 +453,12 @@ def matchPartners(mzXMLData, labellingElement, useCValidation, intensityThres, i
                                     curScanDetectedIonPairs.append(bestFit)
                             else:     ## use all peak pairs
                                 curScanDetectedIonPairs.extend(curPeakDetectedIonPairs)
+
+                if len(curScanDetectedIonPairs)>0 and False:
+                    from utils import printObjectsAsTable
+                    print "\n"
+                    print curScan.retention_time/60.
+                    printObjectsAsTable(curScanDetectedIonPairs, attrs=["mz", "xCount", "loading", "nIntensity", "lIntensity", "ionMode"])
 
                 detectedIonPairs.extend(curScanDetectedIonPairs)
                 curScanIndex += 1

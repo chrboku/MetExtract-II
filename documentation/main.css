@@ -133,6 +133,7 @@ a {
 
 b, strong {
     font-weight: 600;
+    font-size: larger
 }
 
 samp {
@@ -150,22 +151,29 @@ samp {
 figure {
     background: transparent;
     display: block;
+    
 }
 
 img {
-    border-bottom: 2px solid slategrey;
-    padding-bottom: 10px; 
+    padding: 10px;
     margin-top: 50px;
+    border-left: 2px solid slategrey;
 }
 
-figcaption {
+figcaption, .tabCaption {
+    max-width: 90%; 
+    text-align: justify;
     margin-bottom: 50px;
+    padding: 10px;
+    border-left: 2px solid slategrey;
+    border-bottom: 2px solid slategrey;
 }
+
 
 .bigLogo {
     position: absolute; 
     padding-left: 50px;
-    border-bottom: none;
+    border: none;
 }
 
 dl hr {
@@ -242,3 +250,4 @@ pre.code {
 .infoTable th {
     border: 2px solid slategrey;
 }
+

@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '.\mePyGuis\guis\mainwindow.ui'
 #
-# Created: Mon Nov 16 08:25:06 2015
+# Created: Wed Jan 20 09:08:21 2016
 #      by: PyQt4 UI code generator 4.10
 #
 # WARNING! All changes made in this file will be lost!
@@ -456,7 +456,7 @@ class Ui_MainWindow(object):
         self.scrollArea_2.setWidgetResizable(True)
         self.scrollArea_2.setObjectName(_fromUtf8("scrollArea_2"))
         self.scrollAreaWidgetContents_5 = QtGui.QWidget()
-        self.scrollAreaWidgetContents_5.setGeometry(QtCore.QRect(0, 0, 1320, 864))
+        self.scrollAreaWidgetContents_5.setGeometry(QtCore.QRect(0, 0, 1320, 884))
         self.scrollAreaWidgetContents_5.setObjectName(_fromUtf8("scrollAreaWidgetContents_5"))
         self.gridLayout_10 = QtGui.QGridLayout(self.scrollAreaWidgetContents_5)
         self.gridLayout_10.setObjectName(_fromUtf8("gridLayout_10"))
@@ -1179,6 +1179,15 @@ class Ui_MainWindow(object):
         self.label_11 = QtGui.QLabel(self.procIndFiles)
         self.label_11.setObjectName(_fromUtf8("label_11"))
         self.gridLayout_23.addWidget(self.label_11, 0, 0, 1, 1)
+        self.label_73 = QtGui.QLabel(self.procIndFiles)
+        self.label_73.setObjectName(_fromUtf8("label_73"))
+        self.gridLayout_23.addWidget(self.label_73, 7, 0, 1, 1)
+        self.intensityThresholdIsotopologs = QtGui.QDoubleSpinBox(self.procIndFiles)
+        self.intensityThresholdIsotopologs.setMaximum(1000000000.0)
+        self.intensityThresholdIsotopologs.setSingleStep(1000.0)
+        self.intensityThresholdIsotopologs.setProperty("value", 1000.0)
+        self.intensityThresholdIsotopologs.setObjectName(_fromUtf8("intensityThresholdIsotopologs"))
+        self.gridLayout_23.addWidget(self.intensityThresholdIsotopologs, 7, 1, 1, 1)
         self.verticalLayout_21.addLayout(self.gridLayout_23)
         self.groupBox_6 = QtGui.QGroupBox(self.procIndFiles)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Preferred)
@@ -2062,6 +2071,7 @@ class Ui_MainWindow(object):
 "This threshold is not used for mixed Base and Isotope Peaks or for \n"
 "the pure Isotope Peak", None))
         self.label_11.setText(_translate("MainWindow", "Intensity threshold (≥)", None))
+        self.label_73.setText(_translate("MainWindow", "Isotopologs threshold (≥)", None))
         self.groupBox_6.setTitle(_translate("MainWindow", "Intensity abundance error", None))
         self.label_17.setToolTip(_translate("MainWindow", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
 "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"

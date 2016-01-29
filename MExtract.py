@@ -1007,6 +1007,12 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.ui.eicSmoothingWindowSize.setEnabled(e)
         self.ui.smoothingWindowSizeLabel.setEnabled(e)
 
+    def isoSearchChanged(self):
+        self.ui.label_73.setVisible(self.ui.isoAbundance.checkState()==QtCore.Qt.Checked)
+        self.ui.intensityThresholdIsotopologs.setVisible(self.ui.isoAbundance.checkState()==QtCore.Qt.Checked)
+        #if self.ui.isoAbundance.checkState()==QtCore.Qt.Checked:
+        #    self.ui.intensityThresholdIsotopologs.setValue(self.ui.intensityThreshold.value())
+
 
     # check if all imported LC-HRMS data files were processed with the same MetExtract settings
     def checkIndFilesSettings(self):
@@ -1560,6 +1566,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 self.ui.intensityThreshold.setValue(sett.value("IntensityThreshold").toInt()[0])
             if sett.contains("IntensityCutoff"):
                 self.ui.intensityCutoff.setValue(sett.value("IntensityCutoff").toInt()[0])
+            if sett.contains("intensityThresholdIsotopologs"):
+                self.ui.intensityThresholdIsotopologs.setValue(sett.value("intensityThresholdIsotopologs").toInt()[0])
 
             if sett.contains("ScanStart"):
                 self.ui.scanStartTime.setValue(sett.value("ScanStart").toDouble()[0])
@@ -1746,6 +1754,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             sett.setValue("IsotopicPatternCountA", self.ui.isotopePatternCountA.value())
             sett.setValue("IsotopicPatternCountB", self.ui.isotopePatternCountB.value())
             sett.setValue("lowAbundanceIsotopeCutoff", self.ui.isoAbundance.checkState() == QtCore.Qt.Checked)
+            sett.setValue("intensityThresholdIsotopologs", self.ui.intensityThresholdIsotopologs.value())
             sett.setValue("IntensityAbundanceErrorA", self.ui.baseRange.value())
             sett.setValue("IntensityAbundanceErrorB", self.ui.isotopeRange.value())
 
@@ -2455,7 +2464,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             it.myType = "MZs"
             count = 0
             children=[]
-            if True and False:
+            if False:
                 for mzRes in SQLSelectAsObject(self.currentOpenResultsFile.curs, "SELECT id, mz, xcount, scanid, loading, scantime, intensity FROM MZs ORDER BY scanid"):
                     d = QtGui.QTreeWidgetItem(it, [str(s) for s in [mzRes.mz, mzRes.xcount, mzRes.scanid, mzRes.scantime/60., mzRes.loading, mzRes.intensity]])
                     d.myType = "mz"
@@ -2470,7 +2479,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             it.myType = "MZBins"
             self.ui.res_ExtractedData.addTopLevelItem(it)
             mzbins = []
-            if True and False:
+            if True and True:
                 for mzbin in SQLSelectAsObject(self.currentOpenResultsFile.curs, "SELECT id, mz FROM MZBins ORDER BY mz"):
                     mzbins.append(mzbin)
             count = 0
@@ -2514,7 +2523,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
             count = 0
             children=[]
-            for row in SQLSelectAsObject(self.currentOpenResultsFile.curs, "select chromPeaks.id as cpID, mz, xcount, NPeakCenterMin, LPeakCenterMin, NPeakCenter, NPeakScale, eicID, LPeakScale, peaksCorr, peaksRatio, LPeakCenter, LPeakScale, Loading, heteroAtoms, name as tracerName, adducts, heteroAtoms, chromPeaks.ionMode as ionMode, assignedName, NBorderLeft, NBorderRight, LBorderLeft, LBorderRight, chromPeaks.massSpectrumID as massSpectrumID from chromPeaks left join tracerConfiguration on tracerConfiguration.id=chromPeaks.tracer order by tracerConfiguration.id, NPeakCenter, mz, xcount"):
+            for row in SQLSelectAsObject(self.currentOpenResultsFile.curs, "SELECT chromPeaks.id AS cpID, mz, xcount, NPeakCenterMin, LPeakCenterMin, NPeakCenter, NPeakScale, eicID, LPeakScale, peaksCorr, peaksRatio, LPeakCenter, LPeakScale, Loading, heteroAtoms, name AS tracerName, adducts, heteroAtoms, chromPeaks.ionMode AS ionMode, assignedName, NBorderLeft, NBorderRight, LBorderLeft, LBorderRight, chromPeaks.massSpectrumID AS massSpectrumID FROM chromPeaks LEFT JOIN tracerConfiguration ON tracerConfiguration.id=chromPeaks.tracer ORDER BY tracerConfiguration.id, NPeakCenter, mz, xcount"):
                 adducts = ""
                 lk = loads(base64.b64decode(row.adducts))
                 if len(lk) > 0:
@@ -2637,7 +2646,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             it.myType = "parameter"
             self.ui.res_ExtractedData.addTopLevelItem(it)
             config = {}
-            for row in self.currentOpenResultsFile.curs.execute("select key, value from config"):
+            for row in self.currentOpenResultsFile.curs.execute("SELECT key, value FROM config"):
                 config[str(row[0])] = str(row[1])
 
             if config["metabolisationExperiment"] == "True":
@@ -3288,12 +3297,6 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                 toDrawInts.append(intensity)
                             toDrawInts.append(0)
 
-                    mInt = 0
-                    if cp.ionMode == "-" and featuresPosSelected:
-                        mInt = min(toDrawInts)
-                    else:
-                        mInt = max(toDrawInts)
-
                     self.drawPlot(self.ui.pl3, plotIndex=0, x=toDrawMzs, y=toDrawInts, useCol=useColi, multipleLocator=None,
                                   alpha=0.1, title="", xlab="MZ")
 
@@ -3310,18 +3313,16 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     else:
                         h = max(intLeft, intRight)
 
-                    h = h + mInt * 0.02
                     if self.ui.MSLabels.checkState() == QtCore.Qt.Checked:
                         self.addAnnotation(self.ui.pl3, "mz: %.5f\nl-mz: %.5f\nd-mz: %.5f\nXn: %d Z: %s%d" % (
                             cp.mz, cp.mz + mzD * cp.xCount / cp.loading, mzD * cp.xCount, cp.xCount, cp.ionMode,
                             cp.loading), (cp.mz + mzD * cp.xCount / cp.loading / 2., h), (10, 120), rotation=0,
                                            up=not (cp.ionMode == "-" and featuresPosSelected))
 
-                    of = mInt * 0.0015
-                    self.addArrow(self.ui.pl3, (cp.mz, toDrawInts[bm] + of), (cp.mz, h), drawArrowHead=True)
+                    self.addArrow(self.ui.pl3, (cp.mz, toDrawInts[bm]), (cp.mz, h), drawArrowHead=True)
                     self.addArrow(self.ui.pl3, (cp.mz, h), (cp.mz + mzD * cp.xCount / cp.loading, h),
                                   ecColor="firebrick")
-                    self.addArrow(self.ui.pl3, (cp.mz + mzD * cp.xCount / cp.loading, toDrawInts[bml] + of),(cp.mz + mzD * cp.xCount / cp.loading, h), drawArrowHead=True)
+                    self.addArrow(self.ui.pl3, (cp.mz + mzD * cp.xCount / cp.loading, toDrawInts[bml]),(cp.mz + mzD * cp.xCount / cp.loading, h), drawArrowHead=True)
 
                     annotationHeight=h
 
@@ -3334,9 +3335,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         else:
                             h = max(toDrawInts[bm], toDrawInts[bml])
 
-                        h = h + mInt * 0.0175
-                        of = mInt * 0.0015
-                        self.addArrow(self.ui.pl3, (cp.mz + 1.00335 / cp.loading, toDrawInts[bml] + of),
+                        self.addArrow(self.ui.pl3, (cp.mz + 1.00335 / cp.loading, toDrawInts[bml]),
                                       (cp.mz + 1.00335 / cp.loading, annotationHeight), drawArrowHead=True)
 
                         bm = min(range(len(toDrawMzs)),
@@ -3349,10 +3348,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         else:
                             h = max(toDrawInts[bm], toDrawInts[bml])
 
-                        h = h + mInt * 0.0175
-                        of = mInt * 0.0015
                         self.addArrow(self.ui.pl3,
-                                      (cp.mz + 1.00335 * (cp.xCount - 1) / cp.loading, toDrawInts[bm] + of),
+                                      (cp.mz + 1.00335 * (cp.xCount - 1) / cp.loading, toDrawInts[bm]),
                                       (cp.mz + 1.00335 * (cp.xCount - 1) / cp.loading, annotationHeight), drawArrowHead=True)
 
 
@@ -3548,6 +3545,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                     toDrawInts = toDrawIntsPos
                                     toDrawMzs = toDrawMZsPos
 
+
                                 mzD, purN, purL = self.getLabellingParametersForResult(child.id)
 
                                 bm = min(range(len(toDrawMzs)), key=lambda i: abs(toDrawMzs[i] - child.mz)) + 1
@@ -3559,7 +3557,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                                 h = max(toDrawInts[bm], toDrawInts[bml])
 
-                                h = h + mInt * 0.05
+                                h = h
                                 if self.ui.MSLabels.checkState() == QtCore.Qt.Checked:
                                     self.addAnnotation(self.ui.pl3,
                                                        "mz: %.5f\nl-mz: %.5f\nd-mz: %.5f\nXn: %d Z: %s%d" % (
@@ -3569,14 +3567,13 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                        (child.mz + mzD * child.xCount / child.loading / 2., h * intMul),
                                                        (10, 120), rotation=0, offset=(-10, 20), up=intMul > 0)
 
-                                of = mInt * 0.0015
-                                self.addArrow(self.ui.pl3, (child.mz, (toDrawInts[bm] + of) * intMul),
+                                self.addArrow(self.ui.pl3, (child.mz, (toDrawInts[bm]) * intMul),
                                               (child.mz, h * intMul), drawArrowHead=True)
                                 self.addArrow(self.ui.pl3, (child.mz, h * intMul),
                                               (child.mz + mzD * child.xCount / child.loading, h * intMul),
                                               ecColor="firebrick")
                                 self.addArrow(self.ui.pl3, (
-                                child.mz + mzD * child.xCount / child.loading, (toDrawInts[bml] + of) * intMul),
+                                child.mz + mzD * child.xCount / child.loading, (toDrawInts[bml]) * intMul),
                                               (child.mz + mzD * child.xCount / child.loading, h * intMul),
                                               drawArrowHead=True)
 
@@ -3584,12 +3581,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                     bml = min(range(len(toDrawMzs)), key=lambda i: abs(
                                         toDrawMzs[i] - (child.mz + 1.00335 / child.loading))) + 1
                                     h = max(toDrawInts[bm], toDrawInts[bml])
-                                    h = h + mInt * 0.0175
-                                    of = mInt * 0.0015
                                     self.addArrow(self.ui.pl3, (child.mz, h * intMul),
                                                   (child.mz + 1.00335 / child.loading, h * intMul), ecColor="firebrick")
                                     self.addArrow(self.ui.pl3,
-                                                  (child.mz + 1.00335 / child.loading, (toDrawInts[bml] + of) * intMul),
+                                                  (child.mz + 1.00335 / child.loading, (toDrawInts[bml]) * intMul),
                                                   (child.mz + 1.00335 / child.loading, h * intMul), drawArrowHead=True)
 
                                     bm = min(range(len(toDrawMzs)), key=lambda i: abs(
@@ -3597,11 +3592,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                     bml = min(range(len(toDrawMzs)), key=lambda i: abs(
                                         toDrawMzs[i] - (child.mz + 1.00335 * child.xCount / child.loading))) + 1
                                     h = max(toDrawInts[bm], toDrawInts[bml])
-                                    h = h + mInt * 0.0175
-                                    of = mInt * 0.0015
                                     self.addArrow(self.ui.pl3, (
                                         child.mz + 1.00335 * (child.xCount - 1) / child.loading,
-                                        (toDrawInts[bm] + of) * intMul),
+                                        (toDrawInts[bm]) * intMul),
                                                   (child.mz + 1.00335 * (child.xCount - 1) / child.loading, h * intMul),
                                                   drawArrowHead=True)
                                     self.addArrow(self.ui.pl3,
@@ -4857,6 +4850,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         self.ui.eicSmoothingWindow.currentIndexChanged.connect(self.smoothingWindowChanged)
         self.smoothingWindowChanged()
+
+        self.ui.isoAbundance.stateChanged.connect(self.isoSearchChanged)
+        self.isoSearchChanged()
 
         # setup result plots
         #Setup first plot

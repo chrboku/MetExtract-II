@@ -119,7 +119,7 @@ class RunIdentification:
                  labellingisotopeA='12C', labellingisotopeB='13C', useCValidation=False, xOffset=1.00335,
                  minRatio=0, maxRatio=9999999, useRatio=False,
                  configuredTracers=[], intensityThreshold=0, intensityCutoff=0, maxLoading=1, xMin=3, xMax=70, ppm=2.,
-                 isotopicPatternCountLeft=2, isotopicPatternCountRight=2, lowAbundanceIsotopeCutoff=True,
+                 isotopicPatternCountLeft=2, isotopicPatternCountRight=2, lowAbundanceIsotopeCutoff=True, intensityThresholdIsotopologs=1000,
                  intensityErrorN=0.25, intensityErrorL=0.25, purityN=0.99, purityL=0.99, minSpectraCount=1, clustPPM=8.,
                  chromPeakPPM=5., snrTh=1., scales=[1, 35], peakCenterError=5, peakScaleError=3, minPeakCorr=0.85,
                  calcIsoRatioNative=1, calcIsoRatioLabelled=-1, calcIsoRatioMoiety=1,
@@ -186,6 +186,7 @@ class RunIdentification:
         self.isotopicPatternCountLeft = isotopicPatternCountLeft
         self.isotopicPatternCountRight = isotopicPatternCountRight
         self.lowAbundanceIsotopeCutoff = lowAbundanceIsotopeCutoff
+        self.intensityThresholdIsotopologs = intensityThresholdIsotopologs
         self.intensityErrorN = intensityErrorN
         self.intensityErrorL = intensityErrorL
         self.purityN = purityN
@@ -359,6 +360,7 @@ class RunIdentification:
         SQLInsert(curs, "config", key="isotopicPatternCountLeft", value=self.isotopicPatternCountLeft)
         SQLInsert(curs, "config", key="isotopicPatternCountRight", value=self.isotopicPatternCountRight)
         SQLInsert(curs, "config", key="lowAbundanceIsotopeCutoff", value=str(self.lowAbundanceIsotopeCutoff))
+        SQLInsert(curs, "config", key="intensityThresholdIsotopologs", value=str(self.intensityThresholdIsotopologs))
         SQLInsert(curs, "config", key="intensityErrorN", value=self.intensityErrorN)
         SQLInsert(curs, "config", key="intensityErrorL", value=self.intensityErrorL)
         SQLInsert(curs, "config", key="purityN", value=self.purityN)
@@ -406,7 +408,7 @@ class RunIdentification:
 
     # creates a new PDF page which contains the used data processing parameters
     def writeSettingsToPDF(self, pdf):
-        currentHeight = 780
+        currentHeight = 800
 
         pdf.drawString(50, currentHeight, "Experiment name")
         pdf.drawString(240, currentHeight, self.experimentName);
@@ -432,7 +434,7 @@ class RunIdentification:
 
         pdf.showPage()
 
-        currentHeight = 780
+        currentHeight = 800
 
         pdf.drawString(50, currentHeight, "Parameters");
         pdf.line(50, currentHeight - 2, 540, currentHeight - 2);
@@ -476,7 +478,7 @@ class RunIdentification:
 
         pdf.drawString(70, currentHeight, "Intensity threshold")
         pdf.drawString(240, currentHeight, "%d%s" % (self.intensityThreshold,
-                                                     " (Low abundance cutoff for isotopologues)" if self.lowAbundanceIsotopeCutoff else ""));
+                                                     " (Low abundance cutoff for isotopologues: %.0f)"%self.intensityThresholdIsotopologs if self.lowAbundanceIsotopeCutoff else ""));
         currentHeight -= 15
         pdf.drawString(70, currentHeight, "Intensity cutoff")
         pdf.drawString(240, currentHeight, "%d" % (self.intensityCutoff));
@@ -580,19 +582,21 @@ class RunIdentification:
         currentHeight -= 15
 
         pdf.drawString(70, currentHeight, "Adducts")
+        currentHeight -=15
         p = Paragraph(str(", ".join(
             ["%s (m/z: %.4f, polarity %s, charge %d)" % (ad.name, ad.mzoffset, ad.polarity, ad.charge) for ad in self.adducts])), style=getSampleStyleSheet()["Normal"])
-        w, h = p.wrap(300, 60)
-        p.wrapOn(pdf, 300, 60)
-        p.drawOn(pdf, 240, currentHeight - h + 10);
+        w, h = p.wrap(460, 60)
+        p.wrapOn(pdf, 460, 60)
+        p.drawOn(pdf, 80, currentHeight - h + 10);
         currentHeight -= max(20, h + 10)
 
         pdf.drawString(70, currentHeight, "Elements")
+        currentHeight -=15
         p = Paragraph(
             str(", ".join(["%s (m: %.4f)" % (el, self.elements[el].weight) for el in self.elements.keys()])), style=getSampleStyleSheet()["Normal"])
-        w, h = p.wrap(300, 60)
-        p.wrapOn(pdf, 300, 60)
-        p.drawOn(pdf, 240, currentHeight - h + 10);
+        w, h = p.wrap(460, 60)
+        p.wrapOn(pdf, 460, 60)
+        p.drawOn(pdf, 80, currentHeight - h + 10);
         currentHeight -= max(35, h + 10)
 
         pdf.drawString(50, currentHeight, "Software");
@@ -611,7 +615,7 @@ class RunIdentification:
 
     # creates a new PDF page which contains the tracer used in this experiment
     def writeCurrentTracerToPDF(self, pdf, tracer):
-        currentHeight = 780
+        currentHeight = 800
         pdf.drawString(50, currentHeight, "Tracer: %s" % tracer.name);
         pdf.line(50, currentHeight - 2, 540, currentHeight - 1);
         currentHeight -= 20
@@ -682,7 +686,7 @@ class RunIdentification:
                               labellingElement=self.labellingElement,
                               useCValidation=self.useCValidation,
                               intensityThres=self.intensityThreshold,
-                              isotopologIntensityThres=self.intensityThreshold,
+                              isotopologIntensityThres=self.intensityThresholdIsotopologs,
                               maxLoading=self.maxLoading,
                               xMin=self.xMin, xMax=self.xMax,
                               xOffset=self.xOffset,
@@ -713,7 +717,7 @@ class RunIdentification:
                               labellingElement=self.labellingElement,
                               useCValidation=self.useCValidation,
                               intensityThres=self.intensityThreshold,
-                              isotopologIntensityThres=self.intensityThreshold,
+                              isotopologIntensityThres=self.intensityThresholdIsotopologs,
                               maxLoading=self.maxLoading,
                               xMin=self.xMin, xMax=self.xMax,
                               xOffset=self.xOffset,
@@ -914,9 +918,11 @@ class RunIdentification:
                     # extract the EIC of the native ion and detect its chromatographic peaks
                     # optionally: smoothing
                     eic, times, scanIds = mzxml.getEIC(meanmz, self.chromPeakPPM, filterLine=scanEvent)
+                    eic = smoothDataSeries(times, eic, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow)
                     # extract the EIC of the labelled ion and detect its chromatographic peaks
                     # optionally: smoothing
                     eicL, times, scanIds = mzxml.getEIC(meanmzLabelled,self.chromPeakPPM, filterLine=scanEvent)
+                    eicL = smoothDataSeries(times, eicL, windowLen=self.eicSmoothingWindowSize,window=self.eicSmoothingWindow)
 
                     # determine boundaries for chromatographic peak picking
                     minInd=min([kid.getObject().scanIndex for kid in kids])
@@ -927,7 +933,7 @@ class RunIdentification:
                     peaksN = []
                     try:
                         peaksN = self.CP.getPeaksFor(times,
-                                                     smoothDataSeries(times, eic, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow),
+                                                     eic,
                                                      scales=self.scales, snrTh=self.snrTh, startIndex=startIndex, endIndex=endIndex)
                     except Exception as ex:
                         self.printMessage("Errora: %s" % str(ex))
@@ -935,7 +941,7 @@ class RunIdentification:
                     peaksL = []
                     try:
                         peaksL = self.CP.getPeaksFor(times,
-                                                     smoothDataSeries(times, eicL, windowLen=self.eicSmoothingWindowSize,window=self.eicSmoothingWindow),
+                                                     eicL,
                                                      scales=self.scales, snrTh=self.snrTh, startIndex=startIndex, endIndex=endIndex)
                     except Exception as ex:
                         self.printMessage("Errorb: %s" % str(ex))
@@ -945,14 +951,17 @@ class RunIdentification:
                     eicfirstiso, timesL, scanIdsL = mzxml.getEIC(
                         meanmz + 1 * self.xOffset / loading, self.chromPeakPPM,
                         filterLine=scanEvent)
+                    eicfirstiso = smoothDataSeries(times, eicfirstiso, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow)
 
                     eicLfirstiso, timesL, scanIdsL = mzxml.getEIC(
                         meanmz + (xcount - 1) * self.xOffset / loading, self.chromPeakPPM,
                         filterLine=scanEvent)
+                    eicLfirstiso = smoothDataSeries(times, eicLfirstiso, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow)
 
                     eicLfirstisoconjugate, timesL, scanIdsL = mzxml.getEIC(
                         meanmz + (xcount + 1) * self.xOffset / loading, self.chromPeakPPM,
                         filterLine=scanEvent)
+                    eicLfirstisoconjugate = smoothDataSeries(times, eicLfirstisoconjugate, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow)
 
                     peaksBoth = []
 
@@ -1777,14 +1786,14 @@ class RunIdentification:
                 for peakB in chromPeaks:
                     if peakA.mz < peakB.mz:
                         if abs(peakA.NPeakCenter - peakB.NPeakCenter) < self.peakCenterError:
-                            bmin = int(max(0, min(peakA.NPeakCenter - 1 * peakA.NBorderLeft,
-                                                  peakB.NPeakCenter - 1 * peakB.NBorderLeft,
-                                                  peakA.LPeakCenter - 1 * peakA.LBorderLeft,
-                                                  peakB.LPeakCenter - 1 * peakB.LBorderLeft)))
-                            bmax = int(min(len(peakB.NXIC) - 1, max(peakB.NPeakCenter + 1 * peakB.NBorderRight,
-                                                                    peakA.NPeakCenter + 1 * peakA.NBorderRight,
-                                                                    peakB.LPeakCenter + 1 * peakB.LBorderRight,
-                                                                    peakA.LPeakCenter + 1 * peakA.LBorderRight)))
+                            bmin = int(max(0, mean([peakA.NPeakCenter - 1 * peakA.NBorderLeft,
+                                                    peakB.NPeakCenter - 1 * peakB.NBorderLeft,
+                                                    peakA.LPeakCenter - 1 * peakA.LBorderLeft,
+                                                    peakB.LPeakCenter - 1 * peakB.LBorderLeft])))
+                            bmax = int(min(len(peakB.NXIC) - 1, mean([peakB.NPeakCenter + 1 * peakB.NBorderRight,
+                                                                      peakA.NPeakCenter + 1 * peakA.NBorderRight,
+                                                                      peakB.LPeakCenter + 1 * peakB.LBorderRight,
+                                                                      peakA.LPeakCenter + 1 * peakA.LBorderRight])))
                             pb = corr(peakA.NXIC[bmin:bmax], peakB.NXIC[bmin:bmax])
 
                             if peakA.id not in correlations.keys():

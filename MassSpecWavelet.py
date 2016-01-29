@@ -1,3 +1,6 @@
+if __name__=="__main__":
+    import MExtract
+
 import rpy2
 import rpy2.robjects as ro
 
@@ -121,10 +124,10 @@ if __name__ == '__main__':
 
 
     chromatogram = Chromatogram()
-    chromatogram.parse_file("/Volumes/Storage/IFA/implTest/LTQ_Orbitrap_XL/Remus_DON_1_Base.mzXML")
-    mz = 297.132
-    ppm = 5.
-    scales = [3, 19]
+    chromatogram.parse_file("F:/160112_238_posneg_Labelled_wheat_experiment/160112_posneg_236_12C13C_fullyLab_Remus_DON_1.mzXML")
+    mz = 375.14439
+    ppm = 8.
+    scales = [5, 21]
 
     scanEvents = chromatogram.getFilterLines()
     for s in scanEvents:
@@ -136,10 +139,8 @@ if __name__ == '__main__':
     ax = fig.add_subplot(111)
 
     eic, times, timesI = chromatogram.getEIC(mz, ppm, scanEvent)
-    startIndex=getLastTimeBefore(times, refTime=6.5*60)
-    endIndex=getLastTimeBefore(times, refTime=13.5*60)
-    startIndex=258
-    endIndex=643
+    startIndex=getLastTimeBefore(times, refTime=0*60.)
+    endIndex=getLastTimeBefore(times, refTime=100*60.)
     
     from utils import printObjectsAsTable
     ret = CP.getPeaksFor(times, eic, scales=scales, startIndex=startIndex, endIndex=endIndex)
