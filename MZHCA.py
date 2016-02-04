@@ -60,16 +60,22 @@ class HCComposite(HCNode):
         self.right = right
 
     def getValue(self):
-        return self.mean(self.getKidsValues(), self.getKidsCount())
+        if not hasattr(self, "meanValue"):
+            self.meanValue=self.mean(self.getKidsValues(), self.getKidsCount())
+        return self.meanValue
 
     def getObject(self):
         raise Exception("Composite: Use forbidden")
 
     def getKidsCount(self):
-        return self.left.getKidsCount() + self.right.getKidsCount()
+        if not hasattr(self, "kidsCountValue"):
+            self.kidsCountValue=self.left.getKidsCount() + self.right.getKidsCount()
+        return self.kidsCountValue
 
     def getKidsValues(self):
-        return self.add(self.left.getKidsValues(), self.right.getKidsValues())
+        if not hasattr(self, "addValue"):
+            self.addValue=self.add(self.left.getKidsValues(), self.right.getKidsValues())
+        return self.addValue
 
     # flatten all kids to an array
     def getKids(self):

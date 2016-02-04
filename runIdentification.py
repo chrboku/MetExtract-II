@@ -791,7 +791,8 @@ class RunIdentification:
                             if ppmDiff > self.clustPPM:
                                 hc = HierarchicalClustering(xAct[lastUnused:i],
                                                             dist=lambda x, y: x.getValue() - y.getValue(),
-                                                            val=lambda x: x.mz, mean=lambda x, y: x / y,
+                                                            val=lambda x: x.mz,
+                                                            mean=lambda x, y: x / y,
                                                             add=lambda x, y: x + y)
 
                                 # separate HC subclusters according to the maximal allowed ppm difference
