@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '.\mePyGuis\guis\mainwindow.ui'
 #
-# Created: Wed Jan 20 09:08:21 2016
+# Created: Mon Feb 01 18:12:57 2016
 #      by: PyQt4 UI code generator 4.10
 #
 # WARNING! All changes made in this file will be lost!
@@ -1183,6 +1183,7 @@ class Ui_MainWindow(object):
         self.label_73.setObjectName(_fromUtf8("label_73"))
         self.gridLayout_23.addWidget(self.label_73, 7, 0, 1, 1)
         self.intensityThresholdIsotopologs = QtGui.QDoubleSpinBox(self.procIndFiles)
+        self.intensityThresholdIsotopologs.setDecimals(0)
         self.intensityThresholdIsotopologs.setMaximum(1000000000.0)
         self.intensityThresholdIsotopologs.setSingleStep(1000.0)
         self.intensityThresholdIsotopologs.setProperty("value", 1000.0)

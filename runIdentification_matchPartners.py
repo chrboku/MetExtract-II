@@ -379,8 +379,9 @@ def matchPartners(mzXMLData, labellingElement, useCValidation, intensityThres, i
                                                         normRatioL = purityLArray[xCount][1]
                                                         normRatioN = purityNArray[xCount][1]
 
+
                                                         # 2. check if the observed M'-1/M' ratio fits the theoretical one
-                                                        if peakCountRight > 1:
+                                                        if peakCountRight > 1 or (lowAbundanceIsotopeCutoff and labPeakIntensity*normRatioL <= isotopologIntensityThres):
                                                             if isoM_pXm1 != -1:
                                                                 observedRatioMp=curScan.intensity_list[isoM_pXm1] / labPeakIntensity
                                                                 if abs(normRatioL-observedRatioMp) <= intensityErrorL:
@@ -398,7 +399,7 @@ def matchPartners(mzXMLData, labellingElement, useCValidation, intensityThres, i
                                                             pass ## accept peak
 
                                                         # 3. check if the observed M+1/M ratio fits the theoretical one
-                                                        if peakCountLeft > 1:
+                                                        if peakCountLeft > 1 or (lowAbundanceIsotopeCutoff and curPeakIntensity*normRatioN <= isotopologIntensityThres):
                                                             observedRatioM = curScan.intensity_list[isoM_p1] / curPeakIntensity
                                                             adjRatio=0
 

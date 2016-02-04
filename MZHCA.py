@@ -121,7 +121,9 @@ def _getMinKid(node, minK=100000):
     if isinstance(node, HCLeaf):
         return min(minK, node.getValue())
     elif isinstance(node, HCComposite):
-        return min(minK, _getMinKid(node.left, minK), _getMinKid(node.right, minK))
+        if not hasattr(node, "minKid"):
+            node.minKid=min(_getMinKid(node.left, minK), _getMinKid(node.right, minK))
+        return min(minK, node.minKid)
     else:
         raise Exception("HCA Clustering error")
 
@@ -130,7 +132,9 @@ def _getMaxKid(node, maxK=-1):
     if isinstance(node, HCLeaf):
         return max(maxK, node.getValue())
     elif isinstance(node, HCComposite):
-        return max(maxK, _getMaxKid(node.left, maxK), _getMaxKid(node.right, maxK))
+        if not hasattr(node, "maxKid"):
+            node.maxKid=max(_getMaxKid(node.left, maxK), _getMaxKid(node.right, maxK))
+        return max(maxK, node.maxKid)
     else:
         raise Exception("HCA Clustering error")
 

@@ -842,31 +842,35 @@ class RunIdentification:
     # in two different EICs. Thus, the internal standardisation is not calculated using the peak area
     # but rather the ratio of each MS peak that contributes to the chromatographic peak.
     def getMeanRatioOfScans(self, eicA, eicB, lib, rib, perfWeighted=True, minInt=1000, minRatiosNecessary=3):
-        if perfWeighted:
-            sumEIC = sum(eicA[lib:rib])
-            sumEICL = sum(eicB[lib:rib])
+        try:
+            if perfWeighted:
+                sumEIC = sum(eicA[lib:rib])
+                sumEICL = sum(eicB[lib:rib])
 
-            normEIC = eicA
-            if sumEICL > sumEIC:
-                normEIC = eicB
+                normEIC = eicA
+                if sumEICL > sumEIC:
+                    normEIC = eicB
 
-            os=[o for o in range(lib, rib) if eicA[o] >= minInt and eicB[o] >= minInt]
-            normSum = sum([normEIC[o] for o in os])
-            ratios = [1. * eicA[o] / eicB[o] for o in os]
-            weights = [1. * normEIC[o] / normSum for o in os]
+                os=[o for o in range(lib, rib) if eicA[o] >= minInt and eicB[o] >= minInt]
+                normSum = sum([normEIC[o] for o in os])
+                ratios = [1. * eicA[o] / eicB[o] for o in os]
+                weights = [1. * normEIC[o] / normSum for o in os]
 
-            if len(ratios) >= minRatiosNecessary:
-                assert len(ratios) == len(weights)
-                ratio = sum([ratios[o] * weights[o] for o in range(len(ratios))])
-                return ratio
+                if len(ratios) >= minRatiosNecessary:
+                    assert len(ratios) == len(weights)
+                    ratio = sum([ratios[o] * weights[o] for o in range(len(ratios))])
+                    return ratio
+                else:
+                    return -1
             else:
-                return -1
-        else:
-            ratios = [(eicA[o] / eicB[o]) for o in range(lib, rib) if eicA[o] >= minInt and eicB[o] >= minInt]
-            if len(ratios) >= minRatiosNecessary:
-                return mean(ratios)
-            else:
-                return -1
+                ratios = [(eicA[o] / eicB[o]) for o in range(lib, rib) if eicA[o] >= minInt and eicB[o] >= minInt]
+                if len(ratios) >= minRatiosNecessary:
+                    return mean(ratios)
+                else:
+                    return -1
+
+        except IndexError:
+            return -1
 
     # data processing step 3: for each signal pair cluster extract the EICs, detect chromatographic peaks
     # present in both EICs at approximately the same retention time and very their chromatographic peak shapes.
@@ -990,6 +994,7 @@ class RunIdentification:
                                              NBorderLeft=peakN.peakLeftFlank, NBorderRight=peakN.peakRightFlank,
                                              LBorderLeft=peakL.peakLeftFlank, LBorderRight=peakL.peakRightFlank,
                                              isotopeRatios=[], mzDiffErrors=Bunch())
+
                             lb = int(min(peak.NPeakCenter - peak.NBorderLeft, peak.LPeakCenter - peak.LBorderLeft))
                             rb = int(max(peak.NPeakCenter + peak.NBorderRight, peak.LPeakCenter + peak.LBorderRight)) + 1
                             peak1 = eic[lb:rb]
@@ -1001,11 +1006,8 @@ class RunIdentification:
                                 peak.peaksCorr = co
                                 peaksBoth.append(peak)
 
-                                lib = int(max(peak.NPeakCenter - peak.NBorderLeft, peak.LPeakCenter - peak.LBorderLeft))
-                                rib = int(min(peak.NPeakCenter + peak.NBorderRight, peak.LPeakCenter + peak.LBorderRight)) + 1
-
-                                libs = int(floor(int(max(peak.NPeakCenter - peak.NBorderLeft*.33, peak.LPeakCenter - peak.LBorderLeft*.33))))
-                                ribs = int(floor(int(min(peak.NPeakCenter + peak.NBorderRight*.33, peak.LPeakCenter + peak.LBorderRight*.33))) + 1)
+                                libs = int(max(peak.NPeakCenter - floor(peak.NBorderLeft*.33), peak.LPeakCenter - floor(peak.LBorderLeft*.33)))
+                                ribs = int(min(peak.NPeakCenter + floor(peak.NBorderRight*.33), peak.LPeakCenter + floor(peak.LBorderRight*.33))) + 1
 
                                 peak.peaksRatio = self.getMeanRatioOfScans(eic, eicL, libs, ribs)
                                 peak.peaksRatioMp1 = self.getMeanRatioOfScans(eicfirstiso, eic, libs, ribs)

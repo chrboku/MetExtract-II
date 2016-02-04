@@ -2010,6 +2010,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                   isotopicPatternCountLeft=self.ui.isotopePatternCountA.value(),
                                   isotopicPatternCountRight=self.ui.isotopePatternCountB.value(),
                                   lowAbundanceIsotopeCutoff=self.ui.isoAbundance.checkState() == QtCore.Qt.Checked,
+                                  intensityThresholdIsotopologs=self.ui.intensityThresholdIsotopologs.value(),
                                   purityN=self.ui.isotopicAbundanceA.value(),
                                   purityL=self.ui.isotopicAbundanceB.value(), intensityErrorN=self.ui.baseRange.value(),
                                   intensityErrorL=self.ui.isotopeRange.value(),
