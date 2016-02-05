@@ -1293,6 +1293,8 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
             times=[float(f) for f in eic.timesList.split(",")]
             intensities=[float(f) for f in eic.intensityList.split(",")]
 
+            times=[t/60. for t in times]
+
             m=max(intensities)
             if m==0:
                 m=1

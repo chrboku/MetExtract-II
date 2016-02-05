@@ -666,6 +666,10 @@ class ProcessTarget:
         else:
             annotatedSpectrum.annos=[]
 
+        eics=[eic for eic in
+              SQLSelectAsObject(curs,
+                                selectStatement="SELECT intensityList, timesList, forMZ, type FROM EICs WHERE forTarget=%d"%target.id)]
+
         data=[]
 
         data.append(["Num", "mz", "relInt", "Cn", "sumFormula", "deviation [ppm]", "Adduct", "NeutralLoss"])
@@ -714,13 +718,13 @@ class ProcessTarget:
         table.wrapOn(pdf, 2 * len(data), 2 * len(data))
         table.drawOn(pdf, 50, currentHeight-30-len(data)*9)
 
-
+        ## Plot MSMS spectra
         drawing = Drawing(500, 260)
         lp = LinePlot()
-        lp.x = 40
+        lp.x = 20
         lp.y = 0
         lp.height = 260
-        lp.width = 500
+        lp.width = 400
 
         dd=[]
         colors=[]
@@ -775,7 +779,47 @@ class ProcessTarget:
 
         drawing.add(lp)
         renderPDF.draw(drawing, pdf, 15 , 25)
+        pdf.drawString(30, 295, "Mass spectra")
 
+        ## Plot EICs
+        drawing = Drawing(500, 260)
+        lp = LinePlot()
+        lp.x = 460
+        lp.y = 0
+        lp.height = 260
+        lp.width = 100
+
+        dd=[]
+        colors=[]
+        strokeWidth=[]
+
+        for eic in eics:
+            times=[float(f) for f in eic.timesList.split(",")]
+            intensities=[float(f) for f in eic.intensityList.split(",")]
+
+            times=[t/60. for t in times]
+
+            m=max(intensities)
+            if m==0:
+                m=1
+            intensities=[i/m for i in intensities]
+
+            if eic.type=="Labeled":
+                intensities=[-i for i in intensities]
+
+            dd.append(zip(times, intensities))
+            colors.append(Color(47 / 255., 79 / 255., 79 / 255.))
+            strokeWidth.append(.35)
+
+        lp.data = dd
+        lp.joinedLines = 1
+        for i in range(len(dd)):
+            lp.lines[i].strokeColor = colors[i]
+            lp.lines[i].strokeWidth = strokeWidth[i]
+
+        drawing.add(lp)
+        renderPDF.draw(drawing, pdf, 15 , 25)
+        pdf.drawString(470, 295, "EICs")
 
         pdf.save()
 
