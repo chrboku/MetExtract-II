@@ -410,6 +410,28 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
         vbox.addWidget(self.pl1.mpl_toolbar)
         self.visualizationWidget.setLayout(vbox)
 
+        #Setup EIC plot
+        #http://eli.thegreenplace.net/2009/01/20/matplotlib-with-pyqt-guis/
+        self.pl2 = QtCore.QObject()
+        self.pl2.dpi = 50
+        self.pl2.fig = Figure((5.0, 4.0), dpi=self.pl2.dpi, facecolor='white')
+        self.pl2.fig.subplots_adjust(left=0.05, bottom=0.1, right=0.99, top=0.95)
+        self.pl2.canvas = FigureCanvas(self.pl2.fig)
+        self.pl2.canvas.setParent(self.eicWidget)
+        self.pl2.axes = self.pl2.fig.add_subplot(111)
+        simpleaxis(self.pl2.axes)
+        self.pl2.twinxs = [self.pl2.axes]
+        self.pl2.mpl_toolbar = NavigationToolbar(self.pl2.canvas, self.eicWidget)
+
+        vbox = QtGui.QVBoxLayout()
+        vbox.addWidget(self.pl2.canvas)
+        vbox.addWidget(self.pl2.mpl_toolbar)
+        self.eicWidget.setLayout(vbox)
+
+
+
+
+
         self.tabWidget.setCurrentIndex(0)
         if cpu_count()==1:
             self.keepCPUCoreUnusedCheckbox.setCheckState(QtCore.Qt.Unchecked)
@@ -1199,7 +1221,6 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
             self.resultsTreeWidget.expandItem(targetsItem)
 
     def fetchAndPlotMSMSTarget(self, id, highlightCleandPeak=None):
-
         target=[p for p in SQLSelectAsObject(self.curFileSQLiteConnection.curs,
                                              selectStatement="SELECT targetName, parentSumFormula, scanIDNativeRaw, scanIDLabelledRaw, Cn, scanEventMS2Native, id, "
                                                              "scanEventMS2Labelled, precursorMZ, chargeCount FROM Targets WHERE id=%d" % (id))]
@@ -1208,18 +1229,18 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         nativeSpectra=[spec for spec in
                        SQLSelectAsObject(self.curFileSQLiteConnection.curs,
-                                         selectStatement="select scanID, mzs, ints, type from MSSpectra where forTarget=%d and type='native_raw'"%id)][0]
+                                         selectStatement="SELECT scanID, mzs, ints, type FROM MSSpectra WHERE forTarget=%d AND type='native_raw'"%id)][0]
         nativeSpectra.mzs=[float(mz) for mz in nativeSpectra.mzs.split(",")]
         nativeSpectra.ints=[float(i) for i in nativeSpectra.ints.split(",")]
         labelledSpectra=[spec for spec in
                        SQLSelectAsObject(self.curFileSQLiteConnection.curs,
-                                         selectStatement="select scanID, mzs, ints, type from MSSpectra where forTarget=%d and type='labelled_raw'"%id)][0]
+                                         selectStatement="SELECT scanID, mzs, ints, type FROM MSSpectra WHERE forTarget=%d AND type='labelled_raw'"%id)][0]
         labelledSpectra.mzs=[float(mz) for mz in labelledSpectra.mzs.split(",")]
         labelledSpectra.ints=[float(i) for i in labelledSpectra.ints.split(",")]
 
         nativeSpectraCleaned=[spec for spec in
                        SQLSelectAsObject(self.curFileSQLiteConnection.curs,
-                                         selectStatement="select mzs, ints, annos, type from MSSpectra where forTarget=%d and type='native_cleaned'"%id)][0]
+                                         selectStatement="SELECT mzs, ints, annos, type FROM MSSpectra WHERE forTarget=%d AND type='native_cleaned'"%id)][0]
         if len(nativeSpectraCleaned.mzs)>0:
             nativeSpectraCleaned.mzs=[float(mz) for mz in nativeSpectraCleaned.mzs.split(",")]
         else:
@@ -1263,8 +1284,34 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
             self.pl1.twinxs[0].text(x=nativeSpectraCleaned.mzs[index]+nativeSpectraCleaned.annos[index].Cn*1.00335-.5, y=-nativeSpectraCleaned.ints[index]-13., s="%d"%index,
                                     color="lightslategrey")
 
+
+        eics=[eic for eic in
+              SQLSelectAsObject(self.curFileSQLiteConnection.curs,
+                                selectStatement="SELECT intensityList, timesList, forMZ, type FROM EICs WHERE forTarget=%d"%id)]
+
+        for eic in eics:
+            times=[float(f) for f in eic.timesList.split(",")]
+            intensities=[float(f) for f in eic.intensityList.split(",")]
+
+            m=max(intensities)
+            if m==0:
+                m=1
+            intensities=[i/m for i in intensities]
+
+            if eic.type=="Labeled":
+                intensities=[-i for i in intensities]
+
+            col="lightslategrey"
+            linewidth=1
+
+            if highlightCleandPeak is not None and abs(nativeSpectraCleaned.mzs[highlightCleandPeak]-eic.forMZ)<=0.0001:
+                col=(148/255.,32/255.,146/255.)
+                linewidth=2
+            self.pl2.twinxs[0].plot(times, intensities, color=col, linewidth=linewidth)
+
     def updateResultsIllustration(self):
         clearPlot(self.pl1)
+        clearPlot(self.pl2)
         for item in self.resultsTreeWidget.selectedItems():
             if hasattr(item, "myType") and item.myType=="MSMSTarget":
                 self.fetchAndPlotMSMSTarget(id=item.myID)
@@ -1272,6 +1319,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 self.fetchAndPlotMSMSTarget(id=item.myID, highlightCleandPeak=item.myData.index)
 
         drawCanvas(self.pl1)
+        drawCanvas(self.pl2)
 
     def getClipboardRepresentationOfTarget(self, copyTargetID):
         dat = []

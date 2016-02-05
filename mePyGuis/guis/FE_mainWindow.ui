@@ -30,7 +30,7 @@
        <enum>QTabWidget::West</enum>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>2</number>
       </property>
       <widget class="QWidget" name="inputTab">
        <attribute name="title">
@@ -800,16 +800,6 @@ font: 7pt;</string>
         <string>Sample results</string>
        </attribute>
        <layout class="QGridLayout" name="gridLayout_3" rowstretch="0,0,0,0">
-        <item row="1" column="0" colspan="2">
-         <widget class="QWidget" name="visualizationWidget" native="true">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-         </widget>
-        </item>
         <item row="3" column="0" colspan="2">
          <layout class="QGridLayout" name="gridLayout_4">
           <item row="0" column="0">
@@ -968,6 +958,37 @@ font: 7pt;</string>
           </item>
          </layout>
         </item>
+        <item row="2" column="0" colspan="2">
+         <layout class="QHBoxLayout" name="horizontalLayout_6" stretch="2,1">
+          <item>
+           <widget class="QWidget" name="visualizationWidget" native="true">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="sizeIncrement">
+             <size>
+              <width>3</width>
+              <height>0</height>
+             </size>
+            </property>
+            <zorder>eicWidget</zorder>
+           </widget>
+          </item>
+          <item>
+           <widget class="QWidget" name="eicWidget" native="true">
+            <property name="sizeIncrement">
+             <size>
+              <width>1</width>
+              <height>0</height>
+             </size>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
        </layout>
       </widget>
      </widget>
@@ -980,7 +1001,7 @@ font: 7pt;</string>
      <x>0</x>
      <y>0</y>
      <width>1196</width>
-     <height>21</height>
+     <height>26</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">

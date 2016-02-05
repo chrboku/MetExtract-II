@@ -808,6 +808,7 @@ class ProcessTarget:
             createTableFromBunch("Targets", target, cursor=curs, primaryKeys=["id"], autoIncrements=["id"], ifNotExists=True)
             createTableFromBunch("MSSpectra", Bunch(id=int, forTarget=int, mzs=str, ints=str, annos=str, scanTime=float, scanID=str, type=str), cursor=curs,
                                  primaryKeys=["id"], autoIncrements=["id"], ifNotExists=True)
+            createTableFromBunch("EICs", Bunch(id=int, forTarget=int, forMZ=float, type=str, timesList=str, intensityList=str), cursor=curs, primaryKeys=["id"], autoIncrements=["id"], ifNotExists=True)
             conn.commit()
 
             for index, target in enumerate(self.targets):
@@ -924,7 +925,7 @@ class ProcessTarget:
         # endregion
 
         # region 7. Processing step: calculate Cn for each fragment peak
-        scanMS2Annotated=self.calculateOptimalMatch(scanMS2Native, scanMS2Labelled,self.matchingPPM, self.maxRelError, target.Cn, target.chargeCount, isotopeOffset=1.00335)
+        scanMS2Annotated=self.calculateOptimalMatch(scanMS2Native, scanMS2Labelled, self.matchingPPM, self.maxRelError, target.Cn, target.chargeCount, isotopeOffset=1.00335)
         # endregion
 
         # region 8. Processing step: select only matched peaks
@@ -996,6 +997,30 @@ class ProcessTarget:
                                                         annos=base64.b64encode(pickle.dumps([scanMS2Annotated.getAnnotationsForPeakInScan(labelled=True, index=i)[0] for i in range(len(scanMS2Annotated.nativeMz_list))])),
                                                         scanTime=scanMS2Labelled.retention_time, type="labelled_cleaned"),
                                writeFields=["forTarget", "mzs", "ints", "annos", "scanTime", "type"])
+
+        for i in range(len(scanMS2Annotated.nativeMz_list)):
+            mz=scanMS2Annotated.nativeMz_list[i]
+            mzL=scanMS2Annotated.labelledMz_list[i]
+
+            eicN, timesN, scanIds=chromatogram.getEIC(mz=mz,  ppm=self.matchingPPM, filterLine=nativeScanEventString, removeSingles=False, useMS1=False, useMS2=True)
+            eicL, timesL, scanIds=chromatogram.getEIC(mz=mzL, ppm=self.matchingPPM, filterLine=labelledScanEventString, removeSingles=False, useMS1=False, useMS2=True)
+
+            writeObjectAsSQLInsert(curs, "EICs", Bunch(forTarget=target.id,
+                                                       forMZ=mz,
+                                                       type="Native",
+                                                       timesList=",".join([str(t) for t in timesN]),
+                                                       intensityList=",".join([str(i) for i in eicN])),
+                                   writeFields=["forTarget", "forMZ", "type", "timesList", "intensityList"])
+
+            writeObjectAsSQLInsert(curs, "EICs", Bunch(forTarget=target.id,
+                                                       forMZ=mz,
+                                                       type="Labeled",
+                                                       timesList=",".join([str(t) for t in timesL]),
+                                                       intensityList=",".join([str(i) for i in eicL])),
+                                   writeFields=["forTarget", "forMZ", "type", "timesList", "intensityList"])
+
+
+
         conn.commit()
         # endregion
 

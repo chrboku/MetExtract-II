@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '.\mePyGuis\guis\FE_mainWindow.ui'
 #
-# Created: Mon Feb 01 18:12:58 2016
+# Created: Fri Feb 05 17:27:49 2016
 #      by: PyQt4 UI code generator 4.10
 #
 # WARNING! All changes made in this file will be lost!
@@ -329,14 +329,6 @@ class Ui_MainWindow(object):
         self.resultsTab.setObjectName(_fromUtf8("resultsTab"))
         self.gridLayout_3 = QtGui.QGridLayout(self.resultsTab)
         self.gridLayout_3.setObjectName(_fromUtf8("gridLayout_3"))
-        self.visualizationWidget = QtGui.QWidget(self.resultsTab)
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Expanding)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.visualizationWidget.sizePolicy().hasHeightForWidth())
-        self.visualizationWidget.setSizePolicy(sizePolicy)
-        self.visualizationWidget.setObjectName(_fromUtf8("visualizationWidget"))
-        self.gridLayout_3.addWidget(self.visualizationWidget, 1, 0, 1, 2)
         self.gridLayout_4 = QtGui.QGridLayout()
         self.gridLayout_4.setObjectName(_fromUtf8("gridLayout_4"))
         self.gridLayout_5 = QtGui.QGridLayout()
@@ -386,11 +378,29 @@ class Ui_MainWindow(object):
         self.plotNativeScanCheckbox.setObjectName(_fromUtf8("plotNativeScanCheckbox"))
         self.gridLayout_20.addWidget(self.plotNativeScanCheckbox, 0, 0, 1, 1)
         self.gridLayout_3.addLayout(self.gridLayout_20, 0, 0, 1, 2)
+        self.horizontalLayout_6 = QtGui.QHBoxLayout()
+        self.horizontalLayout_6.setObjectName(_fromUtf8("horizontalLayout_6"))
+        self.visualizationWidget = QtGui.QWidget(self.resultsTab)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Expanding)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.visualizationWidget.sizePolicy().hasHeightForWidth())
+        self.visualizationWidget.setSizePolicy(sizePolicy)
+        self.visualizationWidget.setSizeIncrement(QtCore.QSize(3, 0))
+        self.visualizationWidget.setObjectName(_fromUtf8("visualizationWidget"))
+        self.horizontalLayout_6.addWidget(self.visualizationWidget)
+        self.eicWidget = QtGui.QWidget(self.resultsTab)
+        self.eicWidget.setSizeIncrement(QtCore.QSize(1, 0))
+        self.eicWidget.setObjectName(_fromUtf8("eicWidget"))
+        self.horizontalLayout_6.addWidget(self.eicWidget)
+        self.horizontalLayout_6.setStretch(0, 2)
+        self.horizontalLayout_6.setStretch(1, 1)
+        self.gridLayout_3.addLayout(self.horizontalLayout_6, 2, 0, 1, 2)
         self.tabWidget.addTab(self.resultsTab, _fromUtf8(""))
         self.gridLayout.addWidget(self.tabWidget, 0, 0, 1, 1)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menuBar = QtGui.QMenuBar(MainWindow)
-        self.menuBar.setGeometry(QtCore.QRect(0, 0, 1196, 21))
+        self.menuBar.setGeometry(QtCore.QRect(0, 0, 1196, 26))
         self.menuBar.setObjectName(_fromUtf8("menuBar"))
         self.menuFile = QtGui.QMenu(self.menuBar)
         self.menuFile.setObjectName(_fromUtf8("menuFile"))
@@ -418,7 +428,7 @@ class Ui_MainWindow(object):
         self.menuBar.addAction(self.menuHelp.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.tabWidget.setCurrentIndex(1)
+        self.tabWidget.setCurrentIndex(2)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):

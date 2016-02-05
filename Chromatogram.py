@@ -189,19 +189,32 @@ class Chromatogram():
         return scans, times, scanIDs
 
     # returns an eic. Single MS peaks and such below a certain threshold may be removed
-    def getEIC(self, mz, ppm, filterLine="", removeSingles=True, intThreshold=0):
+    def getEIC(self, mz, ppm, filterLine="", removeSingles=True, intThreshold=0, useMS1=True, useMS2=False):
         ret = []
         times = []
         scanIds = []
-        for scan in self.MS1_list:
-            if filterLine == "" or scan.filter_line == filterLine:
-                bounds = scan.findMZ(mz, ppm)
-                if bounds[0] != -1:
-                    ret.append(max(scan.intensity_list[bounds[0]:(bounds[1] + 1)]))
-                else:
-                    ret.append(0)
-                times.append(scan.retention_time)
-                scanIds.append(scan.id)
+
+        if useMS1:
+            for scan in self.MS1_list:
+                if filterLine == "" or scan.filter_line == filterLine:
+                    bounds = scan.findMZ(mz, ppm)
+                    if bounds[0] != -1:
+                        ret.append(max(scan.intensity_list[bounds[0]:(bounds[1] + 1)]))
+                    else:
+                        ret.append(0)
+                    times.append(scan.retention_time)
+                    scanIds.append(scan.id)
+
+        if useMS2:
+            for scan in self.MS2_list:
+                if filterLine == "" or scan.filter_line == filterLine:
+                    bounds = scan.findMZ(mz, ppm)
+                    if bounds[0] != -1:
+                        ret.append(max(scan.intensity_list[bounds[0]:(bounds[1] + 1)]))
+                    else:
+                        ret.append(0)
+                    times.append(scan.retention_time)
+                    scanIds.append(scan.id)
 
         for i in range(1, len(ret)):
             if ret[i] < intThreshold:

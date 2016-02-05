@@ -807,7 +807,8 @@ class RunIdentification:
                             usedCount = usedCount + len(xAct) - lastUnused
                             hc = HierarchicalClustering(xAct[lastUnused:len(xAct)],
                                                         dist=lambda x, y: x.getValue() - y.getValue(),
-                                                        val=lambda x: x.mz, mean=lambda x, y: x / y,
+                                                        val=lambda x: x.mz,
+                                                        mean=lambda x, y: x / y,
                                                         add=lambda x, y: x + y)
 
                             for n in cutTreeSized(hc.getTree(), self.clustPPM):
