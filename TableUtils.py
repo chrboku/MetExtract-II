@@ -5,6 +5,8 @@ from os.path import basename
 import string
 import random
 
+import time
+
 
 # functionality to store / read a table into a generic SQLite table
 # methods to insert / alter / delete data are provided (including bulk-update)
@@ -127,6 +129,7 @@ class Table:
             numOfCols+=1
 
         done=0
+        started=time.time()
         for row in self.curs.execute(self.updateQuery("SELECT __internalID, :allCols: FROM :table: %s" % where)):
             iID = row[0]
             data = {}
@@ -145,14 +148,19 @@ class Table:
 
             done+=1
             if showProgress:
-                print "\rApplying.. |%-30s| %.1f%%"%("*"*int((1.*done/numOfCols)*30), (1.*done/numOfCols)*100),
+                elapsed=time.time()-started
+                doneP=(1.*done/numOfCols)
+                s=(elapsed*(1-doneP)/doneP)/60.
+                print "\rApplying.. |%-30s| %.1f%% (approximately %.1f minutes remaining)"%("*"*int(doneP*30), doneP*100, s),
         if showProgress:
-            print ""
+            s=(time.time()-started)/60.
+            print "(%.1f minutes)\n"%s
 
         if pwMaxSet!=None: pwMaxSet(len(updates))
         if pwValSet!=None: pwValSet(0)
 
         doneS=0
+        started=time.time()
         for update in updates:
             self.curs.execute(self.updateQuery(update[0]), update[1])
             done+=1
@@ -160,9 +168,13 @@ class Table:
 
             doneS+=1
             if showProgress:
-                print "\rUpdating.. |%-30s| %.1f%%"%("*"*int((1.*doneS/len(updates))*30), (1.*doneS/numOfCols)*100),
+                elapsed=time.time()-started
+                doneP=(1.*doneS/numOfCols)
+                s=(elapsed*(1-doneP)/doneP)/60.
+                print "\rApplying.. |%-30s| %.1f%% (approximately %.1f minutes remaining)"%("*"*int(doneP*30), doneP*100, s),
         if showProgress:
-            print ""
+            s=(time.time()-started)/60.
+            print "(%.1f minutes)\n"%s
 
         self.conn.commit()
 

@@ -1030,10 +1030,12 @@ class RunIdentification:
                         if closestPeak != -1 and distance < (min(peaksBoth[closestPeak].NBorderLeft, peaksBoth[closestPeak].NBorderRight) * 2):
                             peaksBoth[closestPeak].assignedMZs.append(kido)
 
+
                     curChromPeaks = []
                     for peak in peaksBoth:
                         if len(peak.assignedMZs) >= self.minSpectraCount:
                             curChromPeaks.append(peak)
+
 
                     # write detected feature pair to the database
                     if len(curChromPeaks) > 0:
@@ -1080,26 +1082,24 @@ class RunIdentification:
                                                                                                            peak.xCount)
                                 peak.correctedXCount = adjcCount
 
-                            SQLInsert(curs, "chromPeaks", id=peak.id, tracer=tracerID, eicID=peak.eicID, NPeakCenter=peak.NPeakCenter,
-                                      NPeakCenterMin=peak.NPeakCenterMin, NPeakScale=peak.NPeakScale,
-                                      NSNR=peak.NSNR, NPeakArea=peak.NPeakArea, mz=peak.mz, lmz=peak.lmz, xcount=peak.correctedXCount, xcountId=peak.xCount,
-                                      LPeakCenter=peak.LPeakCenter,
-                                      LPeakCenterMin=peak.LPeakCenterMin, LPeakScale=peak.LPeakScale, LSNR=peak.LSNR, LPeakArea=peak.LPeakArea, Loading=peak.loading,
-                                      peaksCorr=peak.peaksCorr, heteroAtoms='', NBorderLeft=peak.NBorderLeft, NBorderRight=peak.NBorderRight,
-                                      LBorderLeft=peak.LBorderLeft, LBorderRight=peak.LBorderRight, adducts='', heteroAtomsFeaturePairs='',
+                            SQLInsert(curs, "chromPeaks", id=peak.id, tracer=tracerID, eicID=peak.eicID,
+                                      mz=peak.mz, lmz=peak.lmz, xcount=peak.correctedXCount, xcountId=peak.xCount,Loading=peak.loading,ionMode=ionMode,
+                                      NPeakCenter=peak.NPeakCenter,NPeakCenterMin=peak.NPeakCenterMin, NPeakScale=peak.NPeakScale,NSNR=peak.NSNR, NPeakArea=peak.NPeakArea, NBorderLeft=peak.NBorderLeft, NBorderRight=peak.NBorderRight,
+                                      LPeakCenter=peak.LPeakCenter,LPeakCenterMin=peak.LPeakCenterMin, LPeakScale=peak.LPeakScale, LSNR=peak.LSNR, LPeakArea=peak.LPeakArea, LBorderLeft=peak.LBorderLeft, LBorderRight=peak.LBorderRight,
+                                      peaksCorr=peak.peaksCorr,
+                                      heteroAtoms='',adducts='', heteroAtomsFeaturePairs='',
                                       massSpectrumID=0,
-                                      ionMode=ionMode, assignedMZs=len(peak.assignedMZs), fDesc=base64.b64encode(dumps([])),
+                                      assignedMZs=len(peak.assignedMZs), fDesc=base64.b64encode(dumps([])),
                                       peaksRatio=peak.peaksRatio, peaksRatioMp1=peak.peaksRatioMp1, peaksRatioMPm1=peak.peaksRatioMPm1,
                                       peakType="patternFound")
 
-                            SQLInsert(curs, "allChromPeaks", id=peak.id, tracer=tracerID, eicID=peak.eicID, NPeakCenter=peak.NPeakCenter,
-                                      NPeakCenterMin=peak.NPeakCenterMin, NPeakScale=peak.NPeakScale,
-                                      NSNR=peak.NSNR, NPeakArea=peak.NPeakArea, mz=peak.mz, lmz=peak.lmz, xcount=peak.correctedXCount, xcountId=peak.xCount,
-                                      LPeakCenter=peak.LPeakCenter,
-                                      LPeakCenterMin=peak.LPeakCenterMin, LPeakScale=peak.LPeakScale, LSNR=peak.LSNR, LPeakArea=peak.LPeakArea, Loading=peak.loading,
-                                      peaksCorr=peak.peaksCorr, heteroAtoms='', NBorderLeft=peak.NBorderLeft, NBorderRight=peak.NBorderRight,
-                                      LBorderLeft=peak.LBorderLeft, LBorderRight=peak.LBorderRight, adducts='', heteroAtomsFeaturePairs='',
-                                      ionMode=ionMode, assignedMZs=len(peak.assignedMZs), fDesc=base64.b64encode(dumps([])),
+                            SQLInsert(curs, "allChromPeaks", id=peak.id, tracer=tracerID, eicID=peak.eicID,
+                                      mz=peak.mz, lmz=peak.lmz, xcount=peak.correctedXCount, xcountId=peak.xCount,Loading=peak.loading,ionMode=ionMode,
+                                      NPeakCenter=peak.NPeakCenter,NPeakCenterMin=peak.NPeakCenterMin, NPeakScale=peak.NPeakScale,NSNR=peak.NSNR, NPeakArea=peak.NPeakArea, NBorderLeft=peak.NBorderLeft, NBorderRight=peak.NBorderRight,
+                                      LPeakCenter=peak.LPeakCenter,LPeakCenterMin=peak.LPeakCenterMin, LPeakScale=peak.LPeakScale, LSNR=peak.LSNR, LPeakArea=peak.LPeakArea, LBorderLeft=peak.LBorderLeft, LBorderRight=peak.LBorderRight,
+                                      peaksCorr=peak.peaksCorr,
+                                      heteroAtoms='',adducts='', heteroAtomsFeaturePairs='',
+                                      assignedMZs=len(peak.assignedMZs), fDesc=base64.b64encode(dumps([])),
                                       peaksRatio=peak.peaksRatio, peaksRatioMp1=peak.peaksRatioMp1, peaksRatioMPm1=peak.peaksRatioMPm1,
                                       peakType="patternFound")
 
@@ -1438,331 +1438,345 @@ class RunIdentification:
     # adducts and generate possible in-source fragments. Remove inconsistencies
     # in the form of impossible adduct combinations (e.g. [M+H]+ and [M+Na]+ for the same ion)
     def annotateChromPeaks(self, group, peaksInGroup):
-        self.annotateFeaturePairsWithHeteroAtoms(group, peaksInGroup)
-        for pa in group:
-            peakA = peaksInGroup[pa]
-            peakA.adducts.extend(peakA.heteroAtomsFeaturePairs)
-
-        fT = formulaTools()
-
-        # prepare adducts list
-        addPol = {}
-        addPol['+'] = []
-        addPol['-'] = []
-        adductsDict={}
-        for adduct in self.adducts:
-            adductsDict[adduct.name]=adduct
-            if adduct.polarity != "":
-                addPol[adduct.polarity].append(adduct)
-        adducts = addPol
-        adducts['+']=sorted(adducts['+'], key=lambda x:x.mzoffset)
-        adducts['-']=sorted(adducts['-'], key=lambda x:x.mzoffset)
-
-        # 1. iterate all peaks pairwise to find different adducts of the metabolite
-        for pa in group:
-            peakA = peaksInGroup[pa]
-            for pb in group:
-                peakB = peaksInGroup[pb]
-
-                # peakA shall always have the lower mass
-                if peakA.mz < peakB.mz and (len(peakB.heteroAtomsFeaturePairs)==0 or not all([s.name.startswith("_") for s in peakB.heteroAtomsFeaturePairs])):
-
-                    # search for different adduct combinations
-                    # different adducts must have the same number of labelled atoms
-                    if peakA.xCount == peakB.xCount:
-
-                        # check, if it could be some kind of adduct combination
-                        for adA in adducts[peakA.ionMode]:
-                            for adB in adducts[peakB.ionMode]:
-                                if adA.mCount == 1 and adB.mCount == 1 and adA.mzoffset < adB.mzoffset:
-
-                                    if peakA.ionMode == '-' and peakB.ionMode == '+' and \
-                                            peakA.loading == peakB.loading and \
-                                            abs(abs(adB.mzoffset - adA.mzoffset) - 2 * 1.007276) <= (max(peakA.mz, peakB.mz) * 2.5 * self.ppm / 1000000.) and \
-                                            abs(peakB.mz - peakA.mz - 2 * 1.007276 / peakA.loading) <= (max(peakA.mz, peakB.mz) * 2.5 * self.ppm / 1000000.):
-                                        peakA.adducts.append(Bunch(name="[M-H]-", partnerAdd="[M+H]+", toPeak=pb))
-                                        peakB.adducts.append(Bunch(name="[M+H]+", partnerAdd="[M-H]-", toPeak=pa))
-
-                                    elif peakA.loading == adA.charge and peakB.loading == adB.charge and \
-                                            abs((peakA.mz - adA.mzoffset) / adA.mCount * peakA.loading - (peakB.mz - adB.mzoffset) / adB.mCount * peakB.loading) <= (max(peakA.mz, peakB.mz) * 2.5 * self.ppm / 1000000.):
-                                        peakA.adducts.append(Bunch(name=adA.name, partnerAdd=adB.name, toPeak=pb))
-                                        peakB.adducts.append(Bunch(name=adB.name, partnerAdd=adA.name, toPeak=pa))
-
-                    # search for adducts of the form [2M+XX]+-
-                    elif peakA.xCount * 2 == peakB.xCount:
-
-                        for adA in adducts[peakA.ionMode]:
-                            for adB in adducts[peakB.ionMode]:
-
-                                if adA.mCount == 1 and adB.mCount == 2 and adA.mzoffset < adB.mzoffset:
-
-                                    if peakA.loading == adA.charge and peakB.loading == adB.charge and \
-                                            abs((peakA.mz - adA.mzoffset) / adA.mCount * peakA.loading - (peakB.mz - adB.mzoffset) / adB.mCount * peakB.loading) <= (max(peakA.mz, peakB.mz) * 2.5 * self.ppm / 1000000.):
-                                        peakA.adducts.append(Bunch(name=adA.name, partnerAdd=adB.name, toPeak=pb))
-                                        peakB.adducts.append(Bunch(name=adB.name, partnerAdd=adA.name, toPeak=pa))
-
-
-        def isAdductPairPresent(pA, adductAName, adductsA, pB, adductBName, adductsB, checkPartners=True):
-            aFound=False
-            for add in adductsA:
-                if add.name == adductAName and (not checkPartners or (add.partnerAdd == adductBName and add.toPeak == pB)):
-                    aFound=True
-            bFound=False
-            for add in adductsB:
-                if add.name == adductBName and (not checkPartners or (add.partnerAdd == adductAName and add.toPeak == pA)):
-                    bFound=True
-            return aFound and bFound
-
-        def removeAdductFromFeaturePair(pA, adductAName, adductsA):
-            aFound=[]
-            for i, add in enumerate(adductsA):
-                if add.name == adductAName:
-                    aFound.append(i)
-
-            aFound=reversed(sorted(list(set(aFound))))
-            for i in aFound:
-                del adductsA[i]
-
-        def removeAdductPair(pA, adductAName, adductsA, pB, adductBName, adductsB):
-            aFound=[]
-            for i, add in enumerate(adductsA):
-                if add.name == adductAName and add.partnerAdd == adductBName and add.toPeak == pB:
-                    aFound.append(i)
-            bFound=[]
-            for i, add in enumerate(adductsB):
-                if add.name == adductBName and add.partnerAdd == adductAName and add.toPeak == pA:
-                    bFound.append(i)
-
-            aFound=reversed(sorted(list(set(aFound))))
-            for i in aFound:
-                del adductsA[i]
-            bFound=reversed(sorted(list(set(bFound))))
-            for i in bFound:
-                del adductsB[i]
-
-        # 2. remove incorrect annotations from feature pairs e.g. A: [M+H]+ and [M+Na]+ with B: [M+Na]+ and [M+2Na-H]+
-        for p in group:
-            peak = peaksInGroup[p]
-            peak.adducts = list(set(peak.adducts))
-
-        for pa in group:
-            peakA = peaksInGroup[pa]
-            if len(peakA.adducts)>0:
-
-                for pb in group:
-                    peakB = peaksInGroup[pb]
-                    if len(peakB.adducts)>0:
-                        if peakA.mz < peakB.mz:
-
-                            for pc in group:
-                                peakC = peaksInGroup[pc]
-                                if len(peakC.adducts)>0:
-
-                                    if      isAdductPairPresent(pa, "[M+H]+",     peakA.adducts,     pb, "[M+Na]+",        peakB.adducts) and \
-                                            isAdductPairPresent(pa, "[M+Na]+",    peakA.adducts,     pb, "[M+2Na-H]+",     peakB.adducts) and \
-                                            isAdductPairPresent(pa, "[M+H]+",     peakA.adducts,     pc, "[M+2Na-H]+",     peakC.adducts) and \
-                                            isAdductPairPresent(pb, "[M+H]+",     peakB.adducts,     pc, "[M+Na]+",        peakC.adducts) and \
-                                            isAdductPairPresent(pb, "[M+Na]+",    peakB.adducts,     pc, "[M+2Na-H]+",     peakC.adducts) and \
-                                            peakA.mz < peakB.mz < peakC.mz:
-                                        removeAdductPair(pa, "[M+Na]+",    peakA.adducts,     pb, "[M+2Na-H]+",     peakB.adducts)
-                                        removeAdductPair(pb, "[M+H]+",     peakB.adducts,     pc, "[M+Na]+",        peakC.adducts)
-
-                                    if      isAdductPairPresent(pa, "[M+H]+",     peakA.adducts,     pb, "[M+K]+",         peakB.adducts) and \
-                                            isAdductPairPresent(pa, "[M+K]+",     peakA.adducts,     pb, "[M+2K-H]+",      peakB.adducts) and \
-                                            isAdductPairPresent(pa, "[M+H]+",     peakA.adducts,     pc, "[M+2K-H]+",      peakC.adducts) and \
-                                            isAdductPairPresent(pb, "[M+H]+",     peakB.adducts,     pc, "[M+K]+",         peakC.adducts) and \
-                                            isAdductPairPresent(pb, "[M+K]+",     peakB.adducts,     pc, "[M+2K-H]+",      peakC.adducts) and \
-                                            peakA.mz < peakB.mz < peakC.mz:
-                                        removeAdductPair(pa, "[M+K]+",    peakA.adducts,     pb, "[M+2K-H]+",     peakB.adducts)
-                                        removeAdductPair(pb, "[M+H]+",    peakB.adducts,     pc, "[M+K]+",        peakC.adducts)
-
-                                    if      isAdductPairPresent(pa, "[M+2H]++",      peakA.adducts,     pb, "[M+H+Na]++",         peakB.adducts) and \
-                                            isAdductPairPresent(pa, "[M+H+Na]++",    peakA.adducts,     pb, "[M+2Na]++",          peakB.adducts) and \
-                                            isAdductPairPresent(pa, "[M+H]++",       peakA.adducts,     pc, "[M+2Na]++",          peakC.adducts) and \
-                                            isAdductPairPresent(pb, "[M+2H]++",      peakB.adducts,     pc, "[M+H+Na]++",         peakC.adducts) and \
-                                            isAdductPairPresent(pb, "[M+H+Na]++",    peakB.adducts,     pc, "[M+2Na]++",          peakC.adducts) and \
-                                            peakA.mz < peakB.mz < peakC.mz:
-                                        removeAdductPair(pa, "[M+H+Na]++",    peakA.adducts,     pb, "[M+2Na]++",      peakB.adducts)
-                                        removeAdductPair(pb, "[M+2H]++",      peakB.adducts,     pc, "[M+H+Na]++",     peakC.adducts)
-
-                                    if      isAdductPairPresent(pa, "[M+2H]++",      peakA.adducts,     pb, "[M+H+K]++",         peakB.adducts) and \
-                                            isAdductPairPresent(pa, "[M+H+K]++",     peakA.adducts,     pb, "[M+2K]++",          peakB.adducts) and \
-                                            isAdductPairPresent(pa, "[M+H]++",       peakA.adducts,     pc, "[M+2K]++",          peakC.adducts) and \
-                                            isAdductPairPresent(pb, "[M+2H]++",      peakB.adducts,     pc, "[M+H+K]++",         peakC.adducts) and \
-                                            isAdductPairPresent(pb, "[M+H+K]++",     peakB.adducts,     pc, "[M+2K]++",          peakC.adducts) and \
-                                            peakA.mz < peakB.mz < peakC.mz:
-                                        removeAdductPair(pa, "[M+H+K]++",    peakA.adducts,     pb, "[M+2K]++",      peakB.adducts)
-                                        removeAdductPair(pb, "[M+2H]++",     peakB.adducts,     pc, "[M+H+K]++",     peakC.adducts)
-
-                                    if      isAdductPairPresent(pb, "[M+H]+",        peakB.adducts,     pc, "[M+Na]+",           peakC.adducts) and \
-                                            isAdductPairPresent(pa, "[M+2Na-H]+",    peakA.adducts,     pc, "[M+CH3FeN]+",       peakC.adducts) and \
-                                            peakA.mz < peakB.mz < peakC.mz:
-                                        removeAdductPair(pa, "[M+2Na-H]+",    peakA.adducts,     pc, "[M+CH3FeN]+",      peakC.adducts)
-
-                                    if      isAdductPairPresent(pa, "[M-H]-",        peakA.adducts,     pb, "[M+H]+",        peakB.adducts) and \
-                                            isAdductPairPresent(pa, "[M+Na-2H]-",    peakA.adducts,     pc, "[M+Na]+",       peakC.adducts) and \
-                                            peakA.mz < peakB.mz < peakC.mz:
-                                        aFound=[]
-                                        for i, add in enumerate(peakA.adducts):
-                                            if add.name == "[M+Na-2H]-":
-                                                aFound.append(i)
-                                        aFound=reversed(sorted(list(set(aFound))))
-                                        for i in aFound:
-                                            del peakA.adducts[i]
-
-                                    if      isAdductPairPresent(pa, "[M-H]-",     peakA.adducts,     pb, "[M+H]+",        peakB.adducts) and \
-                                            isAdductPairPresent(pa, "[M+Na]+",    peakA.adducts,     pc, "[M+Na]+",       peakC.adducts) and \
-                                            peakA.mz < peakB.mz < peakC.mz:
-                                        bFound=[]
-                                        for i, add in enumerate(peakB.adducts):
-                                            if add.name == "[M+Na-2H]-":
-                                                bFound.append(i)
-                                        bFound=reversed(sorted(list(set(bFound))))
-                                        for i in bFound:
-                                            del peakB.adducts[i]
-
-
-        for pa in group:
-            peakA = peaksInGroup[pa]
-            if len(peakA.adducts)>0:
-
-                for pb in group:
-                    peakB = peaksInGroup[pb]
-                    if len(peakB.adducts)>0:
-                        if peakA.mz < peakB.mz:
-
-                            if      isAdductPairPresent(pa, "[M+H]+",       peakA.adducts,     pb, "[M+Na]+",         peakB.adducts) and \
-                                    isAdductPairPresent(pa, "[M+Na]+",      peakA.adducts,     pb, "[M+2Na-H]+",      peakB.adducts) and \
-                                    peakA.mz < peakB.mz:
-                                removeAdductPair(pa, "[M+Na]+",    peakA.adducts,     pb, "[M+2Na-H]+",      peakB.adducts)
-
-                            if      isAdductPairPresent(pa, "[M+H]+",      peakA.adducts,     pb, "[M+K]+",         peakB.adducts) and \
-                                    isAdductPairPresent(pa, "[M+K]+",      peakA.adducts,     pb, "[M+2K-H]+",      peakB.adducts) and \
-                                    peakA.mz < peakB.mz:
-                                removeAdductPair(pa, "[M+K]+",    peakA.adducts,     pb, "[M+2K-H]+",      peakB.adducts)
-
-                            if      isAdductPairPresent(pa, "[M-H]-",          peakA.adducts,     pb, "[M+Na]+",         peakB.adducts) and \
-                                    isAdductPairPresent(pa, "[M+Na-2H]-",      peakA.adducts,     pb, "[M+2Na-H]+",      peakB.adducts) and \
-                                    peakA.mz < peakB.mz:
-                                removeAdductPair(pa, "[M+Na-2H]-",    peakA.adducts,     pb, "[M+2Na-H]+",      peakB.adducts)
-
-                            if      isAdductPairPresent(pa, "[M-H]-",         peakA.adducts,     pb, "[M+K]+",         peakB.adducts) and \
-                                    isAdductPairPresent(pa, "[M+K-2H]-",      peakA.adducts,     pb, "[M+2K-H]+",      peakB.adducts) and \
-                                    peakA.mz < peakB.mz:
-                                removeAdductPair(pa, "[M+K-2H]-",    peakA.adducts,     pb, "[M+2K-H]+",      peakB.adducts)
-
-                            if      isAdductPairPresent(pa, "[M-H]-",          peakA.adducts,     pb, "[M+Na]+",     peakB.adducts) and \
-                                    isAdductPairPresent(pa, "[M+Na-2H]-",      peakA.adducts,     pb, "[M+H]+",      peakB.adducts) and \
-                                    peakA.mz < peakB.mz:
-                                removeAdductPair(pa, "[M+Na-2H]-",    peakA.adducts,     pb, "[M+Na]+",      peakB.adducts)
-
-                            if      isAdductPairPresent(pa, "[M-H]-",         peakA.adducts,     pb, "[M+K]+",     peakB.adducts) and \
-                                    isAdductPairPresent(pa, "[M+K-2H]-",      peakA.adducts,     pb, "[M+H]+",      peakB.adducts) and \
-                                    peakA.mz < peakB.mz:
-                                removeAdductPair(pa, "[M+K-2H]-",    peakA.adducts,     pb, "[M+K]+",      peakB.adducts)
-
-                            if      isAdductPairPresent(pa, "[M+2H]++",         peakA.adducts,     pb, "[M+H+Na]++",     peakB.adducts) and \
-                                    isAdductPairPresent(pa, "[M+H+Na]++",       peakA.adducts,     pb, "[M+2Na]++",      peakB.adducts) and \
-                                    peakA.mz < peakB.mz:
-                                removeAdductPair(pa, "[M+H+Na]++",    peakA.adducts,     pb, "[M+2Na]++",      peakB.adducts)
-
-                            if      isAdductPairPresent(pa, "[M+2H]++",        peakA.adducts,     pb, "[M+H+K]++",     peakB.adducts) and \
-                                    isAdductPairPresent(pa, "[M+H+K]++",       peakA.adducts,     pb, "[M+2K]++",      peakB.adducts) and \
-                                    peakA.mz < peakB.mz:
-                                removeAdductPair(pa, "[M+H+Na]++",    peakA.adducts,     pb, "[M+2Na]++",      peakB.adducts)
-
-
-
-        for pa in group:
-            peakA = peaksInGroup[pa]
-            if len(peakA.adducts)>0:
-                if      isAdductPairPresent(pa, "[M+H]+",            peakA.adducts,     pa, "[2M+H]+",         peakA.adducts, checkPartners=False):
-                    removeAdductFromFeaturePair(pa, "[M+H]+",   peakA.adducts)
-                if      isAdductPairPresent(pa, "[M+NH4]+",          peakA.adducts,     pa, "[2M+NH4]+",       peakA.adducts, checkPartners=False):
-                    removeAdductFromFeaturePair(pa, "[M+NH4]+", peakA.adducts)
-                if      isAdductPairPresent(pa, "[M+Na]+",           peakA.adducts,     pa, "[2M+Na]+",        peakA.adducts, checkPartners=False):
-                    removeAdductFromFeaturePair(pa, "[M+Na]+",  peakA.adducts)
-                if      isAdductPairPresent(pa, "[M+K]+",            peakA.adducts,     pa, "[2M+K]+",         peakA.adducts, checkPartners=False):
-                    removeAdductFromFeaturePair(pa, "[M+K]+",   peakA.adducts)
-
-
-
-        # 3. iterate all peaks pairwise to find common in-source fragments
-        for pa in group:
-            peakA = peaksInGroup[pa]
-            for pb in group:
-                peakB = peaksInGroup[pb]
-
-                # peakA shall always have the lower mass
-                if peakA.mz < peakB.mz and abs(peakA.mz - peakB.mz) <= 101:
-                    mzDif = peakB.mz - peakA.mz
-                    mzD = [[], []]
-                    done = False
-
-                    # generate putative in-source fragments (using the labelled carbon atoms)
-                    if len(self.elements) > 0:
-
-                        elemDictReq = {}
-                        for elem in self.elements:
-                            elemDictReq[elem] = [self.elements[elem].weight, self.elements[elem].numberValenzElectrons]
-                        t = sumFormulaGenerator(atoms=elemDictReq)
-
-                        useAtoms = []
-                        if self.labellingElement in self.elements.keys():
-                            useAtoms.append(self.labellingElement)
-                            for k in self.elements.keys():
-                                if k != self.labellingElement:
-                                    useAtoms.append(k)
-                        else:
-                            useAtoms = self.elements.keys()
-
-                        atomsRange = []
-                        if self.labellingElement in useAtoms:
-                            if self.metabolisationExperiment:
-                                elem = self.elements[self.labellingElement]
-                                atomsRange.append([abs(peakA.xCount - peakB.xCount),
-                                                   abs(peakA.xCount - peakB.xCount + elem.maxCount - elem.minCount)])
-                            else:
-                                atomsRange.append(abs(peakA.xCount - peakB.xCount))
-
-                        for elem in self.elements.keys():
-                            if elem != self.labellingElement:
-                                elem = self.elements[elem]
-                                atomsRange.append([elem.minCount, elem.maxCount])
-
-                        corrFact = abs(peakB.mz - peakA.mz)
-                        if corrFact <= 1:
-                            corrFact = 1.
-                        pFs = t.findFormulas(mzDif, ppm=self.ppm * 2. * peakA.mz / corrFact, useAtoms=useAtoms,
-                                             atomsRange=atomsRange, fixed=self.labellingElement,
-                                             useSevenGoldenRules=False)
-
-                        for pF in pFs:
-                            c = fT.parseFormula(pF)
-                            mw = fT.calcMolWeight(c)
-                            dif = abs(abs(peakB.mz - peakA.mz) - mw)
-                            #if abs(dif*1000000/peakA.mz)<(self.ppm*2.):
-                            sf = fT.flatToString(c, prettyPrintWithHTMLTags=False)
-                            mzD[0].append("-" + sf)
-                            mzD[1].append("(" + sf + ")")
-                            peakA.fDesc.append("-" + sf)
-                            peakB.fDesc.append("(" + sf + ")")
-
-
 
 
         for pe in group:
             peak = peaksInGroup[pe]
-            peak.fDesc=list(set(peak.fDesc))
-            peak.adducts=list(set([a.name for a in peak.adducts]))
 
+            if not hasattr(peak, "fDesc"):
+                setattr(peak, "fDesc", [])
+            if not hasattr(peak, "adducts"):
+                setattr(peak, "adducts", [])
             if not hasattr(peak, "Ms"):
                 setattr(peak, "Ms", [])
 
-            peak.Ms=[]
-            for assignedAdduct in peak.adducts:
-                if assignedAdduct in adductsDict.keys():
-                    peak.Ms.append(peak.mz-adductsDict[assignedAdduct].mzoffset)
+
+        if len(group)<=40:
+            self.annotateFeaturePairsWithHeteroAtoms(group, peaksInGroup)
+            for pa in group:
+                peakA = peaksInGroup[pa]
+                peakA.adducts.extend(peakA.heteroAtomsFeaturePairs)
+
+            fT = formulaTools()
+
+            # prepare adducts list
+            addPol = {}
+            addPol['+'] = []
+            addPol['-'] = []
+            adductsDict={}
+            for adduct in self.adducts:
+                adductsDict[adduct.name]=adduct
+                if adduct.polarity != "":
+                    addPol[adduct.polarity].append(adduct)
+            adducts = addPol
+            adducts['+']=sorted(adducts['+'], key=lambda x:x.mzoffset)
+            adducts['-']=sorted(adducts['-'], key=lambda x:x.mzoffset)
+
+            # 1. iterate all peaks pairwise to find different adducts of the metabolite
+            for pa in group:
+                peakA = peaksInGroup[pa]
+                for pb in group:
+                    peakB = peaksInGroup[pb]
+
+                    # peakA shall always have the lower mass
+                    if peakA.mz < peakB.mz and (len(peakB.heteroAtomsFeaturePairs)==0 or not all([s.name.startswith("_") for s in peakB.heteroAtomsFeaturePairs])):
+
+                        # search for different adduct combinations
+                        # different adducts must have the same number of labelled atoms
+                        if peakA.xCount == peakB.xCount:
+
+                            # check, if it could be some kind of adduct combination
+                            for adA in adducts[peakA.ionMode]:
+                                for adB in adducts[peakB.ionMode]:
+                                    if adA.mCount == 1 and adB.mCount == 1 and adA.mzoffset < adB.mzoffset:
+
+                                        if peakA.ionMode == '-' and peakB.ionMode == '+' and \
+                                                peakA.loading == peakB.loading and \
+                                                abs(abs(adB.mzoffset - adA.mzoffset) - 2 * 1.007276) <= (max(peakA.mz, peakB.mz) * 2.5 * self.ppm / 1000000.) and \
+                                                abs(peakB.mz - peakA.mz - 2 * 1.007276 / peakA.loading) <= (max(peakA.mz, peakB.mz) * 2.5 * self.ppm / 1000000.):
+                                            peakA.adducts.append(Bunch(name="[M-H]-", partnerAdd="[M+H]+", toPeak=pb))
+                                            peakB.adducts.append(Bunch(name="[M+H]+", partnerAdd="[M-H]-", toPeak=pa))
+
+                                        elif peakA.loading == adA.charge and peakB.loading == adB.charge and \
+                                                abs((peakA.mz - adA.mzoffset) / adA.mCount * peakA.loading - (peakB.mz - adB.mzoffset) / adB.mCount * peakB.loading) <= (max(peakA.mz, peakB.mz) * 2.5 * self.ppm / 1000000.):
+                                            peakA.adducts.append(Bunch(name=adA.name, partnerAdd=adB.name, toPeak=pb))
+                                            peakB.adducts.append(Bunch(name=adB.name, partnerAdd=adA.name, toPeak=pa))
+
+                        # search for adducts of the form [2M+XX]+-
+                        elif peakA.xCount * 2 == peakB.xCount:
+
+                            for adA in adducts[peakA.ionMode]:
+                                for adB in adducts[peakB.ionMode]:
+
+                                    if adA.mCount == 1 and adB.mCount == 2 and adA.mzoffset < adB.mzoffset:
+
+                                        if peakA.loading == adA.charge and peakB.loading == adB.charge and \
+                                                abs((peakA.mz - adA.mzoffset) / adA.mCount * peakA.loading - (peakB.mz - adB.mzoffset) / adB.mCount * peakB.loading) <= (max(peakA.mz, peakB.mz) * 2.5 * self.ppm / 1000000.):
+                                            peakA.adducts.append(Bunch(name=adA.name, partnerAdd=adB.name, toPeak=pb))
+                                            peakB.adducts.append(Bunch(name=adB.name, partnerAdd=adA.name, toPeak=pa))
+
+
+            def isAdductPairPresent(pA, adductAName, adductsA, pB, adductBName, adductsB, checkPartners=True):
+                aFound=False
+                for add in adductsA:
+                    if add.name == adductAName and (not checkPartners or (add.partnerAdd == adductBName and add.toPeak == pB)):
+                        aFound=True
+                bFound=False
+                for add in adductsB:
+                    if add.name == adductBName and (not checkPartners or (add.partnerAdd == adductAName and add.toPeak == pA)):
+                        bFound=True
+                return aFound and bFound
+
+            def removeAdductFromFeaturePair(pA, adductAName, adductsA):
+                aFound=[]
+                for i, add in enumerate(adductsA):
+                    if add.name == adductAName:
+                        aFound.append(i)
+
+                aFound=reversed(sorted(list(set(aFound))))
+                for i in aFound:
+                    del adductsA[i]
+
+            def removeAdductPair(pA, adductAName, adductsA, pB, adductBName, adductsB):
+                aFound=[]
+                for i, add in enumerate(adductsA):
+                    if add.name == adductAName and add.partnerAdd == adductBName and add.toPeak == pB:
+                        aFound.append(i)
+                bFound=[]
+                for i, add in enumerate(adductsB):
+                    if add.name == adductBName and add.partnerAdd == adductAName and add.toPeak == pA:
+                        bFound.append(i)
+
+                aFound=reversed(sorted(list(set(aFound))))
+                for i in aFound:
+                    del adductsA[i]
+                bFound=reversed(sorted(list(set(bFound))))
+                for i in bFound:
+                    del adductsB[i]
+
+            # 2. remove incorrect annotations from feature pairs e.g. A: [M+H]+ and [M+Na]+ with B: [M+Na]+ and [M+2Na-H]+
+            for p in group:
+                peak = peaksInGroup[p]
+                peak.adducts = list(set(peak.adducts))
+
+            for pa in group:
+                peakA = peaksInGroup[pa]
+                if len(peakA.adducts)>0:
+
+                    for pb in group:
+                        peakB = peaksInGroup[pb]
+                        if len(peakB.adducts)>0:
+                            if peakA.mz < peakB.mz:
+
+                                for pc in group:
+                                    peakC = peaksInGroup[pc]
+                                    if len(peakC.adducts)>0:
+
+                                        if      isAdductPairPresent(pa, "[M+H]+",     peakA.adducts,     pb, "[M+Na]+",        peakB.adducts) and \
+                                                isAdductPairPresent(pa, "[M+Na]+",    peakA.adducts,     pb, "[M+2Na-H]+",     peakB.adducts) and \
+                                                isAdductPairPresent(pa, "[M+H]+",     peakA.adducts,     pc, "[M+2Na-H]+",     peakC.adducts) and \
+                                                isAdductPairPresent(pb, "[M+H]+",     peakB.adducts,     pc, "[M+Na]+",        peakC.adducts) and \
+                                                isAdductPairPresent(pb, "[M+Na]+",    peakB.adducts,     pc, "[M+2Na-H]+",     peakC.adducts) and \
+                                                peakA.mz < peakB.mz < peakC.mz:
+                                            removeAdductPair(pa, "[M+Na]+",    peakA.adducts,     pb, "[M+2Na-H]+",     peakB.adducts)
+                                            removeAdductPair(pb, "[M+H]+",     peakB.adducts,     pc, "[M+Na]+",        peakC.adducts)
+
+                                        if      isAdductPairPresent(pa, "[M+H]+",     peakA.adducts,     pb, "[M+K]+",         peakB.adducts) and \
+                                                isAdductPairPresent(pa, "[M+K]+",     peakA.adducts,     pb, "[M+2K-H]+",      peakB.adducts) and \
+                                                isAdductPairPresent(pa, "[M+H]+",     peakA.adducts,     pc, "[M+2K-H]+",      peakC.adducts) and \
+                                                isAdductPairPresent(pb, "[M+H]+",     peakB.adducts,     pc, "[M+K]+",         peakC.adducts) and \
+                                                isAdductPairPresent(pb, "[M+K]+",     peakB.adducts,     pc, "[M+2K-H]+",      peakC.adducts) and \
+                                                peakA.mz < peakB.mz < peakC.mz:
+                                            removeAdductPair(pa, "[M+K]+",    peakA.adducts,     pb, "[M+2K-H]+",     peakB.adducts)
+                                            removeAdductPair(pb, "[M+H]+",    peakB.adducts,     pc, "[M+K]+",        peakC.adducts)
+
+                                        if      isAdductPairPresent(pa, "[M+2H]++",      peakA.adducts,     pb, "[M+H+Na]++",         peakB.adducts) and \
+                                                isAdductPairPresent(pa, "[M+H+Na]++",    peakA.adducts,     pb, "[M+2Na]++",          peakB.adducts) and \
+                                                isAdductPairPresent(pa, "[M+H]++",       peakA.adducts,     pc, "[M+2Na]++",          peakC.adducts) and \
+                                                isAdductPairPresent(pb, "[M+2H]++",      peakB.adducts,     pc, "[M+H+Na]++",         peakC.adducts) and \
+                                                isAdductPairPresent(pb, "[M+H+Na]++",    peakB.adducts,     pc, "[M+2Na]++",          peakC.adducts) and \
+                                                peakA.mz < peakB.mz < peakC.mz:
+                                            removeAdductPair(pa, "[M+H+Na]++",    peakA.adducts,     pb, "[M+2Na]++",      peakB.adducts)
+                                            removeAdductPair(pb, "[M+2H]++",      peakB.adducts,     pc, "[M+H+Na]++",     peakC.adducts)
+
+                                        if      isAdductPairPresent(pa, "[M+2H]++",      peakA.adducts,     pb, "[M+H+K]++",         peakB.adducts) and \
+                                                isAdductPairPresent(pa, "[M+H+K]++",     peakA.adducts,     pb, "[M+2K]++",          peakB.adducts) and \
+                                                isAdductPairPresent(pa, "[M+H]++",       peakA.adducts,     pc, "[M+2K]++",          peakC.adducts) and \
+                                                isAdductPairPresent(pb, "[M+2H]++",      peakB.adducts,     pc, "[M+H+K]++",         peakC.adducts) and \
+                                                isAdductPairPresent(pb, "[M+H+K]++",     peakB.adducts,     pc, "[M+2K]++",          peakC.adducts) and \
+                                                peakA.mz < peakB.mz < peakC.mz:
+                                            removeAdductPair(pa, "[M+H+K]++",    peakA.adducts,     pb, "[M+2K]++",      peakB.adducts)
+                                            removeAdductPair(pb, "[M+2H]++",     peakB.adducts,     pc, "[M+H+K]++",     peakC.adducts)
+
+                                        if      isAdductPairPresent(pb, "[M+H]+",        peakB.adducts,     pc, "[M+Na]+",           peakC.adducts) and \
+                                                isAdductPairPresent(pa, "[M+2Na-H]+",    peakA.adducts,     pc, "[M+CH3FeN]+",       peakC.adducts) and \
+                                                peakA.mz < peakB.mz < peakC.mz:
+                                            removeAdductPair(pa, "[M+2Na-H]+",    peakA.adducts,     pc, "[M+CH3FeN]+",      peakC.adducts)
+
+                                        if      isAdductPairPresent(pa, "[M-H]-",        peakA.adducts,     pb, "[M+H]+",        peakB.adducts) and \
+                                                isAdductPairPresent(pa, "[M+Na-2H]-",    peakA.adducts,     pc, "[M+Na]+",       peakC.adducts) and \
+                                                peakA.mz < peakB.mz < peakC.mz:
+                                            aFound=[]
+                                            for i, add in enumerate(peakA.adducts):
+                                                if add.name == "[M+Na-2H]-":
+                                                    aFound.append(i)
+                                            aFound=reversed(sorted(list(set(aFound))))
+                                            for i in aFound:
+                                                del peakA.adducts[i]
+
+                                        if      isAdductPairPresent(pa, "[M-H]-",     peakA.adducts,     pb, "[M+H]+",        peakB.adducts) and \
+                                                isAdductPairPresent(pa, "[M+Na]+",    peakA.adducts,     pc, "[M+Na]+",       peakC.adducts) and \
+                                                peakA.mz < peakB.mz < peakC.mz:
+                                            bFound=[]
+                                            for i, add in enumerate(peakB.adducts):
+                                                if add.name == "[M+Na-2H]-":
+                                                    bFound.append(i)
+                                            bFound=reversed(sorted(list(set(bFound))))
+                                            for i in bFound:
+                                                del peakB.adducts[i]
+
+
+            for pa in group:
+                peakA = peaksInGroup[pa]
+                if len(peakA.adducts)>0:
+
+                    for pb in group:
+                        peakB = peaksInGroup[pb]
+                        if len(peakB.adducts)>0:
+                            if peakA.mz < peakB.mz:
+
+                                if      isAdductPairPresent(pa, "[M+H]+",       peakA.adducts,     pb, "[M+Na]+",         peakB.adducts) and \
+                                        isAdductPairPresent(pa, "[M+Na]+",      peakA.adducts,     pb, "[M+2Na-H]+",      peakB.adducts) and \
+                                        peakA.mz < peakB.mz:
+                                    removeAdductPair(pa, "[M+Na]+",    peakA.adducts,     pb, "[M+2Na-H]+",      peakB.adducts)
+
+                                if      isAdductPairPresent(pa, "[M+H]+",      peakA.adducts,     pb, "[M+K]+",         peakB.adducts) and \
+                                        isAdductPairPresent(pa, "[M+K]+",      peakA.adducts,     pb, "[M+2K-H]+",      peakB.adducts) and \
+                                        peakA.mz < peakB.mz:
+                                    removeAdductPair(pa, "[M+K]+",    peakA.adducts,     pb, "[M+2K-H]+",      peakB.adducts)
+
+                                if      isAdductPairPresent(pa, "[M-H]-",          peakA.adducts,     pb, "[M+Na]+",         peakB.adducts) and \
+                                        isAdductPairPresent(pa, "[M+Na-2H]-",      peakA.adducts,     pb, "[M+2Na-H]+",      peakB.adducts) and \
+                                        peakA.mz < peakB.mz:
+                                    removeAdductPair(pa, "[M+Na-2H]-",    peakA.adducts,     pb, "[M+2Na-H]+",      peakB.adducts)
+
+                                if      isAdductPairPresent(pa, "[M-H]-",         peakA.adducts,     pb, "[M+K]+",         peakB.adducts) and \
+                                        isAdductPairPresent(pa, "[M+K-2H]-",      peakA.adducts,     pb, "[M+2K-H]+",      peakB.adducts) and \
+                                        peakA.mz < peakB.mz:
+                                    removeAdductPair(pa, "[M+K-2H]-",    peakA.adducts,     pb, "[M+2K-H]+",      peakB.adducts)
+
+                                if      isAdductPairPresent(pa, "[M-H]-",          peakA.adducts,     pb, "[M+Na]+",     peakB.adducts) and \
+                                        isAdductPairPresent(pa, "[M+Na-2H]-",      peakA.adducts,     pb, "[M+H]+",      peakB.adducts) and \
+                                        peakA.mz < peakB.mz:
+                                    removeAdductPair(pa, "[M+Na-2H]-",    peakA.adducts,     pb, "[M+Na]+",      peakB.adducts)
+
+                                if      isAdductPairPresent(pa, "[M-H]-",         peakA.adducts,     pb, "[M+K]+",     peakB.adducts) and \
+                                        isAdductPairPresent(pa, "[M+K-2H]-",      peakA.adducts,     pb, "[M+H]+",      peakB.adducts) and \
+                                        peakA.mz < peakB.mz:
+                                    removeAdductPair(pa, "[M+K-2H]-",    peakA.adducts,     pb, "[M+K]+",      peakB.adducts)
+
+                                if      isAdductPairPresent(pa, "[M+2H]++",         peakA.adducts,     pb, "[M+H+Na]++",     peakB.adducts) and \
+                                        isAdductPairPresent(pa, "[M+H+Na]++",       peakA.adducts,     pb, "[M+2Na]++",      peakB.adducts) and \
+                                        peakA.mz < peakB.mz:
+                                    removeAdductPair(pa, "[M+H+Na]++",    peakA.adducts,     pb, "[M+2Na]++",      peakB.adducts)
+
+                                if      isAdductPairPresent(pa, "[M+2H]++",        peakA.adducts,     pb, "[M+H+K]++",     peakB.adducts) and \
+                                        isAdductPairPresent(pa, "[M+H+K]++",       peakA.adducts,     pb, "[M+2K]++",      peakB.adducts) and \
+                                        peakA.mz < peakB.mz:
+                                    removeAdductPair(pa, "[M+H+Na]++",    peakA.adducts,     pb, "[M+2Na]++",      peakB.adducts)
+
+
+
+            for pa in group:
+                peakA = peaksInGroup[pa]
+                if len(peakA.adducts)>0:
+                    if      isAdductPairPresent(pa, "[M+H]+",            peakA.adducts,     pa, "[2M+H]+",         peakA.adducts, checkPartners=False):
+                        removeAdductFromFeaturePair(pa, "[M+H]+",   peakA.adducts)
+                    if      isAdductPairPresent(pa, "[M+NH4]+",          peakA.adducts,     pa, "[2M+NH4]+",       peakA.adducts, checkPartners=False):
+                        removeAdductFromFeaturePair(pa, "[M+NH4]+", peakA.adducts)
+                    if      isAdductPairPresent(pa, "[M+Na]+",           peakA.adducts,     pa, "[2M+Na]+",        peakA.adducts, checkPartners=False):
+                        removeAdductFromFeaturePair(pa, "[M+Na]+",  peakA.adducts)
+                    if      isAdductPairPresent(pa, "[M+K]+",            peakA.adducts,     pa, "[2M+K]+",         peakA.adducts, checkPartners=False):
+                        removeAdductFromFeaturePair(pa, "[M+K]+",   peakA.adducts)
+
+
+
+            # 3. iterate all peaks pairwise to find common in-source fragments
+            for pa in group:
+                peakA = peaksInGroup[pa]
+                for pb in group:
+                    peakB = peaksInGroup[pb]
+
+                    # peakA shall always have the lower mass
+                    if peakA.mz < peakB.mz and abs(peakA.mz - peakB.mz) <= 101:
+                        mzDif = peakB.mz - peakA.mz
+                        mzD = [[], []]
+                        done = False
+
+                        # generate putative in-source fragments (using the labelled carbon atoms)
+                        if len(self.elements) > 0:
+
+                            elemDictReq = {}
+                            for elem in self.elements:
+                                elemDictReq[elem] = [self.elements[elem].weight, self.elements[elem].numberValenzElectrons]
+                            t = sumFormulaGenerator(atoms=elemDictReq)
+
+                            useAtoms = []
+                            if self.labellingElement in self.elements.keys():
+                                useAtoms.append(self.labellingElement)
+                                for k in self.elements.keys():
+                                    if k != self.labellingElement:
+                                        useAtoms.append(k)
+                            else:
+                                useAtoms = self.elements.keys()
+
+                            atomsRange = []
+                            if self.labellingElement in useAtoms:
+                                if self.metabolisationExperiment:
+                                    elem = self.elements[self.labellingElement]
+                                    atomsRange.append([abs(peakA.xCount - peakB.xCount),
+                                                       abs(peakA.xCount - peakB.xCount + elem.maxCount - elem.minCount)])
+                                else:
+                                    atomsRange.append(abs(peakA.xCount - peakB.xCount))
+
+                            for elem in self.elements.keys():
+                                if elem != self.labellingElement:
+                                    elem = self.elements[elem]
+                                    atomsRange.append([elem.minCount, elem.maxCount])
+
+                            corrFact = abs(peakB.mz - peakA.mz)
+                            if corrFact <= 1:
+                                corrFact = 1.
+                            pFs = t.findFormulas(mzDif, ppm=self.ppm * 2. * peakA.mz / corrFact, useAtoms=useAtoms,
+                                                 atomsRange=atomsRange, fixed=self.labellingElement,
+                                                 useSevenGoldenRules=False)
+
+                            for pF in pFs:
+                                c = fT.parseFormula(pF)
+                                mw = fT.calcMolWeight(c)
+                                dif = abs(abs(peakB.mz - peakA.mz) - mw)
+                                #if abs(dif*1000000/peakA.mz)<(self.ppm*2.):
+                                sf = fT.flatToString(c, prettyPrintWithHTMLTags=False)
+                                mzD[0].append("-" + sf)
+                                mzD[1].append("(" + sf + ")")
+                                peakA.fDesc.append("-" + sf)
+                                peakB.fDesc.append("(" + sf + ")")
+
+
+
+
+            for pe in group:
+                peak = peaksInGroup[pe]
+                peak.fDesc=list(set(peak.fDesc))
+                peak.adducts=list(set([a.name for a in peak.adducts]))
+
+                if not hasattr(peak, "Ms"):
+                    setattr(peak, "Ms", [])
+
+                peak.Ms=[]
+                for assignedAdduct in peak.adducts:
+                    if assignedAdduct in adductsDict.keys():
+                        peak.Ms.append(peak.mz-adductsDict[assignedAdduct].mzoffset)
 
     # data processing step 6: convolute different feature pairs into feature groups using the chromatographic
     # profiles of different metabolite ions
@@ -1905,19 +1919,18 @@ class RunIdentification:
             if True:
                 for gi in range(len(groups)):
                     group = groups[gi]
-                    if len(group)<60:
-                        if reportFunction is not None:
-                            reportFunction(0.7 + .3 * piA / len(chromPeaks),
-                                           "Searching for relationships (%d remaining)" % (len(groups) - gi))
+                    if reportFunction is not None:
+                        reportFunction(0.7 + .3 * piA / len(chromPeaks),
+                                       "Searching for relationships (%d remaining)" % (len(groups) - gi))
 
-                        # first, search for adduct relationships (same number of carbon atoms) in each convoluted
-                        # feature group
+                    # first, search for adduct relationships (same number of carbon atoms) in each convoluted
+                    # feature group
 
-                        peaksInGroup={}
-                        for a in group:
-                            peaksInGroup[a]=allPeaks[a]
+                    peaksInGroup={}
+                    for a in group:
+                        peaksInGroup[a]=allPeaks[a]
 
-                        self.annotateChromPeaks(group, peaksInGroup)# store feature pair annotation in the database
+                    self.annotateChromPeaks(group, peaksInGroup)# store feature pair annotation in the database
 
 
             for peak in chromPeaks:

@@ -333,7 +333,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
     def __init__(self, parent=None, initDir=None):
         QtGui.QMainWindow.__init__(self, parent)
         self.setupUi(self)
-        self.setWindowTitle("FragExtract")
+        self.setWindowTitle("MetExtract II - FragExtract")
 
         ## setup additional ui things
         self.MSMSTargetModel=MSMSTargetModel(data=[])
@@ -936,7 +936,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
                          parentSumFormula=str(target.parentSumFormula), precursorMZ=target.nativeMZ,
                          adductObj=self.MSMSTargetModel.adducts[target.usedAdduct],
                          adduct=self.MSMSTargetModel.adducts[target.usedAdduct].name, adductMZOffset=self.MSMSTargetModel.adducts[target.usedAdduct].mzoffset,
-                         Cn=target.cNMetabolite, chargeCount=target.charge,
+                         Cn=int(target.cNMetabolite), chargeCount=target.charge,
                          startRT=target.rtMin, stopRT=target.rtMax,
                          scanEventMS1="",
                          scanIDNativeRaw='', scanIDLabelledRaw='',

@@ -60,7 +60,7 @@ class ProgressWrapper(QtGui.QDialog):
             p.setStyleSheet("QScrollArea { border-width: 0px;border-style: solid;border-color: rgb(170, 170, 170);}")
             p.setWidgetResizable(True)
             p.setVerticalScrollBarPolicy(2)
-            p.setMaximumHeight(min(500, 40*len(indGroups))-(10 if len(indGroups)>1 else 0))
+            p.setMaximumHeight(min(1500, 40*len(indGroups))-(10 if len(indGroups)>1 else 0))
             p.setContentsMargins(0,0,0,0)
             l.addWidget(p)
 

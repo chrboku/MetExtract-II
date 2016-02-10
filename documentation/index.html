@@ -741,7 +741,7 @@
             </p>
 
 
-
+            <!--
             <h4>Use of several tracers in one experiment</h4>
             <p>To analyze the metabolism of several exogenous tracers concurrently in a biological system, the following prerequisites have to be fulfilled:</p>
             <ul>
@@ -755,7 +755,7 @@
                         <br> In the above mentioned example the maximum error bias should be chosen with 0.3 for both the maximum tolerated positive and negative bias. This would correspond to tolerated intensity ratio intervals of 0.7-1.3 (1±0.3), 1.4-2.0 (1.7±0.3) and 2.1-2.7 (2.4±0.3).</p>
                 </li>
             </ul>
-
+            -->
             <h3>Pre-selection of heavy isotopes X</h3>
             <p>To detect putative native and labeled metabolite ions and fragments, MetExtract tests a certain range of possible carbon atoms. This range needs to be specified by the user:</p>
             <ul>
@@ -800,6 +800,8 @@
                         <dd>This option should be set to a higher value to account for the low abundant peak flanks that will also be matched with this new setting</dd>
                         <dt>Min. corr (&ge;)</dt>
                         <dd>The peak shape comparison should also be set to a higher value (e.g. 0.7 or 0.8 depending on the LC method and the expected chromatographic peaks)</dd>
+                        <dt>Intensity abundance error<br> of Non-labeled ion (&plusmn;)</dt>
+                        <dd>If no isotopolog peaks M'+1 are detected in a TracExtract experiment, it is assumed that no exists. Thus, the ratio check of M+1 relative to M is incorrect if there are additionally, non-labeled atoms of the labeling element. Thus, this parameter should be increased to e.g. 0.75 or even higher values depending on the expected number of atoms</dd>
                     </dl>
                 </p>
                 <p>Additionally, in many LC-HRMS systems the chromatographic peak shapes of low abundant ions tend to show increased noise. This complicates the automated feature pair grouping mechanisms of MetExtract II resulting in not correctly convoluted feature groups.

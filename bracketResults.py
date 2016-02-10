@@ -157,7 +157,8 @@ def bracketResults(indGroups, minX, maxX, groupSizePPM, positiveScanEvent=None, 
             # check each processed LC-HRMS file if the used data processing parameters match
             for res in results:
                 for row in res.curs.execute(
-                        "select c.id, c.tracer, c.NPeakCenter, c.NPeakCenterMin, c.NPeakScale, c.NSNR, c.NPeakArea, c.mz, c.xcount, c.LPeakCenter, c.LPeakCenterMin, c.LPeakScale, c.LSNR, c.LPeakArea, c.Loading, f.fGroupId, t.name, c.ionMode from chromPeaks c inner join featureGroupFeatures f on c.id=f.fID inner join tracerConfiguration t on c.tracer=t.id"):
+                        "SELECT c.id, c.tracer, c.NPeakCenter, c.NPeakCenterMin, c.NPeakScale, c.NSNR, c.NPeakArea, c.mz, c.xcount, c.LPeakCenter, c.LPeakCenterMin, c.LPeakScale, c.LSNR, c.LPeakArea, c.Loading, f.fGroupId, t.name, c.ionMode "
+                        "FROM chromPeaks c INNER JOIN featureGroupFeatures f ON c.id=f.fID INNER JOIN tracerConfiguration t ON c.tracer=t.id"):
                     cp = ChromPeakPair(id=row[0], tracer=row[1], NPeakCenter=row[2], NPeakCenterMin=row[3],
                                    NPeakScale=row[4], NSNR=row[5], NPeakArea=row[6], mz=row[7], xCount=row[8],
                                    LPeakCenter=row[9], LPeakCenterMin=row[10], LPeakScale=row[11], LSNR=row[12],
@@ -168,13 +169,13 @@ def bracketResults(indGroups, minX, maxX, groupSizePPM, positiveScanEvent=None, 
                     res.featurePairs.append(cp)
 
                 rows = []
-                for row in res.curs.execute("select key, value from config where key='metabolisationExperiment'"):
+                for row in res.curs.execute("SELECT key, value FROM config WHERE key='metabolisationExperiment'"):
                     rows.append(str(row[1]))
                 assert len(rows) == 1
                 isMetabolisationExperiment = rows[0].lower() == "true"
 
                 if isMetabolisationExperiment:
-                    for row in res.curs.execute("select id, name, deltaMZ from tracerConfiguration"):
+                    for row in res.curs.execute("SELECT id, name, deltaMZ FROM tracerConfiguration"):
                         tracerName = str(row[1])
                         dmz = float(row[2])
                         if tracerName not in tracersDeltaMZ:
@@ -184,7 +185,7 @@ def bracketResults(indGroups, minX, maxX, groupSizePPM, positiveScanEvent=None, 
                             print "Warning: Tracers have not been configured identical in all measurement files"
                 else:
                     rows = []
-                    for row in res.curs.execute("select key, value from config where key='xOffset'"):
+                    for row in res.curs.execute("SELECT key, value FROM config WHERE key='xOffset'"):
                         rows.append(str(row[1]))
                     assert len(rows) == 1
 
@@ -276,7 +277,7 @@ def bracketResults(indGroups, minX, maxX, groupSizePPM, positiveScanEvent=None, 
                                             # get EICs of current subCluster
                                             for chromPeak in chromPeaks:
 
-                                                res.curs.execute("select x.xicL, x.times, x.scanCount, eicid from XICs x, chromPeaks c where c.id=%d and c.eicID=x.id" % chromPeak.id)
+                                                res.curs.execute("SELECT x.xicL, x.times, x.scanCount, eicid FROM XICs x, chromPeaks c WHERE c.id=%d AND c.eicID=x.id" % chromPeak.id)
                                                 i = 0
                                                 for row in res.curs:
                                                     scanCount = float(row[2])
@@ -384,7 +385,7 @@ def bracketResults(indGroups, minX, maxX, groupSizePPM, positiveScanEvent=None, 
                                                 scantimes.append(partXICs[k][i][1])
 
                                         # optional: align EICs; get bracketed chromatographic peaks
-                                        aligned = xicAlign.alignXIC(eics, peaks, scantimes, align=align,maxTimeDiff=maxTimeDeviation, nPolynom=nPolynom)
+                                        aligned = xicAlign.alignXIC(eics, peaks, scantimes, align=align, maxTimeDiff=maxTimeDeviation, nPolynom=nPolynom)
                                         aligned = [(x[0][0], int(x[0][1])) for x in aligned]
 
                                         if writePDF:
@@ -779,7 +780,7 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[],
                                         nodes[peakA][peakB]=0
                                     if peakA not in nodes[peakB]:
                                         nodes[peakB][peakA]=0
-                                    nodes[peakA][peakB]+=.5
+                                    nodes[peakA][peakB]+=.5   ## half because this will be done twice (nodes[peakA][peakB] and in different iteration nodes[peakB][peakA]
                                     nodes[peakB][peakA]+=.5
 
         # remove 1 from the connection density if a connection was not detected in a file

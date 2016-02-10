@@ -1960,7 +1960,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         # process individual files
         if self.ui.processIndividualFiles.isChecked():
             print ""
-            print "Processing individual LC-HRMS data with %d CPU core(s).."%min(len(files), cpus)
+            print "Processing individual LC-HRMS data on %d CPU core(s).."%min(len(files), cpus)
 
             writeMZXMLOptions = 0
             if self.ui.saveMZXML.isChecked():
@@ -2191,7 +2191,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         while not (procProc.getQueue().empty()):
                             mes = procProc.getQueue().get(block=False, timeout=1)
 
-                            # TODO: No idea why / where there are sometimes other objects than Bunch(mes, val), but they occur
+                            # No idea why / where there are sometimes other objects than Bunch(mes, val), but they occur
                             if isinstance(mes, Bunch) and hasattr(mes, "mes") and hasattr(mes, "val"):
                                 pw.getCallingFunction()(mes.mes)(mes.val)
                             else:
@@ -2316,7 +2316,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     import traceback
                     traceback.print_exc()
 
-                    QtGui.QMessageBox.warning(self, "MetExtract", "Error during bracketing of files: '%s'" % str(ex), QtGui.QMessageBox.Ok)
+                    QtGui.QMessageBox.warning(self, "MetExtract", "Error during convolution of feature pairs: '%s'" % str(ex), QtGui.QMessageBox.Ok)
                     errorCount += 1
                 finally:
                     pw.setSkipCallBack(True)
@@ -2369,7 +2369,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     import traceback
                     traceback.print_exc()
 
-                    QtGui.QMessageBox.warning(self, "MetExtract", "Error in reintegrating files: '%s'" % str(e),
+                    QtGui.QMessageBox.warning(self, "MetExtract", "Error during reintegrating files: '%s'" % str(e),
                                               QtGui.QMessageBox.Ok)
                     errorCount += 1
                 finally:
@@ -2485,6 +2485,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     mzbins.append(mzbin)
             count = 0
             children=[]
+
             for mzbin in mzbins:
                 d = QtGui.QTreeWidgetItem([str(mzbin.mz)])
                 d.myType = "mzbin"
@@ -2495,21 +2496,22 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 maxInner = 0.
                 xcount = 0
 
-                for mzRes in SQLSelectAsObject(self.currentOpenResultsFile.curs, "SELECT id, mz, "
-                                                                                            "xcount, "
-                                                                                            "scanid, "
-                                                                                            "loading, "
-                                                                                            "scantime, "
-                                                                                            "intensity from MZs m, MZBinsKids k where m.id==k.mzID and k.mzbinID=%d order by m.scanid" % mzbin.id):
-                    dd = QtGui.QTreeWidgetItem([str(s) for s in [mzRes.mz, mzRes.xcount, mzRes.scanid, mzRes.scantime/60., mzRes.loading, mzRes.intensity]])
-                    dd.myType = "mz"
-                    dd.myData=mzRes
-                    dd.myID=int(mzRes.id)
-                    minInner = min(float(mzRes.mz), minInner)
-                    maxInner = max(maxInner, mzRes.mz)
-                    xcount = int(mzRes.xcount)
-                    d.addChild(dd)
-                    countinner += 1
+                if False:
+                    for mzRes in SQLSelectAsObject(self.currentOpenResultsFile.curs, "SELECT id, mz, "
+                                                                                                "xcount, "
+                                                                                                "scanid, "
+                                                                                                "loading, "
+                                                                                                "scantime, "
+                                                                                                "intensity from MZs m, MZBinsKids k where m.id==k.mzID and k.mzbinID=%d order by m.scanid" % mzbin.id):
+                        dd = QtGui.QTreeWidgetItem([str(s) for s in [mzRes.mz, mzRes.xcount, mzRes.scanid, mzRes.scantime/60., mzRes.loading, mzRes.intensity]])
+                        dd.myType = "mz"
+                        dd.myData=mzRes
+                        dd.myID=int(mzRes.id)
+                        minInner = min(float(mzRes.mz), minInner)
+                        maxInner = max(maxInner, mzRes.mz)
+                        xcount = int(mzRes.xcount)
+                        d.addChild(dd)
+                        countinner += 1
 
                 d.setText(0, "%s (%d)" % (str(mzbin.mz), countinner))
                 d.setText(1, "%.4f" % ((maxInner - minInner) * 1000000. / minInner))
@@ -2862,8 +2864,6 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         "%d-%d" % (elemDetails.minCount, elemDetails.maxCount)]);
                     itle.addChild(itlee);
                     itlee.myType = "parameter"
-
-            it.myType = "Feature Groups"
 
             self.sortTreeChildren(self.ui.res_ExtractedData.topLevelItem(3), 2)
 
@@ -4686,6 +4686,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
     # initialise main interface, triggers and command line parameters
     def __init__(self, module="TracExtract", parent=None, silent=False):
         super(Ui_MainWindow, self).__init__()
+        QtGui.QMainWindow.__init__(self, parent)
+        self.ui = Ui_MainWindow()
+        self.ui.setupUi(self)
+        self.setWindowTitle("MetExtract II - %s"%module)
 
         self.silent=silent
 
@@ -4750,10 +4754,6 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
 
 
-        QtGui.QMainWindow.__init__(self, parent)
-        self.setWindowTitle("MetExtract")
-        self.ui = Ui_MainWindow()
-        self.ui.setupUi(self)
 
         if module=="TracExtract":
             self.labellingExperiment=TRACER
