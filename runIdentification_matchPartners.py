@@ -336,14 +336,14 @@ def matchPartners(mzXMLData, labellingElement, useCValidation, intensityThres, i
                                         # NOTE: - Approach is mainly used for 13C-labelling
                                         if useCValidation==0:
                                             # find M+1 peak
-                                            isoM_p1 = curScan.findMZ(curPeakmz + xOffset, ppm, start=currentPeakIndex)
+                                            isoM_p1 = curScan.findMZ(curPeakmz + cValidationOffset, ppm, start=currentPeakIndex)
                                             isoM_p1 = curScan.getMostIntensePeak(isoM_p1[0], isoM_p1[1])
                                             if isoM_p1 != -1 or peakCountLeft == 1 or lowAbundanceIsotopeCutoff:
                                                 # test certain number of labelled carbon atoms
 
                                                 for xCount in range(xMax, xMin - 1, -1):
                                                     # find corresponding M' peak
-                                                    isoM_pX = curScan.findMZ(curPeakmz + xCount * xOffset, ppm, start=currentPeakIndex)
+                                                    isoM_pX = curScan.findMZ(curPeakmz + xCount * cValidationOffset, ppm, start=currentPeakIndex)
                                                     isoM_pX = curScan.getMostIntensePeak(isoM_pX[0], isoM_pX[1], intensityThres)
                                                     if isoM_pX != -1:
 
@@ -374,7 +374,7 @@ def matchPartners(mzXMLData, labellingElement, useCValidation, intensityThres, i
                                                             continue
 
                                                         # find M'-1 peak
-                                                        isoM_pXm1 = curScan.findMZ(curPeakmz + (xCount - 1) * xOffset, ppm, start=currentPeakIndex)
+                                                        isoM_pXm1 = curScan.findMZ(curPeakmz + (xCount - 1) * cValidationOffset, ppm, start=currentPeakIndex)
                                                         isoM_pXm1 = curScan.getMostIntensePeak(isoM_pXm1[0], isoM_pXm1[1])
                                                         normRatioL = purityLArray[xCount][1]
                                                         normRatioN = purityNArray[xCount][1]
