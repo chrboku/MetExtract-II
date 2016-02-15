@@ -2465,7 +2465,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             it.myType = "MZs"
             count = 0
             children=[]
-            if False:
+            if True and True:
                 for mzRes in SQLSelectAsObject(self.currentOpenResultsFile.curs, "SELECT id, mz, xcount, scanid, loading, scantime, intensity FROM MZs ORDER BY scanid"):
                     d = QtGui.QTreeWidgetItem(it, [str(s) for s in [mzRes.mz, mzRes.xcount, mzRes.scanid, mzRes.scantime/60., mzRes.loading, mzRes.intensity]])
                     d.myType = "mz"
@@ -2496,7 +2496,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 maxInner = 0.
                 xcount = 0
 
-                if False:
+                if True and True:
                     for mzRes in SQLSelectAsObject(self.currentOpenResultsFile.curs, "SELECT id, mz, "
                                                                                                 "xcount, "
                                                                                                 "scanid, "
