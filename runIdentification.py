@@ -1141,7 +1141,7 @@ class RunIdentification:
                         #same retention time
                         if abs(peakA.mz - peakB.mz) <= (peakA.mz * 2.5 * self.ppm / 1000000.):
                             #same mz value
-                            if peakB.xCount == (peakA.xCount + 1) and peakB.loading == peakA.loading:
+                            if (peakB.xCount - peakA.xCount) in [1,2,3] and peakB.loading == peakA.loading:
                                 # different number of 1 atoms (peakA has less than peakB)
                                 if a not in todel.keys():
                                     todel[a]=[]
