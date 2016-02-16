@@ -1153,6 +1153,12 @@ class RunIdentification:
                                     todel[a]=[]
                                 todel[a].append("polymer mismatch with half the number of carbon atoms with "+str(peakB.mz)+" "+str(peakB.xCount))
 
+                            if (peakA.xCount*2)==peakB.xCount and peakA.loading == 1 and peakB.loading == 2:
+                                #a is intermediate pairing of polymer
+                                if a not in todel.keys():
+                                    todel[a]=[]
+                                todel[a].append("singly charged mismatch with half the number of carbon atoms with "+str(peakB.mz)+" "+str(peakB.xCount))
+
                             if (peakB.xCount - peakA.xCount) == 2 and ((peakB.LPeakArea/peakA.LPeakArea)<=0.1):
                                 # incorrect matching of 18O atoms detected
                                 # e.g. a and b have 869.4153; a has C39 and b has C41; peaksRatio(a)=1.46, peaksRatio(b)=43.48
@@ -1161,7 +1167,7 @@ class RunIdentification:
                                     todel[b]=[]
                                 todel[b].append("incorrectly matched hetero atoms (most likely O) with "+str(peakA.mz)+" "+str(peakA.xCount))
                         elif peakA.loading == peakB.loading and abs(abs(peakB.mz - peakA.mz) - self.xOffset/peakA.loading) <= peakA.mz * 2.5 * self.ppm / 1000000. and \
-                            peakA.xCount == (peakB.xCount + 1):
+                                (peakA.xCount - peakB.xCount) in [1,2,3]:
                             # b has an mz offset and a reduced number of carbon atoms (by one labelling atom)
                             if b not in todel.keys():
                                 todel[b]=[]

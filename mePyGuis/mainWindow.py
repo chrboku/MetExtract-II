@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '.\mePyGuis\guis\mainwindow.ui'
 #
-# Created: Fri Feb 05 17:27:49 2016
+# Created: Tue Feb 16 10:48:22 2016
 #      by: PyQt4 UI code generator 4.10
 #
 # WARNING! All changes made in this file will be lost!
@@ -26,7 +26,7 @@ except AttributeError:
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName(_fromUtf8("MainWindow"))
-        MainWindow.resize(1391, 898)
+        MainWindow.resize(1391, 916)
         MainWindow.setAcceptDrops(True)
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap(_fromUtf8(":/MEIcon/ressources/MEIcon.ico")), QtGui.QIcon.Normal, QtGui.QIcon.Off)
@@ -456,7 +456,7 @@ class Ui_MainWindow(object):
         self.scrollArea_2.setWidgetResizable(True)
         self.scrollArea_2.setObjectName(_fromUtf8("scrollArea_2"))
         self.scrollAreaWidgetContents_5 = QtGui.QWidget()
-        self.scrollAreaWidgetContents_5.setGeometry(QtCore.QRect(0, 0, 1320, 884))
+        self.scrollAreaWidgetContents_5.setGeometry(QtCore.QRect(0, 0, 1308, 1012))
         self.scrollAreaWidgetContents_5.setObjectName(_fromUtf8("scrollAreaWidgetContents_5"))
         self.gridLayout_10 = QtGui.QGridLayout(self.scrollAreaWidgetContents_5)
         self.gridLayout_10.setObjectName(_fromUtf8("gridLayout_10"))
@@ -833,7 +833,8 @@ class Ui_MainWindow(object):
         self.label_24.setObjectName(_fromUtf8("label_24"))
         self.gridLayout_9.addWidget(self.label_24, 1, 0, 1, 1)
         self.hAIntensityError = QtGui.QDoubleSpinBox(self.searchForHeteroAtoms)
-        self.hAIntensityError.setProperty("value", 5.0)
+        self.hAIntensityError.setMaximum(1.0)
+        self.hAIntensityError.setProperty("value", 0.15)
         self.hAIntensityError.setObjectName(_fromUtf8("hAIntensityError"))
         self.gridLayout_9.addWidget(self.hAIntensityError, 0, 1, 1, 1)
         self.label_25 = QtGui.QLabel(self.searchForHeteroAtoms)
@@ -1460,7 +1461,7 @@ class Ui_MainWindow(object):
         self.scrollArea_3.setWidgetResizable(True)
         self.scrollArea_3.setObjectName(_fromUtf8("scrollArea_3"))
         self.scrollAreaWidgetContents_6 = QtGui.QWidget()
-        self.scrollAreaWidgetContents_6.setGeometry(QtCore.QRect(0, 0, 1183, 609))
+        self.scrollAreaWidgetContents_6.setGeometry(QtCore.QRect(0, 0, 1231, 625))
         self.scrollAreaWidgetContents_6.setObjectName(_fromUtf8("scrollAreaWidgetContents_6"))
         self.gridLayout_15 = QtGui.QGridLayout(self.scrollAreaWidgetContents_6)
         self.gridLayout_15.setObjectName(_fromUtf8("gridLayout_15"))
@@ -1709,7 +1710,7 @@ class Ui_MainWindow(object):
         self.scrollArea.setWidgetResizable(True)
         self.scrollArea.setObjectName(_fromUtf8("scrollArea"))
         self.scrollAreaWidgetContents = QtGui.QWidget()
-        self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 1068, 658))
+        self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 1077, 681))
         self.scrollAreaWidgetContents.setObjectName(_fromUtf8("scrollAreaWidgetContents"))
         self.gridLayout_40 = QtGui.QGridLayout(self.scrollAreaWidgetContents)
         self.gridLayout_40.setObjectName(_fromUtf8("gridLayout_40"))
@@ -1824,7 +1825,7 @@ class Ui_MainWindow(object):
         self.gridLayout_7.addWidget(self.INFOLabel, 0, 1, 1, 1)
         MainWindow.setCentralWidget(self.centralWidget)
         self.menuBar = QtGui.QMenuBar(MainWindow)
-        self.menuBar.setGeometry(QtCore.QRect(0, 0, 1391, 21))
+        self.menuBar.setGeometry(QtCore.QRect(0, 0, 1391, 26))
         self.menuBar.setObjectName(_fromUtf8("menuBar"))
         self.menuHelp = QtGui.QMenu(self.menuBar)
         self.menuHelp.setObjectName(_fromUtf8("menuHelp"))
@@ -1989,7 +1990,7 @@ class Ui_MainWindow(object):
         self.label_5.setText(_translate("MainWindow", "Run tasks", None))
         self.processIndividualFiles.setToolTip(_translate("MainWindow", "If checked, MetExtract will search for features in the input files ", None))
         self.processIndividualFiles.setText(_translate("MainWindow", "Individual files processing", None))
-        self.label_53.setText(_translate("MainWindow", "<html><head/><body><p>Please specify the settings for your experiment</p><p>The section &quot;Labelling&quot; provides options for describing the experiment\'s stable isotopic labelling.</p><p>The section &quot;MZ picking&quot; and &quot;MZ clustering&quot; describe the parameters of your HRMS device</p><p>The section &quot;Chromatographic separation&quot; describes your LC device and are parameters used for peak picking</p><p>The results of each measurement is automatically saved in tabular format to &lt;FileName&gt;.tsv. Additionally the results can be saved as &lt;FileName&gt;.pdf with graphical illustrations. </p><p>For some LC-HRMS devices it is also possible to save &lt;FileName&gt;.mzXML files. These files only include those mass peaks originating from the labelling process</p></body></html>", None))
+        self.label_53.setText(_translate("MainWindow", "<html><head/><body><p>Please specify the settings for your experiment</p><p>The section &quot;Labeling&quot; provides options for describing the experiment\'s stable isotopic labeling.</p><p>The section &quot;MZ picking&quot; and &quot;MZ clustering&quot; describe the parameters of your HRMS device</p><p>The section &quot;Chromatographic separation&quot; describes your LC device and are parameters used for peak picking</p><p>The results of each measurement is automatically saved in tabular format to &lt;FileName&gt;.tsv. Additionally the results can be saved as &lt;FileName&gt;.pdf with graphical illustrations. </p><p>For some LC-HRMS devices it is also possible to save &lt;FileName&gt;.mzXML files. These files only include those mass peaks originating from the labeling process</p></body></html>", None))
         self.visualConfig.setText(_translate("MainWindow", "Visual config", None))
         self.workingCore.setText(_translate("MainWindow", "Keep one core unused", None))
         self.label_43.setText(_translate("MainWindow", "CPU cores", None))
@@ -2020,7 +2021,7 @@ class Ui_MainWindow(object):
         self.correctcCount.setText(_translate("MainWindow", "Correct C-Count", None))
         self.groupBox_8.setTitle(_translate("MainWindow", "Isotopolog ratios", None))
         self.label_70.setText(_translate("MainWindow", "Native", None))
-        self.label_71.setText(_translate("MainWindow", "Labelled", None))
+        self.label_71.setText(_translate("MainWindow", "Labeled", None))
         self.label_72.setText(_translate("MainWindow", "Moiety", None))
         self.searchForHeteroAtoms.setTitle(_translate("MainWindow", "Hetero isotopologue annotation", None))
         self.label_24.setText(_translate("MainWindow", "Min. scans", None))
@@ -2079,12 +2080,12 @@ class Ui_MainWindow(object):
 "p, li { white-space: pre-wrap; }\n"
 "</style></head><body style=\" font-family:\'MS Shell Dlg 2\'; font-size:8.25pt; font-weight:400; font-style:normal;\">\n"
 "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt;\">The observed Intensities differ from the theoretical Intensities for a certain M/Z. This parameter controls the deviation of the theoretical and observed Intensities for a mixed Base and Isotope M/Z Peak</span></p></body></html>", None))
-        self.label_17.setText(_translate("MainWindow", "Labelled ion (±)", None))
+        self.label_17.setText(_translate("MainWindow", "Labeled ion (±)", None))
         self.label_16.setToolTip(_translate("MainWindow", "The observed Intensities differ from the theoretical Intensities for a certain M/Z. This parameter controls the deviation of the theoretical and observed Intensities for a mixed Base and Isotope M/Z Peak", None))
-        self.label_16.setText(_translate("MainWindow", "Non-labelled ion (±)", None))
-        self.label_48.setToolTip(_translate("MainWindow", "Labelling options", None))
-        self.label_48.setText(_translate("MainWindow", "Labelling", None))
-        self.label_50.setText(_translate("MainWindow", "Labelling", None))
+        self.label_16.setText(_translate("MainWindow", "Non-labeled ion (±)", None))
+        self.label_48.setToolTip(_translate("MainWindow", "Labeling options", None))
+        self.label_48.setText(_translate("MainWindow", "Labeling", None))
+        self.label_50.setText(_translate("MainWindow", "Labeling", None))
         self.groupBox_ISOA.setTitle(_translate("MainWindow", "Isotope N", None))
         self.label_23.setText(_translate("MainWindow", "Isotope N", None))
         self.label_9.setToolTip(_translate("MainWindow", "Purity of the Base Growth Media", None))

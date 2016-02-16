@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1391</width>
-    <height>898</height>
+    <height>916</height>
    </rect>
   </property>
   <property name="acceptDrops">
@@ -985,8 +985,8 @@ font: 7pt;</string>
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1320</width>
-             <height>884</height>
+             <width>1308</width>
+             <height>1012</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_10">
@@ -1095,7 +1095,7 @@ font: 7pt;</string>
 font: 7pt;</string>
                   </property>
                   <property name="text">
-                   <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Please specify the settings for your experiment&lt;/p&gt;&lt;p&gt;The section &amp;quot;Labelling&amp;quot; provides options for describing the experiment's stable isotopic labelling.&lt;/p&gt;&lt;p&gt;The section &amp;quot;MZ picking&amp;quot; and &amp;quot;MZ clustering&amp;quot; describe the parameters of your HRMS device&lt;/p&gt;&lt;p&gt;The section &amp;quot;Chromatographic separation&amp;quot; describes your LC device and are parameters used for peak picking&lt;/p&gt;&lt;p&gt;The results of each measurement is automatically saved in tabular format to &amp;lt;FileName&amp;gt;.tsv. Additionally the results can be saved as &amp;lt;FileName&amp;gt;.pdf with graphical illustrations. &lt;/p&gt;&lt;p&gt;For some LC-HRMS devices it is also possible to save &amp;lt;FileName&amp;gt;.mzXML files. These files only include those mass peaks originating from the labelling process&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                   <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Please specify the settings for your experiment&lt;/p&gt;&lt;p&gt;The section &amp;quot;Labeling&amp;quot; provides options for describing the experiment's stable isotopic labeling.&lt;/p&gt;&lt;p&gt;The section &amp;quot;MZ picking&amp;quot; and &amp;quot;MZ clustering&amp;quot; describe the parameters of your HRMS device&lt;/p&gt;&lt;p&gt;The section &amp;quot;Chromatographic separation&amp;quot; describes your LC device and are parameters used for peak picking&lt;/p&gt;&lt;p&gt;The results of each measurement is automatically saved in tabular format to &amp;lt;FileName&amp;gt;.tsv. Additionally the results can be saved as &amp;lt;FileName&amp;gt;.pdf with graphical illustrations. &lt;/p&gt;&lt;p&gt;For some LC-HRMS devices it is also possible to save &amp;lt;FileName&amp;gt;.mzXML files. These files only include those mass peaks originating from the labeling process&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                   </property>
                   <property name="alignment">
                    <set>Qt::AlignJustify|Qt::AlignVCenter</set>
@@ -1816,7 +1816,7 @@ font: 7pt;</string>
                             <item row="2" column="0">
                              <widget class="QLabel" name="label_71">
                               <property name="text">
-                               <string>Labelled</string>
+                               <string>Labeled</string>
                               </property>
                              </widget>
                             </item>
@@ -1881,8 +1881,11 @@ font: 7pt;</string>
                             </item>
                             <item row="0" column="1">
                              <widget class="QDoubleSpinBox" name="hAIntensityError">
+                              <property name="maximum">
+                               <double>1.000000000000000</double>
+                              </property>
                               <property name="value">
-                               <double>5.000000000000000</double>
+                               <double>0.150000000000000</double>
                               </property>
                              </widget>
                             </item>
@@ -2673,7 +2676,7 @@ p, li { white-space: pre-wrap; }
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-size:8pt;&quot;&gt;The observed Intensities differ from the theoretical Intensities for a certain M/Z. This parameter controls the deviation of the theoretical and observed Intensities for a mixed Base and Isotope M/Z Peak&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                               </property>
                               <property name="text">
-                               <string>Labelled ion (±)</string>
+                               <string>Labeled ion (±)</string>
                               </property>
                              </widget>
                             </item>
@@ -2709,7 +2712,7 @@ p, li { white-space: pre-wrap; }
                                <string>The observed Intensities differ from the theoretical Intensities for a certain M/Z. This parameter controls the deviation of the theoretical and observed Intensities for a mixed Base and Isotope M/Z Peak</string>
                               </property>
                               <property name="text">
-                               <string>Non-labelled ion (±)</string>
+                               <string>Non-labeled ion (±)</string>
                               </property>
                              </widget>
                             </item>
@@ -2743,10 +2746,10 @@ p, li { white-space: pre-wrap; }
                          <item>
                           <widget class="QLabel" name="label_48">
                            <property name="toolTip">
-                            <string>Labelling options</string>
+                            <string>Labeling options</string>
                            </property>
                            <property name="text">
-                            <string>Labelling</string>
+                            <string>Labeling</string>
                            </property>
                           </widget>
                          </item>
@@ -2762,7 +2765,7 @@ p, li { white-space: pre-wrap; }
                        <item>
                         <widget class="QLabel" name="label_50">
                          <property name="text">
-                          <string>Labelling</string>
+                          <string>Labeling</string>
                          </property>
                         </widget>
                        </item>
@@ -3269,8 +3272,8 @@ p, li { white-space: pre-wrap; }
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1183</width>
-             <height>609</height>
+             <width>1231</width>
+             <height>625</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_15">
@@ -3807,8 +3810,8 @@ p, li { white-space: pre-wrap; }
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1068</width>
-             <height>658</height>
+             <width>1077</width>
+             <height>681</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_40">
@@ -4088,7 +4091,7 @@ p, li { white-space: pre-wrap; }
      <x>0</x>
      <y>0</y>
      <width>1391</width>
-     <height>21</height>
+     <height>26</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuHelp">

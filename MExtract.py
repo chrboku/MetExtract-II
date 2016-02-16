@@ -2031,7 +2031,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                   negativeScanEvent=str(self.ui.negativeScanEvent.currentText()),
                                   correctCCount=self.ui.correctcCount.checkState() == QtCore.Qt.Checked,
                                   minCorrelation=self.ui.minCorrelation.value(),
-                                  hAIntensityError=self.ui.hAIntensityError.value() / 100.,
+                                  hAIntensityError=self.ui.hAIntensityError.value(),
                                   hAMinScans=self.ui.hAMinScans.value(), adducts=self.adducts, elements=self.elementsForNL,
                                   heteroAtoms=self.heteroElements, lock=lock, queue=queue, pID=i + 1,
                                   rVersion=getRVersion(), meVersion="MetExtract (%s)" % MetExtractVersion) for i in
@@ -2465,7 +2465,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             it.myType = "MZs"
             count = 0
             children=[]
-            if False:
+            if True and True:
                 for mzRes in SQLSelectAsObject(self.currentOpenResultsFile.curs, "SELECT id, mz, xcount, scanid, loading, scantime, intensity FROM MZs ORDER BY scanid"):
                     d = QtGui.QTreeWidgetItem(it, [str(s) for s in [mzRes.mz, mzRes.xcount, mzRes.scanid, mzRes.scantime/60., mzRes.loading, mzRes.intensity]])
                     d.myType = "mz"
@@ -2496,13 +2496,13 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 maxInner = 0.
                 xcount = 0
 
-                if False:
+                if True and True:
                     for mzRes in SQLSelectAsObject(self.currentOpenResultsFile.curs, "SELECT id, mz, "
                                                                                                 "xcount, "
                                                                                                 "scanid, "
                                                                                                 "loading, "
                                                                                                 "scantime, "
-                                                                                                "intensity from MZs m, MZBinsKids k where m.id==k.mzID and k.mzbinID=%d order by m.scanid" % mzbin.id):
+                                                                                                "intensity FROM MZs m, MZBinsKids k WHERE m.id==k.mzID AND k.mzbinID=%d ORDER BY m.scanid" % mzbin.id):
                         dd = QtGui.QTreeWidgetItem([str(s) for s in [mzRes.mz, mzRes.xcount, mzRes.scanid, mzRes.scantime/60., mzRes.loading, mzRes.intensity]])
                         dd.myType = "mz"
                         dd.myData=mzRes
