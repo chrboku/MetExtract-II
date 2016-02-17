@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '.\mePyGuis\guis\mainwindow.ui'
 #
-# Created: Tue Feb 16 10:48:22 2016
+# Created: Tue Feb 16 15:47:21 2016
 #      by: PyQt4 UI code generator 4.10
 #
 # WARNING! All changes made in this file will be lost!
@@ -26,7 +26,7 @@ except AttributeError:
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName(_fromUtf8("MainWindow"))
-        MainWindow.resize(1391, 916)
+        MainWindow.resize(1540, 1080)
         MainWindow.setAcceptDrops(True)
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap(_fromUtf8(":/MEIcon/ressources/MEIcon.ico")), QtGui.QIcon.Normal, QtGui.QIcon.Off)
@@ -456,7 +456,12 @@ class Ui_MainWindow(object):
         self.scrollArea_2.setWidgetResizable(True)
         self.scrollArea_2.setObjectName(_fromUtf8("scrollArea_2"))
         self.scrollAreaWidgetContents_5 = QtGui.QWidget()
-        self.scrollAreaWidgetContents_5.setGeometry(QtCore.QRect(0, 0, 1308, 1012))
+        self.scrollAreaWidgetContents_5.setGeometry(QtCore.QRect(0, 0, 1293, 1128))
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Preferred)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.scrollAreaWidgetContents_5.sizePolicy().hasHeightForWidth())
+        self.scrollAreaWidgetContents_5.setSizePolicy(sizePolicy)
         self.scrollAreaWidgetContents_5.setObjectName(_fromUtf8("scrollAreaWidgetContents_5"))
         self.gridLayout_10 = QtGui.QGridLayout(self.scrollAreaWidgetContents_5)
         self.gridLayout_10.setObjectName(_fromUtf8("gridLayout_10"))
@@ -697,6 +702,11 @@ class Ui_MainWindow(object):
         self.line_4.setObjectName(_fromUtf8("line_4"))
         self.gridLayout_27.addWidget(self.line_4, 5, 0, 1, 5)
         self.procIndFiles = QtGui.QFrame(self.scrollAreaWidgetContents_5)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Preferred)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.procIndFiles.sizePolicy().hasHeightForWidth())
+        self.procIndFiles.setSizePolicy(sizePolicy)
         self.procIndFiles.setFrameShape(QtGui.QFrame.StyledPanel)
         self.procIndFiles.setFrameShadow(QtGui.QFrame.Raised)
         self.procIndFiles.setObjectName(_fromUtf8("procIndFiles"))
@@ -1461,7 +1471,7 @@ class Ui_MainWindow(object):
         self.scrollArea_3.setWidgetResizable(True)
         self.scrollArea_3.setObjectName(_fromUtf8("scrollArea_3"))
         self.scrollAreaWidgetContents_6 = QtGui.QWidget()
-        self.scrollAreaWidgetContents_6.setGeometry(QtCore.QRect(0, 0, 1231, 625))
+        self.scrollAreaWidgetContents_6.setGeometry(QtCore.QRect(0, 0, 1641, 1150))
         self.scrollAreaWidgetContents_6.setObjectName(_fromUtf8("scrollAreaWidgetContents_6"))
         self.gridLayout_15 = QtGui.QGridLayout(self.scrollAreaWidgetContents_6)
         self.gridLayout_15.setObjectName(_fromUtf8("gridLayout_15"))
@@ -1710,7 +1720,7 @@ class Ui_MainWindow(object):
         self.scrollArea.setWidgetResizable(True)
         self.scrollArea.setObjectName(_fromUtf8("scrollArea"))
         self.scrollAreaWidgetContents = QtGui.QWidget()
-        self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 1077, 681))
+        self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 3272, 1336))
         self.scrollAreaWidgetContents.setObjectName(_fromUtf8("scrollAreaWidgetContents"))
         self.gridLayout_40 = QtGui.QGridLayout(self.scrollAreaWidgetContents)
         self.gridLayout_40.setObjectName(_fromUtf8("gridLayout_40"))
@@ -1825,7 +1835,7 @@ class Ui_MainWindow(object):
         self.gridLayout_7.addWidget(self.INFOLabel, 0, 1, 1, 1)
         MainWindow.setCentralWidget(self.centralWidget)
         self.menuBar = QtGui.QMenuBar(MainWindow)
-        self.menuBar.setGeometry(QtCore.QRect(0, 0, 1391, 26))
+        self.menuBar.setGeometry(QtCore.QRect(0, 0, 1540, 26))
         self.menuBar.setObjectName(_fromUtf8("menuBar"))
         self.menuHelp = QtGui.QMenu(self.menuBar)
         self.menuHelp.setObjectName(_fromUtf8("menuHelp"))
@@ -1857,7 +1867,7 @@ class Ui_MainWindow(object):
         self.menuBar.addAction(self.menuHelp.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.tabWidget.setCurrentIndex(1)
+        self.tabWidget.setCurrentIndex(0)
         self.tabWidget_2.setCurrentIndex(0)
         self.tabWidget_3.setCurrentIndex(1)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)

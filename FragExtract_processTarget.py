@@ -35,6 +35,27 @@ from reportlab.graphics import renderPDF
 from reportlab.lib.styles import getSampleStyleSheet
 
 
+
+
+
+
+
+def cropEICs(eic, times, scanIDs, startRT, stopRT):
+    eicNew=[]
+    timesNew=[]
+    scanIDsNew=[]
+    for i in range(len(times)):
+        if startRT<=times[i]<=stopRT:
+            eicNew.append(eic[i])
+            timesNew.append(times[i])
+            scanIDsNew.append(scanIDs[i])
+    return eicNew, timesNew, scanIDsNew
+
+
+
+
+
+
 # helper function for ReportLab
 def coord(x, y):
     return x, y
@@ -241,10 +262,15 @@ class ProcessTarget:
             elif mes == "start" or mes == "end" or mes == "failed":
                 self.queue.put(Bunch(pid=forPID, mes=mes))
 
-    def findClosestScanAfter(self, times, startTime):
+    def findClosestScanTo(self, times, startTime):
+        bestMatch=-1
+        bestMatchRTDiff=100000
         for i in range(len(times)):
-            if times[i]>startTime:
-                return i
+            if abs(times[i]-startTime)<bestMatchRTDiff:
+                bestMatch=i
+                bestMatchRTDiff=abs(times[i]-startTime)
+
+        return bestMatch
 
     def scaleMSScan(self, msScan, minVal=1., maxVal=100., minMZ=0, maxMZ=10000000):
         if len(msScan.intensity_list)==0:
@@ -282,8 +308,9 @@ class ProcessTarget:
                 eic[i]=0
         maxIntFullScanIndex=max(zip(range(len(eic)), eic), key=lambda x:x[1])[0]
 
-        maxIntMS2NativeIndex=self.findClosestScanAfter(timesMS2Native, timesFS[maxIntFullScanIndex])
-        maxIntMS2LabelledIndex=self.findClosestScanAfter(timesMS2Labelled, timesFS[maxIntFullScanIndex])
+        maxIntMS2NativeIndex=self.findClosestScanTo(timesMS2Native, timesFS[maxIntFullScanIndex])
+        maxIntMS2LabelledIndex=self.findClosestScanTo(timesMS2Labelled, timesFS[maxIntFullScanIndex])
+
 
         ######################################
         ######################################
@@ -296,8 +323,11 @@ class ProcessTarget:
             plt.plot([t/60. for t in timesMS2Labelled], [-i for i in TICL], color='red')
 
             plt.axvline(x=timesFS[maxIntFullScanIndex]/60., ymin=-10000, ymax = 10000, linewidth=2, color='black')
-            plt.axvline(x=timesMS2Native[maxIntMS2NativeIndex]/60., ymin=-10000, ymax = 10000, linewidth=2, color='yellow')
-            plt.axvline(x=timesMS2Labelled[maxIntMS2LabelledIndex]/60., ymin=-10000, ymax = 10000, linewidth=2, color='green')
+            try:
+                plt.axvline(x=timesMS2Native[maxIntMS2NativeIndex]/60., ymin=-10000, ymax = 10000, linewidth=2, color='yellow')
+                plt.axvline(x=timesMS2Labelled[maxIntMS2LabelledIndex]/60., ymin=-10000, ymax = 10000, linewidth=2, color='green')
+            except:
+                pass
 
             plt.show()
 
@@ -359,7 +389,7 @@ class ProcessTarget:
                 lMz=scanMS2Labelled.mz_list[j]
                 lInt=scanMS2Labelled.intensity_list[j]
 
-                for n in range(3, maxCn+1):
+                for n in range(0, maxCn+1):
 
                     # check if delta mz is explained by n carbon atoms
                     if nMz<lMz and (abs(lMz-nMz-n*isotopeOffset/metaboliteCharge)*1e6/nMz)<=matchingPPM:
@@ -426,11 +456,12 @@ class ProcessTarget:
             sfs=sfg.findFormulas(scanAnnotated.nativeMz_list[annotation.NIndex]-adductObj.mzoffset/adductObj.charge, ppm=ppm,
                                  useAtoms=uA, atomsRange=ar, fixed=f, useSevenGoldenRules=useSevenGoldenRules)
 
+
             if len(sfs)>0:
                 annotation.generatedSumFormulas[adductObj.name]=[]
                 for sf in sfs:
                     elems=ft.parseFormula(sf)
-                    massSF=ft.calcMolWeight(elems)+adductObj.mzoffset/adductObj.charge
+                    massSF=ft.calcMolWeight(elems)-adductObj.mzoffset/adductObj.charge
                     dppm=(scanAnnotated.nativeMz_list[annotation.NIndex]-massSF)*1000000./massSF
 
                     annotation.generatedSumFormulas[adductObj.name].append(Bunch(sumFormula=sf, deltaPPM=dppm, neutralLossToParent=""))
@@ -1046,8 +1077,14 @@ class ProcessTarget:
             mz=scanMS2Annotated.nativeMz_list[i]
             mzL=scanMS2Annotated.labelledMz_list[i]
 
-            eicN, timesN, scanIds=chromatogram.getEIC(mz=mz,  ppm=self.matchingPPM, filterLine=nativeScanEventString, removeSingles=False, useMS1=False, useMS2=True)
-            eicL, timesL, scanIds=chromatogram.getEIC(mz=mzL, ppm=self.matchingPPM, filterLine=labelledScanEventString, removeSingles=False, useMS1=False, useMS2=True)
+            eicN, timesN, scanIdsN=chromatogram.getEIC(mz=mz,  ppm=self.matchingPPM, filterLine=nativeScanEventString, removeSingles=False, useMS1=False, useMS2=True)
+            eicL, timesL, scanIdsL=chromatogram.getEIC(mz=mzL, ppm=self.matchingPPM, filterLine=labelledScanEventString, removeSingles=False, useMS1=False, useMS2=True)
+
+
+
+            eicN, timesN, scanIdsN=cropEICs(eicN, timesN, scanIdsN, target.startRT*60, target.stopRT*60)
+            eicL, timesL, scanIdsL=cropEICs(eicL, timesL, scanIdsL, target.startRT*60, target.stopRT*60)
+
 
             writeObjectAsSQLInsert(curs, "EICs", Bunch(forTarget=target.id,
                                                        forMZ=mz,

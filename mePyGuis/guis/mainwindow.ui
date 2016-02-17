@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1391</width>
-    <height>916</height>
+    <width>1540</width>
+    <height>1080</height>
    </rect>
   </property>
   <property name="acceptDrops">
@@ -61,7 +61,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>0</number>
       </property>
       <widget class="QWidget" name="inputTab">
        <attribute name="title">
@@ -985,15 +985,24 @@ font: 7pt;</string>
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1308</width>
-             <height>1012</height>
+             <width>1293</width>
+             <height>1128</height>
             </rect>
+           </property>
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
            </property>
            <layout class="QGridLayout" name="gridLayout_10">
             <item row="0" column="1">
              <spacer name="horizontalSpacer_2">
               <property name="orientation">
                <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeType">
+               <enum>QSizePolicy::Expanding</enum>
               </property>
               <property name="sizeHint" stdset="0">
                <size>
@@ -1552,6 +1561,12 @@ font: 7pt;</string>
               </item>
               <item row="1" column="4">
                <widget class="QFrame" name="procIndFiles">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
                 <property name="frameShape">
                  <enum>QFrame::StyledPanel</enum>
                 </property>
@@ -3272,8 +3287,8 @@ p, li { white-space: pre-wrap; }
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1231</width>
-             <height>625</height>
+             <width>1641</width>
+             <height>1150</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_15">
@@ -3810,8 +3825,8 @@ p, li { white-space: pre-wrap; }
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1077</width>
-             <height>681</height>
+             <width>3272</width>
+             <height>1336</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_40">
@@ -4090,7 +4105,7 @@ p, li { white-space: pre-wrap; }
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1391</width>
+     <width>1540</width>
      <height>26</height>
     </rect>
    </property>

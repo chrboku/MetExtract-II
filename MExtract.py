@@ -2465,7 +2465,23 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             it.myType = "MZs"
             count = 0
             children=[]
-            if True and True:
+
+
+            pw=ProgressWrapper(pwCount=4)
+            pw.setText("Fetching mzs", i=0)
+            pw.setText("", i=1)
+            pw.setText("", i=2)
+            pw.setText("", i=3)
+            pw.show()
+
+            numberOfMZs=0
+            for row in SQLSelectAsObject(self.currentOpenResultsFile.curs, "SELECT count(id) AS co FROM MZs"):
+                numberOfMZs=row.co
+            pw.setMax(numberOfMZs)
+
+            if numberOfMZs<10000:
+
+                pw.setText("Fetching mzs (%d)"%numberOfMZs, i=0)
                 for mzRes in SQLSelectAsObject(self.currentOpenResultsFile.curs, "SELECT id, mz, xcount, scanid, loading, scantime, intensity FROM MZs ORDER BY scanid"):
                     d = QtGui.QTreeWidgetItem(it, [str(s) for s in [mzRes.mz, mzRes.xcount, mzRes.scanid, mzRes.scantime/60., mzRes.loading, mzRes.intensity]])
                     d.myType = "mz"
@@ -2473,60 +2489,113 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     d.myID=int(mzRes.id)
                     children.append(d)
                     count += 1
+
+                    pw.setValueu(count, i=0)
+                pw.setText("%d MZs fetched"%numberOfMZs, i=0)
+            else:
+                pw.setText("Mzs not fetched (too many; %d"%numberOfMZs)
             it.addChildren(children)
-            it.setText(1, "%d"%count)
+            it.setText(1, "%d"%numberOfMZs)
+
 
             it = QtGui.QTreeWidgetItem(["MZ bins"])
             it.myType = "MZBins"
             self.ui.res_ExtractedData.addTopLevelItem(it)
             mzbins = []
-            if True and True:
-                for mzbin in SQLSelectAsObject(self.currentOpenResultsFile.curs, "SELECT id, mz FROM MZBins ORDER BY mz"):
-                    mzbins.append(mzbin)
+
+            for mzbin in SQLSelectAsObject(self.currentOpenResultsFile.curs, "SELECT id, mz FROM MZBins ORDER BY mz"):
+                mzbins.append(mzbin)
             count = 0
             children=[]
 
-            for mzbin in mzbins:
-                d = QtGui.QTreeWidgetItem([str(mzbin.mz)])
-                d.myType = "mzbin"
-                d.myID = int(mzbin.id)
-                children.append(d)
-                countinner = 0
-                minInner = 1000000.
-                maxInner = 0.
-                xcount = 0
 
-                if True and True:
+            pw.setText("Fetching MZBins (%d)"%len(mzbins), i=1)
+            pw.setMax(len(mzbins), i=1)
+            if len(mzbins)<2500:
+                for mzbin in mzbins:
+                    d = QtGui.QTreeWidgetItem([str(mzbin.mz)])
+                    d.myType = "mzbin"
+                    d.myID = int(mzbin.id)
+                    children.append(d)
+                    countinner = 0
+                    minInner = 1000000.
+                    maxInner = 0.
+                    xcount = 0
+
+
                     for mzRes in SQLSelectAsObject(self.currentOpenResultsFile.curs, "SELECT id, mz, "
-                                                                                                "xcount, "
-                                                                                                "scanid, "
-                                                                                                "loading, "
-                                                                                                "scantime, "
-                                                                                                "intensity FROM MZs m, MZBinsKids k WHERE m.id==k.mzID AND k.mzbinID=%d ORDER BY m.scanid" % mzbin.id):
-                        dd = QtGui.QTreeWidgetItem([str(s) for s in [mzRes.mz, mzRes.xcount, mzRes.scanid, mzRes.scantime/60., mzRes.loading, mzRes.intensity]])
-                        dd.myType = "mz"
-                        dd.myData=mzRes
-                        dd.myID=int(mzRes.id)
+                                                                                     "xcount, "
+                                                                                     "scanid, "
+                                                                                     "loading, "
+                                                                                     "scantime, "
+                                                                                     "intensity "
+                                                                                     "FROM MZs m, MZBinsKids k "
+                                                                                     "WHERE m.id==k.mzID AND k.mzbinID=%d ORDER BY m.scanid" % mzbin.id):
                         minInner = min(float(mzRes.mz), minInner)
                         maxInner = max(maxInner, mzRes.mz)
                         xcount = int(mzRes.xcount)
-                        d.addChild(dd)
+                        if numberOfMZs<10000:
+                            dd = QtGui.QTreeWidgetItem([str(s) for s in [mzRes.mz, mzRes.xcount, mzRes.scanid, mzRes.scantime/60., mzRes.loading, mzRes.intensity]])
+                            dd.myType = "mz"
+                            dd.myData=mzRes
+                            dd.myID=int(mzRes.id)
+                            d.addChild(dd)
                         countinner += 1
 
-                d.setText(0, "%s (%d)" % (str(mzbin.mz), countinner))
-                d.setText(1, "%.4f" % ((maxInner - minInner) * 1000000. / minInner))
-                d.setText(2, "%d" % xcount)
-                count += 1
+                    d.setText(0, "%s (%d)" % (str(mzbin.mz), countinner))
+                    d.setText(1, "%.4f" % ((maxInner - minInner) * 1000000. / minInner))
+                    d.setText(2, "%d" % xcount)
+                    count += 1
+                    pw.setValueu(count, i=1)
+                pw.setText("%d MZBins fetched"%count, i=1)
+            else:
+                pw.setText("MZBins not fetched (too many; %d)"%len(mzbins))
+
+
             it.addChildren(children)
-            it.setText(1, "%d" % count)
+            it.setText(1, "%d" % len(mzbins))
 
             it = QtGui.QTreeWidgetItem(["Feature pairs"])
             self.ui.res_ExtractedData.addTopLevelItem(it)
             it.myType = "Features"
 
+            numberOfFeaturePairs=0
+            for row in SQLSelectAsObject(self.currentOpenResultsFile.curs, "SELECT count(chromPeaks.id) AS co "
+                                                                           "FROM chromPeaks LEFT JOIN tracerConfiguration ON tracerConfiguration.id=chromPeaks.tracer"):
+                numberOfFeaturePairs=row.co
+
+            pw.setText("Fetching feature pairs (%d)"%numberOfFeaturePairs, i=2)
+            pw.setMax(numberOfFeaturePairs, i=2)
+
             count = 0
             children=[]
-            for row in SQLSelectAsObject(self.currentOpenResultsFile.curs, "SELECT chromPeaks.id AS cpID, mz, xcount, NPeakCenterMin, LPeakCenterMin, NPeakCenter, NPeakScale, eicID, LPeakScale, peaksCorr, peaksRatio, LPeakCenter, LPeakScale, Loading, heteroAtoms, name AS tracerName, adducts, heteroAtoms, chromPeaks.ionMode AS ionMode, assignedName, NBorderLeft, NBorderRight, LBorderLeft, LBorderRight, chromPeaks.massSpectrumID AS massSpectrumID FROM chromPeaks LEFT JOIN tracerConfiguration ON tracerConfiguration.id=chromPeaks.tracer ORDER BY tracerConfiguration.id, NPeakCenter, mz, xcount"):
+            for row in SQLSelectAsObject(self.currentOpenResultsFile.curs, "SELECT chromPeaks.id AS cpID, "
+                                                                           "mz, "
+                                                                           "xcount, "
+                                                                           "NPeakCenterMin, "
+                                                                           "LPeakCenterMin, "
+                                                                           "NPeakCenter, "
+                                                                           "NPeakScale, "
+                                                                           "eicID, "
+                                                                           "LPeakScale, "
+                                                                           "peaksCorr, "
+                                                                           "peaksRatio, "
+                                                                           "LPeakCenter, "
+                                                                           "LPeakScale, "
+                                                                           "Loading, "
+                                                                           "heteroAtoms, "
+                                                                           "name AS tracerName, "
+                                                                           "adducts, "
+                                                                           "heteroAtoms, "
+                                                                           "chromPeaks.ionMode AS ionMode, "
+                                                                           "assignedName, "
+                                                                           "NBorderLeft, "
+                                                                           "NBorderRight, "
+                                                                           "LBorderLeft, "
+                                                                           "LBorderRight, "
+                                                                           "chromPeaks.massSpectrumID AS massSpectrumID "
+                                                                           "FROM chromPeaks LEFT JOIN tracerConfiguration ON tracerConfiguration.id=chromPeaks.tracer "
+                                                                           "ORDER BY tracerConfiguration.id, NPeakCenter, mz, xcount"):
                 adducts = ""
                 lk = loads(base64.b64decode(row.adducts))
                 if len(lk) > 0:
@@ -2556,6 +2625,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 children.append(d)
                 count += 1
 
+                pw.setValueu(count, i=2)
+            pw.setText("%d feature pairs fetched", i=2)
+
             it.addChildren(children)
             it.setExpanded(False)
             it.setText(1, "%d" % count)
@@ -2568,8 +2640,15 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             fGs = []
 
             children=[]
-            for row in SQLSelectAsObject(self.currentOpenResultsFile.curs, "select featureGroups.id as fgID, featureName as featureName, name as tracerName from featureGroups inner join tracerConfiguration on featureGroups.tracer=tracerConfiguration.id order by tracerConfiguration.id, featureGroups.id"):
+            for row in SQLSelectAsObject(self.currentOpenResultsFile.curs, "SELECT featureGroups.id AS fgID, "
+                                                                           "featureName AS featureName, "
+                                                                           "name AS tracerName "
+                                                                           "FROM featureGroups INNER JOIN tracerConfiguration ON featureGroups.tracer=tracerConfiguration.id "
+                                                                           "ORDER BY tracerConfiguration.id, featureGroups.id"):
                 fGs.append(row)
+
+            pw.setText("Fetching feature groups (%d)"%len(fGs), i=3)
+            pw.setMax(len(fGs), i=3)
             for fG in fGs:
 
                 d = QtGui.QTreeWidgetItem([str(fG.featureName), str(fG.fgID), "", "", "", "", "", "", "", str(fG.tracerName), ""])
@@ -2579,31 +2658,32 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 d.setExpanded(True)
                 cpCount = 0
                 sumRt = 0.
-                for row in SQLSelectAsObject(self.currentOpenResultsFile.curs, "select c.id as cpID"
-                                                                               ", c.mz as mz"
-                                                                               ", c.xcount as xcount"
-                                                                               ", c.NPeakCenterMin as NPeakCenterMin"
-                                                                               ", c.LPeakCenterMin as LPeakCenterMin"
-                                                                               ", c.NPeakCenter as NPeakCenter"
-                                                                               ", c.NPeakScale as NPeakScale"
-                                                                               ", c.NBorderLeft as NBorderLeft"
-                                                                               ", c.NBorderRight as NBorderRight"
-                                                                               ", c.LBorderLeft as LBorderLeft"
-                                                                               ", c.LBorderRight as LBorderRight"
-                                                                               ", c.eicID as eicID"
-                                                                               ", f.fDesc as fDesc"
-                                                                               ", c.LPeakScale as LPeakScale"
-                                                                               ", c.LPeakCenter as LPeakCenter"
-                                                                               ", c.peaksCorr as peaksCorr"
-                                                                               ", c.peaksRatio as peaksRatio"
-                                                                               ", c.Loading as Loading"
-                                                                               ", t.name as tracerName"
-                                                                               ", adducts as adducts"
-                                                                               ", heteroAtoms as heteroAtoms"
-                                                                               ", c.assignedName as assignedName"
-                                                                               ", c.ionMode as ionMode"
-                                                                               ", c.massSpectrumID as massSpectrumID "
-                                                                               "from chromPeaks c join featureGroupFeatures f on c.id==f.fID inner join tracerConfiguration t on t.id=c.tracer where f.fGroupID=%d order by c.mz, c.xcount" %
+                for row in SQLSelectAsObject(self.currentOpenResultsFile.curs, "SELECT c.id AS cpID, "
+                                                                               "c.mz AS mz, "
+                                                                               "c.xcount AS xcount, "
+                                                                               "c.NPeakCenterMin AS NPeakCenterMin, "
+                                                                               "c.LPeakCenterMin AS LPeakCenterMin, "
+                                                                               "c.NPeakCenter AS NPeakCenter, "
+                                                                               "c.NPeakScale AS NPeakScale, "
+                                                                               "c.NBorderLeft AS NBorderLeft, "
+                                                                               "c.NBorderRight AS NBorderRight, "
+                                                                               "c.LBorderLeft AS LBorderLeft, "
+                                                                               "c.LBorderRight AS LBorderRight, "
+                                                                               "c.eicID AS eicID, "
+                                                                               "f.fDesc AS fDesc, "
+                                                                               "c.LPeakScale AS LPeakScale, "
+                                                                               "c.LPeakCenter AS LPeakCenter, "
+                                                                               "c.peaksCorr AS peaksCorr, "
+                                                                               "c.peaksRatio AS peaksRatio, "
+                                                                               "c.Loading AS Loading, "
+                                                                               "t.name AS tracerName, "
+                                                                               "adducts AS adducts, "
+                                                                               "heteroAtoms AS heteroAtoms, "
+                                                                               "c.assignedName AS assignedName, "
+                                                                               "c.ionMode AS ionMode, "
+                                                                               "c.massSpectrumID AS massSpectrumID "
+                                                                               "FROM chromPeaks c JOIN featureGroupFeatures f ON c.id==f.fID INNER JOIN tracerConfiguration t ON t.id=c.tracer "
+                                                                               "WHERE f.fGroupID=%d ORDER BY c.mz, c.xcount" %
                                 fG.fgID):
 
                     adducts = ""
@@ -2642,8 +2722,11 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 d.setText(2, "%.2f" % (sumRt / cpCount / 60.))
                 children.append(d)
                 count += 1
+                pw.setValueu(count, i=3)
             it.addChildren(children)
             it.setText(1, "%d" % count)
+
+            pw.hide()
 
             it = QtGui.QTreeWidgetItem(["Parameters"]);
             it.myType = "parameter"
@@ -2869,7 +2952,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
             self.filterEdited(str(self.ui.dataFilter.text()))
 
-            sectionSizes=[235,65,125,105,110,70,85,70,50,60,75]
+            sectionSizes=[235,65,50,105,110,70,85,70,50,60,75]
             for i in range(11):
                 self.ui.res_ExtractedData.header().resizeSection(i, sectionSizes[i])
 
@@ -2984,7 +3067,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
             rows = []
             for row in self.currentOpenResultsFile.curs.execute(
-                            "select deltaMZ, purityN, purityL from tracerConfiguration where id=%d" % trcid):
+                            "SELECT deltaMZ, purityN, purityL FROM tracerConfiguration WHERE id=%d" % trcid):
                 rows.append(copy(row))
             assert len(rows) == 1
             dmz = float(rows[0][0])
@@ -3066,8 +3149,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             #<editor-fold desc="#mz result">
             if item.myType == "MZs" or item.myType == "mz":
                 plotTypes.add("MZs")
-                self.ui.res_ExtractedData.setHeaderLabels(
-                    QtCore.QStringList(["MZ", "xCount", "Scan id", "Scan time (min)", "Charge", "Intensity", "", "", "", "", ""]))
+                self.ui.res_ExtractedData.setHeaderLabels(QtCore.QStringList(["MZ", "Xn", "Scan id", "Rt", "Charge", "Intensity", "", "", "", "", ""]))
 
                 t = item
                 if len(x_vals) == 0:
@@ -3097,8 +3179,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
             #<editor-fold desc="#mzbin results">
             elif item.myType == "MZBins" or item.myType == "mzbin":
-                self.ui.res_ExtractedData.setHeaderLabels(
-                    QtCore.QStringList(["MZ", "Delta ppm", "xCount", "", "", "", "", "", "", "", ""]))
+                self.ui.res_ExtractedData.setHeaderLabels(QtCore.QStringList(["MZ", "Delta ppm", "Xn", "", "", "", "", "", "", "", ""]))
                 if item.myType == "MZBins":
                     plotTypes.add("MZBins")
                     for i in range(item.childCount()):
@@ -3113,8 +3194,12 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             y.append(child.myData.mz)
                         x_vals.append(x)
                         y_vals.append(y)
-                        maxIntX = max(max(x), maxIntX)
-                        maxIntY = max(max(y), maxIntY)
+                        if(len(xvals)>0):
+                            maxIntX = max(max(x), maxIntX)
+                            maxIntY = max(max(y), maxIntY)
+                        else:
+                            maxIntX=1
+                            maxIntY=1
 
                 elif item.myType == "mzbin":
                     plotTypes.add("mzbin")
@@ -3142,8 +3227,12 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         y.append(child.myData.mz)
                     x_vals.append(x)
                     y_vals.append(y)
-                    maxIntX = max(max(x), maxIntX)
-                    maxIntY = max(max(y), maxIntY)
+                    if len(x_vals)>0:
+                        maxIntX = max(max(x), maxIntX)
+                        maxIntY = max(max(y), maxIntY)
+                    else:
+                        maxIntX=1
+                        maxIntY=1
             #</editor-fold>
 
             #<editor-fold desc="#feature results">
@@ -3151,7 +3240,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 self.ui.chromPeakName.setText("")
 
                 self.ui.res_ExtractedData.setHeaderLabels(QtCore.QStringList(
-                    ["MZ", "xCount", "M Rt (min)", "Adducts", "Hetero atoms", "M Scale", "M' Rt (min)", "M' Scale", "Corr", "Tracer", "Ratio"]))
+                    ["MZ", "Xn", "Rt", "Adducts", "Hetero atoms", "M Scale", "M' Rt (min)", "M' Scale", "Corr", "Tracer", "Ratio"]))
 
                 if item.myType == "Features":
                     mzs = []
@@ -3175,7 +3264,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     times = []
                     maxE=1
                     for row in self.currentOpenResultsFile.curs.execute(
-                                    "select xic, xicL, xicfirstiso, xicLfirstiso, xicLfirstisoconjugate , times from XICs where id==%d" % cp.eicID):
+                                    "SELECT xic, xicL, xicfirstiso, xicLfirstiso, xicLfirstisoconjugate , times FROM XICs WHERE id==%d" % cp.eicID):
                         xic = [float(t) for t in row[0].split(";")]
                         xicL = [-float(t) for t in row[1].split(";")]
                         xicfirstiso = [float(t) for t in row[2].split(";")]
@@ -3280,7 +3369,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                     toDrawMzs = []
                     toDrawInts = []
-                    for row in self.currentOpenResultsFile.curs.execute("select mzs, intensities, ionmode from massspectrum where mID=%d"%cp.massSpectrumID):
+                    for row in self.currentOpenResultsFile.curs.execute("SELECT mzs, intensities, ionmode FROM massspectrum WHERE mID=%d"%cp.massSpectrumID):
 
                         mzs = [float(t) for t in row[0].split(";")]
                         intensities = [float(t) for t in row[1].split(";")]
@@ -3423,7 +3512,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             #<editor-fold desc="#featureGroup results">
             elif item.myType == "featureGroup" or item.myType == "Feature Groups":
                 self.ui.res_ExtractedData.setHeaderLabels(
-                    QtCore.QStringList(["Name", "# Peaks", "Avg. M Rt (min)", "Adducts", "Hetero atoms", "M Scale", "M' Rt (min)", "M' Scale", "Corr", "Tracer", "Ratio"]))
+                    QtCore.QStringList(["Name", "# Peaks", "Rt", "Adducts", "Hetero atoms", "M Scale", "M' Rt (min)", "M' Scale", "Corr", "Tracer", "Ratio"]))
 
 
                 item.setBackgroundColor(0, QColor(predefinedColors[(useColi) % len(predefinedColors)]))
@@ -3473,7 +3562,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     mstime = {}
 
                     try:
-                        for msspectrum in SQLSelectAsObject(self.currentOpenResultsFile.curs, "select mzs, intensities, time as tim, ionMode from massspectrum where fgID=%d" % item.myID):
+                        for msspectrum in SQLSelectAsObject(self.currentOpenResultsFile.curs, "SELECT mzs, intensities, time AS tim, ionMode FROM massspectrum WHERE fgID=%d" % item.myID):
                             msi += 1
                             ionMode = str(msspectrum.ionMode)
                             mzs[ionMode] = [float(u) for u in str(msspectrum.mzs).split(";")]
@@ -3674,7 +3763,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             xicL = []
                             times = []
 
-                            for row in self.currentOpenResultsFile.curs.execute("select xic, xicL, xicfirstiso, xicLfirstiso, xicLfirstisoconjugate, times from XICs where id==%d" % child.eicID):
+                            for row in self.currentOpenResultsFile.curs.execute("SELECT xic, xicL, xicfirstiso, xicLfirstiso, xicLfirstisoconjugate, times FROM XICs WHERE id==%d" % child.eicID):
                                 xic = [float(t) for t in row[0].split(";")]
                                 xicL = [-float(t) for t in row[1].split(";")]
                                 xicfirstiso = [float(t) for t in row[2].split(";")]
@@ -4257,12 +4346,12 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         for item in selectedItems:
             if item.myType == "Features" or item.myType == "feature":
                 self.currentOpenResultsFile.curs.execute(
-                    "update chrompeaks set assignedName='%s' where id=%d" % (cpName, item.myID))
+                    "UPDATE chrompeaks SET assignedName='%s' WHERE id=%d" % (cpName, item.myID))
                 self.currentOpenResultsFile.conn.commit()
                 item.setText(0, cpName)
             if item.myType == "FeatureGroup" or item.myType == "featureGroup":
                 self.currentOpenResultsFile.curs.execute(
-                    "update featureGroups set featureName='%s' where id=%d" % (cpName, item.myID))
+                    "UPDATE featureGroups SET featureName='%s' WHERE id=%d" % (cpName, item.myID))
                 self.currentOpenResultsFile.conn.commit()
                 item.myData = cpName
                 item.setText(0, cpName)
@@ -4335,10 +4424,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 chromPeaksRem += z
                 featureGroupsRem = featureGroupsRem + u
 
-        self.ui.res_ExtractedData.topLevelItem(2).setText(1,
-                                                          "%d" % self.ui.res_ExtractedData.topLevelItem(2).childCount())
-        self.ui.res_ExtractedData.topLevelItem(3).setText(1,
-                                                          "%d" % self.ui.res_ExtractedData.topLevelItem(3).childCount())
+        self.ui.res_ExtractedData.topLevelItem(2).setText(1, "%d" % self.ui.res_ExtractedData.topLevelItem(2).childCount())
+        self.ui.res_ExtractedData.topLevelItem(3).setText(1, "%d" % self.ui.res_ExtractedData.topLevelItem(3).childCount())
 
         return chromPeaksRem, featureGroupsRem
 
@@ -4392,8 +4479,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         d.setText(1, "%d" % d.childCount())
         d.setText(2, "%.2f" % (sumRt / cpCount / 60.))
-        self.ui.res_ExtractedData.topLevelItem(3).setText(1,
-                                                          "%d" % self.ui.res_ExtractedData.topLevelItem(3).childCount())
+        self.ui.res_ExtractedData.topLevelItem(3).setText(1, "%d" % self.ui.res_ExtractedData.topLevelItem(3).childCount())
 
         self.currentOpenResultsFile.curs.execute(
             "delete from featureGroups where id not in (select distinct fGroupID from featureGroupFeatures)")
