@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1391</width>
-    <height>898</height>
+    <width>1491</width>
+    <height>1116</height>
    </rect>
   </property>
   <property name="acceptDrops">
@@ -985,15 +985,24 @@ font: 7pt;</string>
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1320</width>
-             <height>884</height>
+             <width>1293</width>
+             <height>1042</height>
             </rect>
+           </property>
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
            </property>
            <layout class="QGridLayout" name="gridLayout_10">
             <item row="0" column="1">
              <spacer name="horizontalSpacer_2">
               <property name="orientation">
                <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeType">
+               <enum>QSizePolicy::Expanding</enum>
               </property>
               <property name="sizeHint" stdset="0">
                <size>
@@ -1095,7 +1104,7 @@ font: 7pt;</string>
 font: 7pt;</string>
                   </property>
                   <property name="text">
-                   <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Please specify the settings for your experiment&lt;/p&gt;&lt;p&gt;The section &amp;quot;Labelling&amp;quot; provides options for describing the experiment's stable isotopic labelling.&lt;/p&gt;&lt;p&gt;The section &amp;quot;MZ picking&amp;quot; and &amp;quot;MZ clustering&amp;quot; describe the parameters of your HRMS device&lt;/p&gt;&lt;p&gt;The section &amp;quot;Chromatographic separation&amp;quot; describes your LC device and are parameters used for peak picking&lt;/p&gt;&lt;p&gt;The results of each measurement is automatically saved in tabular format to &amp;lt;FileName&amp;gt;.tsv. Additionally the results can be saved as &amp;lt;FileName&amp;gt;.pdf with graphical illustrations. &lt;/p&gt;&lt;p&gt;For some LC-HRMS devices it is also possible to save &amp;lt;FileName&amp;gt;.mzXML files. These files only include those mass peaks originating from the labelling process&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                   <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Please specify the settings for your experiment&lt;/p&gt;&lt;p&gt;The section &amp;quot;Labeling&amp;quot; provides options for describing the experiment's stable isotopic labeling.&lt;/p&gt;&lt;p&gt;The section &amp;quot;MZ picking&amp;quot; and &amp;quot;MZ clustering&amp;quot; describe the parameters of your HRMS device&lt;/p&gt;&lt;p&gt;The section &amp;quot;Chromatographic separation&amp;quot; describes your LC device and are parameters used for peak picking&lt;/p&gt;&lt;p&gt;The results of each measurement is automatically saved in tabular format to &amp;lt;FileName&amp;gt;.tsv. Additionally the results can be saved as &amp;lt;FileName&amp;gt;.pdf with graphical illustrations. &lt;/p&gt;&lt;p&gt;For some LC-HRMS devices it is also possible to save &amp;lt;FileName&amp;gt;.mzXML files. These files only include those mass peaks originating from the labeling process&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                   </property>
                   <property name="alignment">
                    <set>Qt::AlignJustify|Qt::AlignVCenter</set>
@@ -1239,7 +1248,7 @@ font: 7pt;</string>
 font: 7pt;</string>
                   </property>
                   <property name="text">
-                   <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Features found in several measurement files may be grouped together&lt;/p&gt;&lt;p&gt;An optinal alignment may be performed for files measured in different sequences of long time differences&lt;/p&gt;&lt;p&gt;Additonally, not found peaks (e.g. due to low intensity) from other measurement files may be integrated in a targeted fashion&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                   <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Features found in several measurement files may be grouped together (optional: chromatographic alignment)&lt;br/&gt;&lt;br/&gt;Not detected feature pairs (e.g. due to low intensity) from other measurement files may be integrated in a targeted fashion&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                   </property>
                   <property name="alignment">
                    <set>Qt::AlignJustify|Qt::AlignVCenter</set>
@@ -1332,12 +1341,29 @@ font: 7pt;</string>
                      <bool>true</bool>
                     </property>
                     <layout class="QGridLayout" name="gridLayout_37">
-                     <item row="2" column="0">
+                     <item row="2" column="1" colspan="2">
                       <layout class="QHBoxLayout" name="horizontalLayout_8">
                        <item>
                         <widget class="QLabel" name="label_69">
                          <property name="text">
                           <string>Min. connections</string>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QDoubleSpinBox" name="minConnectionRate">
+                         <property name="maximum">
+                          <double>1.000000000000000</double>
+                         </property>
+                         <property name="value">
+                          <double>0.400000000000000</double>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QLabel" name="label_74">
+                         <property name="text">
+                          <string>Min. number of detections in files</string>
                          </property>
                         </widget>
                        </item>
@@ -1356,7 +1382,7 @@ font: 7pt;</string>
                        </item>
                       </layout>
                      </item>
-                     <item row="0" column="0">
+                     <item row="0" column="1">
                       <layout class="QHBoxLayout" name="horizontalLayout_13">
                        <item>
                         <widget class="QLabel" name="label_26">
@@ -1377,7 +1403,7 @@ font: 7pt;</string>
                        </item>
                       </layout>
                      </item>
-                     <item row="0" column="2">
+                     <item row="0" column="3">
                       <layout class="QHBoxLayout" name="horizontalLayout_14">
                        <item>
                         <widget class="QCheckBox" name="alignChromatograms">
@@ -1418,7 +1444,7 @@ font: 7pt;</string>
                        </item>
                       </layout>
                      </item>
-                     <item row="0" column="1">
+                     <item row="0" column="2">
                       <layout class="QHBoxLayout" name="horizontalLayout_17">
                        <item>
                         <widget class="QLabel" name="label_18">
@@ -1442,6 +1468,20 @@ font: 7pt;</string>
                        </item>
                       </layout>
                      </item>
+                     <item row="0" column="0">
+                      <widget class="QLabel" name="label_75">
+                       <property name="text">
+                        <string>Bracketing:</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="2" column="0">
+                      <widget class="QLabel" name="label_76">
+                       <property name="text">
+                        <string>Convolution:</string>
+                       </property>
+                      </widget>
+                     </item>
                     </layout>
                    </widget>
                   </item>
@@ -1454,7 +1494,7 @@ font: 7pt;</string>
                      </sizepolicy>
                     </property>
                     <property name="title">
-                     <string>Integrate missed peaks</string>
+                     <string>Integrate missing feature pairs</string>
                     </property>
                     <property name="checkable">
                      <bool>true</bool>
@@ -1552,6 +1592,12 @@ font: 7pt;</string>
               </item>
               <item row="1" column="4">
                <widget class="QFrame" name="procIndFiles">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
                 <property name="frameShape">
                  <enum>QFrame::StyledPanel</enum>
                 </property>
@@ -1816,7 +1862,7 @@ font: 7pt;</string>
                             <item row="2" column="0">
                              <widget class="QLabel" name="label_71">
                               <property name="text">
-                               <string>Labelled</string>
+                               <string>Labeled</string>
                               </property>
                              </widget>
                             </item>
@@ -1881,8 +1927,11 @@ font: 7pt;</string>
                             </item>
                             <item row="0" column="1">
                              <widget class="QDoubleSpinBox" name="hAIntensityError">
+                              <property name="maximum">
+                               <double>1.000000000000000</double>
+                              </property>
                               <property name="value">
-                               <double>5.000000000000000</double>
+                               <double>0.150000000000000</double>
                               </property>
                              </widget>
                             </item>
@@ -1896,7 +1945,7 @@ font: 7pt;</string>
                             <item row="2" column="0" colspan="2">
                              <widget class="QPushButton" name="defineHeteroAtoms">
                               <property name="text">
-                               <string>Hetero atoms configuration</string>
+                               <string>Heteroatoms configuration</string>
                               </property>
                              </widget>
                             </item>
@@ -2673,7 +2722,7 @@ p, li { white-space: pre-wrap; }
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-size:8pt;&quot;&gt;The observed Intensities differ from the theoretical Intensities for a certain M/Z. This parameter controls the deviation of the theoretical and observed Intensities for a mixed Base and Isotope M/Z Peak&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                               </property>
                               <property name="text">
-                               <string>Labelled ion (±)</string>
+                               <string>Labeled ion (±)</string>
                               </property>
                              </widget>
                             </item>
@@ -2709,7 +2758,7 @@ p, li { white-space: pre-wrap; }
                                <string>The observed Intensities differ from the theoretical Intensities for a certain M/Z. This parameter controls the deviation of the theoretical and observed Intensities for a mixed Base and Isotope M/Z Peak</string>
                               </property>
                               <property name="text">
-                               <string>Non-labelled ion (±)</string>
+                               <string>Non-labeled ion (±)</string>
                               </property>
                              </widget>
                             </item>
@@ -2743,10 +2792,10 @@ p, li { white-space: pre-wrap; }
                          <item>
                           <widget class="QLabel" name="label_48">
                            <property name="toolTip">
-                            <string>Labelling options</string>
+                            <string>Labeling options</string>
                            </property>
                            <property name="text">
-                            <string>Labelling</string>
+                            <string>Labeling</string>
                            </property>
                           </widget>
                          </item>
@@ -2762,7 +2811,7 @@ p, li { white-space: pre-wrap; }
                        <item>
                         <widget class="QLabel" name="label_50">
                          <property name="text">
-                          <string>Labelling</string>
+                          <string>Labeling</string>
                          </property>
                         </widget>
                        </item>
@@ -3269,8 +3318,8 @@ p, li { white-space: pre-wrap; }
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1183</width>
-             <height>609</height>
+             <width>1231</width>
+             <height>625</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_15">
@@ -3807,8 +3856,8 @@ p, li { white-space: pre-wrap; }
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1068</width>
-             <height>658</height>
+             <width>1077</width>
+             <height>681</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_40">
@@ -4087,8 +4136,8 @@ p, li { white-space: pre-wrap; }
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1391</width>
-     <height>21</height>
+     <width>1491</width>
+     <height>26</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuHelp">

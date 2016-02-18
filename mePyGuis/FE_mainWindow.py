@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '.\mePyGuis\guis\FE_mainWindow.ui'
 #
-# Created: Fri Feb 05 17:27:49 2016
+# Created: Thu Feb 18 09:23:15 2016
 #      by: PyQt4 UI code generator 4.10
 #
 # WARNING! All changes made in this file will be lost!
@@ -433,7 +433,7 @@ class Ui_MainWindow(object):
 
     def retranslateUi(self, MainWindow):
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow", None))
-        self.label_4.setText(_translate("MainWindow", "<html><head/><body><p align=\"justify\">Please specify the performed LC-HRMSMS mesurements of M and M\'. Specify each target in single row using the button \'Add MS/MS target(s)\'. Load an LC-HRMSMS measurement multiple times if it contains more than one target. Select the appropriate scan events for the native and the labelled metabolite ions.</p></body></html>", None))
+        self.label_4.setText(_translate("MainWindow", "<html><head/><body><p align=\"justify\">Please specify the performed LC-HRMSMS mesurements of M and M\'. Specify each target in single row using the button \'Add MS/MS target(s)\'. Load an LC-HRMSMS measurement multiple times if it contains more than one target. Select the appropriate scan events for the native and the labeled metabolite ions.</p></body></html>", None))
         self.label_3.setText(_translate("MainWindow", "<html><head/><body><p align=\"right\">Define MS/MS targets</p></body></html>", None))
         self.saveCompilation.setText(_translate("MainWindow", "Save compilation", None))
         self.loadCompilation.setText(_translate("MainWindow", "Load compilation", None))
@@ -443,7 +443,7 @@ class Ui_MainWindow(object):
         self.configAdductsButton.setText(_translate("MainWindow", "Configure adducts", None))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.inputTab), _translate("MainWindow", "Input", None))
         self.label_6.setText(_translate("MainWindow", "<html><head/><body><p align=\"right\">Processing settings</p></body></html>", None))
-        self.label.setText(_translate("MainWindow", "<html><head/><body><p>Please specify the settings for processing the defined MS/MS targets. First, the two MS/MS spectra will be insepcted for corresponding native and U-<span style=\" vertical-align:super;\">13</span>C-labelled peaks. These peaks will be annotated with putative sum formulas using the determined number of carbon atoms. </p></body></html>", None))
+        self.label.setText(_translate("MainWindow", "<html><head/><body><p>Please specify the settings for processing the defined MS/MS targets. First, the two MS/MS spectra will be insepcted for corresponding native and U-<span style=\" vertical-align:super;\">13</span>C-labeled peaks. These peaks will be annotated with putative sum formulas using the determined number of carbon atoms. </p></body></html>", None))
         self.label_7.setText(_translate("MainWindow", "<html><head/><body><p align=\"right\">Run tasks</p></body></html>", None))
         self.label_8.setText(_translate("MainWindow", "CPU cores", None))
         self.keepCPUCoreUnusedCheckbox.setText(_translate("MainWindow", "Keep one core unused", None))
@@ -472,12 +472,12 @@ class Ui_MainWindow(object):
         self.resultsTreeWidget.headerItem().setText(2, _translate("MainWindow", "Cn", None))
         self.resultsTreeWidget.headerItem().setText(3, _translate("MainWindow", "Sum formula", None))
         self.resultsTreeWidget.headerItem().setText(4, _translate("MainWindow", "Charge", None))
-        self.resultsTreeWidget.headerItem().setText(5, _translate("MainWindow", "Native scan num", None))
-        self.resultsTreeWidget.headerItem().setText(6, _translate("MainWindow", "Labelled scan num", None))
+        self.resultsTreeWidget.headerItem().setText(5, _translate("MainWindow", "Scan num native isotopolog", None))
+        self.resultsTreeWidget.headerItem().setText(6, _translate("MainWindow", "Scan num labeled isotopolog", None))
         self.resultsTreeWidget.headerItem().setText(7, _translate("MainWindow", "Full scan event", None))
         self.resultsTreeWidget.headerItem().setText(8, _translate("MainWindow", "MS2 scan event native", None))
-        self.resultsTreeWidget.headerItem().setText(9, _translate("MainWindow", "MS2 scan event labelled", None))
-        self.plotLabelledScanCheckBox.setText(_translate("MainWindow", "Plot labelled MS2-scan", None))
+        self.resultsTreeWidget.headerItem().setText(9, _translate("MainWindow", "MS2 scan event labeled isotopolog", None))
+        self.plotLabelledScanCheckBox.setText(_translate("MainWindow", "Plot labeled MS2-scan", None))
         self.plotCleanedScanCheckBox.setText(_translate("MainWindow", "Plot cleaned scan(s)", None))
         self.plotNativeScanCheckbox.setText(_translate("MainWindow", "Plot native MS2-scan", None))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.resultsTab), _translate("MainWindow", "Sample results", None))

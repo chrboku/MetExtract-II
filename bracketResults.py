@@ -297,9 +297,9 @@ def bracketResults(indGroups, minX, maxX, groupSizePPM, positiveScanEvent=None, 
                                                 pdf.save()
                                                 pdf = canvas.Canvas(file + "_%d.pdf" % xy)
                                                 _writeFirstPage(pdf, groupSizePPM, maxTimeDeviation, align, nPolynom)
-                                                print "   new pdf %d metabolic features.." % xy
+                                                print "\r   new pdf %d metabolic features.." % xy,
                                             else:
-                                                print "   %d metabolic features.."%xy
+                                                print "\r   %d metabolic features.."%xy,
 
                                         # debug purposes: create PDF for current subcluster
                                         if writePDF:
@@ -641,9 +641,10 @@ def bracketResults(indGroups, minX, maxX, groupSizePPM, positiveScanEvent=None, 
 
 
 # store used configuration to DB file
-def writeMetaboliteGroupingConfigToDB(curs, connThreshold, groups):
+def writeMetaboliteGroupingConfigToDB(curs, minConnectionsInFiles, minConnectionRate, groups):
     SQLInsert(curs, "config", key="MEGROUP_groups", value=str(groups))
-    SQLInsert(curs, "config", key="MEGROUP_corrThreshold", value=str(connThreshold))
+    SQLInsert(curs, "config", key="MEGROUP_minConnectionsInFiles", value=str(minConnectionsInFiles))
+    SQLInsert(curs, "config", key="MEGROUP_minConnectionRate", value=str(minConnectionRate))
 
 
 # split the HCA tree in sub-clusters
@@ -702,7 +703,7 @@ def splitGroupWithHCA(tGroup, correlations, corrThreshold, cutOffMinRatio):
 
 
 def calculateMetaboliteGroups(file="./results.tsv", groups=[],
-                              connThreshold=1,
+                              minConnectionsInFiles=1, minConnectionRate=0.4,
                               runIdentificationInstance=None):
 
     resDB=Bunch(conn=None, curs=None)
@@ -720,7 +721,7 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[],
 
         # connect to results db
 
-        writeMetaboliteGroupingConfigToDB(resDB.curs, connThreshold, str(useGroupsForConfig).replace("'","").replace("\"",""))
+        writeMetaboliteGroupingConfigToDB(resDB.curs, minConnectionsInFiles, minConnectionRate, str(useGroupsForConfig).replace("'", "").replace("\"", ""))
 
 
         # read results table
@@ -767,7 +768,7 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[],
 
                     # get feature pair clusters from current file
                     fileGroupIDs=defaultdict(list)
-                    for featurePairNum, groupID, featureInFileNum in table.getData(cols=["Num", "%s_GroupID"%fShort, "%s_FID"%fShort]):
+                    for featurePairNum, groupID in table.getData(cols=["Num", "%s_GroupID"%fShort]):
                         if groupID!="":
                             fileGroupIDs[groupID].append(featurePairNum)
 
@@ -777,40 +778,51 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[],
                             for peakB in attachedFeaturePairs:
                                 if peakA != peakB:
                                     if peakB not in nodes[peakA]:
-                                        nodes[peakA][peakB]=0
+                                        nodes[peakA][peakB]=Bunch(posConns=0, negConns=0)
                                     if peakA not in nodes[peakB]:
-                                        nodes[peakB][peakA]=0
-                                    nodes[peakA][peakB]+=.5   ## half because this will be done twice (nodes[peakA][peakB] and in different iteration nodes[peakB][peakA]
-                                    nodes[peakB][peakA]+=.5
+                                        nodes[peakB][peakA]=Bunch(posConns=0, negConns=0)
+                                    nodes[peakA][peakB].posConns+=.5   ## half because this will be done twice (nodes[peakA][peakB] and in different iteration nodes[peakB][peakA]
+                                    nodes[peakB][peakA].posConns+=.5
 
-        # remove 1 from the connection density if a connection was not detected in a file
-        done=set()
-        for f in group.files:
-            if f not in done:
-                done.add(f)
-                fShort=f[f.rfind("/")+1 : f.rfind(".")]
-                if fShort[0].isdigit():
-                    fShort="_"+fShort
+        ## reduce the connection density for those samples, that do not show a correlation for two feature pairs
+        for peakA in nodes.keys():
+            for peakB in nodes[peakA].keys():
+                if peakA != peakB:
+                    done=set()
+                    for group in useGroups:
+                        for f in group.files:
 
-                featurePairNumsToGroup={}
-                for featurePairNum, groupId, featureInFileNum in table.getData(cols=["Num", "%s_GroupID"%fShort, "%s_FID"%fShort]):
-                    featurePairNumsToGroup[featurePairNum]=groupId
+                            if f not in done:
+                                done.add(f)
+                                fShort=f[f.rfind("/")+1 : f.rfind(".")]
+                                if fShort[0].isdigit():
+                                    fShort="_"+fShort
 
-                for peakA, gA in featurePairNumsToGroup.items():
-                    for peakB, gB in featurePairNumsToGroup.items():
-                        if gA != gB:
-                            if peakB not in nodes[peakA]:
-                                nodes[peakA][peakB]=0
-                            if peakA not in nodes[peakB]:
-                                nodes[peakB][peakA]=0
-                            nodes[peakA][peakB]-=.5
-                            nodes[peakB][peakA]-=.5
+                                # get feature pair clusters from current file
+                                peakAGrp=""
+                                peakBGrp=""
+                                for groupID in table.getData(cols=["%s_GroupID"%fShort], where="Num=%d"%peakA):
+                                    peakAGrp=groupID
+                                for groupID in table.getData(cols=["%s_GroupID"%fShort], where="Num=%d"%peakB):
+                                    peakBGrp=groupID
+
+                                if peakAGrp!="" and peakBGrp!="" and peakAGrp!=peakBGrp:
+                                    if peakB not in nodes[peakA]:
+                                        nodes[peakA][peakB]=Bunch(posConns=0, negConns=0)
+                                    if peakA not in nodes[peakB]:
+                                        nodes[peakB][peakA]=Bunch(posConns=0, negConns=0)
+                                    nodes[peakA][peakB].negConns+=0.5            ## corr in this file was too little, reduce connection density
+                                    nodes[peakB][peakA].negConns+=0.5
+
 
         # remove edges with no connection
         toRemove=set()
         for peakA in nodes.keys():
             for peakB in nodes[peakA].keys():
-                if nodes[peakA][peakB]<0 or (nodes[peakA][peakB]<connThreshold and len(done)>2):
+                conns=nodes[peakA][peakB]
+                if conns.posConns>=minConnectionsInFiles and ( conns.negConns==0 or ( conns.negConns>0 and (1.*conns.posConns/(conns.posConns+conns.negConns))>=minConnectionRate )):
+                    pass
+                else:
                     if peakA<peakB:
                         toRemove.add((peakA, peakB))
                     else:
@@ -861,7 +873,7 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[],
 
         processingParams=[]
         processingParams.append("MEGROUP_groups=%s"%str(useGroupsForConfig).replace("'","").replace("\"",""))
-        processingParams.append("MEGROUP_connThreshold=%s"%str(connThreshold))
+        processingParams.append("MEGROUP_connThreshold=%s" % str(minConnectionsInFiles))
         table.addComment("# %s"%("%s"%(", ".join(processingParams))))
 
         TableUtils.saveFile(table, file, order="OGroup, Xn, MZ")

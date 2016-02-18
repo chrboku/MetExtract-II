@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '.\mePyGuis\guis\heteroAtomEditor.ui'
 #
-# Created: Fri Feb 05 17:27:49 2016
+# Created: Thu Feb 18 09:23:14 2016
 #      by: PyQt4 UI code generator 4.10
 #
 # WARNING! All changes made in this file will be lost!
@@ -112,8 +112,8 @@ class Ui_Dialog(object):
 
     def retranslateUi(self, Dialog):
         Dialog.setWindowTitle(_translate("Dialog", "Relationship configuration", None))
-        self.label_2.setText(_translate("Dialog", "Hetero atoms (elements)", None))
-        self.help_2.setText(_translate("Dialog", "<html><head/><body><p>Please specify the elements you want to use for the targeted search for elements other then the labelling element. Each row represents one element</p><p>The first column specifies the chemical symbol of the respective isotope. Use &lt;protonNumber&gt;&lt;ElementSymbol&gt; (e.g. <sup>34</sup>S)<br/>The second column specifies the mass offset to the most abundant isotope of the elment (e.g.  <sup>34</sup>S and  <sup>32</sup>S have a mass difference of 1.9958)<br/>The third column specifies the expected intensity of this isotope in respect to the most abundant isotope of the respective element (e.g.  <sup>34</sup>S occours in nature with a probability of 4.21% and  <sup>32</sup>S with a probability of 95.02%. Therefore the calculated ratio for a molecule with a singe sulphur atom is 4.43%)<br/>The fourth and fifth column specify the minimal and maximal number this element can occour in non-targetd group annotation. </p></body></html>", None))
+        self.label_2.setText(_translate("Dialog", "Heteroatoms (elements)", None))
+        self.help_2.setText(_translate("Dialog", "<html><head/><body><p>Please specify the elements you want to use for the targeted search for elements other then the labeling element. Each row represents one element</p><p>The first column specifies the chemical symbol of the respective isotope. Use &lt;protonNumber&gt;&lt;ElementSymbol&gt; (e.g. <sup>34</sup>S)<br/>The second column specifies the mass offset to the most abundant isotope of the elment (e.g.  <sup>34</sup>S and  <sup>32</sup>S have a mass difference of 1.9958)<br/>The third column specifies the expected intensity of this isotope in respect to the most abundant isotope of the respective element (e.g.  <sup>34</sup>S occours in nature with a probability of 4.21% and  <sup>32</sup>S with a probability of 95.02%. Therefore the calculated ratio for a molecule with a singe sulphur atom is 4.43%)<br/>The fourth and fifth column specify the minimal and maximal number this element can occour in non-targetd group annotation. </p></body></html>", None))
         self.loadDefaults.setText(_translate("Dialog", "Load defaults", None))
         self.discardButton.setText(_translate("Dialog", "Discard", None))
         self.acceptButton.setText(_translate("Dialog", "Accept", None))

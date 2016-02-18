@@ -208,8 +208,8 @@ if __name__=="__main__":
 
 
 
-    formsCRes=sfg.findFormulas(769.76355- 1.007276/ 1, useAtoms=["C", "N", "H", "O", "S", "P"], atomsRange=[(0,200), (0,500), (0,10000), (0,400), (0,400), (0,400)],
-                               useSevenGoldenRules=True, ppm=500.)
+    formsCRes=sfg.findFormulas(60.019676, useAtoms=["C", "N", "H", "O", "S", "P"], atomsRange=[(0,200), (0,500), (0,10000), (0,400), (0,400), (0,400)],
+                               useSevenGoldenRules=True, ppm=50.)
     print "possible sum formulas:", formsCRes
 
 

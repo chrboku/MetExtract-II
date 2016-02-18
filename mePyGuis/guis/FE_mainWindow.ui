@@ -54,7 +54,7 @@
 font: 7pt;</string>
               </property>
               <property name="text">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;justify&quot;&gt;Please specify the performed LC-HRMSMS mesurements of M and M'. Specify each target in single row using the button 'Add MS/MS target(s)'. Load an LC-HRMSMS measurement multiple times if it contains more than one target. Select the appropriate scan events for the native and the labelled metabolite ions.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;justify&quot;&gt;Please specify the performed LC-HRMSMS mesurements of M and M'. Specify each target in single row using the button 'Add MS/MS target(s)'. Load an LC-HRMSMS measurement multiple times if it contains more than one target. Select the appropriate scan events for the native and the labeled metabolite ions.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
               <property name="wordWrap">
                <bool>true</bool>
@@ -344,7 +344,7 @@ font: 7pt;</string>
 font: 7pt;</string>
               </property>
               <property name="text">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Please specify the settings for processing the defined MS/MS targets. First, the two MS/MS spectra will be insepcted for corresponding native and U-&lt;span style=&quot; vertical-align:super;&quot;&gt;13&lt;/span&gt;C-labelled peaks. These peaks will be annotated with putative sum formulas using the determined number of carbon atoms. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Please specify the settings for processing the defined MS/MS targets. First, the two MS/MS spectra will be insepcted for corresponding native and U-&lt;span style=&quot; vertical-align:super;&quot;&gt;13&lt;/span&gt;C-labeled peaks. These peaks will be annotated with putative sum formulas using the determined number of carbon atoms. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
               <property name="wordWrap">
                <bool>true</bool>
@@ -884,12 +884,12 @@ font: 7pt;</string>
             </column>
             <column>
              <property name="text">
-              <string>Native scan num</string>
+              <string>Scan num native isotopolog</string>
              </property>
             </column>
             <column>
              <property name="text">
-              <string>Labelled scan num</string>
+              <string>Scan num labeled isotopolog</string>
              </property>
             </column>
             <column>
@@ -904,7 +904,7 @@ font: 7pt;</string>
             </column>
             <column>
              <property name="text">
-              <string>MS2 scan event labelled</string>
+              <string>MS2 scan event labeled isotopolog</string>
              </property>
             </column>
            </widget>
@@ -916,7 +916,7 @@ font: 7pt;</string>
           <item row="0" column="1">
            <widget class="QCheckBox" name="plotLabelledScanCheckBox">
             <property name="text">
-             <string>Plot labelled MS2-scan</string>
+             <string>Plot labeled MS2-scan</string>
             </property>
             <property name="checked">
              <bool>true</bool>
