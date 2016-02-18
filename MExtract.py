@@ -1696,6 +1696,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
             if sett.contains("MetaboliteClusterMinConnections"):
                 self.ui.metaboliteClusterMinConnections.setValue(sett.value("MetaboliteClusterMinConnections").toInt()[0])
+            if sett.contains("minConnectionRate"):
+                self.ui.minConnectionRate.setValue(sett.value("minConnectionRate").toDouble()[0])
 
             if sett.contains("GroupIntegrateMissedPeaks"):
                 self.ui.integratedMissedPeaks.setChecked(sett.value("GroupIntegrateMissedPeaks").toBool())
@@ -1808,6 +1810,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             sett.setValue("GroupTimeWindow", self.ui.groupingRT.value())
 
             sett.setValue("MetaboliteClusterMinConnections", self.ui.metaboliteClusterMinConnections.value())
+            sett.setValue("minConnectionRate", self.ui.minConnectionRate.value())
 
             sett.setValue("GroupIntegrateMissedPeaks", self.ui.integratedMissedPeaks.isChecked())
             sett.setValue("integrationMaxTimeDifference", self.ui.integrationMaxTimeDifference.value())
@@ -2308,7 +2311,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                   rVersion=getRVersion(), meVersion="MetExtract (%s)" % MetExtractVersion)
 
                     calculateMetaboliteGroups(str(self.ui.groupsSave.text()), definedGroups,
-                                              connThreshold=self.ui.metaboliteClusterMinConnections.value(),
+                                              minConnectionsInFiles=self.ui.metaboliteClusterMinConnections.value(), minConnectionRate=self.ui.minConnectionRate.value(),
                                               runIdentificationInstance=runIdentificationInstance)
                     print "Metabolite groups calculated.."
 
@@ -2471,7 +2474,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             pw.setText("Fetching mzs", i=0)
             pw.setText("", i=1)
             pw.setText("", i=2)
-            pw.setText("", i=3)
+            pw.setTextu("", i=3)
             pw.show()
 
             numberOfMZs=0
@@ -2493,7 +2496,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     pw.setValueu(count, i=0)
                 pw.setText("%d MZs fetched"%numberOfMZs, i=0)
             else:
-                pw.setText("Mzs not fetched (too many; %d"%numberOfMZs)
+                pw.setTextu("Mzs not fetched (too many; %d"%numberOfMZs)
             it.addChildren(children)
             it.setText(1, "%d"%numberOfMZs)
 
@@ -2549,7 +2552,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     pw.setValueu(count, i=1)
                 pw.setText("%d MZBins fetched"%count, i=1)
             else:
-                pw.setText("MZBins not fetched (too many; %d)"%len(mzbins))
+                pw.setTextu("MZBins not fetched (too many; %d)"%len(mzbins))
 
 
             it.addChildren(children)
@@ -2626,7 +2629,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 count += 1
 
                 pw.setValueu(count, i=2)
-            pw.setText("%d feature pairs fetched", i=2)
+            pw.setTextu("%d feature pairs fetched", i=2)
 
             it.addChildren(children)
             it.setExpanded(False)
@@ -3240,7 +3243,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 self.ui.chromPeakName.setText("")
 
                 self.ui.res_ExtractedData.setHeaderLabels(QtCore.QStringList(
-                    ["MZ", "Xn", "Rt", "Adducts", "Hetero atoms", "M Scale", "M' Rt (min)", "M' Scale", "Corr", "Tracer", "Ratio"]))
+                    ["MZ", "Xn", "Rt", "Adducts", "Heteroatoms", "M Scale", "M' Rt (min)", "M' Scale", "Corr", "Tracer", "Ratio"]))
 
                 if item.myType == "Features":
                     mzs = []
@@ -3512,7 +3515,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             #<editor-fold desc="#featureGroup results">
             elif item.myType == "featureGroup" or item.myType == "Feature Groups":
                 self.ui.res_ExtractedData.setHeaderLabels(
-                    QtCore.QStringList(["Name", "# Peaks", "Rt", "Adducts", "Hetero atoms", "M Scale", "M' Rt (min)", "M' Scale", "Corr", "Tracer", "Ratio"]))
+                    QtCore.QStringList(["Name", "# Peaks", "Rt", "Adducts", "Heteroatoms", "M Scale", "M' Rt (min)", "M' Scale", "Corr", "Tracer", "Ratio"]))
 
 
                 item.setBackgroundColor(0, QColor(predefinedColors[(useColi) % len(predefinedColors)]))
@@ -4627,7 +4630,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         if t.executeDialog() == QtGui.QDialog.Accepted:
             self.heteroElements = t.getHeteroAtoms()
 
-            print "Configured hetero atoms:"
+            print "Configured heteroatoms:"
             for ha in self.heteroElements:
                 print "  * " + ha.name
 

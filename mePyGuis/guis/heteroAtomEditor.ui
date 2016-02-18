@@ -27,7 +27,7 @@
           <string notr="true">font: 10pt;</string>
          </property>
          <property name="text">
-          <string>Hetero atoms (elements)</string>
+          <string>Heteroatoms (elements)</string>
          </property>
          <property name="alignment">
           <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
