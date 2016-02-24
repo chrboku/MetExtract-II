@@ -60,7 +60,8 @@ class ProgressWrapper(QtGui.QDialog):
             p.setStyleSheet("QScrollArea { border-width: 0px;border-style: solid;border-color: rgb(170, 170, 170);}")
             p.setWidgetResizable(True)
             p.setVerticalScrollBarPolicy(2)
-            p.setMaximumHeight(min(1500, 40*len(indGroups))-(10 if len(indGroups)>1 else 0))
+            p.setMaximumHeight(min(600, 35*len(indGroups))-(10 if len(indGroups)>1 else 0))
+            p.setMinimumHeight(min(600, 35*len(indGroups))-(10 if len(indGroups)>1 else 0))
             p.setContentsMargins(0,0,0,0)
             l.addWidget(p)
 
@@ -280,7 +281,9 @@ if __name__ == '__main__':
     pw = ProgressWrapper(3, showProgressBars=True, showLog=False, showIndProgress=True,
                          indGroups={"blanks": ["blank_1", "blank_2", "blank_3"],
                                     "PH1": ["PH1_1", "PH1_2", "PH1_3", "PH1_4", "PH1_5"],
-                                    "TRI5": ["TRI5_1", "TRI5_2", "TRI5_3", "TRI5_4"]})
+                                    "TRI5": ["TRI5_1", "TRI5_2", "TRI5_3", "TRI5_4"],
+                                    "test1":["Test1", "Test2"],
+                                    "test2":["Test2", "Test4"]})
     pw.setCloseCallback(closeCallBack=CallBackMethod(_target=callBack, b="Joe", qt=pw).getRunMethod())
     pw.show()
 

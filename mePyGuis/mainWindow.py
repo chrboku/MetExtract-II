@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '.\mePyGuis\guis\mainwindow.ui'
 #
-# Created: Thu Feb 18 09:23:14 2016
+# Created: Wed Feb 24 10:14:26 2016
 #      by: PyQt4 UI code generator 4.10
 #
 # WARNING! All changes made in this file will be lost!
@@ -26,7 +26,7 @@ except AttributeError:
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName(_fromUtf8("MainWindow"))
-        MainWindow.resize(1491, 1116)
+        MainWindow.resize(1364, 916)
         MainWindow.setAcceptDrops(True)
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap(_fromUtf8(":/MEIcon/ressources/MEIcon.ico")), QtGui.QIcon.Normal, QtGui.QIcon.Off)
@@ -1485,7 +1485,7 @@ class Ui_MainWindow(object):
         self.scrollArea_3.setWidgetResizable(True)
         self.scrollArea_3.setObjectName(_fromUtf8("scrollArea_3"))
         self.scrollAreaWidgetContents_6 = QtGui.QWidget()
-        self.scrollAreaWidgetContents_6.setGeometry(QtCore.QRect(0, 0, 1458, 1064))
+        self.scrollAreaWidgetContents_6.setGeometry(QtCore.QRect(0, 0, 1331, 864))
         self.scrollAreaWidgetContents_6.setObjectName(_fromUtf8("scrollAreaWidgetContents_6"))
         self.gridLayout_15 = QtGui.QGridLayout(self.scrollAreaWidgetContents_6)
         self.gridLayout_15.setObjectName(_fromUtf8("gridLayout_15"))
@@ -1734,7 +1734,7 @@ class Ui_MainWindow(object):
         self.scrollArea.setWidgetResizable(True)
         self.scrollArea.setObjectName(_fromUtf8("scrollArea"))
         self.scrollAreaWidgetContents = QtGui.QWidget()
-        self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 1436, 1042))
+        self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 1077, 681))
         self.scrollAreaWidgetContents.setObjectName(_fromUtf8("scrollAreaWidgetContents"))
         self.gridLayout_40 = QtGui.QGridLayout(self.scrollAreaWidgetContents)
         self.gridLayout_40.setObjectName(_fromUtf8("gridLayout_40"))
@@ -1849,7 +1849,7 @@ class Ui_MainWindow(object):
         self.gridLayout_7.addWidget(self.INFOLabel, 0, 1, 1, 1)
         MainWindow.setCentralWidget(self.centralWidget)
         self.menuBar = QtGui.QMenuBar(MainWindow)
-        self.menuBar.setGeometry(QtCore.QRect(0, 0, 1491, 26))
+        self.menuBar.setGeometry(QtCore.QRect(0, 0, 1364, 26))
         self.menuBar.setObjectName(_fromUtf8("menuBar"))
         self.menuHelp = QtGui.QMenu(self.menuBar)
         self.menuHelp.setObjectName(_fromUtf8("menuHelp"))
@@ -1881,7 +1881,7 @@ class Ui_MainWindow(object):
         self.menuBar.addAction(self.menuHelp.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.tabWidget.setCurrentIndex(1)
+        self.tabWidget.setCurrentIndex(2)
         self.tabWidget_2.setCurrentIndex(0)
         self.tabWidget_3.setCurrentIndex(1)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
@@ -2028,8 +2028,8 @@ class Ui_MainWindow(object):
         self.alignChromatograms.setText(_translate("MainWindow", "Align chromatograms", None))
         self.polynomLabel.setText(_translate("MainWindow", "n-th polynom", None))
         self.label_18.setText(_translate("MainWindow", "Time window (min)", None))
-        self.label_75.setText(_translate("MainWindow", "Bracketing", None))
-        self.label_76.setText(_translate("MainWindow", "Convolution", None))
+        self.label_75.setText(_translate("MainWindow", "Bracketing:", None))
+        self.label_76.setText(_translate("MainWindow", "Convolution:", None))
         self.integratedMissedPeaks.setTitle(_translate("MainWindow", "Integrate missing feature pairs", None))
         self.label_55.setText(_translate("MainWindow", "Max. time difference", None))
         self.label_68.setText(_translate("MainWindow", "Intensity cutoff (≤)", None))

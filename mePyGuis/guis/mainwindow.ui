@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1491</width>
-    <height>1116</height>
+    <width>1364</width>
+    <height>916</height>
    </rect>
   </property>
   <property name="acceptDrops">
@@ -61,7 +61,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>2</number>
       </property>
       <widget class="QWidget" name="inputTab">
        <attribute name="title">
@@ -3318,8 +3318,8 @@ p, li { white-space: pre-wrap; }
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1231</width>
-             <height>625</height>
+             <width>1331</width>
+             <height>864</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_15">
@@ -4136,7 +4136,7 @@ p, li { white-space: pre-wrap; }
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1491</width>
+     <width>1364</width>
      <height>26</height>
     </rect>
    </property>

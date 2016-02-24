@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1196</width>
-    <height>767</height>
+    <width>1391</width>
+    <height>840</height>
    </rect>
   </property>
   <property name="acceptDrops">
@@ -30,7 +30,7 @@
        <enum>QTabWidget::West</enum>
       </property>
       <property name="currentIndex">
-       <number>2</number>
+       <number>1</number>
       </property>
       <widget class="QWidget" name="inputTab">
        <attribute name="title">
@@ -256,9 +256,16 @@ font: 7pt;</string>
        <attribute name="title">
         <string>Process</string>
        </attribute>
-       <layout class="QGridLayout" name="gridLayout_8">
+       <layout class="QGridLayout" name="gridLayout_8" rowstretch="0,2" columnstretch="0,2">
         <item row="0" column="0">
          <layout class="QGridLayout" name="gridLayout_9">
+          <item row="1" column="0" colspan="6">
+           <widget class="Line" name="line_5">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+           </widget>
+          </item>
           <item row="0" column="3">
            <spacer name="horizontalSpacer_6">
             <property name="orientation">
@@ -357,7 +364,7 @@ font: 7pt;</string>
                <enum>Qt::Vertical</enum>
               </property>
               <property name="sizeType">
-               <enum>QSizePolicy::Expanding</enum>
+               <enum>QSizePolicy::Preferred</enum>
               </property>
               <property name="sizeHint" stdset="0">
                <size>
@@ -375,26 +382,6 @@ font: 7pt;</string>
              <enum>Qt::Vertical</enum>
             </property>
            </widget>
-          </item>
-          <item row="1" column="0" colspan="6">
-           <widget class="Line" name="line_5">
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="0">
-           <spacer name="verticalSpacer_4">
-            <property name="orientation">
-             <enum>Qt::Vertical</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>20</width>
-              <height>40</height>
-             </size>
-            </property>
-           </spacer>
           </item>
           <item row="2" column="0">
            <layout class="QGridLayout" name="gridLayout_11">
@@ -457,19 +444,6 @@ font: 7pt;</string>
           </item>
           <item row="0" column="5">
            <layout class="QGridLayout" name="gridLayout_14">
-            <item row="0" column="4">
-             <spacer name="horizontalSpacer_4">
-              <property name="orientation">
-               <enum>Qt::Horizontal</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>40</width>
-                <height>20</height>
-               </size>
-              </property>
-             </spacer>
-            </item>
             <item row="0" column="0">
              <widget class="QGroupBox" name="groupBox">
               <property name="title">
@@ -657,6 +631,9 @@ font: 7pt;</string>
                    <property name="orientation">
                     <enum>Qt::Horizontal</enum>
                    </property>
+                   <property name="sizeType">
+                    <enum>QSizePolicy::MinimumExpanding</enum>
+                   </property>
                    <property name="sizeHint" stdset="0">
                     <size>
                      <width>0</width>
@@ -701,6 +678,9 @@ font: 7pt;</string>
                    <property name="orientation">
                     <enum>Qt::Horizontal</enum>
                    </property>
+                   <property name="sizeType">
+                    <enum>QSizePolicy::MinimumExpanding</enum>
+                   </property>
                    <property name="sizeHint" stdset="0">
                     <size>
                      <width>0</width>
@@ -710,6 +690,27 @@ font: 7pt;</string>
                   </spacer>
                  </item>
                 </layout>
+               </item>
+               <item row="0" column="0">
+                <layout class="QHBoxLayout" name="horizontalLayout_5">
+                 <item>
+                  <widget class="QLabel" name="label_15">
+                   <property name="text">
+                    <string>Min. number of labeling atoms</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QSpinBox" name="minXn"/>
+                 </item>
+                </layout>
+               </item>
+               <item row="1" column="0">
+                <widget class="QCheckBox" name="useZeroLabelingAtoms">
+                 <property name="text">
+                  <string>Use zero labeling atoms (for biotransformation products)</string>
+                 </property>
+                </widget>
                </item>
               </layout>
              </widget>
@@ -731,6 +732,9 @@ font: 7pt;</string>
                 <spacer name="verticalSpacer_11">
                  <property name="orientation">
                   <enum>Qt::Vertical</enum>
+                 </property>
+                 <property name="sizeType">
+                  <enum>QSizePolicy::Fixed</enum>
                  </property>
                  <property name="sizeHint" stdset="0">
                   <size>
@@ -773,25 +777,47 @@ font: 7pt;</string>
           </item>
           <item row="2" column="2">
            <widget class="Line" name="line_6">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Fixed" vsizetype="Minimum">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
             <property name="orientation">
              <enum>Qt::Vertical</enum>
             </property>
            </widget>
           </item>
-          <item row="4" column="0">
-           <spacer name="verticalSpacer_7">
-            <property name="orientation">
-             <enum>Qt::Vertical</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>20</width>
-              <height>40</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
          </layout>
+        </item>
+        <item row="1" column="0">
+         <spacer name="verticalSpacer_7">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>40</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item row="0" column="1">
+         <spacer name="horizontalSpacer_4">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeType">
+           <enum>QSizePolicy::Expanding</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
         </item>
        </layout>
       </widget>
@@ -974,7 +1000,6 @@ font: 7pt;</string>
               <height>0</height>
              </size>
             </property>
-            <zorder>eicWidget</zorder>
            </widget>
           </item>
           <item>
@@ -1000,7 +1025,7 @@ font: 7pt;</string>
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1196</width>
+     <width>1391</width>
      <height>26</height>
     </rect>
    </property>

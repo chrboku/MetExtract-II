@@ -1,3 +1,5 @@
+import logging
+
 from sqlite3 import *
 from operator import itemgetter
 import os
@@ -182,7 +184,7 @@ def bracketResults(indGroups, minX, maxX, groupSizePPM, positiveScanEvent=None, 
                             tracersDeltaMZ[tracerName] = dmz
 
                         if tracersDeltaMZ[tracerName] != dmz:
-                            print "Warning: Tracers have not been configured identical in all measurement files"
+                            logging.warning("Warning: Tracers have not been configured identical in all measurement files")
                 else:
                     rows = []
                     for row in res.curs.execute("SELECT key, value FROM config WHERE key='xOffset'"):
@@ -194,7 +196,7 @@ def bracketResults(indGroups, minX, maxX, groupSizePPM, positiveScanEvent=None, 
                         tracersDeltaMZ["FLE"] = dmz
 
                     if tracersDeltaMZ["FLE"] != dmz:
-                        print "Warning: Tracers have not been configured identical in all measurement files"
+                        logging.warning("Warning: Tracers have not been configured identical in all measurement files")
 
                 totalChromPeaks = totalChromPeaks + len(res.featurePairs)
             totalChromPeaksProc = 0
@@ -545,8 +547,9 @@ def bracketResults(indGroups, minX, maxX, groupSizePPM, positiveScanEvent=None, 
                                     except Exception as e:
                                         import traceback
                                         traceback.print_exc()
+                                        logging.error(str(traceback))
 
-                                        print "Error", str(e)
+                                        logging.error("Error", str(e))
                                     grp = grp + 1
 
                                     for res in results:
@@ -583,8 +586,9 @@ def bracketResults(indGroups, minX, maxX, groupSizePPM, positiveScanEvent=None, 
     except Exception as ex:
         import traceback
         traceback.print_exc()
+        print(str(traceback))
 
-        print "Error"
+        logging.error("Error during bracketing of files")
 
     finally:
         resDB.conn.commit()

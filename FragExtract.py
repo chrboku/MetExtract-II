@@ -15,6 +15,12 @@
 #    along with this program; if not, write to the Free Software
 #    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
+
+import logging
+import LoggingSetup
+LoggingSetup.LoggingSetup.Instance().initLogging()
+
+
 from FragExtract_processTarget import ProcessTarget
 
 from mePyGuis.FE_mainWindow import Ui_MainWindow
@@ -322,7 +328,7 @@ def interruptIndividualFilesProcessing(selfObj, pool):
         pool.join()
 
         selfObj.terminateJobs=True
-        print "Processing stopped by user"
+        logging.info("Processing stopped by user")
 
         return True
     else:
@@ -334,6 +340,8 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
         QtGui.QMainWindow.__init__(self, parent)
         self.setupUi(self)
         self.setWindowTitle("MetExtract II - FragExtract")
+
+        logging.info("MetExtract II (module %s)"%"FragExtract")
 
         ## setup additional ui things
         self.MSMSTargetModel=MSMSTargetModel(data=[])
@@ -502,9 +510,9 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
         if t.executeDialog() == QtGui.QDialog.Accepted:
             self.elements = t.getNeutralLosses()
 
-            print "Configured neutral loss elements:"
+            logging.info("Configured neutral loss elements:")
             for elem in self.elements:
-                print "  *", elem.name, elem
+                logging.info("  *", elem.name, elem)
 
     def updateCores(self):
         rem=0
@@ -632,9 +640,9 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
         if t.executeDialog() == QtGui.QDialog.Accepted:
             self.MSMSTargetModel.adducts = {}
 
-            print "Configured adducts:"
+            logging.info("Configured adducts:")
             for adduct in t.getAdducts():
-                print "  *", adduct.name
+                logging.info("  *", adduct.name)
                 self.MSMSTargetModel.adducts[adduct.name]=adduct
 
     def loadSettings(self):
@@ -658,6 +666,10 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
             self.minScaledPeakIntensity_Spinner.setValue(sett.value("MinScaledIntensity").toDouble()[0])
         if sett.contains("maxPPMMatchingError"):
             self.maxPPMErrorMatching_Spinner.setValue(sett.value("maxPPMMatchingError").toDouble()[0])
+        if sett.contains("useZeroLabelingAtoms"):
+            self.useZeroLabelingAtoms.setChecked(sett.value("useZeroLabelingAtoms").toBool())
+        if sett.contains("minXn"):
+            self.minXn.setValue(sett.value("minXn").toInt()[0])
         if sett.contains("maxRelativeIntensityError"):
             self.maxRelIntensityError_spinner.setValue(sett.value("maxRelativeIntensityError").toDouble()[0])
 
@@ -693,6 +705,8 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
         sett.setValue("IntensityThreshold", self.intensityThresoldSpinner.value())
         sett.setValue("MinScaledIntensity", self.minScaledPeakIntensity_Spinner.value())
         sett.setValue("maxPPMMatchingError", self.maxPPMErrorMatching_Spinner.value())
+        sett.setValue("useZeroLabelingAtoms", self.useZeroLabelingAtoms.checkState()==QtCore.Qt.Checked)
+        sett.setValue("minXn", self.minXn.value())
         sett.setValue("maxRelativeIntensityError", self.maxRelIntensityError_spinner.value())
 
         sett.setValue("configuredElements", base64.b64encode(pickle.dumps(self.elements)))
@@ -967,6 +981,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             fullScanEICppm=self.eicPPMSpinner.value(), fullScanThreshold=self.intensityThresoldSpinner.value(),
                             minMSMSPeakIntensityScaled=self.minScaledPeakIntensity_Spinner.value(),
                             matchingPPM=self.maxPPMErrorMatching_Spinner.value(), maxRelError=self.maxRelIntensityError_spinner.value(),
+                            minXn=self.minXn.value(), useZeroLabelingAtoms=self.useZeroLabelingAtoms.checkState()==QtCore.Qt.Checked,
 
                             labellingOffset=1.00335, annotationElements=self.elements, annotationPPM=self.annotationPPMErrorSpinner.value(),
                             useParentFragmentConsistencyRule=self.applyParentFragmentConsistencyRuleCheckBox.checkState()==QtCore.Qt.Checked,
@@ -1035,8 +1050,8 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                 pIds[mes.pid], "finished" if mes.mes == "end" else "failed"))
 
                         if freeS == -1:
-                            print "Something went wrong.."
-                            print "Progress bars do not work correctly, but files will be processed and \"finished..\" will be printed.."
+                            logging.error("Something went wrong..")
+                            logging.error("Progress bars do not work correctly, but files will be processed and \"finished..\" will be printed..")
                         else:
                             assignedThreads[mes.pid] = -1
                             freeSlots.append(freeS)
@@ -1051,8 +1066,8 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             pw.getCallingFunction()("statuscolor")(pIds[mes.pid], "orange")
                             pw.getCallingFunction()("statustext")(pIds[mes.pid],text="File: %s\nStatus: %s\nProcess ID: %d" % (pIds[mes.pid], "processing", mes.pid))
                         else:
-                            print "Something went wrong.."
-                            print "Progress bars do not work correctly, but files will be processed and \"finished..\" will be printed.."
+                            logging.error("Something went wrong..")
+                            logging.error("Progress bars do not work correctly, but files will be processed and \"finished..\" will be printed..")
 
                 for v in mess.values():
                     for mes in v.values():
@@ -1060,7 +1075,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             if assignedThreads.has_key(mes.pid):
                                 pw.getCallingFunction(assignedThreads[mes.pid] + 1)(mes.mes)(mes.val)
                             else:
-                                print "Error %d" % mes.pid
+                                logging.error("Error %d" % mes.pid)
 
                 elapsed = (time.time() - start) / 60.
                 hours = ""
@@ -1088,7 +1103,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
         mins = "%.2f min(s)" % (elapsed % 60.)
 
         if not self.terminateJobs:
-            print "Individual files processed (%s%s).." % (hours, mins)
+            logging.info("Individual files processed (%s%s).." % (hours, mins))
 
         p.close()
         p.terminate()

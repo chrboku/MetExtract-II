@@ -90,10 +90,14 @@ def performGroupOmit(infile, groupStats, outfile, commentStartingCharacter="#"):
                     headers[line[i]] = i
 
             else:
-                use = False
+                use = False          ## determine if fp should be used due to an omit
+                allGomit = True      ## determine if no omit was used at all
                 for gname, gmin, gomit in groupStats:
-                    use = use or (not gomit) or (int(line[headers[gname]]) >= gmin)
-                if use:
+                    if gomit:
+                        use = use or (int(line[headers[gname]]) >= gmin)
+                        allGomit=False
+
+                if use or allGomit:     ## either use it because it was found more than n times in a group or because no omit was used
                     data.append(line)
             rowNum += 1
 

@@ -16,6 +16,12 @@
 #    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 
+import logging
+import LoggingSetup
+LoggingSetup.LoggingSetup.Instance().initLogging()
+
+
+
 # EXPERIMENTAL: alternative peak picking algorithm. Currently under development
 
 import sys, pprint
@@ -94,7 +100,7 @@ if not loadRConfFile(path=get_main_dir()) or not checkR():
         os.environ["R_HOME_FROM"]="RPATH environment variable"
         if not checkR():
 
-            print "Error: R could not be loaded correctly (No RPATH.conf file or R_HOME environment variable found)\nPlease make sure it is installed and accessible"
+            logging.error("Error: R could not be loaded correctly (No RPATH.conf file or R_HOME environment variable found)\nPlease make sure it is installed and accessible")
 
             # Show a dialog box to the user that R could not be started
             from os import sys
@@ -155,7 +161,7 @@ def getRVersion():
         v = r("R.Version()$version.string")     # get R-Version
         return v[0]
     except:
-        print "Error: R could not be loaded.."
+        logging.error("Error: R could not be loaded..")
 
 # Checks, if necessary R dependencies are installed
 def checkRDependencies(r):
@@ -178,7 +184,7 @@ def checkRDependencies(r):
         if str(r("is.installed(\"%s\")" % dep)[0]).lower() == "true":
             dialog.setDependencyStatus(dep, RPackageAvailable)
         else:
-            print "installing %s.." % dep
+            logging.info("installing %s.." % dep)
             r("install.packages(\"%s\", repos='http://cran.us.r-project.org')" % dep)
             if str(r("is.installed(\"%s\")" % dep)[0]).lower() == "true":
                 dialog.setDependencyStatus(dep, RPackageAvailable)
@@ -190,7 +196,7 @@ def checkRDependencies(r):
         if str(r("is.installed(\"%s\")" % dep)[0]).lower() == "true":
             dialog.setDependencyStatus(dep, RPackageAvailable)
         else:
-            print "installing %s.." % dep
+            logging.info("installing %s.." % dep)
             r("source(\"http://bioconductor.org/biocLite.R\")")
             r("biocLite(\"%s\", suppressUpdates=TRUE)" % dep)
             if str(r("is.installed(\"%s\")" % dep)[0]).lower() == "true":
@@ -219,6 +225,7 @@ from sqlite3 import *
 from copy import copy, deepcopy
 from xml.parsers.expat import ExpatError
 from optparse import OptionParser
+from hashlib import md5
 
 
 #</editor-fold>
@@ -239,7 +246,7 @@ matplotlib.rcParams['savefig.dpi'] = 300
 font = {'size': 16}
 matplotlib.rc('font', **font)
 globAlpha = 0.05
-predefinedColors = ["DarkSlateGrey", "FireBrick", "YellowGreen", "SteelBlue", "DarkOrange", "Teal", "CornflowerBlue","DarkOliveGreen", "SlateGrey", "CadetBlue", "DarkCyan", "Black", "DarkSeaGreen", "DimGray","GoldenRod", "LightBlue", "MediumTurquoise", "RoyalBlue"]
+predefinedColors = ["FireBrick", "YellowGreen", "SteelBlue", "DarkOrange", "Teal", "DarkSlateGrey", "CornflowerBlue","DarkOliveGreen", "SlateGrey", "CadetBlue", "DarkCyan", "Black", "DarkSeaGreen", "DimGray","GoldenRod", "LightBlue", "MediumTurquoise", "RoyalBlue"]
 
 # required for Plotting table
 def convertXaToX(x, a):
@@ -369,7 +376,7 @@ class procAreaInFile:
         elif oldData[self.colInd[colIonMode]] == "-":
             scanEvent = negativeScanEvent
         else:
-            print "Error: undefined scan event", oldData[self.colInd[colIonMode]]
+            logging.error("undefined scan event", oldData[self.colInd[colIonMode]])
 
         r = self.processAreaFor(oldData[self.colInd[colToProc + "_Area_N"]], oldData[self.colInd[colmz]],
                                 oldData[self.colInd[colrt]], ppm, scanEvent, maxRTShift, scales, snrTH)
@@ -398,7 +405,7 @@ class procAreaInFile:
     # re-integrate all detected feature pairs in a given LC-HRMS data file
     def processFile(self, oldData, colToProc, colmz, colrt, colLmz, colIonMode, positiveScanEvent, negativeScanEvent,
                     ppm, maxRTShift, scales, snrTH):
-        print "   Reintegration started for file %s" % self.forFile
+        logging.info("   Reintegration started for file %s" % self.forFile)
 
         z = 0
         for oDat in oldData:
@@ -415,7 +422,7 @@ class procAreaInFile:
 
             self.newData.append(nDat)
 
-        print "   Reintegration finished for file %s" % self.forFile
+        logging.info("   Reintegration finished for file %s" % self.forFile)
     # set re-integration parameters for the current sub-process
     def setParams(self, oldDataFile, headers, colToProc, colmz, colrt, colxcount, colloading, colLmz, colIonMode,
                   positiveScanEvent, negativeScanEvent, colnum, ppm, maxRTShift, scales, reintegrateIntensityCutoff, snrTH):
@@ -461,7 +468,7 @@ class procAreaInFile:
             self.queue.put(Bunch(pid=self.pID, mes="text", val=str(self.forFile)))
 
         # import LC-HRMS data file
-        print "   Reading file %s" % self.forFile
+        logging.info("   Reading file %s" % self.forFile)
         self.t = Chromatogram()
         self.t.parse_file(self.forFile, intensityCutoff=self.reintegrateIntensityCutoff)
 
@@ -520,7 +527,7 @@ def interruptReIntegrateFilesProcessing(pool, selfObj):
         pool.join()
 
         selfObj.terminateJobs=True
-        print "Processing stopped by user"
+        logging.info("Processing stopped by user")
 
         return True
     else:
@@ -656,8 +663,8 @@ def _integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colload
                     mes = v["end"]
                     freeS = assignedThreads[mes.pid]
                     if freeS == -1:
-                        print "Something went wrong.."
-                        print "Progress bars do not work correctly, but files will be processed and \"finished..\" will be printed.."
+                        logging.error("Something went wrong..")
+                        logging.error("Progress bars do not work correctly, but files will be processed and \"finished..\" will be printed..")
                     else:
                         pw.getCallingFunction(assignedThreads[mes.pid] + 1)("text")("")
                         pw.getCallingFunction(assignedThreads[mes.pid] + 1)("value")(0)
@@ -671,8 +678,8 @@ def _integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colload
                         w = freeSlots.pop()
                         assignedThreads[mes.pid] = w
                     else:
-                        print "Something went wrong.."
-                        print "Progress bars do not work correctly, but files will be processed and \"finished..\" will be printed.."
+                        logging.error("Something went wrong..")
+                        logging.error("Progress bars do not work correctly, but files will be processed and \"finished..\" will be printed..")
 
             for v in mess.values():
                 for mes in v.values():
@@ -728,11 +735,6 @@ def _integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colload
     resDB.curs.close()
     resDB.conn.close()
 
-def maxSet(ma):
-    print "setting max to", ma
-
-def valSet(val):
-    print "setting val to", val
 
 #</editor-fold>
 
@@ -750,7 +752,7 @@ def interruptIndividualFilesProcessing(selfObj, pool):
         pool.join()
 
         selfObj.terminateJobs=True
-        print "Processing stopped by user"
+        logging.info("Processing stopped by user")
 
         return True
     else:
@@ -762,7 +764,7 @@ def interruptBracketingOfFeaturePairs(selfObj, funcProc):
         funcProc.join()
 
         selfObj.terminateJobs=True
-        print "Processing stopped by user"
+        logging.info("Processing stopped by user")
     else:
         return False # don't close progresswrapper and continue processing files
 
@@ -773,22 +775,46 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
     def forceUpdateFL(self):
         self.updateLCMSSampleSettings(force=True)
 
+
     # check, if a specified mzxml file can be loaded successfully
     def checkFileImport(self, file):
-        f=file.replace("\\","/")
-        f=f[f.rfind("/")+1:f.rfind(".")]
 
-        if not(re.match("^[a-zA-Z0-9_]*$", f)):
-            return "Invalid characters in file name"
+        fhash="%s_%s"%(file, md5(open(file, 'rb').read()).hexdigest())  #self.ckeckedLCMSFiles[fhash]=Bunch(parsed=parsed, fls=tm.getFilterLinesPerPolarity(), pols=tm.getPolarities(), tics=tics)
 
-        tm = Chromatogram()
-        try:
-            tm.parse_file(file, ignoreCharacterData=True)
-        except ExpatError as ex:
-            return "Parsing error"
-        except Exception as ex:
-            return "General error"
-        return True
+        if fhash not in self.checkedLCMSFiles.keys():
+            f=file.replace("\\","/")
+            f=f[f.rfind("/")+1:f.rfind(".")]
+
+            if not(re.match("^[a-zA-Z0-9_]*$", f)):
+                self.checkedLCMSFiles[fhash]=Bunch(parsed="Invalid characters in file name")
+            else:
+                parsed=False
+                try:
+                    tm = Chromatogram()
+                    tm.parse_file(file, ignoreCharacterData=True)
+
+                    parsed=True
+                    pols=tm.getPolarities()
+
+                    fls=tm.getFilterLinesPerPolarity()
+
+                    tics={}
+                    if '+' in pols:
+                        tic, times, scanIDs=tm.getTIC(filterLine=fls['+'].pop())
+                        tics['+']=Bunch(tic=tic, times=times)
+                    if '-' in pols:
+                        tic, times, scanIDs=tm.getTIC(filterLine=fls['-'].pop())
+                        tics['-']=Bunch(tic=tic, times=times)
+
+                    self.checkedLCMSFiles[fhash]=Bunch(parsed=parsed, fls=tm.getFilterLinesPerPolarity(), pols=tm.getPolarities(), tics=tics)
+
+                except ExpatError as ex:
+                    self.checkedLCMSFiles[fhash]=Bunch(parsed="Parsing error")
+                except Exception as ex:
+                    self.checkedLCMSFiles[fhash]=Bunch(parsed="General error")
+
+        return self.checkedLCMSFiles[fhash].parsed
+
 
 
     def updateLCMSSampleSettings(self, force=False):
@@ -872,48 +898,48 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             pw.getCallingFunction()("statuscolor")(file, "firebrick")
                             continue
 
-                        tm = Chromatogram()
                         try:
-                            tm.parse_file(file, ignoreCharacterData=True)
+                            if self.checkFileImport(file)==True:
 
-                            pols=tm.getPolarities()
-                            fls=tm.getFilterLinesPerPolarity()
+                                fhash="%s_%s"%(file, md5(open(file, 'rb').read()).hexdigest())
+                                b=self.checkedLCMSFiles[fhash]
 
-                            if '+' in pols:
-                                tic, times, scanIDs=tm.getTIC(filterLine=fls['+'].pop())
-                                self.drawPlot(self.ui.pl_tic, 0, [t/60. for t in times], tic, useCol=group.color)
-                            if '-' in pols:
-                                tic, times, scanIDs=tm.getTIC(filterLine=fls['-'].pop())
+                                pols=b.pols
+                                fls=b.fls
+
                                 if '+' in pols:
-                                    tic=[curint*-1. for curint in tic]
-                                self.drawPlot(self.ui.pl_tic, 0, [t/60. for t in times], tic, useCol=group.color)
+                                    self.drawPlot(self.ui.pl_tic, 0, [t/60. for t in b.tics['+'].times], b.tics['+'].tic, useCol=group.color)
+                                if '-' in pols:
+                                    mult=1
+                                    if '+' in pols and '-' in pols:
+                                        mult=-1
+                                    self.drawPlot(self.ui.pl_tic, 0, [t/60. for t in b.tics['-'].times], [e*mult for e in b.tics['-'].tic], useCol=group.color)
 
-                            fls=tm.getFilterLinesPerPolarity()
-                            for pol in fls:
-                                if len(fls[pol])>0:
-                                    if pol not in commonFilterLines:
-                                        commonFilterLines[pol]=fls[pol]
-                                    else:
-                                        commonFilterLines[pol]=commonFilterLines[pol].intersection(fls[pol])
+                                for pol in pols:
+                                    if len(fls[pol])>0:
+                                        if pol not in commonFilterLines:
+                                            commonFilterLines[pol]=fls[pol]
+                                        else:
+                                            commonFilterLines[pol]=commonFilterLines[pol].intersection(fls[pol])
 
-                            for pol in tm.getPolarities():
-                                polarities.add(pol)
+                                for pol in pols:
+                                    polarities.add(pol)
 
-                            # if file has been processed successfully (FileName.identified.sqlite DB exists) add it to the successfully processed list
-                            if os.path.exists(file + ".identified.sqlite") and os.path.isfile(
-                                            file + ".identified.sqlite"):
-                                fname=fname=file[(file.rfind("/") + 1):]
-                                #if ".mzxml" in file.lower():
-                                #    fname=fname[:fname.lower().rfind(".mzxml")]
-                                #if ".mzml" in file.lower():
-                                #    fname=fname[:fname.lower().rfind(".mzml")]
-                                self.ui.processedFilesComboBox.addItem(fname, userData=Bunch(file=file))
+                                # if file has been processed successfully (FileName.identified.sqlite DB exists) add it to the successfully processed list
+                                if os.path.exists(file + ".identified.sqlite") and os.path.isfile(file + ".identified.sqlite"):
+                                    fname=fname=file[(file.rfind("/") + 1):]
+                                    self.ui.processedFilesComboBox.addItem(fname, userData=Bunch(file=file))
 
-                            done.append(file)
+                                done.append(file)
 
-                            pw.getCallingFunction()("statuscolor")(file, "olivedrab")
-                            pw.getCallingFunction()("statustext")(file,
-                                                                  text="File: %s\nStatus: %s" % (file, "imported"))
+                                pw.getCallingFunction()("statuscolor")(file, "olivedrab")
+                                pw.getCallingFunction()("statustext")(file,
+                                                                      text="File: %s\nStatus: %s" % (file, "imported"))
+                            else:
+
+                                pw.getCallingFunction()("statuscolor")(file, "firebrick")
+                                pw.getCallingFunction()("statustext")(file, text="File: %s\nStatus: %s" % (file, "failed"))
+                                failed["General error"].append(file)
 
                         except ExpatError as ex:
                             pw.getCallingFunction()("statuscolor")(file, "firebrick")
@@ -1058,7 +1084,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                 if conn is not None:
                                     conn.close()
                             except:
-                                print "Warning: Could not close intermediate (sql) file"
+                                logging.warning("Warning: Could not close intermediate (sql) file")
                     else:
                         if len(inValidfiles) > 0:
                             inValidfiles += "\n"
@@ -1116,7 +1142,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         if len(failed)==0:
             if atPos is None:
                 atPos=self.ui.groupsList.count()
-            qlwi=QListWidgetItem("%dx %s"%(len(files), str(name)))
+            qlwi=QListWidgetItem("%s (%d%s%s)"%(str(name), len(files), ", Annotate" if useForMetaboliteGrouping else "", ", Omit/%d"%minGrpFound if omitFeatures else ""))
+            qlwi.setBackgroundColor(QColor(color))
             qlwi.setData(QListWidgetItem.UserType, SampleGroup(name, files, minGrpFound, omitFeatures, useForMetaboliteGrouping, color))
 
             self.ui.groupsList.insertItem(atPos, qlwi)
@@ -1962,8 +1989,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         # process individual files
         if self.ui.processIndividualFiles.isChecked():
-            print ""
-            print "Processing individual LC-HRMS data on %d CPU core(s).."%min(len(files), cpus)
+            logging.info("")
+            logging.info("Processing individual LC-HRMS data on %d CPU core(s).."%min(len(files), cpus))
 
             writeMZXMLOptions = 0
             if self.ui.saveMZXML.isChecked():
@@ -2090,8 +2117,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             pw.getCallingFunction()("statustext")(pIds[mes.pid], text="File: %s\nStatus: %s" % (pIds[mes.pid], "finished" if mes.mes == "end" else "failed"))
 
                             if freeS == -1:
-                                print "Something went wrong.."
-                                print "Progress bars do not work correctly, but files will be processed and \"finished..\" will be printed.."
+                                logging.error("Something went wrong..")
+                                logging.error("Progress bars do not work correctly, but files will be processed and \"finished..\" will be printed..")
                             else:
                                 assignedThreads[mes.pid] = -1
                                 freeSlots.append(freeS)
@@ -2106,8 +2133,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                 pw.getCallingFunction()("statuscolor")(pIds[mes.pid], "orange")
                                 pw.getCallingFunction()("statustext")(pIds[mes.pid],text="File: %s\nStatus: %s\nProcess ID: %d" % (pIds[mes.pid], "processing", mes.pid))
                             else:
-                                print "Something went wrong.."
-                                print "Progress bars do not work correctly, but files will be processed and \"finished..\" will be printed.."
+                                logging.error("Something went wrong..")
+                                logging.error("Progress bars do not work correctly, but files will be processed and \"finished..\" will be printed..")
 
                     for v in mess.values():
                         for mes in v.values():
@@ -2115,7 +2142,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                 if assignedThreads.has_key(mes.pid):
                                     pw.getCallingFunction(assignedThreads[mes.pid] + 1)(mes.mes)(mes.val)
                                 else:
-                                    print "Error %d" % mes.pid
+                                    logging.error("Error %d" % mes.pid)
 
                     elapsed = (time.time() - start) / 60.
                     hours = ""
@@ -2143,7 +2170,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             mins = "%.2f min(s)" % (elapsed % 60.)
 
             if not self.terminateJobs:
-                print "Individual files processed (%s%s).." % (hours, mins)
+                logging.info("Individual files processed (%s%s).." % (hours, mins))
 
             p.close()
             p.terminate()
@@ -2160,7 +2187,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
             # bracket/group results from individual LC-HRMS data
             if self.ui.groupResults.isChecked():
-                print "Bracketing of individual LC-HRMS results.."
+                logging.info("Bracketing of individual LC-HRMS results..")
                 start = time.time()
 
                 pw = ProgressWrapper(1, parent=self)
@@ -2198,7 +2225,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             if isinstance(mes, Bunch) and hasattr(mes, "mes") and hasattr(mes, "val"):
                                 pw.getCallingFunction()(mes.mes)(mes.val)
                             else:
-                                print "UNKNONW OBJECT IN PROCESSING QUEUE:", mes
+                                logging.critical("UNKNONW OBJECT IN PROCESSING QUEUE:", mes)
 
                         time.sleep(.5)
 
@@ -2213,7 +2240,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     mins = "%.2f min(s)" % (elapsed % 60.)
 
                     if not self.terminateJobs:
-                        print "Bracketing finished (%s%s).." % (hours, mins)
+                        logging.info("Bracketing finished (%s%s).." % (hours, mins))
 
                     #Arrange grouped results and add statistics columns
                     groups = {}
@@ -2249,12 +2276,13 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                     #remove feature pairs not found more than n times (according to user specified omit value)
                     grpOmit(str(self.ui.groupsSave.text()), grpStats, str(self.ui.groupsSave.text()))
-                    print "Statistic columns added (and feature pairs omitted).."
+                    logging.info("Statistic columns added (and feature pairs omitted)..")
 
 
                 except Exception as ex:
                     import traceback
                     traceback.print_exc()
+                    logging.error(str(traceback))
 
                     QtGui.QMessageBox.warning(self, "MetExtract", "Error during bracketing of files: '%s'" % str(ex), QtGui.QMessageBox.Ok)
                     errorCount += 1
@@ -2313,11 +2341,12 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     calculateMetaboliteGroups(str(self.ui.groupsSave.text()), definedGroups,
                                               minConnectionsInFiles=self.ui.metaboliteClusterMinConnections.value(), minConnectionRate=self.ui.minConnectionRate.value(),
                                               runIdentificationInstance=runIdentificationInstance)
-                    print "Metabolite groups calculated.."
+                    logging.info("Metabolite groups calculated..")
 
                 except Exception as ex:
                     import traceback
                     traceback.print_exc()
+                    logging.error(str(traceback))
 
                     QtGui.QMessageBox.warning(self, "MetExtract", "Error during convolution of feature pairs: '%s'" % str(ex), QtGui.QMessageBox.Ok)
                     errorCount += 1
@@ -2330,7 +2359,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
             # re-integrate missed peaks
             if self.ui.integratedMissedPeaks.isChecked():
-                print "Re-integrating of individual LC-HRMS results.."
+                logging.info("Re-integrating of individual LC-HRMS results..")
                 start = time.time()
 
                 pw = ProgressWrapper(min(len(files), cpus) + 1, showLog=False, parent=self)
@@ -2366,11 +2395,12 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         else:
                             hours = "%d hours " % (elapsed // 60)
                     mins = "%.2f min(s)" % (elapsed % 60.)
-                    print "Re-integrating finished (%s%s).." % (hours, mins)
+                    logging.info("Re-integrating finished (%s%s).." % (hours, mins))
 
                 except Exception as e:
                     import traceback
                     traceback.print_exc()
+                    logging.error(str(traceback))
 
                     QtGui.QMessageBox.warning(self, "MetExtract", "Error during reintegrating files: '%s'" % str(e),
                                               QtGui.QMessageBox.Ok)
@@ -2398,9 +2428,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         mins = "%.2f min(s)" % (elapsed % 60.)
 
         if errorCount == 0:
-            print "Processing successfully finished (%s%s)..\n"%(hours, mins)
+            logging.info("Processing successfully finished (%s%s)..\n"%(hours, mins))
         else:
-            print "Processing finished with %d errors (%s%s)..\n" % (errorCount, hours, mins)
+            logging.warning("Processing finished with %d errors (%s%s)..\n" % (errorCount, hours, mins))
 
 
     def groupFilesChanges(self, sta):
@@ -3082,9 +3112,6 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             return dmz, purN, purL
 
     def selectedResChanged(self):
-
-        #for i in range(11):
-        #    print i, self.ui.res_ExtractedData.header().sectionSize(i)
 
         for i in range(self.ui.res_ExtractedData.topLevelItemCount()):
             self.deColorQTreeWidgetItem(self.ui.res_ExtractedData.topLevelItem(i))
@@ -3981,6 +4008,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     except Exception as ex:
                         import traceback
                         traceback.print_exc()
+                        logging.error(str(traceback))
 
             #</editor-fold>
 
@@ -4137,8 +4165,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             #        ax.set_ylim(ylim)
             #        ax.set_xlim(xlim)
         except Exception as ex:
-            print "Exception caught", ex
-            pass
+            logging.warning("Exception caught", ex)
 
     def setLimts(self, plt, ylim, xlim):
         for ax in plt.twinxs:
@@ -4323,7 +4350,6 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     dd = d.child(c)
                     show = True
                     for w in range(len(text)):
-                        #print w, text[w], dd.text(w), len(text[w]), dd.text(w).contains(text[w]), textl[w](dd.text(w))
                         if len(text[w]) > 0 and not (textl[w](dd.text(w))):  #not(dd.text(w).contains(text[w])):
                             show = False
                     dd.setHidden(not show)
@@ -4632,24 +4658,24 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         if t.executeDialog() == QtGui.QDialog.Accepted:
             self.heteroElements = t.getHeteroAtoms()
 
-            print "Configured heteroatoms:"
+            logging.info("Configured heteroatoms:")
             for ha in self.heteroElements:
-                print "  * " + ha.name
+                logging.info("  * " + ha.name)
 
     def relationShipConfiguration(self):
         t = adductsEdit(adds=deepcopy(self.adducts), nls=deepcopy(self.elementsForNL))
         if t.executeDialog() == QtGui.QDialog.Accepted:
             self.adducts = t.getAdducts()
 
-            print "Configured adducts"
+            logging.info("Configured adducts")
             for add in self.adducts:
-                print "  *", add.name
+                logging.info("  *", add.name)
 
             self.elementsForNL = t.getNeutralLosses()
 
-            print "Configured neutral loss elements"
+            logging.info("Configured neutral loss elements")
             for elem in self.elementsForNL:
-                print "  *", elem.name
+                logging.info("  *", elem.name)
 
     def updateCores(self):
         curMax = self.ui.cpuCores.maximum()
@@ -4698,9 +4724,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             self.lastOpenDir = tracerDialog.getOpenDir()
 
             self.configuredTracers = tracerDialog.getTracers()
-            print "Configured tracers:"
+
+            logging.info("Configured tracers:")
             for tracer in self.configuredTracers:
-                print  " * %s (%s/%s)" % (tracer.name, tracer.isotopeA, tracer.isotopeB)
+                logging.info(" * %s (%s/%s)" % (tracer.name, tracer.isotopeA, tracer.isotopeB))
         self.updateTracerInfo()
 
     def updateTracerInfo(self):
@@ -4774,6 +4801,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         except Exception as ex:
             pass
 
+
+
     # initialise main interface, triggers and command line parameters
     def __init__(self, module="TracExtract", parent=None, silent=False):
         super(Ui_MainWindow, self).__init__()
@@ -4781,8 +4810,13 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
         self.setWindowTitle("MetExtract II - %s"%module)
+        self.checkedLCMSFiles={}
 
         self.silent=silent
+
+
+        logging.info("MetExtract II started (module %s)"%module)
+
 
         self.preConfigured_adducts = [
                 ConfiguredAdduct(name="[M+H]+",       mzoffset=  1.007276, charge=1, polarity='+', mCount=1, entryType="user"),
@@ -4848,12 +4882,12 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         if module=="TracExtract":
             self.labellingExperiment=TRACER
-            print "Starting module TracExtract\n"
+            logging.info("Starting module TracExtract\n")
         elif module=="AllExtract":
             self.labellingExperiment=METABOLOME
-            print "Starting module AllExtract\n"
+            logging.info("Starting module AllExtract\n")
         else:
-            print "Error: invalid module '%s' selected.\nPlease specify either 'TracExtract' or 'AllExtract'\n"%module
+            logging.error("Error: invalid module '%s' selected.\nPlease specify either 'TracExtract' or 'AllExtract'\n"%module)
             QtGui.QMessageBox.warning(self, "MetExtract", "Error: invalid module '%s' selected.\nPlease specify either 'TracExtract' or 'AllExtract'\n"%module,
                                       QtGui.QMessageBox.Ok)
             raise Exception("Error: invalid module '%s' selected.\nPlease specify either 'TracExtract' or 'AllExtract'")
@@ -5097,7 +5131,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             try:
                 self.loadSettingsFile(get_main_dir()+"/Settings/defaultSettings.ini", checkExperimentType=False)
             except:
-                print "Warning: Default settings are invalid. Skipping.."
+                logging.warning("Warning: Default settings are invalid. Skipping..")
             if os.path.exists(get_main_dir()+"/Settings"):
                 menus = {}
                 menus[get_main_dir()]="Predefined"
@@ -5126,8 +5160,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         except Exception as ex:
             import traceback
             traceback.print_exc()
+            logging.error(str(traceback))
 
-            print "Error in %s: %s" % (self.file, str(ex))
+            logging.error("Error in %s: %s" % (self.file, str(ex)))
             QtGui.QMessageBox.information(self, "MetExtract", "Cannot load settings", QtGui.QMessageBox.Ok)
 
 
@@ -5173,31 +5208,32 @@ if __name__ == '__main__':
 
     # inform user, what may not work on the current platform
     if not opts.silentStart:
-        print "Platform:"
+        logging.info("Platform:")
         if platform.system() == "Darwin":  #MAC
-            print "  MAC OS detected"
+            logging.info("  MAC OS detected")
         if platform.system() == "Windows":  #Windows
-            print "  Windows OS detected: Large LC-HRMS files are currently not supported (eg. Q-ToF in 4Ghz mode)"
+            logging.info("  Windows OS detected: Large LC-HRMS files are currently not supported (eg. Q-ToF in 4Ghz mode)")
         if platform.system() == "Linux":  #Linux
-            print "  Linux OS detected"
+            logging.info("  Linux OS detected")
 
         if ctypes.sizeof(ctypes.c_voidp) == 4 and platform.system() != "Windows":  #32 bit system
-            print "  32-bit environment detected: Large files may not work correctly"
+            logging.info("  32-bit environment detected: Large files may not work correctly")
 
-        print ""
+        logging.info("")
 
     #start PyQT GUI application
     app = QtGui.QApplication(sys.argv)
 
     #search for R-packages and install them if necessary
-    if not opts.silentStart: print "R-Configuration: "
+    if not opts.silentStart:
+        logging.info("R-Configuration: ")
     rAvailable = False
     rPackagesAvailable = False
     try:
         try:
             import os
-            print "  R_HOME: %s"%(os.environ["R_HOME"].strip())
-            print "  R_HOME_FROM: %s"%(os.environ["R_HOME_FROM"].strip())
+            logging.info("  R_HOME: %s"%(os.environ["R_HOME"].strip()))
+            logging.info("  R_HOME_FROM: %s"%(os.environ["R_HOME_FROM"].strip()))
         except:
             pass
         import rpy2.robjects as ro
@@ -5205,20 +5241,22 @@ if __name__ == '__main__':
         r = ro.r
 
         v = r("R.Version()$version.string")
-        if not opts.silentStart: print "  %s" % (str(v)[5:(len(str(v)) - 1)])
+        if not opts.silentStart:
+            logging.info("  %s" % (str(v)[5:(len(str(v)) - 1)]))
 
         rAvailable = True
 
         if checkRDependencies(r):  # missing dependencies
             QtGui.QMessageBox.warning(None, "MetExtract", "Error: Not all R-dependencies are available or can be installed", QtGui.QMessageBox.Ok)
-            print "  Required R-packages are not available or installation failed"
+            logging.warning("  Required R-packages are not available or installation failed")
         else:
-            if not opts.silentStart: print "  All necessary R-dependencies are installed/available"
+            if not opts.silentStart:
+                logging.info("  All necessary R-dependencies are installed/available")
             rPackagesAvailable = True
 
     except:
-        print "  Error: R could not be loaded.."
-    print ""
+        logging.info("  Error: R could not be loaded..")
+    logging.info("")
 
     if rAvailable and rPackagesAvailable:
 
@@ -5243,7 +5281,7 @@ if __name__ == '__main__':
 
             if opts.groupdest is not None:
                 groupFile = opts.groupdest.replace("\\", "/")
-                print "Loading LC-HRMS data compilation from '%s'" % groupFile
+                logging.info("Loading LC-HRMS data compilation from '%s'" % groupFile)
                 mainWin.loadGroups(groupFile, forceLoadSettings=False, askLoadSettings=False)
                 mainWin.lastOpenDir = groupFile[0:(groupFile.rfind("/") + 1)]
 
@@ -5252,7 +5290,7 @@ if __name__ == '__main__':
                 if opts.settings == 'group':
                     settFile = opts.groupdest
                 settFile = settFile.replace("\\", "/")
-                print "Loading settings from '%s'" % settFile
+                logging.info("Loading settings from '%s'" % settFile)
                 mainWin.loadSettingsFile(settFile, silent=True)
 
             mainWin.ui.cpuCores.setValue(opts.cores)
@@ -5283,21 +5321,21 @@ if __name__ == '__main__':
 
                 allMessages=[]
 
-                print "   -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
-                print "   -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
+                logging.info("   -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=")
+                logging.info("   -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=")
 
                 for k in sorted(messages.keys()):
                     vs=messages[k]
                     if len(vs)>0:
                         allMessages.append("<span style=\"color: yellow\">%s</span>:"%k)
                     for v in sorted(vs):
-                        print "   -=-=-  "+"\033[91m"+"%-8s"%k+"\033[0m",
+                        logging.info("   -=-=-  "+"\033[91m"+"%-8s"%k+"\033[0m",)
                         k=""
-                        print textwrap.fill(v).replace("\r", "").replace("\n", "\n\r   -=-=-  "+"\033[91m"+"%-8s"%k+"\033[0m ")
+                        logging.info(textwrap.fill(v).replace("\r", ""))
                         allMessages.append(v)
 
-                print "   -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
-                print "   -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
+                logging.info("   -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=")
+                logging.info("   -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=")
 
                 mainWin.ui.INFOLabel.setText("<div style=\"background-color: red\">%s</div>"%(", ".join(allMessages)))
             else:

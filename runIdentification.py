@@ -15,6 +15,7 @@
 #    along with this program; if not, write to the Free Software
 #    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
+import logging
 
 from copy import copy
 from sqlite3 import *
@@ -137,11 +138,11 @@ class RunIdentification:
                         ea == "Hydrogen" and eb == "Deuterium"):
             pass
         else:
-            self.printMessage("Labelling specifications are invalid..")
+            self.printMessage("Labelling specifications are invalid..", type="warning")
             raise Exception("Labelling specifications are invalid..")
 
         if positiveScanEvent == "None" and negativeScanEvent == "None":
-            self.printMessage("No scan event was specified..")
+            self.printMessage("No scan event was specified..", type="warning")
             raise Exception("No scan event was specified..")
 
         self.file = file
@@ -241,18 +242,18 @@ class RunIdentification:
         self.meVersion = meVersion
 
     # Thread safe printing function
-    def printMessage(self, message):
-        writeToGUILog = False
-        if writeToGUILog:
-            message = Bunch(pid=self.pID)
-            message.mes = "log"
-            message.val = "   %d: %s" % (self.pID, message)
-            self.queue.put(message)
-        else:
-            if self.lock is not None:
-                self.lock.acquire()
-                print "   %d: %s" % (self.pID, message)
-                self.lock.release()
+    def printMessage(self, message, type="info"):
+        if self.lock is not None:
+            self.lock.acquire()
+            if type.lower()=="info":
+                logging.info("   %d: %s" % (self.pID, message))
+            elif type.lower()=="warning":
+                logging.warning("   %d: %s" % (self.pID, message))
+            elif type.lower()=="error":
+                logging.error("   %d: %s" % (self.pID, message))
+            else:
+                logging.debug("   %d: %s" % (self.pID, message))
+            self.lock.release()
 
     # helper function used to update the status of the current processing in the Process Dialog
     def postMessageToProgressWrapper(self, mes, val=""):
@@ -942,7 +943,7 @@ class RunIdentification:
                                                      eic,
                                                      scales=self.scales, snrTh=self.snrTh, startIndex=startIndex, endIndex=endIndex)
                     except Exception as ex:
-                        self.printMessage("Errora: %s" % str(ex))
+                        self.printMessage("Errora: %s" % str(ex), type="error")
 
                     peaksL = []
                     try:
@@ -950,7 +951,7 @@ class RunIdentification:
                                                      eicL,
                                                      scales=self.scales, snrTh=self.snrTh, startIndex=startIndex, endIndex=endIndex)
                     except Exception as ex:
-                        self.printMessage("Errorb: %s" % str(ex))
+                        self.printMessage("Errorb: %s" % str(ex), type="error")
 
 
                     # get EICs of M+1, M'-1 and M'+1 for the database
@@ -1390,7 +1391,7 @@ class RunIdentification:
             curs.execute("UPDATE allChromPeaks SET mzDiffErrors=? WHERE id=?",
                          (base64.b64encode(dumps(peak.mzDiffErrors)), peak.id))
 
-        self.printMessage("%s: Annotating feature pairs done." % tracer.name)
+        self.printMessage("%s: Annotating feature pairs done." % tracer.name, type="info")
 
         conn.commit()
         curs.close()
@@ -1428,7 +1429,6 @@ class RunIdentification:
 
                             for nHAtoms in range(pIsotope.minCount, pIsotope.maxCount+1):
                                 if abs(ratio-nHAtoms*pIsotope.relativeAbundance) <= self.hAIntensityError:
-                                    #print "found", peakA, peakA.NPeakArea, peakA.LPeakArea, peakB, peakB.NPeakArea, peakB.LPeakArea, pIsotope, nHAtoms, ratio, nHAtoms*pIsotope.relativeAbundance, abs(ratio-nHAtoms*pIsotope.relativeAbundance), self.hAIntensityError
                                     if abs(ratio-nHAtoms*pIsotope.relativeAbundance) < bestFitRatio:
                                         bestFitRatio = abs(ratio-nHAtoms*pIsotope.relativeAbundance)
                                         bestFit=Bunch(pIso=pIso, nHAtoms=nHAtoms)
@@ -1761,7 +1761,6 @@ class RunIdentification:
                                 c = fT.parseFormula(pF)
                                 mw = fT.calcMolWeight(c)
                                 dif = abs(abs(peakB.mz - peakA.mz) - mw)
-                                #if abs(dif*1000000/peakA.mz)<(self.ppm*2.):
                                 sf = fT.flatToString(c, prettyPrintWithHTMLTags=False)
                                 mzD[0].append("-" + sf)
                                 mzD[1].append("(" + sf + ")")
@@ -1989,7 +1988,7 @@ class RunIdentification:
                 self.curFeatureGroupID += 1
 
             conn.commit()
-            self.printMessage("%s: Feature grouping done. " % tracer.name + str(len(groups)) + " feature groups")
+            self.printMessage("%s: Feature grouping done. " % tracer.name + str(len(groups)) + " feature groups", type="info")
 
             conn.commit()
             curs.close()
@@ -1999,7 +1998,7 @@ class RunIdentification:
             import traceback
             traceback.print_exc()
 
-            self.printMessage("Error in %s: %s" % (self.file, str(ex)))
+            self.printMessage("Error in %s: %s" % (self.file, str(ex)), type="error")
             self.postMessageToProgressWrapper("failed", self.pID)
 
     # store one MS scan for each detected feature pair in the database
@@ -2082,7 +2081,7 @@ class RunIdentification:
 
         csvFile = open(forFile + ".tsv", "w")
         csvFile.write(
-            "Num\tMZ\tL_MZ\tD_MZ_Error_ppm\tD_MZ_Peak_Error_mean_ppm\tD_MZ_Peak_Error_sd_ppm\tRT\tXn\tCharge\tScanEvent\tIonisation_Mode\tTracer\tArea_N\tArea_L\tFold\tPeakRatio\tLeftBorder_N\tRightBorder_N\tLeftBorder_L\tRightBorder_L\tGroup_ID\tCorr\tAdducts\tHetero_Elements")
+            "Num\tMZ\tL_MZ\tD_MZ_Error_ppm\tD_MZ_Peak_Error_mean_ppm\tD_MZ_Peak_Error_sd_ppm\tD_MZ_Min\tD_MZ_Max\tRT\tXn\tCharge\tScanEvent\tIonisation_Mode\tTracer\tArea_N\tArea_L\tFold\tPeakRatio\tLeftBorder_N\tRightBorder_N\tLeftBorder_L\tRightBorder_L\tGroup_ID\tCorr\tAdducts\tHetero_Elements")
         if len(chromPeaks)>1:
             i=1
             for isoRatio in chromPeaks[0].isotopeRatios:
@@ -2120,18 +2119,31 @@ class RunIdentification:
             else:
                 mzDelta = self.xOffset
 
-            csvFile.write("\t".join([str(x) for x in [chromPeak.id, chromPeak.mz,
+            csvFile.write("\t".join([str(x) for x in [chromPeak.id,
+                                                      chromPeak.mz,
                                                       chromPeak.lmz,
                                                       (chromPeak.lmz-chromPeak.mz-mzDelta * chromPeak.xCount / chromPeak.loading) * 1000000. / chromPeak.mz,
-                                                      chromPeak.mzDiffErrors.mean, chromPeak.mzDiffErrors.sd,
-                                                      chromPeak.NPeakCenterMin, chromPeak.xCount, chromPeak.loading,
-                                                      scanEvent, chromPeak.ionMode, chromPeak.tracerName,
-                                                      chromPeak.NPeakArea, chromPeak.LPeakArea,
+                                                      chromPeak.mzDiffErrors.mean,
+                                                      chromPeak.mzDiffErrors.sd,
+                                                      min(chromPeak.mzDiffErrors.vals),
+                                                      max(chromPeak.mzDiffErrors.vals),
+                                                      chromPeak.NPeakCenterMin,
+                                                      chromPeak.xCount,
+                                                      chromPeak.loading,
+                                                      scanEvent, chromPeak.ionMode,
+                                                      chromPeak.tracerName,
+                                                      chromPeak.NPeakArea,
+                                                      chromPeak.LPeakArea,
                                                       chromPeak.NPeakArea / chromPeak.LPeakArea,
                                                       chromPeak.peaksRatio,
-                                                      chromPeak.NBorderLeft, chromPeak.NBorderRight,
-                                                      chromPeak.LBorderLeft, chromPeak.LBorderRight,
-                                                      chromPeak.fGroupID, chromPeak.peaksCorr, addsF, hetIso]]))
+                                                      chromPeak.NBorderLeft,
+                                                      chromPeak.NBorderRight,
+                                                      chromPeak.LBorderLeft,
+                                                      chromPeak.LBorderRight,
+                                                      chromPeak.fGroupID,
+                                                      chromPeak.peaksCorr,
+                                                      addsF,
+                                                      hetIso]]))
             for isoRatio in chromPeak.isotopeRatios:
                 observedMean=isoRatio.observedRatioMean
                 if observedMean is None:
@@ -2424,7 +2436,7 @@ class RunIdentification:
             import traceback
             traceback.print_exc()
 
-            self.printMessage("Error in %s: %s" % (self.file, str(ex)))
+            self.printMessage("Error in %s: %s" % (self.file, str(ex)), type="error")
             self.postMessageToProgressWrapper("failed", self.pID)
 
     # plot the EIC stored in the database for each detected feature pair
@@ -2642,7 +2654,7 @@ class RunIdentification:
             import traceback
             traceback.print_exc()
 
-            self.printMessage("Error in %s: %s" % (self.file, str(ex)))
+            self.printMessage("Error in %s: %s" % (self.file, str(ex)), type="error")
             self.postMessageToProgressWrapper("failed")
 
     # store the detected feature pairs in a new mzXML file. Only those MS peaks will be included, which contribute to
@@ -2715,18 +2727,18 @@ class RunIdentification:
     # helper method if more than one tracer substance is used
     def writeIntermediateMZXMLDataToNewMZXMLFile(self, mzxml, newMZXMLData):
         try:
-            self.printMessage("Writing MzXML file..")
+            self.printMessage("Writing MzXML file..", type="info")
             if ".mzxml" in self.file.lower():
                 toFile=self.file[0:self.file.lower().rfind(".mzxml")]+".proc.mzXML"
                 mzxml.resetMZData(self.file, toFile, newMZXMLData)
             elif ".mzml" in self.file.lower() and False:  ## mzml export currently not supported
                 toFile=self.file[0:self.file.lower().rfind(".mzml")]+"proc.mzML"
-                self.printMessage("Only mzXML files can be written")
+                self.printMessage("Only mzXML files can be written", type="error")
             else:
                 return RuntimeError("Invalid file. Cannot write new data")
 
         except Exception as ex:
-            self.printMessage("Cannot write MzXML file.. (%s)" % ex)
+            self.printMessage("Cannot write MzXML file.. (%s)" % ex, type="error")
 
     # stores the TICs of the LC-HRMS data in the database
     def writeTICsToDB(self, mzxml, scanEvents):
@@ -2753,7 +2765,7 @@ class RunIdentification:
             # region Initialize data processing pipeline
             ######################################################################################
 
-            self.printMessage("File: %s" % self.file)
+            self.printMessage("File: %s" % self.file, type="info")
 
             self.postMessageToProgressWrapper("start")
             self.postMessageToProgressWrapper("max", 100.)
@@ -2822,7 +2834,7 @@ class RunIdentification:
                 tracerID = 0
                 if self.metabolisationExperiment:
                     tracerID = tracer.id
-                    self.printMessage("Tracer: %s" % tracer.name)
+                    self.printMessage("Tracer: %s" % tracer.name, type="info")
 
                     ##################################################################################################
                     # Attention: delta mz for one labelling atom is always saved in the member variable self.xOffset #
@@ -2850,7 +2862,7 @@ class RunIdentification:
                 self.writeSignalPairsToDB(mzs, mzxml, tracerID)
 
                 self.printMessage("%s: Extracting signal pairs done. pos: %d neg: %d mzs (including mismatches)" % (
-                    tracer.name, posFound, negFound))
+                    tracer.name, posFound, negFound), type="info")
                 # endregion
 
                 # region 2. Cluster found mz values according to mz value and number of x atoms (25-35%)
@@ -2871,7 +2883,7 @@ class RunIdentification:
 
                 self.printMessage(
                     "%s: Clustering found signal pairs done. pos: %d neg: %d mz bins (including mismatches)" % (
-                        tracer.name, len(mzbins['+']), len(mzbins['-'])))
+                        tracer.name, len(mzbins['+']), len(mzbins['-'])), type="info")
                 # endregion
 
                 # region 3. Extract chromatographic peaks (35-65%)
@@ -2890,7 +2902,7 @@ class RunIdentification:
                 self.printMessage(
                     "%s: Separating feature pairs done. pos: %d neg: %d chromatographic peaks (including mismatches)" % (
                         tracer.name, len([c for c in chromPeaks if c.ionMode == "+"]),
-                        len([c for c in chromPeaks if c.ionMode == "-"])))
+                        len([c for c in chromPeaks if c.ionMode == "-"])), type="info")
                 # endregion
 
                 # region 4. Remove isotopolog feature pairs and other false positive findings (65-70%)
@@ -2908,7 +2920,7 @@ class RunIdentification:
                 self.removeFalsePositiveFeaturePairsAndUpdateDB(chromPeaks, reportFunction)
 
                 self.printMessage("%s: Removing false positive feature pairs done. %d chromatographic peaks" % (
-                    tracer.name, len(chromPeaks)))
+                    tracer.name, len(chromPeaks)), type="info")
                 #endregion
 
 
@@ -2966,7 +2978,7 @@ class RunIdentification:
                         hours = "%d hours " % (elapsed // 60)
                 mins = "%.2f min(s)" % (elapsed % 60.)
 
-                self.printMessage("%s: Calculations finished (%s%s).." % (tracer.name, hours, mins))
+                self.printMessage("%s: Calculations finished (%s%s).." % (tracer.name, hours, mins), type="info")
                 # endregion
 
                 # region 8. Write results to files (95-100%, without progress indicator)
@@ -3016,7 +3028,7 @@ class RunIdentification:
             mzxml.freeMe();
 
 
-            self.printMessage("%s done.." % self.file)
+            self.printMessage("%s done.." % self.file, type="info")
             self.postMessageToProgressWrapper("end")
 
 
@@ -3024,7 +3036,7 @@ class RunIdentification:
             import traceback
             traceback.print_exc()
 
-            self.printMessage("Error in %s: %s" % (self.file, str(ex)))
+            self.printMessage("Error in %s: %s" % (self.file, str(ex)), type="error")
             self.postMessageToProgressWrapper("failed")
 
 
