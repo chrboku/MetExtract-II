@@ -26,6 +26,7 @@ import platform
 import re
 import time
 from math import floor, ceil
+import numpy as np
 import pprint
 
 from utils import USEGRADIENTDESCENDPEAKPICKING
@@ -2085,7 +2086,7 @@ class RunIdentification:
 
         csvFile = open(forFile + ".tsv", "w")
         csvFile.write(
-            "Num\tMZ\tL_MZ\tD_MZ_Error_ppm\tD_MZ_Peak_Error_mean_ppm\tD_MZ_Peak_Error_sd_ppm\tD_MZ_Min\tD_MZ_Max\tRT\tXn\tCharge\tScanEvent\tIonisation_Mode\tTracer\tArea_N\tArea_L\tFold\tPeakRatio\tLeftBorder_N\tRightBorder_N\tLeftBorder_L\tRightBorder_L\tGroup_ID\tCorr\tAdducts\tHetero_Elements")
+            "Num\tMZ\tL_MZ\tD_MZ_Error_ppm\tFoundInScans\tD_MZ_Peak_Error_mean_ppm\tD_MZ_Peak_Error_sd_ppm\tD_MZ_Min_ppm\tD_MZ_Max_ppm\tQuant20_MZ_Diff_ppm\tQuant80_MZ_Diff_ppm\tRT\tXn\tCharge\tScanEvent\tIonisation_Mode\tTracer\tArea_N\tArea_L\tFold\tPeakRatio\tLeftBorder_N\tRightBorder_N\tLeftBorder_L\tRightBorder_L\tGroup_ID\tCorr\tAdducts\tHetero_Elements")
         if len(chromPeaks)>1:
             i=1
             for isoRatio in chromPeaks[0].isotopeRatios:
@@ -2123,18 +2124,34 @@ class RunIdentification:
             else:
                 mzDelta = self.xOffset
 
+            minMZDiffError=-1
+            maxMZDiffError=-1
+            quantLow20=-1
+            quantHig20=-1
+            try:
+                minMZDiffError=min(chromPeak.mzDiffErrors.vals)
+                maxMZDiffError=max(chromPeak.mzDiffErrors.vals)
+                quantLow20=np.percentile(chromPeak.mzDiffErrors.vals, 20)
+                quantHig20=np.percentile(chromPeak.mzDiffErrors.vals, 80)
+            except:
+                pass
+
             csvFile.write("\t".join([str(x) for x in [chromPeak.id,
                                                       chromPeak.mz,
                                                       chromPeak.lmz,
                                                       (chromPeak.lmz-chromPeak.mz-mzDelta * chromPeak.xCount / chromPeak.loading) * 1000000. / chromPeak.mz,
+                                                      chromPeak.assignedMZs,
                                                       chromPeak.mzDiffErrors.mean,
                                                       chromPeak.mzDiffErrors.sd,
-                                                      min(chromPeak.mzDiffErrors.vals),
-                                                      max(chromPeak.mzDiffErrors.vals),
+                                                      minMZDiffError,
+                                                      maxMZDiffError,
+                                                      quantLow20,
+                                                      quantHig20,
                                                       chromPeak.NPeakCenterMin,
                                                       chromPeak.xCount,
                                                       chromPeak.loading,
-                                                      scanEvent, chromPeak.ionMode,
+                                                      scanEvent,
+                                                      chromPeak.ionMode,
                                                       chromPeak.tracerName,
                                                       chromPeak.NPeakArea,
                                                       chromPeak.LPeakArea,
