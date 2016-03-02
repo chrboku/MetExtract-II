@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '.\mePyGuis\guis\mainwindow.ui'
 #
-# Created: Wed Feb 24 10:14:26 2016
+# Created: Wed Mar 02 10:42:36 2016
 #      by: PyQt4 UI code generator 4.10
 #
 # WARNING! All changes made in this file will be lost!
@@ -456,7 +456,7 @@ class Ui_MainWindow(object):
         self.scrollArea_2.setWidgetResizable(True)
         self.scrollArea_2.setObjectName(_fromUtf8("scrollArea_2"))
         self.scrollAreaWidgetContents_5 = QtGui.QWidget()
-        self.scrollAreaWidgetContents_5.setGeometry(QtCore.QRect(0, 0, 1293, 1042))
+        self.scrollAreaWidgetContents_5.setGeometry(QtCore.QRect(0, 0, 1293, 1012))
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Preferred)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -1383,7 +1383,7 @@ class Ui_MainWindow(object):
         spacerItem38 = QtGui.QSpacerItem(0, 5, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Fixed)
         self.verticalLayout.addItem(spacerItem38)
         self.useCValidation = QtGui.QCheckBox(self.procIndFiles)
-        self.useCValidation.setTristate(True)
+        self.useCValidation.setTristate(False)
         self.useCValidation.setObjectName(_fromUtf8("useCValidation"))
         self.verticalLayout.addWidget(self.useCValidation)
         self.useRatio = QtGui.QCheckBox(self.procIndFiles)
@@ -1881,7 +1881,7 @@ class Ui_MainWindow(object):
         self.menuBar.addAction(self.menuHelp.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.tabWidget.setCurrentIndex(2)
+        self.tabWidget.setCurrentIndex(1)
         self.tabWidget_2.setCurrentIndex(0)
         self.tabWidget_3.setCurrentIndex(1)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
