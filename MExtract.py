@@ -1404,28 +1404,45 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
     #<editor-fold desc="### group results visualisation functions">
     # EXPERIMENTAL
     def loadGroupsResultsFile(self, groupsResFile):
+        try:
+            if os.path.exists(groupsResFile+".identified.sqlite") and os.path.isfile(groupsResFile+".identified.sqlite"):
 
-        if os.path.exists(groupsResFile+".results.sqlite") and os.path.isfile(groupsResFile+".results.sqlite"):
+                self.ui.resultsExperiment_TreeWidget.clear()
+                self.ui.resultsExperiment_TreeWidget.setHeaderLabels(["OGroup", "MZ", "RT", "Xn", "Z", "IonMode"])
+                widths=[80,90,90,90,90,90]
+                for i in range(len(widths)):
+                    self.ui.resultsExperiment_TreeWidget.setColumnWidth(i, widths[i])
 
-            self.ui.resultsExperiment_TreeWidget.clear()
-            #self.ui.resultsExperiment_TreeWidget.setHeaderLabels(["ID", "MZ", "RT", "Xn", "Z", "IonMode"])
+                self.experimentResults=Bunch(conn=None, curs=None, file=None)
 
-            self.experimentResults=Bunch(conn=None, curs=None, file=None)
+                self.experimentResults.conn=connect(groupsResFile+".identified.sqlite")
+                self.experimentResults.curs=self.experimentResults.conn.cursor()
 
-            self.experimentResults.conn=connect(groupsResFile+".results.sqlite")
-            self.experimentResults.curs=self.experimentResults.conn.cursor()
+                metaboliteGroupTreeItems={}
+                for metaboliteGroup in SQLSelectAsObject(self.experimentResults.curs, "SELECT DISTINCT 'metaboliteGroup' AS type, OGroup AS metaboliteGroupID FROM GroupResults ORDER BY ionisationMode, rt"):
+                    metaboliteGroupTreeItem=QtGui.QTreeWidgetItem(["%d"%metaboliteGroup.metaboliteGroupID])
+                    metaboliteGroupTreeItem.bunchData=metaboliteGroup
+                    self.ui.resultsExperiment_TreeWidget.addTopLevelItem(metaboliteGroupTreeItem)
+                    metaboliteGroupTreeItems[metaboliteGroup.metaboliteGroupID]=metaboliteGroupTreeItem
 
-            metaboliteGroupTreeItems={}
-            for metaboliteGroup in SQLSelectAsObject(self.experimentResults.curs, "SELECT 'metaboliteGroup' AS type, id as metaboliteGroupID FROM GroupResults ORDER BY rt"):
-                metaboliteGroupTreeItem=QtGui.QTreeWidgetItem(["met_%d"%metaboliteGroup.metaboliteGroupID])
-                metaboliteGroupTreeItem.bunchData=metaboliteGroup
-                self.ui.resultsExperiment_TreeWidget.addTopLevelItem(metaboliteGroupTreeItem)
-                metaboliteGroupTreeItems[metaboliteGroup.metaboliteGroupID]=metaboliteGroupTreeItem
+                for fp in SQLSelectAsObject(self.experimentResults.curs, "SELECT 'featurePair' AS type, id, OGroup AS metaboliteGroupID, mz, lmz, dmz, rt, xn, charge, scanEvent, ionisationMode, tracer FROM GroupResults ORDER BY mz"):
+                    featurePair=QtGui.QTreeWidgetItem([str(fp.id), "%.4f"%fp.mz, "%.2f"%(fp.rt/60.), str(fp.xn), str(fp.charge), str(fp.ionisationMode)])
+                    featurePair.bunchData=fp
+                    metaboliteGroupTreeItems[fp.metaboliteGroupID].addChild(featurePair)
 
-            for fp in SQLSelectAsObject(self.experimentResults.curs, "SELECT 'featurePair' AS type, id, id AS metaboliteGroupID, mz, lmz, dmz, rt, xn, charge, scanEvent, ionisationMode, tracer FROM GroupResults ORDER BY rt, mz"):
-                featurePair=QtGui.QTreeWidgetItem([str(fp.id), "%.4f"%fp.mz, "%.2f"%(fp.rt/60.), str(fp.xn), str(fp.charge), str(fp.ionisationMode)])
-                featurePair.bunchData=fp
-                metaboliteGroupTreeItems[fp.metaboliteGroupID].addChild(featurePair)
+                for grpID in metaboliteGroupTreeItems.keys():
+                    kids=[]
+                    for i in range(metaboliteGroupTreeItems[grpID].childCount()):
+                        kids.append(metaboliteGroupTreeItems[grpID].child(i))
+                    meanRT=mean([float(kid.text(2)) for kid in kids])
+                    metaboliteGroupTreeItems[grpID].setText(1, "%d"%len(kids))
+                    metaboliteGroupTreeItems[grpID].setText(2, "%.2f"%meanRT)
+
+                ##TODO finish that
+        except Exception as e:
+            logging.error("Multiple file results could not be fetched correctly")
+            pass
+
 
 
 
@@ -1440,6 +1457,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
     def resultsExperimentChanged(self):
         self.clearPlot(self.ui.resultsExperiment_plot)
         self.clearPlot(self.ui.resultsExperimentSeparatedPeaks_plot)
+        self.clearPlot(self.ui.resultsExperimentMSScanPeaks_plot)
 
         plotItems=[]
 
@@ -1454,7 +1472,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             assert item.bunchData.type=="featurePair"
             self.ui.expRes_ID_LineEdit.setText(str(item.bunchData.id))
             self.ui.expRes_MZ_Spinner.setValue(item.bunchData.mz)
-            self.ui.expRes_RT_Spinner.setValue(item.bunchData.rt/60.)
+            rt=item.bunchData.rt/60.
+            self.ui.expRes_RT_Spinner.setValue(rt)
             self.ui.expRes_Z_Spinner.setValue(item.bunchData.charge)
             self.ui.expRes_IonMode_LineEdit.setText(item.bunchData.ionisationMode)
 
@@ -1484,13 +1503,18 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                         groupID=filesToGroup[file.fileName]
 
-                        for XICObj in SQLSelectAsObject(curs, "SELECT x.xic, x.xicL, x.times FROM XICs x INNER JOIN chromPeaks c ON x.id=c.eicID WHERE c.id=%d"%foundIn[file.fileName].featurePairID):
+                        msSpectrumID=None
+
+                        for XICObj in SQLSelectAsObject(curs, "SELECT x.xic, x.xicL, x.times, c.massSpectrumID FROM XICs x INNER JOIN chromPeaks c ON x.id=c.eicID WHERE c.id=%d"%foundIn[file.fileName].featurePairID):
                             XICObj.xic=[float(f) for f in XICObj.xic.split(";")]
                             XICObj.xicL=[float(f) for f in XICObj.xicL.split(";")]
                             XICObj.times=[float(f) for f in XICObj.times.split(";")]
 
-                            self.ui.resultsExperiment_plot.axes.plot([t/60. for t in XICObj.times], XICObj.xic, color=predefinedColors[groupID%len(predefinedColors)])
+                            msSpectrumID=XICObj.massSpectrumID
+
+                            self.ui.resultsExperiment_plot.axes.plot([t/60. for t in XICObj.times], XICObj.xic,                color=predefinedColors[groupID%len(predefinedColors)])
                             self.ui.resultsExperiment_plot.axes.plot([t/60. for t in XICObj.times], [-f for f in XICObj.xicL], color=predefinedColors[groupID%len(predefinedColors)])
+                            self.ui.resultsExperiment_plot.axes.set_xlim([rt-.5, rt+.5])
 
                             useInds=[]
                             bestCenter=0
@@ -1510,14 +1534,23 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             if self.ui.resultsExperimentNormaliseXICs_checkBox.checkState()==QtCore.Qt.Checked:
                                 centerInt=XICObj.xic[bestCenter]
 
-                            self.ui.resultsExperimentSeparatedPeaks_plot.axes.plot([t/60. for t in XICObj.times[minInd:maxInd]], [f/centerInt for f in XICObj.xic[minInd:maxInd]], color=predefinedColors[groupID%len(predefinedColors)])
+                            self.ui.resultsExperimentSeparatedPeaks_plot.axes.plot([t/60. for t in XICObj.times[minInd:maxInd]], [f/centerInt for f in XICObj.xic[minInd:maxInd]],   color=predefinedColors[groupID%len(predefinedColors)])
                             self.ui.resultsExperimentSeparatedPeaks_plot.axes.plot([t/60. for t in XICObj.times[minInd:maxInd]], [-f/centerInt for f in XICObj.xicL[minInd:maxInd]], color=predefinedColors[groupID%len(predefinedColors)])
+
+                        if msSpectrumID is not None:
+                            for msSpectrum in SQLSelectAsObject(curs, "SELECT mzs, intensities, ionMode FROM massspectrum WHERE mID=%d"%msSpectrumID):
+                                mzs=[float(f) for f in msSpectrum.mzs.split(";")]
+                                intensities=[float(f) for f in msSpectrum.intensities.split(";")]
+
+                                self.ui.resultsExperimentMSScanPeaks_plot.axes.stem(mzs, intensities, lineEdgeColor=predefinedColors[groupID%len(predefinedColors)],color=predefinedColors[groupID%len(predefinedColors)])
+
 
                         curs.close()
                         conn.close()
 
         self.drawCanvas(self.ui.resultsExperiment_plot)
         self.drawCanvas(self.ui.resultsExperimentSeparatedPeaks_plot)
+        self.drawCanvas(self.ui.resultsExperimentMSScanPeaks_plot)
     #</editor-fold>
 
     #<editor-fold desc="### load/save settings functions">
@@ -2511,7 +2544,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 numberOfMZs=row.co
             pw.setMax(numberOfMZs)
 
-            if numberOfMZs<10000:
+            maxMZsFetch=50000
+
+            if numberOfMZs<maxMZsFetch:
 
                 pw.setText("Fetching mzs (%d)"%numberOfMZs, i=0)
 
@@ -2569,7 +2604,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         minInner = min(float(mzRes.mz), minInner)
                         maxInner = max(maxInner, mzRes.mz)
                         xcount = int(mzRes.xcount)
-                        if numberOfMZs<10000:
+                        if numberOfMZs<maxMZsFetch:
                             dd = QtGui.QTreeWidgetItem([str(s) for s in [mzRes.mz, mzRes.xcount, mzRes.scanid, mzRes.scantime/60., mzRes.loading, mzRes.intensity]])
                             dd.myType = "mz"
                             dd.myData=mzRes
@@ -3226,12 +3261,12 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             y.append(child.myData.mz)
                         x_vals.append(x)
                         y_vals.append(y)
-                        if(len(xvals)>0):
-                            maxIntX = max(max(x), maxIntX)
-                            maxIntY = max(max(y), maxIntY)
-                        else:
-                            maxIntX=1
-                            maxIntY=1
+                    if(len(xvals)>0):
+                        maxIntX = max(max(x_vals), maxIntX)
+                        maxIntY = max(max(y_vals), maxIntY)
+                    else:
+                        maxIntX=1
+                        maxIntY=1
 
                 elif item.myType == "mzbin":
                     plotTypes.add("mzbin")
@@ -3259,12 +3294,12 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         y.append(child.myData.mz)
                     x_vals.append(x)
                     y_vals.append(y)
-                    if len(x_vals)>0:
-                        maxIntX = max(max(x), maxIntX)
-                        maxIntY = max(max(y), maxIntY)
-                    else:
-                        maxIntX=1
-                        maxIntY=1
+                if len(x_vals)>0:
+                    maxIntX = max(max(x_vals), maxIntX)
+                    maxIntY = max(max(y_vals), maxIntY)
+                else:
+                    maxIntX=1
+                    maxIntY=1
             #</editor-fold>
 
             #<editor-fold desc="#feature results">
@@ -3295,39 +3330,43 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     xicL = []
                     times = []
                     maxE=1
+
+                    invert=1
+                    if self.ui.negEIC.isChecked():
+                        invert=-1
+
                     for row in self.currentOpenResultsFile.curs.execute(
                                     "SELECT xic, xicL, xicfirstiso, xicLfirstiso, xicLfirstisoconjugate , times FROM XICs WHERE id==%d" % cp.eicID):
                         xic = [float(t) for t in row[0].split(";")]
-                        xicL = [-float(t) for t in row[1].split(";")]
+                        xicL = [float(t) for t in row[1].split(";")]
                         xicfirstiso = [float(t) for t in row[2].split(";")]
-                        xicLfirstiso = [-float(t) for t in row[3].split(";")]
-                        xicLfirstisoconjugate = [-float(t) for t in row[4].split(";")]
+                        xicLfirstiso = [float(t) for t in row[3].split(";")]
+                        xicLfirstisoconjugate = [float(t) for t in row[4].split(";")]
                         times = [float(t) / 60. for t in row[5].split(";")]
 
                     if self.ui.scaleFeatures.isChecked():
                         s = int(cp.NPeakCenter - cp.NBorderLeft * 1)
                         e = int(cp.NPeakCenter + cp.NBorderRight * 1)
                         maxP = s + max(range(e - s), key=lambda x: xic[s + x])
-                        maxE = mean([xic[maxP - 3], xic[maxP - 2], xic[maxP - 1], xic[maxP], xic[maxP + 1], xic[maxP + 2],xic[maxP + 3]])
+                        maxE  = mean([xic[maxP - 3], xic[maxP - 2], xic[maxP - 1], xic[maxP], xic[maxP + 1], xic[maxP + 2],xic[maxP + 3]])
+                        maxEL = mean([xicL[maxP - 3], xicL[maxP - 2], xicL[maxP - 1], xicL[maxP], xicL[maxP + 1], xicL[maxP + 2], xicL[maxP + 3]])
+                        if maxE == 0:
+                            maxE=1
+                        if maxEL == 0:
+                            maxEL=1
+                        if not self.ui.scaleLabelledFeatures.isChecked():
+                            maxEL=maxE
 
-                        if maxE > 0:
-                            xic = [u / maxE for u in xic]
-                            xicfirstiso = [u / maxE for u in xicfirstiso]
+                        xic = [u / maxE for u in xic]
+                        xicfirstiso = [u / maxE for u in xicfirstiso]
 
-                        if self.ui.scaleLabelledFeatures.isChecked():
+                        xicL = [u / maxEL for u in xicL]
+                        xicLfirstiso = [u / maxEL for u in xicLfirstiso]
+                        xicLfirstisoconjugate = [u / maxEL for u in xicLfirstisoconjugate]
 
-                            s = int(cp.NPeakCenter - cp.NBorderLeft * 1)
-                            e = int(cp.NPeakCenter + cp.NBorderRight * 1)
-                            maxP = s + min(range(e - s), key=lambda x: xicL[s + x])
-                            maxE = mean([xicL[maxP - 3], xicL[maxP - 2], xicL[maxP - 1], xicL[maxP], xicL[maxP + 1],xicL[maxP + 2], xicL[maxP + 3]])
-
-                        else:
-                            maxE = -maxE
-
-                        if maxE < 0:
-                            xicL = [-u / maxE for u in xicL]
-                            xicLfirstiso = [-u / maxE for u in xicLfirstiso]
-                            xicLfirstisoconjugate = [-u / maxE for u in xicLfirstisoconjugate]
+                    xicL = [invert*u for u in xicL]
+                    xicLfirstiso = [invert*u for u in xicLfirstiso]
+                    xicLfirstisoconjugate = [invert*u for u in xicLfirstisoconjugate]
 
                     if self.ui.flattenXIC.isChecked():
                         ps = int(cp.NPeakCenter - cp.NPeakScale * 2)
@@ -3795,12 +3834,16 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             xicL = []
                             times = []
 
+                            invert=1
+                            if self.ui.negEIC.isChecked():
+                                invert=-1
+
                             for row in self.currentOpenResultsFile.curs.execute("SELECT xic, xicL, xicfirstiso, xicLfirstiso, xicLfirstisoconjugate, times FROM XICs WHERE id==%d" % child.eicID):
                                 xic = [float(t) for t in row[0].split(";")]
-                                xicL = [-float(t) for t in row[1].split(";")]
+                                xicL = [float(t) for t in row[1].split(";")]
                                 xicfirstiso = [float(t) for t in row[2].split(";")]
-                                xicLfirstiso = [-float(t) for t in row[3].split(";")]
-                                xicLfirstisoconjugate = [-float(t) for t in row[4].split(";")]
+                                xicLfirstiso = [float(t) for t in row[3].split(";")]
+                                xicLfirstisoconjugate = [float(t) for t in row[4].split(";")]
                                 times = [float(t) / 60. for t in row[5].split(";")]
 
                             minTime = min(minTime, min(times[int(child.NPeakCenter - child.NPeakScale * 1):int(
@@ -3812,28 +3855,26 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                 s = int(child.NPeakCenter - child.NBorderLeft * 1)
                                 e = int(child.NPeakCenter + child.NBorderRight * 1)
                                 maxP = s + max(range(e - s), key=lambda x: xic[s + x])
-                                maxE = mean([xic[maxP - 3], xic[maxP - 2], xic[maxP - 1], xic[maxP], xic[maxP + 1],xic[maxP + 2], xic[maxP + 3]])
+                                maxE  = mean([xic[maxP - 3], xic[maxP - 2], xic[maxP - 1], xic[maxP], xic[maxP + 1],xic[maxP + 2], xic[maxP + 3]])
+                                maxEL = mean([xicL[maxP - 3], xicL[maxP - 2], xicL[maxP - 1], xicL[maxP], xicL[maxP + 1],xicL[maxP + 2], xicL[maxP + 3]])
 
-                                if maxE > 0:
-                                    xic = [u / maxE for u in xic]
-                                    xicfirstiso = [u / maxE for u in xicfirstiso]
+                                if maxE == 0:
+                                    maxE=1
+                                if maxEL == 0:
+                                    maxEL=1
+                                if not self.ui.scaleLabelledFeatures.isChecked():
+                                    maxEL=maxE
 
-                                if self.ui.scaleLabelledFeatures.isChecked():
-                                    s = int(child.NPeakCenter - child.NBorderLeft * 1)
-                                    e = int(child.NPeakCenter + child.NBorderRight * 1)
-                                    maxP = s + min(range(e - s), key=lambda x: xicL[s + x])
-                                    maxE = abs(mean([xicL[maxP - 3], xicL[maxP - 2], xicL[maxP - 1], xicL[maxP], xicL[maxP + 1],xicL[maxP + 2], xicL[maxP + 3]]))
-                                else:
-                                    maxE = maxE
+                                xic = [u / maxE for u in xic]
+                                xicfirstiso = [u / maxE for u in xicfirstiso]
 
-                                if maxE > 0:
-                                    xicL = [u / maxE for u in xicL]
-                                    xicLfirstiso = [u / maxE for u in xicLfirstiso]
-                                    xicLfirstisoconjugate = [u / maxE for u in xicLfirstisoconjugate]
-                                else:
-                                    xicL = [u for u in xicL]
-                                    xicLfirstiso = [u for u in xicLfirstiso]
-                                    xicLfirstisoconjugate = [u for u in xicLfirstisoconjugate]
+                                xicL = [u / maxEL for u in xicL]
+                                xicLfirstiso = [u / maxEL for u in xicLfirstiso]
+                                xicLfirstisoconjugate = [u / maxEL for u in xicLfirstisoconjugate]
+
+                            xicL = [invert*u for u in xicL]
+                            xicLfirstiso = [invert*u for u in xicLfirstiso]
+                            xicLfirstisoconjugate = [invert*u for u in xicLfirstisoconjugate]
 
                             if self.ui.flattenXIC.isChecked():
                                 ps = int(child.NPeakCenter - child.NPeakScale * 2)
@@ -3912,7 +3953,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                         fRows = 0
                         minCorr = 1
-                        for row in self.currentOpenResultsFile.curs.execute("select key, value from config where key='minCorrelation'"):
+                        for row in self.currentOpenResultsFile.curs.execute("SELECT key, value FROM config WHERE key='minCorrelation'"):
                             fRows += 1
                             minCorr = float(row[1])
                         assert 0 < fRows <= 1, "Min Correlation not found or found multiple times in settings"
@@ -3931,14 +3972,14 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         cIds = ",".join(["%d" % f for f in childIDs])
 
                         for row in self.currentOpenResultsFile.curs.execute(
-                                        "select c.id, c.mz, c.xcount, c.ionMode from chromPeaks c where c.id in (%s)" % (cIds)):
+                                        "SELECT c.id, c.mz, c.xcount, c.ionMode FROM chromPeaks c WHERE c.id IN (%s)" % (cIds)):
                             id, mz, xcount, ionMode=row
 
                             fI1 = featureIDToColsNum[id]
                             texts[fI1]="%s%.4f/%d"%(ionMode, mz, xcount)
 
                         for row in self.currentOpenResultsFile.curs.execute(
-                                        "select ff.fID1, ff.fID2, ff.corr from featurefeatures ff where ff.fID1 in (%s) and ff.fID2 in (%s)" % (
+                                        "SELECT ff.fID1, ff.fID2, ff.corr FROM featurefeatures ff WHERE ff.fID1 IN (%s) AND ff.fID2 IN (%s)" % (
                                         cIds, cIds)):
                             correlation = row[2]
 
@@ -5054,7 +5095,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         vbox.addWidget(self.ui.pl3.mpl_toolbar)
         self.ui.visualizationWidget3.setLayout(vbox)
 
-        #Setup experiment plot
+        #Setup experiment plot - overlaid EICs plot
         #http://eli.thegreenplace.net/2009/01/20/matplotlib-with-pyqt-guis/
         self.ui.resultsExperiment_plot = QtCore.QObject()
         self.ui.resultsExperiment_plot.dpi = 50
@@ -5072,7 +5113,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         vbox.addWidget(self.ui.resultsExperiment_plot.mpl_toolbar)
         self.ui.resultsExperiment_widget.setLayout(vbox)
 
-        #Setup experiment plot
+        #Setup experiment plot - separate chrom. peaks plot
         #http://eli.thegreenplace.net/2009/01/20/matplotlib-with-pyqt-guis/
         self.ui.resultsExperimentSeparatedPeaks_plot = QtCore.QObject()
         self.ui.resultsExperimentSeparatedPeaks_plot.dpi = 50
@@ -5089,6 +5130,24 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         vbox.addWidget(self.ui.resultsExperimentSeparatedPeaks_plot.canvas)
         vbox.addWidget(self.ui.resultsExperimentSeparatedPeaks_plot.mpl_toolbar)
         self.ui.resultsExperimentSeparatedPeaks_widget.setLayout(vbox)
+
+        #Setup experiment plot - separate chrom. peaks plot
+        #http://eli.thegreenplace.net/2009/01/20/matplotlib-with-pyqt-guis/
+        self.ui.resultsExperimentMSScanPeaks_plot = QtCore.QObject()
+        self.ui.resultsExperimentMSScanPeaks_plot.dpi = 50
+        self.ui.resultsExperimentMSScanPeaks_plot.fig = Figure((5.0, 4.0), dpi=self.ui.resultsExperimentMSScanPeaks_plot.dpi, facecolor='white')
+        self.ui.resultsExperimentMSScanPeaks_plot.fig.subplots_adjust(left=0.05, bottom=0.05, right=0.99, top=0.95)
+        self.ui.resultsExperimentMSScanPeaks_plot.canvas = FigureCanvas(self.ui.resultsExperimentMSScanPeaks_plot.fig)
+        self.ui.resultsExperimentMSScanPeaks_plot.canvas.setParent(self.ui.visualizationWidget)
+        self.ui.resultsExperimentMSScanPeaks_plot.axes = self.ui.resultsExperimentMSScanPeaks_plot.fig.add_subplot(111)
+        simpleaxis(self.ui.resultsExperimentMSScanPeaks_plot.axes)
+        self.ui.resultsExperimentMSScanPeaks_plot.twinxs = [self.ui.resultsExperimentMSScanPeaks_plot.axes]
+        self.ui.resultsExperimentMSScanPeaks_plot.mpl_toolbar = NavigationToolbar(self.ui.resultsExperimentMSScanPeaks_plot.canvas, self.ui.visualizationWidget)
+
+        vbox = QtGui.QVBoxLayout()
+        vbox.addWidget(self.ui.resultsExperimentMSScanPeaks_plot.canvas)
+        vbox.addWidget(self.ui.resultsExperimentMSScanPeaks_plot.mpl_toolbar)
+        self.ui.resultsExperimentMSScan_widget.setLayout(vbox)
 
         self.ui.pl2.xics = []
         self.ui.pl2.times = []
@@ -5124,7 +5183,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         #todo: implement results view with all brackated feature pairs
         self.ui.tabWidget.setTabText(3, "EXPERIMENTAL: "+self.ui.tabWidget.tabText(3))
-        self.ui.tabWidget.setTabEnabled(3, False)
+        self.ui.tabWidget.setTabEnabled(3, True)
 
         # fetch provided settings and show them as a menu
         try:

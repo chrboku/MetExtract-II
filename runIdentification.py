@@ -935,8 +935,12 @@ class RunIdentification:
                     # determine boundaries for chromatographic peak picking
                     minInd=min([kid.getObject().scanIndex for kid in kids])
                     maxInd=max([kid.getObject().scanIndex for kid in kids])
-                    startIndex=max(0, minInd-int(ceil(self.scales[1]*10)))
-                    endIndex=min(len(eic)-1, int(ceil(maxInd+self.scales[1]*10)))
+
+                    ## TODO needs to be optimized
+                    #startIndex=max(0, minInd-int(ceil(self.scales[1]*10)))
+                    #endIndex=min(len(eic)-1, int(ceil(maxInd+self.scales[1]*10)))
+                    startIndex=0
+                    endIndex=len(eic)-1
 
                     peaksN = []
                     try:
@@ -1168,16 +1172,18 @@ class RunIdentification:
                                 if b not in todel.keys():
                                     todel[b]=[]
                                 todel[b].append("incorrectly matched hetero atoms (most likely O) with "+str(peakA.mz)+" "+str(peakA.xCount))
-                        elif peakA.loading == peakB.loading and abs(abs(peakB.mz - peakA.mz) - self.xOffset/peakA.loading) <= peakA.mz * 2.5 * self.ppm / 1000000. and (peakA.xCount - peakB.xCount) in [1,2,3]:
-                                # b has an mz offset and a reduced number of carbon atoms (by one labelling atom)
-                                if b not in todel.keys():
-                                    todel[b]=[]
-                                todel[b].append("increased mz (by one) and reduced number of labeling atoms (by %d) with "%(peakA.xCount - peakB.xCount)+str(peakA.mz)+" "+str(peakA.xCount))
-                        elif peakA.loading == peakB.loading and abs(abs(peakB.mz - peakA.mz) - 1.00335/peakA.loading) <= peakA.mz * 2.5 * self.ppm / 1000000. and peakA.xCount == peakB.xCount:
-                            # b has an mz offset and a reduced number of carbon atoms (by one labelling atom)
-                            if b not in todel.keys():
-                                todel[b]=[]
-                            todel[b].append("increased mz (by one 13C) and same number of labeling atoms with "+str(peakA.mz)+" "+str(peakA.xCount))
+                        else:
+                            for i in [1,2,3]:
+                                if peakA.loading == peakB.loading and abs(abs(peakB.mz - peakA.mz) - i*self.xOffset/peakA.loading) <= peakA.mz * 2.5 * self.ppm / 1000000. and (peakA.xCount - peakB.xCount) in [1,2,3]:
+                                    # b has an mz offset and a reduced number of carbon atoms (by one labelling atom)
+                                    if b not in todel.keys():
+                                        todel[b]=[]
+                                    todel[b].append("increased mz (by %d) and reduced number of labeling atoms (by %d) with "%(i, peakA.xCount - peakB.xCount)+str(peakA.mz)+" "+str(peakA.xCount))
+                                elif peakA.loading == peakB.loading and abs(abs(peakB.mz - peakA.mz) - i+1.00335/peakA.loading) <= peakA.mz * 2.5 * self.ppm / 1000000. and peakA.xCount == peakB.xCount:
+                                    # b has an mz offset and a reduced number of carbon atoms (by one labelling atom)
+                                    if b not in todel.keys():
+                                        todel[b]=[]
+                                    todel[b].append("increased mz (by %d 13C) and same number of labeling atoms with "%(i)+str(peakA.mz)+" "+str(peakA.xCount))
 
         for a in range(0, len(chromPeaks)):
             for b in range(0, len(chromPeaks)):

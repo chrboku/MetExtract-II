@@ -124,10 +124,12 @@ if __name__ == '__main__':
 
 
     chromatogram = Chromatogram()
-    chromatogram.parse_file("F:/160112_238_posneg_Labelled_wheat_experiment/160112_posneg_236_12C13C_fullyLab_Remus_DON_1.mzXML")
-    mz = 375.14439
-    ppm = 8.
-    scales = [5, 21]
+    chromatogram.parse_file("F:/BenediktWarth/160303_final raw data/neg/ZEN_6h_5uM_lysate_2_neg_019.mzXML")
+    mz = 319.155111449
+    ppm = 5.
+    cn = 18
+    z = 1
+    scales = [1, 15]
 
     scanEvents = chromatogram.getFilterLines()
     for s in scanEvents:
@@ -138,7 +140,8 @@ if __name__ == '__main__':
     fig = plt.figure(facecolor='white')
     ax = fig.add_subplot(111)
 
-    eic, times, timesI = chromatogram.getEIC(mz, ppm, scanEvent)
+    eic, times, timesI  = chromatogram.getEIC(mz, ppm, scanEvent)
+    eicL, times, timesI = chromatogram.getEIC(mz+cn*1.00335/z, ppm, scanEvent)
     startIndex=getLastTimeBefore(times, refTime=0*60.)
     endIndex=getLastTimeBefore(times, refTime=100*60.)
     
@@ -146,10 +149,18 @@ if __name__ == '__main__':
     ret = CP.getPeaksFor(times, eic, scales=scales, startIndex=startIndex, endIndex=endIndex)
     for peak in ret:
         peak.peakAtTime=times[peak.peakIndex] / 60.
-    printObjectsAsTable(ret, ["peakAtTime", "peakArea", "peakLeftFlank", "peakIndex", "peakRightFlank"])
+    print "Native"
+    printObjectsAsTable(ret, ["peakAtTime", "peakArea", "peakLeftFlank", "peakIndex", "peakRightFlank", "peakSNR"])
+
+    ret = CP.getPeaksFor(times, eicL, scales=scales, startIndex=startIndex, endIndex=endIndex)
+    for peak in ret:
+        peak.peakAtTime=times[peak.peakIndex] / 60.
+    print "Labeled"
+    printObjectsAsTable(ret, ["peakAtTime", "peakArea", "peakLeftFlank", "peakIndex", "peakRightFlank", "peakSNR"])
     
 
     ax.plot([t / 60. for t in times], [e for e in eic])
+    ax.plot([t / 60. for t in times], [-e for e in eicL])
 
     plt.xlabel("RT [minutes]")
     plt.ylabel("Intensity")

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1364</width>
-    <height>916</height>
+    <width>1496</width>
+    <height>1101</height>
    </rect>
   </property>
   <property name="acceptDrops">
@@ -61,7 +61,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>3</number>
       </property>
       <widget class="QWidget" name="inputTab">
        <attribute name="title">
@@ -986,7 +986,7 @@ font: 7pt;</string>
              <x>0</x>
              <y>0</y>
              <width>1293</width>
-             <height>1012</height>
+             <height>1027</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -3318,8 +3318,8 @@ p, li { white-space: pre-wrap; }
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1331</width>
-             <height>864</height>
+             <width>1463</width>
+             <height>1049</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_15">
@@ -3584,6 +3584,16 @@ p, li { white-space: pre-wrap; }
                        <widget class="QCheckBox" name="autoZoomPlot">
                         <property name="text">
                          <string>Autozoom</string>
+                        </property>
+                        <property name="checked">
+                         <bool>true</bool>
+                        </property>
+                       </widget>
+                      </item>
+                      <item>
+                       <widget class="QCheckBox" name="negEIC">
+                        <property name="text">
+                         <string>Negative EIC</string>
                         </property>
                         <property name="checked">
                          <bool>true</bool>
@@ -3856,8 +3866,8 @@ p, li { white-space: pre-wrap; }
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1077</width>
-             <height>681</height>
+             <width>1441</width>
+             <height>1027</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_40">
@@ -3871,15 +3881,12 @@ p, li { white-space: pre-wrap; }
               </property>
               <property name="minimumSize">
                <size>
-                <width>320</width>
+                <width>500</width>
                 <height>0</height>
                </size>
               </property>
               <property name="selectionMode">
                <enum>QAbstractItemView::ExtendedSelection</enum>
-              </property>
-              <property name="sortingEnabled">
-               <bool>true</bool>
               </property>
               <property name="columnCount">
                <number>6</number>
@@ -4074,7 +4081,7 @@ p, li { white-space: pre-wrap; }
             <item row="1" column="1">
              <widget class="QTabWidget" name="tabWidget_3">
               <property name="currentIndex">
-               <number>1</number>
+               <number>2</number>
               </property>
               <widget class="QWidget" name="tab_5">
                <attribute name="title">
@@ -4095,11 +4102,21 @@ p, li { white-space: pre-wrap; }
               </widget>
               <widget class="QWidget" name="tab_6">
                <attribute name="title">
-                <string>Separated Peaks</string>
+                <string>Separated peaks</string>
                </attribute>
                <layout class="QGridLayout" name="gridLayout_43">
                 <item row="0" column="0">
                  <widget class="QWidget" name="resultsExperimentSeparatedPeaks_widget" native="true"/>
+                </item>
+               </layout>
+              </widget>
+              <widget class="QWidget" name="tab_4">
+               <attribute name="title">
+                <string>MS scans</string>
+               </attribute>
+               <layout class="QGridLayout" name="gridLayout_48">
+                <item row="0" column="0">
+                 <widget class="QWidget" name="resultsExperimentMSScan_widget" native="true"/>
                 </item>
                </layout>
               </widget>
@@ -4136,7 +4153,7 @@ p, li { white-space: pre-wrap; }
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1364</width>
+     <width>1496</width>
      <height>26</height>
     </rect>
    </property>

@@ -87,7 +87,7 @@ def bracketResults(indGroups, minX, maxX, groupSizePPM, positiveScanEvent=None, 
 
 
         resDB.curs.execute("DROP TABLE IF EXISTS GroupResults")
-        resDB.curs.execute("CREATE TABLE GroupResults(id INTEGER PRIMARY KEY, mz FLOAT, lmz FLOAT, dmz FLOAT, rt FLOAT, xn INTEGER, charge INTEGER, scanEvent TEXT, ionisationMode TEXT, tracer TEXT)")
+        resDB.curs.execute("CREATE TABLE GroupResults(id INTEGER PRIMARY KEY, mz FLOAT, lmz FLOAT, dmz FLOAT, rt FLOAT, xn INTEGER, charge INTEGER, scanEvent TEXT, ionisationMode TEXT, tracer TEXT, OGroup INTEGER, Ion TEXT, LOSS TEXT, M TEXT)")
 
         resDB.curs.execute("DROP TABLE IF EXISTS FoundFeaturePairs")
         resDB.curs.execute("CREATE TABLE FoundFeaturePairs(resID INTEGER, file TEXT, featurePairID INTEGER, featureGroupID INTEGER, areaN FLOAT, areaL FLOAT, featureType TEXT)")
@@ -847,11 +847,14 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[],
             if len(tGroup)==1:
                 # if only one feature pair is in the group, do nothing
                 table.setData(cols=["OGroup"], vals=[curGroup], where="Num=%d"%tGroup[0])
-                curGroup+=1
+                resDB.curs.execute("UPDATE GroupResults SET OGroup=%d WHERE id = %d"%(curGroup, tGroup[0]))
+
 
             else:
                 table.setData(cols=["OGroup"], vals=[curGroup], where="Num IN (%s)"%(",".join([str(t) for t in tGroup])))
-                curGroup+=1
+                resDB.curs.execute("UPDATE GroupResults SET OGroup=%d WHERE id IN (%s)"%(curGroup, ",".join([str(t) for t in tGroup])))
+
+            curGroup+=1
 
         # Annotate groups with common adducts and in-source fragments
         if runIdentificationInstance is not None:
@@ -874,6 +877,10 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[],
                                                               "",
                                                               ",".join([str(a) for a in fp.Ms])],
                                   where="Num = %d"%(fp.id))
+                    resDB.curs.execute("UPDATE GroupResults SET Ion='%s', Loss='%s', M='%s' WHERE id = %d"%(",".join([str(a) for a in fp.adducts]), "", ",".join([str(a) for a in fp.Ms]), fp.id))
+
+        resDB.curs.execute("DELETE FROM GroupResults WHERE id NOT IN (%s)"%(",".join([str(num) for num in table.getData(cols=["Num"])])))
+
 
         processingParams=[]
         processingParams.append("MEGROUP_groups=%s"%str(useGroupsForConfig).replace("'","").replace("\"",""))
