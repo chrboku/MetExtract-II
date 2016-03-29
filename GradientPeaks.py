@@ -19,12 +19,14 @@ class Peak:
 
 
 class GradientPeaks:
-    def __init__(self, minInt=1000, minIntFlanks=10, minIncreaseRatio=.05, expTime=[5,45], minFlankToCenterRatio=1):
+    def __init__(self, minInt=1000, minIntFlanks=10, minIncreaseRatio=.05, expTime=[5,45], minDelta=1000, minInflectionDelta=2000, minBaseLineRatio=0.5):
         self.minInt = minInt
         self.minIntFlanks=minIntFlanks
-        self.minFlankToCenterRatio=minFlankToCenterRatio
         self.minIncreaseRatio = minIncreaseRatio
         self.expTime = expTime
+        self.minDelta=minDelta
+        self.minInflectionDelta=minInflectionDelta
+        self.minBaseLineRatio=minBaseLineRatio
 
     ### Find any local maximum in a series. Checking and verification of that peak will be performed later
     def getLocalMaxima(self, y, mInt=0):
@@ -51,6 +53,11 @@ class GradientPeaks:
         peak.peakArea=sum([y[i] for i in range(peak.peakIndex-peak.peakLeftFlank, peak.peakIndex+peak.peakRightFlank+1)])
 
         return True
+
+
+    def calculatePeakSmoothness(self, x, y, x_raw, peak):
+        pass
+        ## TODO implement
 
     ### expand a local maxima by following its gradient to the bottom
     def expandPeak(self, peak, x, y):
@@ -102,12 +109,14 @@ class GradientPeaks:
         return peakWidthValid
 
     def calcPeakProperties(self, x, y, peak):
-        peak.leftDelta=(y[peak.peakIndex]-y[peak.peakIndex-peak.peakLeftFlank])/(x[peak.peakIndex]-x[peak.peakIndex-peak.peakLeftFlank])
-        peak.rightDelta=(y[peak.peakIndex]-y[peak.peakIndex+peak.peakRightFlank])/(x[peak.peakIndex+peak.peakRightFlank]-x[peak.peakIndex])
-        peak.leftInflectionDelta=(y[peak.peakIndex]-y[peak.peakIndex-peak.leftInflection])/(x[peak.peakIndex]-x[peak.peakIndex-peak.leftInflection])
-        peak.rightInflectionDelta=(y[peak.peakIndex]-y[peak.peakIndex+peak.rightInflection])/(x[peak.peakIndex+peak.rightInflection]-x[peak.peakIndex])
+        peak.leftDelta=(y[peak.peakIndex]-y[peak.peakIndex-peak.peakLeftFlank])
+        peak.rightDelta=(y[peak.peakIndex]-y[peak.peakIndex+peak.peakRightFlank])
+        peak.leftInflectionDelta=(y[peak.peakIndex]-y[peak.peakIndex-peak.leftInflection])
+        peak.rightInflectionDelta=(y[peak.peakIndex]-y[peak.peakIndex+peak.rightInflection])
 
-        return True
+        peak.baseLineRatio=(y[peak.peakIndex]-(y[peak.peakIndex-peak.peakLeftFlank]+y[peak.peakIndex+peak.peakRightFlank])/2.)/y[peak.peakIndex]
+
+        return (peak.leftDelta>=self.minDelta or peak.rightDelta>=self.minDelta) and (peak.leftInflectionDelta>=self.minInflectionDelta or peak.rightInflectionDelta>=self.minInflectionDelta) and peak.baseLineRatio>=self.minBaseLineRatio
 
 
 
@@ -149,11 +158,13 @@ if __name__=="__main__":
 
     t = Chromatogram()
 
-    if True:
+    if False:
         mzXMLFile="F:/160112_238_posneg_Labelled_wheat_experiment/160112_posneg_236_12C13C_fullyLab_Remus_DON_1.mzXML"
         mz = 375.14439
         ppm = 8.
         cn=20
+        dmz=1.00335
+        z=1
 
     if False:
         mzXMLFile="E:/Cambridge/Jan_2015/wetransfer-cd97f3/QE_PR493_PV_051014-AIF-02.mzXML"
@@ -164,22 +175,33 @@ if __name__=="__main__":
         mz=365.166
         cn=5
         ppm=5.
+        dmz=1.00335
+        z=1
+
+    if True:
+        mzXMLFile="F:/BenediktWarth/160303_final raw data/neg/GEN_24h_5uM_lysate_2_neg_066.mzXML"
+        mz = 175.9574#349.002275
+        ppm = 5.
+        cn = 3
+        z = 1
+        dmz=1.00628
 
 
     t.parse_file(mzXMLFile)
 
     filterLine=[i for i in t.getFilterLines(includeMS2=False)][0]
     print filterLine
-    eicN, times, scanIds = t.getEIC(mz, ppm, filterLine=filterLine)
-    eicL, times, scanIds = t.getEIC(mz+cn*1.00335, ppm, filterLine)
+    eicN_raw, times, scanIds = t.getEIC(mz, ppm, filterLine=filterLine)
+    eicL_raw, times, scanIds = t.getEIC(mz+cn*dmz/z, ppm, filterLine)
     timesMin=[t/60. for t in times]
 
     import matplotlib.pyplot as plt
-    plt.plot(timesMin, eicN)
-    plt.plot(timesMin, [-e for e in eicL])
+    plt.plot(timesMin, eicN_raw)
+    plt.plot(timesMin, [-e for e in eicL_raw])
 
-    eicN = smoothDataSeries(times, eicN, windowLen=2, window="Gaussian")
-    eicL = smoothDataSeries(times, eicL, windowLen=2, window="Gaussian")
+    smoothWin="gaussian"  ## "triangle", "gaussian", 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'
+    eicN = smoothDataSeries(times, eicN_raw, windowLen=1, window=smoothWin)
+    eicL = smoothDataSeries(times, eicL_raw, windowLen=1, window=smoothWin)
 
     eic=eicN
 
@@ -188,7 +210,7 @@ if __name__=="__main__":
     plt.plot(timesMin, eicN)
     plt.plot(timesMin, [-e for e in eicL])
 
-    gp=GradientPeaks(minInt=100, minIntFlanks=10, minIncreaseRatio=.05, expTime=[3, 45])
+    gp=GradientPeaks(minInt=100, minIntFlanks=10, minIncreaseRatio=.05, expTime=[5, 65])
     #gp=GradientPeaks(minInt=50000, minIntFlanks=5000, minIncreaseRatio=.05, expTime=[5,250], minFlankToCenterRatio=1)
     peaks=gp.findPeaks(times, eicN)
     peaksL=gp.findPeaks(times, eicL)
@@ -198,8 +220,8 @@ if __name__=="__main__":
     "GradientPeaks"
     for peak in peaks: peak.minRT=timesMin[peak.peakIndex]
     for peak in peaksL: peak.minRT=timesMin[peak.peakIndex]
-    printObjectsAsTable(peaks, attrs=["minRT", "peakLeftFlank", "leftInflection", "peakIndex", "rightInflection", "peakRightFlank", "peakArea", "leftDelta", "leftInflectionDelta", "rightInflectionDelta", "rightDelta"])
-    printObjectsAsTable(peaksL, attrs=["minRT", "peakLeftFlank", "leftInflection", "peakIndex", "rightInflection", "peakRightFlank", "peakArea", "leftDelta", "leftInflectionDelta", "rightInflectionDelta", "rightDelta"])
+    printObjectsAsTable(peaks, attrs=["minRT", "peakLeftFlank", "leftInflection", "peakIndex", "rightInflection", "peakRightFlank", "peakArea", "leftDelta", "leftInflectionDelta", "rightInflectionDelta", "rightDelta", "baseLineRatio"])
+    printObjectsAsTable(peaksL, attrs=["minRT", "peakLeftFlank", "leftInflection", "peakIndex", "rightInflection", "peakRightFlank", "peakArea", "leftDelta", "leftInflectionDelta", "rightInflectionDelta", "rightDelta", "baseLineRatio"])
 
     for peak in peaks:
         lind=peak.peakIndex-peak.peakLeftFlank
@@ -235,7 +257,7 @@ if __name__=="__main__":
     cp=MassSpecWavelet("./MassSpecWaveletIdentification.R")
     print "------------"
 
-    peaks=cp.getPeaksFor(times, eic, scales=[3,19])
+    peaks=cp.getPeaksFor(times, eic, scales=[1,5])
 
     for peak in peaks:
         peak.peakAtTime=times[peak.peakIndex] / 60.
@@ -246,7 +268,6 @@ if __name__=="__main__":
     for peak in peaks:
         lind=int(peak.peakIndex-peak.peakLeftFlank)
         rind=int(peak.peakIndex+peak.peakRightFlank)
-        #print timesMin[lind], timesMin[peak[0]], timesMin[rind], peak[4]+peak[5]
         plt.fill_between(timesMin[lind:(rind+1)], 0, eic[lind:(rind+1)], color="green", alpha=.5)
 
     plt.show()

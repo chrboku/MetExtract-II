@@ -232,7 +232,7 @@ def bracketResults(indGroups, minX, maxX, groupSizePPM, positiveScanEvent=None, 
                             doneSoFar+=1
                             if floor(doneSoFar/totalThingsToDo*100)>doneSoFarPercent:
                                 doneSoFarPercent=floor(doneSoFar/totalThingsToDo*100)
-                                print "   %d%% performed"%doneSoFarPercent
+                                print "\r   %d%% performed"%doneSoFarPercent,
 
                             # get all results that match current bracketing criteria
                             chromPeaksAct = 0
@@ -582,6 +582,8 @@ def bracketResults(indGroups, minX, maxX, groupSizePPM, positiveScanEvent=None, 
 
             f.write("# %s\n"%(", ".join(processingParams)))
 
+            print ""
+
 
     except Exception as ex:
         import traceback
@@ -882,12 +884,28 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[],
         resDB.curs.execute("DELETE FROM GroupResults WHERE id NOT IN (%s)"%(",".join([str(num) for num in table.getData(cols=["Num"])])))
 
 
+        ## reassign feature group ids
+        resDB.curs.execute("UPDATE GroupResults SET OGroup='X'||OGroup")
+        table.executeSQL("UPDATE :table: SET OGroup='X'||OGroup")
+        oGrps=[]
+        curGrp=1
+        curFP=1
+        for row in resDB.curs.execute("SELECT OGroup, AVG(rt) FROM GroupResults GROUP BY OGroup ORDER BY AVG(rt)"):
+            oGrps.append(str(row[0]))
+        for tgrp in oGrps:
+            resDB.curs.execute("UPDATE GroupResults SET OGroup='%d' WHERE OGroup='%s'"%(curGrp, tgrp))
+            table.setData(cols=["OGroup"], vals=[curGrp], where="OGroup='%s'"%(tgrp))
+            curGrp=curGrp+1
+
+
+
+
         processingParams=[]
         processingParams.append("MEGROUP_groups=%s"%str(useGroupsForConfig).replace("'","").replace("\"",""))
         processingParams.append("MEGROUP_connThreshold=%s" % str(minConnectionsInFiles))
         table.addComment("# %s"%("%s"%(", ".join(processingParams))))
 
-        TableUtils.saveFile(table, file, order="OGroup, Xn, MZ")
+        TableUtils.saveFile(table, file, order="OGroup, MZ, Xn")
 
     except Exception as ex:
         import traceback

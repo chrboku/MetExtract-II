@@ -19,7 +19,7 @@ class MassSpecWavelet:
     def cleanUp(self):
         r('rm(list=ls());gc();')
 
-    def getPeaksFor(self, times, eici, scales=[11, 66], snrTh=0.1, eicSmoothing="None", minScans=3, startIndex=None, endIndex=None):
+    def getPeaksFor(self, times, eici, scales=[11, 66], snrTh=0.1, minScans=3, startIndex=None, endIndex=None):
 
         snrTh=3
 
@@ -49,7 +49,7 @@ class MassSpecWavelet:
         # call R-MassSpecWavelet
         try:
             ret = r('getMajorPeaks(c(' + eicRC + '), c(' + str(scales[0]) + ', ' + str(scales[1]) + '), snrTh=' + str(
-                snrTh) + ', eicSmoothing=\"' + str(eicSmoothing) + '\")')
+                snrTh) + ')')
         except Exception as e:
             ret = []
 
@@ -124,12 +124,22 @@ if __name__ == '__main__':
 
 
     chromatogram = Chromatogram()
-    chromatogram.parse_file("F:/BenediktWarth/160303_final raw data/neg/ZEN_6h_5uM_lysate_2_neg_019.mzXML")
-    mz = 319.155111449
-    ppm = 5.
-    cn = 18
-    z = 1
-    scales = [1, 15]
+    if False:
+        chromatogram.parse_file("F:/BenediktWarth/160303_final raw data/neg/GEN_24h_5uM_lysate_2_neg_066.mzXML")
+        mz = 269.0456722#349.002275
+        ppm = 5.
+        cn = 4
+        z = 1
+        scales = [1, 5]
+        dmz = 1.00628
+    if True:
+        chromatogram.parse_file("F:/BenediktWarth/160303_final raw data/pos/GEN_24h_5uM_lysate_1_pos_134.mzXML")
+        mz = 271.05970086
+        ppm = 5.
+        cn = 4
+        z = 1
+        scales = [1, 5]
+        dmz = 1.00628
 
     scanEvents = chromatogram.getFilterLines()
     for s in scanEvents:
@@ -141,22 +151,24 @@ if __name__ == '__main__':
     ax = fig.add_subplot(111)
 
     eic, times, timesI  = chromatogram.getEIC(mz, ppm, scanEvent)
-    eicL, times, timesI = chromatogram.getEIC(mz+cn*1.00335/z, ppm, scanEvent)
+    eicL, times, timesI = chromatogram.getEIC(mz+cn*dmz/z, ppm, scanEvent)
     startIndex=getLastTimeBefore(times, refTime=0*60.)
     endIndex=getLastTimeBefore(times, refTime=100*60.)
+    for i in range(getLastTimeBefore(times, refTime=600.4*60), len(eic)):
+        eic[i]=0
     
     from utils import printObjectsAsTable
-    ret = CP.getPeaksFor(times, eic, scales=scales, startIndex=startIndex, endIndex=endIndex)
+    ret = CP.getPeaksFor(times, eic, scales=scales, startIndex=startIndex, endIndex=endIndex, minScans=1)
     for peak in ret:
         peak.peakAtTime=times[peak.peakIndex] / 60.
     print "Native"
-    printObjectsAsTable(ret, ["peakAtTime", "peakArea", "peakLeftFlank", "peakIndex", "peakRightFlank", "peakSNR"])
+    printObjectsAsTable(ret, ["peakAtTime", "peakIndex", "peakArea", "peakLeftFlank", "peakIndex", "peakRightFlank", "peakSNR"])
 
-    ret = CP.getPeaksFor(times, eicL, scales=scales, startIndex=startIndex, endIndex=endIndex)
+    ret = CP.getPeaksFor(times, eicL, scales=scales, startIndex=startIndex, endIndex=endIndex, minScans=1)
     for peak in ret:
         peak.peakAtTime=times[peak.peakIndex] / 60.
     print "Labeled"
-    printObjectsAsTable(ret, ["peakAtTime", "peakArea", "peakLeftFlank", "peakIndex", "peakRightFlank", "peakSNR"])
+    printObjectsAsTable(ret, ["peakAtTime", "peakIndex", "peakArea", "peakLeftFlank", "peakIndex", "peakRightFlank", "peakSNR"])
     
 
     ax.plot([t / 60. for t in times], [e for e in eic])

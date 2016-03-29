@@ -61,7 +61,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>3</number>
+       <number>1</number>
       </property>
       <widget class="QWidget" name="inputTab">
        <attribute name="title">
@@ -986,7 +986,7 @@ font: 7pt;</string>
              <x>0</x>
              <y>0</y>
              <width>1293</width>
-             <height>1027</height>
+             <height>1059</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -2201,6 +2201,11 @@ font: 7pt;</string>
                                 <string>Gaussian</string>
                                </property>
                               </item>
+                              <item>
+                               <property name="text">
+                                <string>Hanning</string>
+                               </property>
+                              </item>
                              </widget>
                             </item>
                             <item row="0" column="1">
@@ -2227,7 +2232,7 @@ font: 7pt;</string>
                             <item row="2" column="1">
                              <widget class="QSpinBox" name="eicSmoothingWindowSize">
                               <property name="minimum">
-                               <number>2</number>
+                               <number>1</number>
                               </property>
                               <property name="maximum">
                                <number>20</number>
@@ -2351,6 +2356,55 @@ font: 7pt;</string>
                               </property>
                               <property name="value">
                                <double>0.850000000000000</double>
+                              </property>
+                             </widget>
+                            </item>
+                           </layout>
+                          </widget>
+                         </item>
+                         <item>
+                          <widget class="QGroupBox" name="checkBox_checkPeakRatio">
+                           <property name="title">
+                            <string>Required ratio (M:M')</string>
+                           </property>
+                           <property name="checkable">
+                            <bool>true</bool>
+                           </property>
+                           <property name="checked">
+                            <bool>false</bool>
+                           </property>
+                           <layout class="QGridLayout" name="gridLayout_49">
+                            <item row="0" column="2">
+                             <widget class="QDoubleSpinBox" name="doubleSpinBox_minPeakRatio">
+                              <property name="decimals">
+                               <number>4</number>
+                              </property>
+                              <property name="value">
+                               <double>0.000100000000000</double>
+                              </property>
+                             </widget>
+                            </item>
+                            <item row="1" column="2">
+                             <widget class="QDoubleSpinBox" name="doubleSpinBox_maxPeakRatio">
+                              <property name="maximum">
+                               <double>999999.000000000000000</double>
+                              </property>
+                              <property name="value">
+                               <double>9999.000000000000000</double>
+                              </property>
+                             </widget>
+                            </item>
+                            <item row="0" column="0">
+                             <widget class="QLabel" name="label_77">
+                              <property name="text">
+                               <string>Min. ratio</string>
+                              </property>
+                             </widget>
+                            </item>
+                            <item row="1" column="0">
+                             <widget class="QLabel" name="label_78">
+                              <property name="text">
+                               <string>Max. ratio</string>
                               </property>
                              </widget>
                             </item>
@@ -3079,6 +3133,9 @@ p, li { white-space: pre-wrap; }
                             </item>
                             <item row="0" column="1">
                              <widget class="QDoubleSpinBox" name="minRatio">
+                              <property name="decimals">
+                               <number>4</number>
+                              </property>
                               <property name="maximum">
                                <double>9999.989999999999782</double>
                               </property>
@@ -3318,8 +3375,8 @@ p, li { white-space: pre-wrap; }
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1463</width>
-             <height>1049</height>
+             <width>1337</width>
+             <height>625</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_15">
@@ -3866,8 +3923,8 @@ p, li { white-space: pre-wrap; }
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1441</width>
-             <height>1027</height>
+             <width>1257</width>
+             <height>681</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_40">
@@ -4081,7 +4138,7 @@ p, li { white-space: pre-wrap; }
             <item row="1" column="1">
              <widget class="QTabWidget" name="tabWidget_3">
               <property name="currentIndex">
-               <number>2</number>
+               <number>0</number>
               </property>
               <widget class="QWidget" name="tab_5">
                <attribute name="title">

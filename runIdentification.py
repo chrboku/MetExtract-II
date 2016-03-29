@@ -124,6 +124,7 @@ class RunIdentification:
                  isotopicPatternCountLeft=2, isotopicPatternCountRight=2, lowAbundanceIsotopeCutoff=True, intensityThresholdIsotopologs=1000,
                  intensityErrorN=0.25, intensityErrorL=0.25, purityN=0.99, purityL=0.99, minSpectraCount=1, clustPPM=8.,
                  chromPeakPPM=5., snrTh=1., scales=[1, 35], peakCenterError=5, peakScaleError=3, minPeakCorr=0.85,
+                 checkPeaksRatio=False, minPeaksRatio=0, maxPeaksRatio=99999999,
                  calcIsoRatioNative=1, calcIsoRatioLabelled=-1, calcIsoRatioMoiety=1,
                  startTime=2, stopTime=37, positiveScanEvent="None", negativeScanEvent="None",
                  eicSmoothingWindow="None", eicSmoothingWindowSize=2, correctCCount=True,
@@ -210,6 +211,9 @@ class RunIdentification:
         self.peakCenterError = peakCenterError
         self.peakScaleError = peakScaleError
         self.minPeakCorr = minPeakCorr
+        self.checkPeaksRatio=checkPeaksRatio
+        self.minPeaksRatio=minPeaksRatio
+        self.maxPeaksRatio=maxPeaksRatio
 
         self.calcIsoRatioNative=calcIsoRatioNative
         self.calcIsoRatioLabelled=calcIsoRatioLabelled
@@ -376,6 +380,9 @@ class RunIdentification:
         SQLInsert(curs, "config", key="peakCenterError", value=self.peakCenterError)
         SQLInsert(curs, "config", key="peakScaleError", value=self.peakScaleError)
         SQLInsert(curs, "config", key="minPeakCorr", value=self.minPeakCorr)
+        SQLInsert(curs, "config", key="checkPeaksRatio", value=str(self.checkPeaksRatio))
+        SQLInsert(curs, "config", key="minPeaksRatio", value=self.minPeaksRatio)
+        SQLInsert(curs, "config", key="maxPeaksRatio", value=self.maxPeaksRatio)
         SQLInsert(curs, "config", key="calcIsoRatioNative", value=self.calcIsoRatioNative)
         SQLInsert(curs, "config", key="calcIsoRatioLabelled", value=self.calcIsoRatioLabelled)
         SQLInsert(curs, "config", key="calcIsoRatioMoiety", value=self.calcIsoRatioMoiety)
@@ -1010,7 +1017,8 @@ class RunIdentification:
                             co = corr(peak1, peak2)
 
                             # check peak shape (Pearson correlation)
-                            if co >= self.minPeakCorr:
+
+                            if co >= self.minPeakCorr and ((not self.checkPeaksRatio) or self.minPeaksRatio<=(peak.NPeakArea/peak.LPeakArea)<=self.maxPeaksRatio):
                                 peak.peaksCorr = co
                                 peaksBoth.append(peak)
 
@@ -1842,7 +1850,10 @@ class RunIdentification:
                                 nodes[peakA.id].append(peakB.id)
                                 nodes[peakB.id].append(peakA.id)
 
-                            SQLInsert(curs, "featurefeatures", fID1=peakA.id, fID2=peakB.id, corr=pb)
+                            try:
+                                SQLInsert(curs, "featurefeatures", fID1=peakA.id, fID2=peakB.id, corr=pb)
+                            except:
+                                logging.error("Error while convoluting two feature pairs, skipping..")
 
             self.postMessageToProgressWrapper("text", "%s: Identifying feature groups" % tracer.name)
 
@@ -2803,8 +2814,8 @@ class RunIdentification:
                 self.CP = MassSpecWavelet(self.chromPeakFile)
             else:
                 from GradientPeaks import GradientPeaks
-                self.CP=GradientPeaks(minInt=50000, minIntFlanks=5000, minIncreaseRatio=.05, expTime=self.scales, minFlankToCenterRatio=1)
-                self.CP=GradientPeaks(minInt=1000, minIntFlanks=500, minIncreaseRatio=.05, expTime=self.scales, minFlankToCenterRatio=1)
+                self.CP=GradientPeaks()
+                self.CP=GradientPeaks()
 
             self.curPeakId = 1
             self.curEICId = 1

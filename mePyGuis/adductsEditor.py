@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '.\mePyGuis\guis\adductsEditor.ui'
 #
-# Created: Wed Mar 09 16:30:55 2016
+# Created: Fri Mar 18 09:20:06 2016
 #      by: PyQt4 UI code generator 4.10
 #
 # WARNING! All changes made in this file will be lost!

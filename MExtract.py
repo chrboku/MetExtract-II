@@ -1346,35 +1346,39 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
             grps.endGroup()
 
-            grpi=0
-            groupsToAdd=[]
+            procGrps=[]
             for grp in grps.childGroups():
                 if str(grp) != "Settings" and str(grp) != "ExperimentDescription" and str(grp) != "ExperimentResults" and str(grp) != "MetExtract":
-                    grps.beginGroup(grp)
-                    kids = []
-                    minFound = 1
-                    color = predefinedColors[grpi%len(predefinedColors)]
-                    omitFeatures = True
-                    useForMetaboliteGrouping = True
-                    for kid in grps.childKeys():
-                        if str(kid) == "Min_Peaks_Found":
-                            minFound = grps.value(kid).toInt()[0]
-                        elif str(kid) == "OmitFeatures":
-                            omitFeatures = grps.value(kid).toBool()
-                        elif str(kid) == "Color":
-                            color= str(grps.value(kid).toString())
-                        elif str(kid) == "UseForMetaboliteGrouping":
-                            useForMetaboliteGrouping = grps.value(kid).toBool()
-                        elif str(kid).startswith(grp):
-                            if os.path.isabs(str(grps.value(kid).toString()).replace("\\", "/")):
-                                kids.append(str(grps.value(kid).toString()).replace("\\", "/"))
-                            else:
-                                kids.append(os.path.split(str(groupFile))[0].replace("\\", "/") + "/" + str(
-                                    grps.value(kid).toString()).replace("\\", "/"))
+                    procGrps.append(grp)
 
-                    groupsToAdd.append(Bunch(name=grp, files=kids, minGrpFound=minFound, omitFeatures=omitFeatures, useForMetaboliteGrouping=useForMetaboliteGrouping, color=color))
+            grpi=0
+            groupsToAdd=[]
+            for grp in natSort(procGrps):
+                grps.beginGroup(grp)
+                kids = []
+                minFound = 1
+                color = predefinedColors[grpi%len(predefinedColors)]
+                omitFeatures = True
+                useForMetaboliteGrouping = True
+                for kid in grps.childKeys():
+                    if str(kid) == "Min_Peaks_Found":
+                        minFound = grps.value(kid).toInt()[0]
+                    elif str(kid) == "OmitFeatures":
+                        omitFeatures = grps.value(kid).toBool()
+                    elif str(kid) == "Color":
+                        color= str(grps.value(kid).toString())
+                    elif str(kid) == "UseForMetaboliteGrouping":
+                        useForMetaboliteGrouping = grps.value(kid).toBool()
+                    elif str(kid).startswith(grp):
+                        if os.path.isabs(str(grps.value(kid).toString()).replace("\\", "/")):
+                            kids.append(str(grps.value(kid).toString()).replace("\\", "/"))
+                        else:
+                            kids.append(os.path.split(str(groupFile))[0].replace("\\", "/") + "/" + str(
+                                grps.value(kid).toString()).replace("\\", "/"))
 
-                    grps.endGroup()
+                groupsToAdd.append(Bunch(name=grp, files=kids, minGrpFound=minFound, omitFeatures=omitFeatures, useForMetaboliteGrouping=useForMetaboliteGrouping, color=color))
+
+                grps.endGroup()
                 grpi += 1
 
             for grpToAdd in natSort(groupsToAdd, key=lambda x:x.name):
@@ -1419,7 +1423,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 self.experimentResults.curs=self.experimentResults.conn.cursor()
 
                 metaboliteGroupTreeItems={}
-                for metaboliteGroup in SQLSelectAsObject(self.experimentResults.curs, "SELECT DISTINCT 'metaboliteGroup' AS type, OGroup AS metaboliteGroupID FROM GroupResults ORDER BY ionisationMode, rt"):
+                for metaboliteGroup in SQLSelectAsObject(self.experimentResults.curs, "SELECT DISTINCT 'metaboliteGroup' AS type, OGroup AS metaboliteGroupID FROM GroupResults ORDER BY rt"):
                     metaboliteGroupTreeItem=QtGui.QTreeWidgetItem(["%d"%metaboliteGroup.metaboliteGroupID])
                     metaboliteGroupTreeItem.bunchData=metaboliteGroup
                     self.ui.resultsExperiment_TreeWidget.addTopLevelItem(metaboliteGroupTreeItem)
@@ -1494,6 +1498,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             for foundFP in SQLSelectAsObject(self.experimentResults.curs, "SELECT file AS fil, featurePairID, featureGroupID, areaN, areaL, featureType FROM FoundFeaturePairs WHERE resID=%d"%item.bunchData.id):
                 foundIn[foundFP.fil]=foundFP
 
+            offsetCount=0
             for groupID, groupName in groups.items():
                 for file in filesInGroups[groupID]:
                     if file.fileName in foundIn.keys():
@@ -1512,10 +1517,6 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                             msSpectrumID=XICObj.massSpectrumID
 
-                            self.ui.resultsExperiment_plot.axes.plot([t/60. for t in XICObj.times], XICObj.xic,                color=predefinedColors[groupID%len(predefinedColors)])
-                            self.ui.resultsExperiment_plot.axes.plot([t/60. for t in XICObj.times], [-f for f in XICObj.xicL], color=predefinedColors[groupID%len(predefinedColors)])
-                            self.ui.resultsExperiment_plot.axes.set_xlim([rt-.5, rt+.5])
-
                             useInds=[]
                             bestCenter=0
                             bestCenterDiff=1000000
@@ -1526,16 +1527,20 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                 if abs(t-item.bunchData.rt)<bestCenterDiff:
                                     bestCenterDiff=abs(t-item.bunchData.rt)
                                     bestCenter=i
-
-                            minInd=min(useInds)
-                            maxInd=max(useInds)
-
                             centerInt=1
                             if self.ui.resultsExperimentNormaliseXICs_checkBox.checkState()==QtCore.Qt.Checked:
                                 centerInt=XICObj.xic[bestCenter]
 
-                            self.ui.resultsExperimentSeparatedPeaks_plot.axes.plot([t/60. for t in XICObj.times[minInd:maxInd]], [f/centerInt for f in XICObj.xic[minInd:maxInd]],   color=predefinedColors[groupID%len(predefinedColors)])
-                            self.ui.resultsExperimentSeparatedPeaks_plot.axes.plot([t/60. for t in XICObj.times[minInd:maxInd]], [-f/centerInt for f in XICObj.xicL[minInd:maxInd]], color=predefinedColors[groupID%len(predefinedColors)])
+                            self.ui.resultsExperiment_plot.axes.plot([t/60. for t in XICObj.times], [f/centerInt for f in XICObj.xic],   color=predefinedColors[groupID%len(predefinedColors)])
+                            self.ui.resultsExperiment_plot.axes.plot([t/60. for t in XICObj.times], [-f/centerInt for f in XICObj.xicL], color=predefinedColors[groupID%len(predefinedColors)])
+                            self.ui.resultsExperiment_plot.axes.set_xlim([rt-.5, rt+.5])
+
+
+                            minInd=min(useInds)
+                            maxInd=max(useInds)
+
+                            self.ui.resultsExperimentSeparatedPeaks_plot.axes.plot([t/60. +offsetCount*0.33 for t in XICObj.times[minInd:maxInd]], [f/centerInt for f in XICObj.xic[minInd:maxInd]],   color=predefinedColors[groupID%len(predefinedColors)])
+                            self.ui.resultsExperimentSeparatedPeaks_plot.axes.plot([t/60. +offsetCount*0.33 for t in XICObj.times[minInd:maxInd]], [-f/centerInt for f in XICObj.xicL[minInd:maxInd]], color=predefinedColors[groupID%len(predefinedColors)])
 
                         if msSpectrumID is not None:
                             for msSpectrum in SQLSelectAsObject(curs, "SELECT mzs, intensities, ionMode FROM massspectrum WHERE mID=%d"%msSpectrumID):
@@ -1547,6 +1552,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                         curs.close()
                         conn.close()
+
+                offsetCount = offsetCount+1
 
         self.drawCanvas(self.ui.resultsExperiment_plot)
         self.drawCanvas(self.ui.resultsExperimentSeparatedPeaks_plot)
@@ -1684,6 +1691,12 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 self.ui.peak_scaleError.setValue(sett.value("Peak_WidthError").toInt()[0])
             if sett.contains("Peak_minPeakCorr"):
                 self.ui.minPeakCorr.setValue(sett.value("Peak_minPeakCorr").toDouble()[0])
+            if sett.contains("checkBox_checkPeakRatio"):
+                self.ui.checkBox_checkPeakRatio.setChecked(sett.value("checkBox_checkPeakRatio").toBool())
+            if sett.contains("doubleSpinBox_minPeakRatio"):
+                self.ui.doubleSpinBox_minPeakRatio.setValue(sett.value("doubleSpinBox_minPeakRatio").toDouble()[0])
+            if sett.contains("doubleSpinBox_maxPeakRatio"):
+                self.ui.doubleSpinBox_maxPeakRatio.setValue(sett.value("doubleSpinBox_maxPeakRatio").toDouble()[0])
 
             if sett.contains("calcIsoRatioNative"):
                 self.ui.calcIsoRatioNative_spinBox.setValue(sett.value("calcIsoRatioNative").toInt()[0])
@@ -1832,6 +1845,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             sett.setValue("Peak_CenterError", self.ui.peak_centerError.value())
             sett.setValue("Peak_WidthError", self.ui.peak_scaleError.value())
             sett.setValue("Peak_minPeakCorr", self.ui.minPeakCorr.value())
+            sett.setValue("checkBox_checkPeakRatio", self.ui.checkBox_checkPeakRatio.isChecked())
+            sett.setValue("doubleSpinBox_minPeakRatio", self.ui.doubleSpinBox_minPeakRatio.value())
+            sett.setValue("doubleSpinBox_maxPeakRatio", self.ui.doubleSpinBox_maxPeakRatio.value())
 
             sett.setValue("calcIsoRatioNative", self.ui.calcIsoRatioNative_spinBox.value())
             sett.setValue("calcIsoRatioLabelled", self.ui.calcIsoRatioLabelled_spinBox.value())
@@ -2086,6 +2102,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                   peakCenterError=self.ui.peak_centerError.value(),
                                   peakScaleError=self.ui.peak_scaleError.value(),
                                   minPeakCorr=self.ui.minPeakCorr.value(),
+                                  checkPeaksRatio=self.ui.checkBox_checkPeakRatio.isChecked(),
+                                  minPeaksRatio=self.ui.doubleSpinBox_minPeakRatio.value(),
+                                  maxPeaksRatio=self.ui.doubleSpinBox_maxPeakRatio.value(),
                                   calcIsoRatioNative=self.ui.calcIsoRatioNative_spinBox.value(),
                                   calcIsoRatioLabelled=self.ui.calcIsoRatioLabelled_spinBox.value(),
                                   calcIsoRatioMoiety=self.ui.calcIsoRatioMoiety_spinBox.value(),
@@ -2272,7 +2291,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             hours = "%d hours " % (elapsed // 60)
                     mins = "%.2f min(s)" % (elapsed % 60.)
 
-                    if not self.terminateJobs:
+                    if self.terminateJobs:
+                        return
+                    else:
                         logging.info("Bracketing finished (%s%s).." % (hours, mins))
 
                     #Arrange grouped results and add statistics columns
@@ -2319,6 +2340,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                     QtGui.QMessageBox.warning(self, "MetExtract", "Error during bracketing of files: '%s'" % str(ex), QtGui.QMessageBox.Ok)
                     errorCount += 1
+
+
+                if self.terminateJobs:
+                    return
 
                 try:
                     # Calculate metabolite groups
