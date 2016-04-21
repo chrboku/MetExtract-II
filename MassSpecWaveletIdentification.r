@@ -1,3 +1,7 @@
+if(FALSE){
+    source("https://bioconductor.org/biocLite.R")
+    biocLite("MassSpecWavelet")
+}
 
 suppressWarnings(suppressMessages(library(waveslim)))
 suppressWarnings(suppressMessages(library(MassSpecWavelet)))
@@ -18,7 +22,7 @@ getMajorPeaksimpl<-function(eic, scales=c(5,33), snrTh=1){
     }
 
     ## Detect peaks
-    peakInfo <- peakDetectionCWT(eic, scales=scales, SNR.Th=snrTh)#, tuneIn=FALSE, peakScaleRange = scales[1], amp.Th = 0.00000000000001, winSize.noise=20, SNR.method="mad")
+    peakInfo <- peakDetectionCWT(eic, scales=scales, SNR.Th=snrTh, tuneIn=TRUE)#, tuneIn=FALSE, peakScaleRange = scales[1], amp.Th = 0.00000000000001, winSize.noise=20, SNR.method="mad")
     majorPeakInfo <- peakInfo$majorPeakInfo
     peakIndex <- majorPeakInfo$peakIndex
 

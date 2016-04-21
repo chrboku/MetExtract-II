@@ -120,7 +120,7 @@ if __name__ == '__main__':
     CP = MassSpecWavelet("./MassSpecWaveletIdentification.r")
 
     from Chromatogram import Chromatogram
-    from utils import getLastTimeBefore
+    from utils import getLastTimeBefore, smoothDataSeries
 
 
     chromatogram = Chromatogram()
@@ -132,7 +132,7 @@ if __name__ == '__main__':
         z = 1
         scales = [1, 5]
         dmz = 1.00628
-    if True:
+    if False:
         chromatogram.parse_file("F:/BenediktWarth/160303_final raw data/pos/GEN_24h_5uM_lysate_1_pos_134.mzXML")
         mz = 271.05970086
         ppm = 5.
@@ -140,6 +140,15 @@ if __name__ == '__main__':
         z = 1
         scales = [1, 5]
         dmz = 1.00628
+
+    if True:
+        chromatogram.parse_file("F:/Thermo_OribtrapTest/OrbitrapHF_Swiss/Vial1_pos_60k_06.mzXML")
+        mz = 359.131328
+        ppm = 5.
+        cn = 14
+        z = 1
+        scales = [11, 31]
+        dmz = 1.00335
 
     scanEvents = chromatogram.getFilterLines()
     for s in scanEvents:
@@ -152,6 +161,13 @@ if __name__ == '__main__':
 
     eic, times, timesI  = chromatogram.getEIC(mz, ppm, scanEvent)
     eicL, times, timesI = chromatogram.getEIC(mz+cn*dmz/z, ppm, scanEvent)
+
+
+    smoothWin="gaussian"  ## "triangle", "gaussian", 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'
+    eic  = smoothDataSeries(times, eic , windowLen=3, window=smoothWin)
+    eicL = smoothDataSeries(times, eicL, windowLen=3, window=smoothWin)
+
+
     startIndex=getLastTimeBefore(times, refTime=0*60.)
     endIndex=getLastTimeBefore(times, refTime=100*60.)
     for i in range(getLastTimeBefore(times, refTime=600.4*60), len(eic)):

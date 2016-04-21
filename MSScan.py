@@ -41,17 +41,16 @@ class MSScan():
 
         min = 0 if start is None else start
         max = len(self.mz_list) - 1 if stop is None else stop
-        missing = len(self.mz_list) > 0
 
-        while missing:
-            cur = min + int(floor((max - min) / 2.))
+        while min <= max:
+            cur = int((max + min) // 2)
 
             if mzleft <= self.mz_list[cur] <= mzright:
                 leftBound = cur
                 while leftBound > 0 and self.mz_list[leftBound - 1] >= mzleft:
                     leftBound -= 1
 
-                rightBound = cur;
+                rightBound = cur
                 while (rightBound + 1) < self.peak_count and self.mz_list[rightBound + 1] <= mzright:
                     rightBound += 1
 
@@ -62,10 +61,8 @@ class MSScan():
             else:
                 min = cur + 1
 
-            if max < min:
-                missing = False
-
         return -1, -1
+
 
     # tests (and returns) if a given mz value is present within a given error (in ppm) in the current ms scan
     # start and stop are used for iterative purposes and define starting conditions for the following

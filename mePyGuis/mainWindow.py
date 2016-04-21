@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '.\mePyGuis\guis\mainwindow.ui'
 #
-# Created: Fri Mar 18 09:20:06 2016
+# Created: Mon Apr 18 09:26:06 2016
 #      by: PyQt4 UI code generator 4.10
 #
 # WARNING! All changes made in this file will be lost!
@@ -26,7 +26,7 @@ except AttributeError:
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName(_fromUtf8("MainWindow"))
-        MainWindow.resize(1496, 1101)
+        MainWindow.resize(1646, 1190)
         MainWindow.setAcceptDrops(True)
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap(_fromUtf8(":/MEIcon/ressources/MEIcon.ico")), QtGui.QIcon.Normal, QtGui.QIcon.Off)
@@ -1510,7 +1510,7 @@ class Ui_MainWindow(object):
         self.scrollArea_3.setWidgetResizable(True)
         self.scrollArea_3.setObjectName(_fromUtf8("scrollArea_3"))
         self.scrollAreaWidgetContents_6 = QtGui.QWidget()
-        self.scrollAreaWidgetContents_6.setGeometry(QtCore.QRect(0, 0, 1337, 625))
+        self.scrollAreaWidgetContents_6.setGeometry(QtCore.QRect(0, 0, 1613, 1138))
         self.scrollAreaWidgetContents_6.setObjectName(_fromUtf8("scrollAreaWidgetContents_6"))
         self.gridLayout_15 = QtGui.QGridLayout(self.scrollAreaWidgetContents_6)
         self.gridLayout_15.setObjectName(_fromUtf8("gridLayout_15"))
@@ -1669,6 +1669,9 @@ class Ui_MainWindow(object):
         self.showIsotopologues = QtGui.QCheckBox(self.tab)
         self.showIsotopologues.setObjectName(_fromUtf8("showIsotopologues"))
         self.horizontalLayout_10.addWidget(self.showIsotopologues)
+        self.showSmoothedEIC_checkBox = QtGui.QCheckBox(self.tab)
+        self.showSmoothedEIC_checkBox.setObjectName(_fromUtf8("showSmoothedEIC_checkBox"))
+        self.horizontalLayout_10.addWidget(self.showSmoothedEIC_checkBox)
         self.flattenXIC = QtGui.QCheckBox(self.tab)
         self.flattenXIC.setObjectName(_fromUtf8("flattenXIC"))
         self.horizontalLayout_10.addWidget(self.flattenXIC)
@@ -1886,7 +1889,7 @@ class Ui_MainWindow(object):
         self.gridLayout_7.addWidget(self.INFOLabel, 0, 1, 1, 1)
         MainWindow.setCentralWidget(self.centralWidget)
         self.menuBar = QtGui.QMenuBar(MainWindow)
-        self.menuBar.setGeometry(QtCore.QRect(0, 0, 1496, 26))
+        self.menuBar.setGeometry(QtCore.QRect(0, 0, 1646, 26))
         self.menuBar.setObjectName(_fromUtf8("menuBar"))
         self.menuHelp = QtGui.QMenu(self.menuBar)
         self.menuHelp.setObjectName(_fromUtf8("menuHelp"))
@@ -1918,7 +1921,7 @@ class Ui_MainWindow(object):
         self.menuBar.addAction(self.menuHelp.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.tabWidget.setCurrentIndex(1)
+        self.tabWidget.setCurrentIndex(2)
         self.tabWidget_2.setCurrentIndex(0)
         self.tabWidget_3.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
@@ -2189,6 +2192,7 @@ class Ui_MainWindow(object):
         self.scaleFeatures.setText(_translate("MainWindow", "Normalise", None))
         self.scaleLabelledFeatures.setText(_translate("MainWindow", "Normalise separately", None))
         self.showIsotopologues.setText(_translate("MainWindow", "Isotopologues", None))
+        self.showSmoothedEIC_checkBox.setText(_translate("MainWindow", "Show smoothed signal", None))
         self.flattenXIC.setText(_translate("MainWindow", "Crop", None))
         self.showLegend.setText(_translate("MainWindow", "Legend", None))
         self.tabWidget_2.setTabText(self.tabWidget_2.indexOf(self.tab), _translate("MainWindow", "EICs", None))

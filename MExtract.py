@@ -350,7 +350,9 @@ class procAreaInFile:
     def processAreaFor(self, colToProc, mz, rt, ppm, scanEvent, maxRTShift, scales, snrTH):
         if colToProc == "":
             eic, times, scanids = self.t.getEIC(mz, ppm, filterLine=scanEvent)
-            ret = self.CP.getPeaksFor(times, eic, scales=scales, snrTh=snrTH)
+
+            eicSmoothed = smoothDataSeries(times, eic, windowLen=self.ui.eicSmoothingWindowSize.value(),window=str(self.ui.eicSmoothingWindow.currentText()))
+            ret = self.CP.getPeaksFor(times, eicSmoothed, scales=scales, snrTh=snrTH)
 
             best = None
 
@@ -477,8 +479,8 @@ class procAreaInFile:
                 self.CP = MassSpecWavelet(self.chromPeakFile)
         else:
             from GradientPeaks import GradientPeaks
-            self.CP=GradientPeaks(minInt=50000, minIntFlanks=5000, minIncreaseRatio=.05, expTime=self.scales, minFlankToCenterRatio=1)
-            self.CP=GradientPeaks(minInt=1000, minIntFlanks=500, minIncreaseRatio=.05, expTime=self.scales, minFlankToCenterRatio=1)
+            self.CP=GradientPeaks()                                                                      ## generic gradient descend peak picking
+            self.CP=GradientPeaks(minInt=10000, minIntFlanks=10, minIncreaseRatio=.05, expTime=[25, 250]) ## Swiss Orbitrap HF data
 
         # re-integrate all detected feature pairs from the grouped results in this LC-HRMS data file
         self.processFile(self.oldData, self.colToProc, self.colmz, self.colrt, self.colLmz, self.colIonMode,
@@ -2576,7 +2578,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 pw.setText("Fetching mzs (%d)"%numberOfMZs, i=0)
 
                 for mzRes in SQLSelectAsObject(self.currentOpenResultsFile.curs, "SELECT id, mz, xcount, scanid, loading, scantime, intensity FROM MZs ORDER BY scanid"):
-                    d = QtGui.QTreeWidgetItem(it, [str(s) for s in [mzRes.mz, mzRes.xcount, mzRes.scanid, mzRes.scantime/60., mzRes.loading, mzRes.intensity]])
+                    d = QtGui.QTreeWidgetItem(it, [str(s) for s in [mzRes.mz, mzRes.xcount, mzRes.scanid, "%.2f min / %.2f sec"%(mzRes.scantime/60., mzRes.scantime), mzRes.loading, "%.1f"%mzRes.intensity]])
                     d.myType = "mz"
                     d.myData=mzRes
                     d.myID=int(mzRes.id)
@@ -2586,7 +2588,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     pw.setValueu(count, i=0)
                 pw.setText("%d MZs fetched"%numberOfMZs, i=0)
             else:
-                pw.setTextu("Mzs not fetched (too many; %d"%numberOfMZs)
+                pw.setTextu("Mzs not fetched (too many; %d)"%numberOfMZs)
             it.addChildren(children)
             it.setText(1, "%d"%numberOfMZs)
 
@@ -2630,14 +2632,14 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         maxInner = max(maxInner, mzRes.mz)
                         xcount = int(mzRes.xcount)
                         if numberOfMZs<maxMZsFetch:
-                            dd = QtGui.QTreeWidgetItem([str(s) for s in [mzRes.mz, mzRes.xcount, mzRes.scanid, mzRes.scantime/60., mzRes.loading, mzRes.intensity]])
+                            dd = QtGui.QTreeWidgetItem([str(s) for s in [mzRes.mz, mzRes.xcount, mzRes.scanid, "%.2f min / %.2f sec"%(mzRes.scantime/60., mzRes.scantime), mzRes.loading, "%.1f"%mzRes.intensity]])
                             dd.myType = "mz"
                             dd.myData=mzRes
                             dd.myID=int(mzRes.id)
                             d.addChild(dd)
                         countinner += 1
 
-                    d.setText(0, "%s (%d)" % (str(mzbin.mz), countinner))
+                    d.setText(0, "%.5f (%d)" % (mzbin.mz, countinner))
                     d.setText(1, "%.4f" % ((maxInner - minInner) * 1000000. / minInner))
                     d.setText(2, "%d" % xcount)
                     count += 1
@@ -2688,7 +2690,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                                            "NBorderRight, "
                                                                            "LBorderLeft, "
                                                                            "LBorderRight, "
-                                                                           "chromPeaks.massSpectrumID AS massSpectrumID "
+                                                                           "NPeakArea, "
+                                                                           "LPeakArea, "
+                                                                           "chromPeaks.massSpectrumID AS massSpectrumID, "
+                                                                           "assignedMZs "
                                                                            "FROM chromPeaks LEFT JOIN tracerConfiguration ON tracerConfiguration.id=chromPeaks.tracer "
                                                                            "ORDER BY tracerConfiguration.id, NPeakCenter, mz, xcount"):
                 adducts = ""
@@ -2701,10 +2706,16 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 if len(lk) > 0:
                     heteroAtoms = ", ".join(lk)
 
-                d = QtGui.QTreeWidgetItem([str(row.mz) + "(/" + str(row.ionMode) + str(row.Loading) + ") ", "%.2f" % (float(row.NPeakCenterMin) / 60.),
-                                           str(row.xcount), adducts, heteroAtoms, "%.0f" % (float(row.NPeakScale)),
-                                           "%.2f" % (float(row.LPeakCenterMin) / 60.), "%.0f" % (float(row.LPeakScale)), "%.3f"%(row.peaksCorr),
-                                           str(row.tracerName), "%.3f"%(row.peaksRatio)])
+                d = QtGui.QTreeWidgetItem([str(row.mz) + " (/" + str(row.ionMode) + str(row.Loading) + ") ",
+                                           "%.2f / %.2f" % (float(row.NPeakCenterMin) / 60., float(row.LPeakCenterMin) / 60.),
+                                           str(row.xcount),
+                                           "%s / %s "%(adducts, heteroAtoms),
+                                           "%.0f / %.0f" % (float(row.NPeakScale), float(row.LPeakScale)),
+                                           "%.3f"%(row.peaksCorr),
+                                           "%.3f / %.3f"%(row.peaksRatio, row.NPeakArea/row.LPeakArea),
+                                           "%.1f / %.1f"%(row.NPeakArea, row.LPeakArea),
+                                           "%d"%row.assignedMZs,
+                                           str(row.tracerName)])
 
                 xp = ChromPeakPair(NPeakCenter=int(row.NPeakCenter), LPeakScale=float(row.LPeakScale), LPeakCenter=int(row.LPeakCenter),
                                NPeakScale=float(row.NPeakScale), NSNR=0, NPeakArea=-1, mz=float(row.mz), xCount=int(row.xcount),
@@ -2746,7 +2757,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             pw.setMax(len(fGs), i=3)
             for fG in fGs:
 
-                d = QtGui.QTreeWidgetItem([str(fG.featureName), str(fG.fgID), "", "", "", "", "", "", "", str(fG.tracerName), ""])
+                d = QtGui.QTreeWidgetItem([str(fG.featureName), "", str(fG.fgID), "", "", "", "", "", "", str(fG.tracerName), ""])
                 d.myType = "featureGroup"
                 d.myID = fG.fgID
                 d.myData = fG
@@ -2771,12 +2782,15 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                                                "c.peaksCorr AS peaksCorr, "
                                                                                "c.peaksRatio AS peaksRatio, "
                                                                                "c.Loading AS Loading, "
+                                                                               "c.NPeakArea AS NPeakArea, "
+                                                                               "c.LPeakArea AS LPeakArea, "
                                                                                "t.name AS tracerName, "
                                                                                "adducts AS adducts, "
                                                                                "heteroAtoms AS heteroAtoms, "
                                                                                "c.assignedName AS assignedName, "
                                                                                "c.ionMode AS ionMode, "
-                                                                               "c.massSpectrumID AS massSpectrumID "
+                                                                               "c.massSpectrumID AS massSpectrumID, "
+                                                                               "c.assignedMZs AS assignedMZs "
                                                                                "FROM chromPeaks c JOIN featureGroupFeatures f ON c.id==f.fID INNER JOIN tracerConfiguration t ON t.id=c.tracer "
                                                                                "WHERE f.fGroupID=%d ORDER BY c.mz, c.xcount" %
                                 fG.fgID):
@@ -2802,10 +2816,18 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     xp.fDesc = str(row.fDesc)
                     xp.peaksCorr = float(row.peaksCorr)
                     xp.peaksRatio = float(row.peaksRatio)
-                    g = QtGui.QTreeWidgetItem(
-                        [str(xp.mz) + "(/" + str(row.ionMode) + str(row.Loading) + ") ", str(xp.xCount), "%.2f" % (xp.NPeakCenterMin / 60.),
-                         adducts, heteroAtoms, str(xp.NPeakScale), "%.2f" % (xp.LPeakCenterMin / 60.),
-                         str(xp.LPeakScale), "%.3f"%(xp.peaksCorr), str(xp.tracer), "%.3f"%(xp.peaksRatio)])
+
+                    g = QtGui.QTreeWidgetItem([str(row.mz) + " (/" + str(row.ionMode) + str(row.Loading) + ") ",
+                                               "%.2f / %.2f" % (float(row.NPeakCenterMin) / 60., float(row.LPeakCenterMin) / 60.),
+                                               str(row.xcount),
+                                               "%s / %s "%(adducts, heteroAtoms),
+                                               "%.0f / %.0f" % (float(row.NPeakScale), float(row.LPeakScale)),
+                                               "%.3f"%(row.peaksCorr),
+                                               "%.3f / %.3f"%(row.peaksRatio, row.NPeakArea/row.LPeakArea),
+                                               "%.1f / %.1f"%(row.NPeakArea, row.LPeakArea),
+                                               "%d"%row.assignedMZs,
+                                               str(row.tracerName)])
+
                     g.myType = "feature"
                     g.myID = int(row.cpID)
                     g.myData = xp
@@ -2813,8 +2835,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                     sumRt = sumRt + xp.NPeakCenterMin
                     cpCount += 1
-                d.setText(1, str(cpCount))
-                d.setText(2, "%.2f" % (sumRt / cpCount / 60.))
+                d.setText(2, str(cpCount))
+                d.setText(1, "%.2f" % (sumRt / cpCount / 60.))
                 children.append(d)
                 count += 1
                 pw.setValueu(count, i=3)
@@ -3043,7 +3065,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     itle.addChild(itlee);
                     itlee.myType = "parameter"
 
-            self.sortTreeChildren(self.ui.res_ExtractedData.topLevelItem(3), 2)
+            self.sortTreeChildren(self.ui.res_ExtractedData.topLevelItem(3), 1)
 
             self.filterEdited(str(self.ui.dataFilter.text()))
 
@@ -3082,7 +3104,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
     def isTracerMetabolisationExperiment(self):
         rows = []
         for row in self.currentOpenResultsFile.curs.execute(
-                "select key, value from config where key='metabolisationExperiment'"):
+                "SELECT key, value FROM config WHERE key='metabolisationExperiment'"):
             rows.append(copy(row))
         assert len(rows) == 1
         return str(rows[0][1]).lower() == "true"
@@ -3090,14 +3112,14 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
     def getAllowedIsotopeRatioErrorsForResult(self):
         rows = []
         for row in self.currentOpenResultsFile.curs.execute(
-                "select key, value from config where key='intensityErrorN'"):
+                "SELECT key, value FROM config WHERE key='intensityErrorN'"):
             rows.append(copy(row))
         assert len(rows) == 1
         intErrN = float(rows[0][1])
 
         rows = []
         for row in self.currentOpenResultsFile.curs.execute(
-                "select key, value from config where key='intensityErrorL'"):
+                "SELECT key, value FROM config WHERE key='intensityErrorL'"):
             rows.append(copy(row))
         assert len(rows) == 1
         intErrL = float(rows[0][1])
@@ -3110,7 +3132,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             return self.currentOpenResultsFile.tics
 
         tics={}
-        for row in self.currentOpenResultsFile.curs.execute("select id, loading, scanevent, times, intensities from tics"):
+        for row in self.currentOpenResultsFile.curs.execute("SELECT id, loading, scanevent, times, intensities FROM tics"):
             id, loading, scanevent, times, intensities=row
             id=int(id)
             loading=str(loading)
@@ -3128,25 +3150,25 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
     def getLabellingParametersForResult(self, featureID):
         if not (self.isTracerMetabolisationExperiment()):
             rows = []
-            for row in self.currentOpenResultsFile.curs.execute("select key, value from config where key='isotopeA'"):
+            for row in self.currentOpenResultsFile.curs.execute("SELECT key, value FROM config WHERE key='isotopeA'"):
                 rows.append(copy(row))
             assert len(rows) == 1
             isoA = float(rows[0][1])
 
             rows = []
-            for row in self.currentOpenResultsFile.curs.execute("select key, value from config where key='isotopeB'"):
+            for row in self.currentOpenResultsFile.curs.execute("SELECT key, value FROM config WHERE key='isotopeB'"):
                 rows.append(copy(row))
             assert len(rows) == 1
             isoB = float(rows[0][1])
 
             rows = []
-            for row in self.currentOpenResultsFile.curs.execute("select key, value from config where key='purityN'"):
+            for row in self.currentOpenResultsFile.curs.execute("SELECT key, value FROM config WHERE key='purityN'"):
                 rows.append(copy(row))
             assert len(rows) == 1
             purN = float(rows[0][1])
 
             rows = []
-            for row in self.currentOpenResultsFile.curs.execute("select key, value from config where key='purityL'"):
+            for row in self.currentOpenResultsFile.curs.execute("SELECT key, value FROM config WHERE key='purityL'"):
                 rows.append(copy(row))
             assert len(rows) == 1
             purL = float(rows[0][1])
@@ -3154,15 +3176,13 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             return isoB - isoA, purN, purL
         else:
             rows = []
-            for row in self.currentOpenResultsFile.curs.execute(
-                            "select id, tracer from chromPeaks where id=%d" % featureID):
+            for row in self.currentOpenResultsFile.curs.execute("SELECT id, tracer FROM chromPeaks WHERE id=%d" % featureID):
                 rows.append(copy(row))
             assert len(rows) == 1
             trcid = int(rows[0][1])
 
             rows = []
-            for row in self.currentOpenResultsFile.curs.execute(
-                            "SELECT deltaMZ, purityN, purityL FROM tracerConfiguration WHERE id=%d" % trcid):
+            for row in self.currentOpenResultsFile.curs.execute("SELECT deltaMZ, purityN, purityL FROM tracerConfiguration WHERE id=%d" % trcid):
                 rows.append(copy(row))
             assert len(rows) == 1
             dmz = float(rows[0][0])
@@ -3332,7 +3352,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 self.ui.chromPeakName.setText("")
 
                 self.ui.res_ExtractedData.setHeaderLabels(QtCore.QStringList(
-                    ["MZ", "Xn", "Rt", "Adducts", "Heteroatoms", "M Scale", "M' Rt (min)", "M' Scale", "Corr", "Tracer", "Ratio"]))
+                    ["MZ (/Ionmode Z)", "Rt min", "Xn", "Adducts, hetero atoms", "Scale M / M'", "Peak cor", "M:M' peaks ratio / area ratio", "Area M / M'", "Scans", "Tracer"]))
 
                 if item.myType == "Features":
                     mzs = []
@@ -3361,13 +3381,15 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         invert=-1
 
                     for row in self.currentOpenResultsFile.curs.execute(
-                                    "SELECT xic, xicL, xicfirstiso, xicLfirstiso, xicLfirstisoconjugate , times FROM XICs WHERE id==%d" % cp.eicID):
-                        xic = [float(t) for t in row[0].split(";")]
-                        xicL = [float(t) for t in row[1].split(";")]
-                        xicfirstiso = [float(t) for t in row[2].split(";")]
-                        xicLfirstiso = [float(t) for t in row[3].split(";")]
+                                    "SELECT xic, xicL, xicfirstiso, xicLfirstiso, xicLfirstisoconjugate, xic_smoothed, xicL_smoothed, times FROM XICs WHERE id==%d" % cp.eicID):
+                        xic                   = [float(t) for t in row[0].split(";")]
+                        xicL                  = [float(t) for t in row[1].split(";")]
+                        xicfirstiso           = [float(t) for t in row[2].split(";")]
+                        xicLfirstiso          = [float(t) for t in row[3].split(";")]
                         xicLfirstisoconjugate = [float(t) for t in row[4].split(";")]
-                        times = [float(t) / 60. for t in row[5].split(";")]
+                        xic_smoothed                   = [float(t) for t in row[5].split(";")]
+                        xicL_smoothed                  = [float(t) for t in row[6].split(";")]
+                        times = [float(t) / 60. for t in row[7].split(";")]
 
                     if self.ui.scaleFeatures.isChecked():
                         s = int(cp.NPeakCenter - cp.NBorderLeft * 1)
@@ -3382,16 +3404,15 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         if not self.ui.scaleLabelledFeatures.isChecked():
                             maxEL=maxE
 
-                        xic = [u / maxE for u in xic]
-                        xicfirstiso = [u / maxE for u in xicfirstiso]
+                        xic                   = [u / maxE for u in xic]
+                        xicL                  = [u / maxEL for u in xicL]
+                        xic_smoothed                   = [u / maxE for u in xic_smoothed]
+                        xicL_smoothed                  = [u / maxEL for u in xicL_smoothed]
 
-                        xicL = [u / maxEL for u in xicL]
-                        xicLfirstiso = [u / maxEL for u in xicLfirstiso]
-                        xicLfirstisoconjugate = [u / maxEL for u in xicLfirstisoconjugate]
-
-                    xicL = [invert*u for u in xicL]
-                    xicLfirstiso = [invert*u for u in xicLfirstiso]
+                    xicL                  = [invert*u for u in xicL]
+                    xicLfirstiso          = [invert*u for u in xicLfirstiso]
                     xicLfirstisoconjugate = [invert*u for u in xicLfirstisoconjugate]
+                    xicL_smoothed                  = [invert*u for u in xicL_smoothed]
 
                     if self.ui.flattenXIC.isChecked():
                         ps = int(cp.NPeakCenter - cp.NPeakScale * 2)
@@ -3405,6 +3426,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         for u in range(len(xicL)):
                             if u < ps or u > pe:
                                 xicL[u] = 0
+                                xicLfirstiso[u] = 0
+                                xicL_smoothed[u] = 0
                                 xicLfirstiso[u] = 0
                     try:
                         minTime = min(minTime, min(
@@ -3432,6 +3455,12 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                         int(cp.NPeakCenter + cp.NBorderRight)], rearrange=len(selectedItems) == 1,
                                   label="%.4f (%d)"%(cp.mz, cp.xCount), useCol=useColi)
 
+                    if self.ui.showSmoothedEIC_checkBox.isChecked():
+                        self.drawPlot(self.ui.pl1, plotIndex=0, x=times, y=xic_smoothed,
+                                      fill=[int(cp.NPeakCenter - cp.NBorderLeft),
+                                            int(cp.NPeakCenter + cp.NBorderRight)], rearrange=len(selectedItems) == 1,
+                                      label=None, useCol=useColi, linestyle="--")
+
 
                     if self.ui.showIsotopologues.isChecked():
                         self.drawPlot(self.ui.pl1, plotIndex=0, x=times, y=xicfirstiso,
@@ -3440,21 +3469,27 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                       label=None, useCol=useColi)
 
                     self.drawPlot(self.ui.pl1, plotIndex=0, x=times, y=xicL,
-                                  fill=[int(cp.NPeakCenter - cp.NBorderLeft),
-                                        int(cp.NPeakCenter + cp.NBorderRight)], rearrange=len(selectedItems) == 1,
+                                  fill=[int(cp.LPeakCenter - cp.LBorderLeft),
+                                        int(cp.LPeakCenter + cp.LBorderRight)], rearrange=len(selectedItems) == 1,
                                   label=None, useCol=useColi)
+
+                    if self.ui.showSmoothedEIC_checkBox.isChecked():
+                        self.drawPlot(self.ui.pl1, plotIndex=0, x=times, y=xicL_smoothed,
+                                      fill=[int(cp.LPeakCenter - cp.LBorderLeft),
+                                            int(cp.LPeakCenter + cp.LBorderRight)], rearrange=len(selectedItems) == 1,
+                                      label=None, useCol=useColi, linestyle="--")
 
                     if self.ui.showIsotopologues.isChecked():
                         self.drawPlot(self.ui.pl1, plotIndex=0, x=times, y=xicLfirstiso,
-                                      fill=[int(cp.NPeakCenter - cp.NBorderLeft),
-                                            int(cp.NPeakCenter + cp.NBorderRight)], rearrange=len(selectedItems) == 1,
+                                      fill=[int(cp.LPeakCenter - cp.LBorderLeft),
+                                            int(cp.LPeakCenter + cp.LBorderRight)], rearrange=len(selectedItems) == 1,
                                       label=None, useCol=useColi)
 
                     maxindex, maxvalue = max(
                         enumerate(xic[int(cp.NPeakCenter - 1):int(cp.NPeakCenter + 1)], start=int(cp.NPeakCenter - 1)),
                         key=itemgetter(1))
                     if self.ui.plotAddLabels.checkState() == QtCore.Qt.Checked:
-                        self.addAnnotation(self.ui.pl1, "%s\n%.5f\n@ %.2f" % ("", cp.mz, cp.NPeakCenterMin / 60.),
+                        self.addAnnotation(self.ui.pl1, "%.5f\n%.2f min" % (cp.mz, cp.NPeakCenterMin / 60.),
                                            (times[maxindex], xic[maxindex]), (times[maxindex], xic[maxindex]), 0,
                                            fcColor=predefinedColors[useColi % len(predefinedColors)],
                                            ecColor=predefinedColors[useColi % len(predefinedColors)],
@@ -3863,13 +3898,15 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             if self.ui.negEIC.isChecked():
                                 invert=-1
 
-                            for row in self.currentOpenResultsFile.curs.execute("SELECT xic, xicL, xicfirstiso, xicLfirstiso, xicLfirstisoconjugate, times FROM XICs WHERE id==%d" % child.eicID):
-                                xic = [float(t) for t in row[0].split(";")]
-                                xicL = [float(t) for t in row[1].split(";")]
-                                xicfirstiso = [float(t) for t in row[2].split(";")]
-                                xicLfirstiso = [float(t) for t in row[3].split(";")]
+                            for row in self.currentOpenResultsFile.curs.execute("SELECT xic, xicL, xicfirstiso, xicLfirstiso, xicLfirstisoconjugate, xic_smoothed, xicL_smoothed, times FROM XICs WHERE id==%d" % child.eicID):
+                                xic                   = [float(t) for t in row[0].split(";")]
+                                xicL                  = [float(t) for t in row[1].split(";")]
+                                xicfirstiso           = [float(t) for t in row[2].split(";")]
+                                xicLfirstiso          = [float(t) for t in row[3].split(";")]
                                 xicLfirstisoconjugate = [float(t) for t in row[4].split(";")]
-                                times = [float(t) / 60. for t in row[5].split(";")]
+                                xic_smoothed          = [float(t) for t in row[5].split(";")]
+                                xicL_smoothed         = [float(t) for t in row[6].split(";")]
+                                times = [float(t) / 60. for t in row[7].split(";")]
 
                             minTime = min(minTime, min(times[int(child.NPeakCenter - child.NPeakScale * 1):int(
                                 child.NPeakCenter + child.NPeakScale * 1)]))
@@ -3891,13 +3928,16 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                     maxEL=maxE
 
                                 xic = [u / maxE for u in xic]
+                                xic_smoothed = [u / maxE for u in xic_smoothed]
                                 xicfirstiso = [u / maxE for u in xicfirstiso]
 
                                 xicL = [u / maxEL for u in xicL]
+                                xicL_smoothed = [u / maxEL for u in xicL_smoothed]
                                 xicLfirstiso = [u / maxEL for u in xicLfirstiso]
                                 xicLfirstisoconjugate = [u / maxEL for u in xicLfirstisoconjugate]
 
                             xicL = [invert*u for u in xicL]
+                            xicL_smoothed = [invert*u for u in xicL_smoothed]
                             xicLfirstiso = [invert*u for u in xicLfirstiso]
                             xicLfirstisoconjugate = [invert*u for u in xicLfirstisoconjugate]
 
@@ -3928,6 +3968,15 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                 min(int(child.NPeakCenter + child.NBorderRight),
                                     int(child.LPeakCenter + child.LBorderRight))], rearrange=len(selectedItems) == 1,
                                           label="%.4f (%d)"%(child.mz, child.xCount), useCol=useColi)  #useCol=selIndex*2)
+
+                            if self.ui.showSmoothedEIC_checkBox.isChecked():
+                                self.drawPlot(self.ui.pl1, plotIndex=0, x=times, y=xic_smoothed, fill=[
+                                    max(int(child.LPeakCenter - child.LBorderLeft),
+                                        int(child.NPeakCenter - child.NBorderLeft)),
+                                    min(int(child.NPeakCenter + child.NBorderRight),
+                                        int(child.LPeakCenter + child.LBorderRight))], rearrange=len(selectedItems) == 1,
+                                              label="", useCol=useColi, linestyle="--")
+
                             if self.ui.showIsotopologues.isChecked():
                                 self.drawPlot(self.ui.pl1, plotIndex=0, x=times, y=xicfirstiso, fill=[
                                     max(int(child.LPeakCenter - child.LBorderLeft),
@@ -3942,6 +3991,16 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                 min(int(child.NPeakCenter + child.NBorderRight),
                                     int(child.LPeakCenter + child.LBorderRight))], rearrange=len(selectedItems) == 1,
                                           label=None, useCol=useColi)
+
+                            if self.ui.showSmoothedEIC_checkBox.isChecked():
+                                self.drawPlot(self.ui.pl1, plotIndex=0, x=times, y=xicL_smoothed, fill=[
+                                    max(int(child.LPeakCenter - child.LBorderLeft),
+                                        int(child.NPeakCenter - child.NBorderLeft)),
+                                    min(int(child.NPeakCenter + child.NBorderRight),
+                                        int(child.LPeakCenter + child.LBorderRight))], rearrange=len(selectedItems) == 1,
+                                              label=None, useCol=useColi, linestyle="--")
+
+
                             if self.ui.showIsotopologues.isChecked():
                                 self.drawPlot(self.ui.pl1, plotIndex=0, x=times, y=xicLfirstiso, fill=[
                                     max(int(child.LPeakCenter - child.LBorderLeft),
@@ -4182,7 +4241,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
     def drawPlot(self, plt, plotIndex=0, x=range(10), y=range(1, 11), fill=[], label="", b=None, rearrange=True,
                  useCol=None, multipleLocator=5, alpha=globAlpha, title="", xlab="Retention time [minutes]",
-                 ylab="Intensity [counts]", plot=True, scatter=False):
+                 ylab="Intensity [counts]", plot=True, scatter=False, linestyle="-"):
         try:
             if b is None:
                 b = predefinedColors
@@ -4220,7 +4279,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 plotCol=b[useCol % len(b)]
 
             if plot:
-                ax.plot(x, y, color=plotCol, label=label)
+                ax.plot(x, y, color=plotCol, label=label, linestyle=linestyle)
             if scatter:
                 ax.scatter(x, y, color=plotCol)
             if len(fill) > 0 and self.ui.plotMarkArea.checkState() == QtCore.Qt.Checked:
@@ -5436,7 +5495,6 @@ if __name__ == '__main__':
                 QtGui.QApplication.exit()
             else:
                 sys.exit(app.exec_())
-
 
 
 

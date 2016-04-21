@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1496</width>
-    <height>1101</height>
+    <width>1646</width>
+    <height>1190</height>
    </rect>
   </property>
   <property name="acceptDrops">
@@ -61,7 +61,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>2</number>
       </property>
       <widget class="QWidget" name="inputTab">
        <attribute name="title">
@@ -3375,8 +3375,8 @@ p, li { white-space: pre-wrap; }
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1337</width>
-             <height>625</height>
+             <width>1613</width>
+             <height>1138</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_15">
@@ -3698,6 +3698,13 @@ p, li { white-space: pre-wrap; }
                        <widget class="QCheckBox" name="showIsotopologues">
                         <property name="text">
                          <string>Isotopologues</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item>
+                       <widget class="QCheckBox" name="showSmoothedEIC_checkBox">
+                        <property name="text">
+                         <string>Show smoothed signal</string>
                         </property>
                        </widget>
                       </item>
@@ -4210,7 +4217,7 @@ p, li { white-space: pre-wrap; }
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1496</width>
+     <width>1646</width>
      <height>26</height>
     </rect>
    </property>

@@ -311,12 +311,12 @@ class RunIdentification:
         curs.execute("CREATE TABLE MZBinsKids(mzbinID INTEGER, mzID INTEGER)")
         curs.execute("DROP TABLE IF EXISTS XICs")
         curs.execute(
-            "CREATE TABLE XICs(id INTEGER PRIMARY KEY, avgmz REAL, xcount INTEGER, loading INTEGER, polarity TEXT, xic TEXT, xicL TEXT, xicfirstiso TEXT, xicLfirstiso TEXT, xicLfirstisoconjugate TEXT, times TEXT, scanCount INTEGER)")
+            "CREATE TABLE XICs(id INTEGER PRIMARY KEY, avgmz REAL, xcount INTEGER, loading INTEGER, polarity TEXT, xic TEXT, xic_smoothed TEXT, xicL TEXT, xicL_smoothed TEXT, xicfirstiso TEXT, xicLfirstiso TEXT, xicLfirstisoconjugate TEXT, times TEXT, scanCount INTEGER)")
         curs.execute("DROP TABLE IF EXISTS tics")
         curs.execute("CREATE TABLE tics(id INTEGER PRIMARY KEY, loading INTEGER, scanevent TEXT, times TEXT, intensities TEXT)")
         curs.execute("DROP TABLE IF EXISTS allXICs")
         curs.execute(
-            "CREATE TABLE allXICs(id INTEGER PRIMARY KEY, avgmz REAL, xcount INTEGER, loading INTEGER, polarity TEXT, xic TEXT, xicL TEXT, xicfirstiso TEXT, xicLfirstiso TEXT, xicLfirstisoconjugate TEXT, times TEXT, scanCount INTEGER)")
+            "CREATE TABLE allXICs(id INTEGER PRIMARY KEY, avgmz REAL, xcount INTEGER, loading INTEGER, polarity TEXT, xic TEXT, xic_smoothed TEXT, xicL TEXT, xicL_smoothed TEXT, xicfirstiso TEXT, xicLfirstiso TEXT, xicLfirstisoconjugate TEXT, times TEXT, scanCount INTEGER)")
         curs.execute("DROP TABLE IF EXISTS chromPeaks")
         curs.execute(
             "CREATE TABLE chromPeaks(id INTEGER PRIMARY KEY, tracer INTEGER, eicID INTEGER, NPeakCenter INTEGER, NPeakCenterMin REAL, NPeakScale FLOAT, NSNR REAL, NPeakArea REAL, mz REAL, lmz REAL, xcount INTEGER, xcountId INTEGER, LPeakCenter INTEGER, LPeakCenterMin REAL, LPeakScale FLOAT, LSNR REAL, LPeakArea REAL, Loading INTEGER, peaksCorr FLOAT, heteroAtoms TEXT, NBorderLeft INTEGER, NBorderRight INTEGER, LBorderLeft INTEGER, LBorderRight INTEGER, adducts TEXT, heteroAtomsFeaturePairs TEXT, massSpectrumID INTEGER, ionMode TEXT, assignedMZs INTEGER, fDesc TEXT, peaksRatio FLOAT, peaksRatioMp1 FLOAT, peaksRatioMPm1 FLOAT, isotopesRatios TEXT, mzDiffErrors TEXT, peakType TEXT, assignedName TEXT)")
@@ -933,11 +933,11 @@ class RunIdentification:
                     # extract the EIC of the native ion and detect its chromatographic peaks
                     # optionally: smoothing
                     eic, times, scanIds = mzxml.getEIC(meanmz, self.chromPeakPPM, filterLine=scanEvent)
-                    eic = smoothDataSeries(times, eic, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow)
+                    eicSmoothed = smoothDataSeries(times, eic, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow)
                     # extract the EIC of the labelled ion and detect its chromatographic peaks
                     # optionally: smoothing
                     eicL, times, scanIds = mzxml.getEIC(meanmzLabelled,self.chromPeakPPM, filterLine=scanEvent)
-                    eicL = smoothDataSeries(times, eicL, windowLen=self.eicSmoothingWindowSize,window=self.eicSmoothingWindow)
+                    eicLSmoothed = smoothDataSeries(times, eicL, windowLen=self.eicSmoothingWindowSize,window=self.eicSmoothingWindow)
 
                     # determine boundaries for chromatographic peak picking
                     minInd=min([kid.getObject().scanIndex for kid in kids])
@@ -952,7 +952,7 @@ class RunIdentification:
                     peaksN = []
                     try:
                         peaksN = self.CP.getPeaksFor(times,
-                                                     eic,
+                                                     eicSmoothed,
                                                      scales=self.scales, snrTh=self.snrTh, startIndex=startIndex, endIndex=endIndex)
                     except Exception as ex:
                         self.printMessage("Errora: %s" % str(ex), type="error")
@@ -960,7 +960,7 @@ class RunIdentification:
                     peaksL = []
                     try:
                         peaksL = self.CP.getPeaksFor(times,
-                                                     eicL,
+                                                     eicLSmoothed,
                                                      scales=self.scales, snrTh=self.snrTh, startIndex=startIndex, endIndex=endIndex)
                     except Exception as ex:
                         self.printMessage("Errorb: %s" % str(ex), type="error")
@@ -970,17 +970,17 @@ class RunIdentification:
                     eicfirstiso, timesL, scanIdsL = mzxml.getEIC(
                         meanmz + 1 * self.xOffset / loading, self.chromPeakPPM,
                         filterLine=scanEvent)
-                    eicfirstiso = smoothDataSeries(times, eicfirstiso, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow)
+                    #eicfirstisoSmoothed = smoothDataSeries(times, eicfirstiso, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow)
 
                     eicLfirstiso, timesL, scanIdsL = mzxml.getEIC(
                         meanmz + (xcount - 1) * self.xOffset / loading, self.chromPeakPPM,
                         filterLine=scanEvent)
-                    eicLfirstiso = smoothDataSeries(times, eicLfirstiso, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow)
+                    #eicLfirstisoSmoothed = smoothDataSeries(times, eicLfirstiso, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow)
 
                     eicLfirstisoconjugate, timesL, scanIdsL = mzxml.getEIC(
                         meanmz + (xcount + 1) * self.xOffset / loading, self.chromPeakPPM,
                         filterLine=scanEvent)
-                    eicLfirstisoconjugate = smoothDataSeries(times, eicLfirstisoconjugate, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow)
+                    #eicLfirstisoconjugateSmoothed = smoothDataSeries(times, eicLfirstisoconjugate, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow)
 
                     peaksBoth = []
 
@@ -1066,21 +1066,27 @@ class RunIdentification:
                         # save the native and labelled EICs to the database
                         SQLInsert(curs, "XICs", id=self.curEICId, avgmz=meanmz, xcount=xcount,
                                   loading=kids[0].getObject().loading, polarity=ionMode,
-                                  xic=";".join(["%f" % (eic[i]) for i in range(0, len(eic))]),
-                                  xicL=";".join(["%f" % (eicL[i]) for i in range(0, len(eic))]),
-                                  xicfirstiso=";".join(["%f" % (eicfirstiso[i]) for i in range(0, len(eic))]),
-                                  xicLfirstiso=";".join(["%f" % (eicLfirstiso[i]) for i in range(0, len(eic))]),
+                                  xic                  =";".join(["%f" % (eic[i]) for i in range(0, len(eic))]),
+                                  xicL                 =";".join(["%f" % (eicL[i]) for i in range(0, len(eic))]),
+                                  xicfirstiso          =";".join(["%f" % (eicfirstiso[i]) for i in range(0, len(eic))]),
+                                  xicLfirstiso         =";".join(["%f" % (eicLfirstiso[i]) for i in range(0, len(eic))]),
                                   xicLfirstisoconjugate=";".join(["%f" % (eicLfirstisoconjugate[i]) for i in range(0, len(eic))]),
+                                  xic_smoothed                  =";".join(["%f" % (eicSmoothed[i]) for i in range(0, len(eic))]),
+                                  xicL_smoothed                 =";".join(["%f" % (eicLSmoothed[i]) for i in range(0, len(eic))]),
+
+
                                   times=";".join(["%f" % (times[i]) for i in range(0, len(times))]),
                                   scanCount=len(eic))
 
                         SQLInsert(curs, "allXICs", id=self.curEICId, avgmz=meanmz, xcount=xcount,
                                   loading=kids[0].getObject().loading, polarity=ionMode,
-                                  xic=";".join(["%f" % (eic[i]) for i in range(0, len(eic))]),
-                                  xicL=";".join(["%f" % (eicL[i]) for i in range(0, len(eic))]),
-                                  xicfirstiso=";".join(["%f" % (eicfirstiso[i]) for i in range(0, len(eic))]),
-                                  xicLfirstiso=";".join(["%f" % (eicLfirstiso[i]) for i in range(0, len(eic))]),
+                                  xic                  =";".join(["%f" % (eic[i]) for i in range(0, len(eic))]),
+                                  xicL                 =";".join(["%f" % (eicL[i]) for i in range(0, len(eic))]),
+                                  xicfirstiso          =";".join(["%f" % (eicfirstiso[i]) for i in range(0, len(eic))]),
+                                  xicLfirstiso         =";".join(["%f" % (eicLfirstiso[i]) for i in range(0, len(eic))]),
                                   xicLfirstisoconjugate=";".join(["%f" % (eicLfirstisoconjugate[i]) for i in range(0, len(eic))]),
+                                  xic_smoothed                  =";".join(["%f" % (eicSmoothed[i]) for i in range(0, len(eic))]),
+                                  xicL_smoothed                 =";".join(["%f" % (eicLSmoothed[i]) for i in range(0, len(eic))]),
                                   times=";".join(["%f" % (times[i]) for i in range(0, len(times))]),
                                   scanCount=len(eic))
 
@@ -1148,14 +1154,21 @@ class RunIdentification:
             for b in range(0, len(chromPeaks)):
 
                 peakB = chromPeaks[b]
-                if a != b and (peakA.mz < peakB.mz or abs(peakA.mz - peakB.mz) <= (peakA.mz * 2.5 * self.ppm / 1000000.)) and peakA.ionMode == peakB.ionMode:
+                if a != b and peakA.ionMode == peakB.ionMode and (peakA.mz < peakB.mz or abs(peakA.mz - peakB.mz) <= (peakA.mz * 2.5 * self.ppm / 1000000.)):
                     # not same feature pair but same ionisation mode
 
                     if abs(peakA.NPeakCenter - peakB.NPeakCenter) <= self.peakCenterError:
                         #same retention time
                         if abs(peakA.mz - peakB.mz) <= (peakA.mz * 2.5 * self.ppm / 1000000.):
                             #same mz value
-                            if (peakB.xCount - peakA.xCount) in [1,2,3] and peakB.loading == peakA.loading:
+                            if (peakB.xCount - peakA.xCount) == 2 and peakB.loading == peakA.loading and ((peakB.LPeakArea/peakA.LPeakArea)<=0.1):
+                                # incorrect matching of 18O atoms detected
+                                # e.g. a and b have 869.4153; a has C39 and b has C41; peaksRatio(a)=1.46, peaksRatio(b)=43.48
+                                # --> 1.46/43.48~0.0335 (which is in good agreement with On) and thus b has to be removed
+                                if b not in todel.keys():
+                                    todel[b]=[]
+                                todel[b].append("incorrectly matched hetero atoms (most likely O) with "+str(peakA.mz)+" "+str(peakA.xCount))
+                            elif (peakB.xCount - peakA.xCount) in [1,2,3] and peakB.loading == peakA.loading:
                                 # different number of 1 atoms (peakA has less than peakB)
                                 if a not in todel.keys():
                                     todel[a]=[]
@@ -1172,14 +1185,6 @@ class RunIdentification:
                                 if a not in todel.keys():
                                     todel[a]=[]
                                 todel[a].append("singly charged mismatch with half the number of carbon atoms with "+str(peakB.mz)+" "+str(peakB.xCount))
-
-                            if (peakB.xCount - peakA.xCount) == 2 and ((peakB.LPeakArea/peakA.LPeakArea)<=0.1):
-                                # incorrect matching of 18O atoms detected
-                                # e.g. a and b have 869.4153; a has C39 and b has C41; peaksRatio(a)=1.46, peaksRatio(b)=43.48
-                                # --> 1.46/43.48~0.0335 (which is in good agreement with On) and thus b has to be removed
-                                if b not in todel.keys():
-                                    todel[b]=[]
-                                todel[b].append("incorrectly matched hetero atoms (most likely O) with "+str(peakA.mz)+" "+str(peakA.xCount))
                         else:
                             for i in [1,2,3]:
                                 if peakA.loading == peakB.loading and abs(abs(peakB.mz - peakA.mz) - i*self.xOffset/peakA.loading) <= peakA.mz * 2.5 * self.ppm / 1000000. and (peakA.xCount - peakB.xCount) in [1,2,3]:
@@ -2814,8 +2819,8 @@ class RunIdentification:
                 self.CP = MassSpecWavelet(self.chromPeakFile)
             else:
                 from GradientPeaks import GradientPeaks
-                self.CP=GradientPeaks()
-                self.CP=GradientPeaks()
+                self.CP=GradientPeaks()                                                                      ## generic gradient descend peak picking
+                self.CP=GradientPeaks(minInt=10000, minIntFlanks=10, minIncreaseRatio=.05, expTime=[10, 250]) ## Swiss Orbitrap HF data
 
             self.curPeakId = 1
             self.curEICId = 1

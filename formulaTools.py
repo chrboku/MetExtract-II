@@ -424,16 +424,15 @@ if __name__ == '__main__':
 
     fT = formulaTools()
 
-    formulas = ["C21H30O11 "]#["H(C2H4O)OH"]
-    formulas.extend(["H(C2H4O)%dOH"%i for i in range(10,20)])
-    formulas.extend(["H(C2H4O)%dOH"%i for i in range(20,40)])
+    formulas = ["C21H18SO14"]#["H(C2H4O)OH"]
+
     res=[]
     for form in formulas:
         elems = fT.parseFormula(form)
-        res.append([form, str(elems), "%.5f"%fT.calcMolWeight(elems), "%.5f"%(fT.calcMolWeight(elems)+1.007276), "%.5f"%((fT.calcMolWeight(elems)+1.007276)/2), fT.flatToString(elems)])
+        res.append([form, str(elems), "%.5f"%fT.calcMolWeight(elems), "%.5f"%(fT.calcMolWeight(elems)+1.007276), "%.5f"%(fT.calcMolWeight(elems)-1.007276), fT.flatToString(elems)])
 
     from utils import printAsTable
-    printAsTable(["Input", "Parsed", "Mass", "[M+H]+", "[M+2H]++", "Rendered"], res, printInExcelFormat=True)
+    printAsTable(["Input", "Parsed", "Mass", "[M+H]+", "[M-H]-", "Rendered"], res, printInExcelFormat=True)
     
     
     

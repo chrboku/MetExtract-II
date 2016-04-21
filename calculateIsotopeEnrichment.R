@@ -3,7 +3,7 @@
 # Note: Use determined number of carbon atoms (delta M' and M) only in AllExtract data processing or 
 #       to determine the isotopic enrichment of the 13C-labelled tracer
 Cn=11
-ratioOfMpOneToM=.19
+ratioOfMpOneToM=.25
 substitutions=1
 
 

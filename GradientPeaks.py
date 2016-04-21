@@ -178,13 +178,21 @@ if __name__=="__main__":
         dmz=1.00335
         z=1
 
-    if True:
+    if False:
         mzXMLFile="F:/BenediktWarth/160303_final raw data/neg/GEN_24h_5uM_lysate_2_neg_066.mzXML"
         mz = 175.9574#349.002275
         ppm = 5.
         cn = 3
         z = 1
         dmz=1.00628
+
+    if True:
+        mzXMLFile="F:/Thermo_OribtrapTest/OrbitrapHF_Swiss/Vial1_pos_60k_06.mzXML"
+        mz = 623.164733#359.131328#527.155036#354.17606#359.131328
+        ppm = 5.
+        cn = 26#14#27#14
+        z = 1
+        dmz = 1.00335
 
 
     t.parse_file(mzXMLFile)
@@ -200,8 +208,8 @@ if __name__=="__main__":
     plt.plot(timesMin, [-e for e in eicL_raw])
 
     smoothWin="gaussian"  ## "triangle", "gaussian", 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'
-    eicN = smoothDataSeries(times, eicN_raw, windowLen=1, window=smoothWin)
-    eicL = smoothDataSeries(times, eicL_raw, windowLen=1, window=smoothWin)
+    eicN = smoothDataSeries(times, eicN_raw, windowLen=5, window=smoothWin)
+    eicL = smoothDataSeries(times, eicL_raw, windowLen=5, window=smoothWin)
 
     eic=eicN
 
@@ -210,7 +218,7 @@ if __name__=="__main__":
     plt.plot(timesMin, eicN)
     plt.plot(timesMin, [-e for e in eicL])
 
-    gp=GradientPeaks(minInt=100, minIntFlanks=10, minIncreaseRatio=.05, expTime=[5, 65])
+    gp=GradientPeaks(minInt=10000, minIntFlanks=10, minIncreaseRatio=.05, expTime=[25, 95])
     #gp=GradientPeaks(minInt=50000, minIntFlanks=5000, minIncreaseRatio=.05, expTime=[5,250], minFlankToCenterRatio=1)
     peaks=gp.findPeaks(times, eicN)
     peaksL=gp.findPeaks(times, eicL)
@@ -257,7 +265,7 @@ if __name__=="__main__":
     cp=MassSpecWavelet("./MassSpecWaveletIdentification.R")
     print "------------"
 
-    peaks=cp.getPeaksFor(times, eic, scales=[1,5])
+    peaks=cp.getPeaksFor(times, eic, scales=[11,31])
 
     for peak in peaks:
         peak.peakAtTime=times[peak.peakIndex] / 60.

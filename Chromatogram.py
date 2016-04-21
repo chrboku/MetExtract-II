@@ -129,7 +129,6 @@ class Chromatogram():
             msLevelList=self.MS2_list
 
         for scan in msLevelList:
-
             if filterLine == "" or scan.filter_line == filterLine:
                 TIC.append(scan.total_ion_current)
                 times.append(scan.retention_time)
@@ -189,14 +188,14 @@ class Chromatogram():
         return scans, times, scanIDs
 
     # returns an eic. Single MS peaks and such below a certain threshold may be removed
-    def getEIC(self, mz, ppm, filterLine="", removeSingles=True, intThreshold=0, useMS1=True, useMS2=False):
+    def getEIC(self, mz, ppm, filterLine="", removeSingles=True, intThreshold=0, useMS1=True, useMS2=False, startTime=0, endTime=1000000):
         ret = []
         times = []
         scanIds = []
 
         if useMS1:
             for scan in self.MS1_list:
-                if filterLine == "" or scan.filter_line == filterLine:
+                if (filterLine == "" or scan.filter_line == filterLine) and startTime <= scan.retention_time <= endTime:
                     bounds = scan.findMZ(mz, ppm)
                     if bounds[0] != -1:
                         ret.append(max(scan.intensity_list[bounds[0]:(bounds[1] + 1)]))
@@ -207,7 +206,7 @@ class Chromatogram():
 
         if useMS2:
             for scan in self.MS2_list:
-                if filterLine == "" or scan.filter_line == filterLine:
+                if (filterLine == "" or scan.filter_line == filterLine) and startTime <= scan.retention_time <= endTime:
                     bounds = scan.findMZ(mz, ppm)
                     if bounds[0] != -1:
                         ret.append(max(scan.intensity_list[bounds[0]:(bounds[1] + 1)]))
@@ -521,7 +520,7 @@ class Chromatogram():
 
 if __name__=="__main__":
     f="E:/150807_pos_213_MSMS_12C13C_PPAs_Exp36/12C13C_Wheat_Fg_conc_MSMS_CID20_Set1.mzML"
-    f="C:/Users/cbueschl/Desktop/implTest/Exactive_plus/WheatEar_DON_posneg.mzML"
+    f="D:/PyMetExtract/implTest/Exactive_plus/WheatEar_DON_posneg.mzML"
 
     t=Chromatogram()
     t.parse_file(f)
