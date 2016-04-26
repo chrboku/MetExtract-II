@@ -143,15 +143,14 @@ class Table:
 
             if len(f)>0:
                 updates.append((self.__updateTableName(
-                    "UPDATE :table: SET %s WHERE __internalID=%d" % (", ".join(["%s=?" % x for x in f.keys()]), iID)),
-                                [f[x] for x in f.keys()]))
+                    "UPDATE :table: SET %s WHERE __internalID=%d" % (", ".join(["%s=?" % x for x in f.keys()]), iID)), [f[x] for x in f.keys()]))
 
             done+=1
             if showProgress:
                 elapsed=time.time()-started
                 doneP=(1.*done/numOfCols)
                 s=(elapsed*(1-doneP)/doneP)/60.
-                print "\rApplying.. |%-30s| %.1f%% (approximately %.1f minutes remaining)"%("*"*int(doneP*30), doneP*100, s),
+                print "\rApplying.. |%-30s| %.1f%% (approximately %.1f minutes remaining, run for %.1f minutes, total %.1f minutes)"%("*"*int(doneP*30), doneP*100, s, elapsed/60., s+elapsed/60.),
         if showProgress:
             s=(time.time()-started)/60.
             print "(%.1f minutes)\n"%s

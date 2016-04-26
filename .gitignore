@@ -49,3 +49,8 @@ distribute/
 offTopic/
 postProcessing/
 Log.txt
+
+# user defined
+run_CambridgeData.bat
+run_LuxLinster_2nd.bat
+run_Exp134.bat

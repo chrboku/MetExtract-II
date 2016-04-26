@@ -141,13 +141,22 @@ if __name__ == '__main__':
         scales = [1, 5]
         dmz = 1.00628
 
-    if True:
+    if False:
         chromatogram.parse_file("F:/Thermo_OribtrapTest/OrbitrapHF_Swiss/Vial1_pos_60k_06.mzXML")
         mz = 359.131328
         ppm = 5.
         cn = 14
         z = 1
         scales = [11, 31]
+        dmz = 1.00335
+
+    if True:
+        chromatogram.parse_file("F:/forTUGraz/140407_neg_147_comparison_solvent_wheat_ear_CM/MeOH_C_neg_6.mzXML")
+        mz = 193.0323
+        ppm = 5.
+        cn = 10
+        z = 1
+        scales = [3,11]
         dmz = 1.00335
 
     scanEvents = chromatogram.getFilterLines()
@@ -164,8 +173,8 @@ if __name__ == '__main__':
 
 
     smoothWin="gaussian"  ## "triangle", "gaussian", 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'
-    eic  = smoothDataSeries(times, eic , windowLen=3, window=smoothWin)
-    eicL = smoothDataSeries(times, eicL, windowLen=3, window=smoothWin)
+    #eic  = smoothDataSeries(times, eic , windowLen=3, window=smoothWin)
+    #eicL = smoothDataSeries(times, eicL, windowLen=3, window=smoothWin)
 
 
     startIndex=getLastTimeBefore(times, refTime=0*60.)

@@ -2701,10 +2701,13 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 if len(lk) > 0:
                     adducts = ", ".join(lk)
 
-                heteroAtoms = ""
+                heteroAtoms = []
                 lk = loads(base64.b64decode(row.heteroAtoms))
-                if len(lk) > 0:
-                    heteroAtoms = ", ".join(lk)
+                for hetAtom in lk:
+                    pIso = lk[hetAtom]
+                    for hetAtomCount in pIso:
+                        heteroAtoms.append("%s%d"%(hetAtom, hetAtomCount))
+                heteroAtoms=", ".join(heteroAtoms)
 
                 d = QtGui.QTreeWidgetItem([str(row.mz) + " (/" + str(row.ionMode) + str(row.Loading) + ") ",
                                            "%.2f / %.2f" % (float(row.NPeakCenterMin) / 60., float(row.LPeakCenterMin) / 60.),
@@ -2800,10 +2803,13 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     if len(lk) > 0:
                         adducts = ", ".join(lk)
 
-                    heteroAtoms = ""
+                    heteroAtoms = []
                     lk = loads(base64.b64decode(row.heteroAtoms))
-                    if len(lk) > 0:
-                        heteroAtoms = ", ".join(lk)
+                    for hetAtom in lk:
+                        pIso = lk[hetAtom]
+                        for hetAtomCount in pIso:
+                            heteroAtoms.append("%s%d"%(hetAtom, hetAtomCount))
+                    heteroAtoms=", ".join(heteroAtoms)
 
                     xp = ChromPeakPair(NPeakCenter=int(row.NPeakCenter), loading=int(row.Loading), LPeakScale=float(row.LPeakScale),
                                    LPeakCenter=int(row.LPeakCenter), NPeakScale=float(row.NPeakScale), NSNR=0, NPeakArea=-1,

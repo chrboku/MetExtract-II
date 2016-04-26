@@ -1187,12 +1187,12 @@ class RunIdentification:
                                 todel[a].append("singly charged mismatch with half the number of carbon atoms with "+str(peakB.mz)+" "+str(peakB.xCount))
                         else:
                             for i in [1,2,3]:
-                                if peakA.loading == peakB.loading and abs(abs(peakB.mz - peakA.mz) - i*self.xOffset/peakA.loading) <= peakA.mz * 2.5 * self.ppm / 1000000. and (peakA.xCount - peakB.xCount) in [1,2,3]:
+                                if peakA.loading == peakB.loading and abs(peakB.mz - peakA.mz - i*self.xOffset/peakA.loading) <= peakA.mz * 2.5 * self.ppm / 1000000. and (peakA.xCount - peakB.xCount) in [1,2,3]:
                                     # b has an mz offset and a reduced number of carbon atoms (by one labelling atom)
                                     if b not in todel.keys():
                                         todel[b]=[]
                                     todel[b].append("increased mz (by %d) and reduced number of labeling atoms (by %d) with "%(i, peakA.xCount - peakB.xCount)+str(peakA.mz)+" "+str(peakA.xCount))
-                                elif peakA.loading == peakB.loading and abs(abs(peakB.mz - peakA.mz) - i+1.00335/peakA.loading) <= peakA.mz * 2.5 * self.ppm / 1000000. and peakA.xCount == peakB.xCount:
+                                elif peakA.loading == peakB.loading and abs(peakB.mz - peakA.mz - i*1.00335/peakA.loading) <= peakA.mz * 2.5 * self.ppm / 1000000. and peakA.xCount == peakB.xCount and peakB.NPeakArea<=peakA.NPeakArea*.1:
                                     # b has an mz offset and a reduced number of carbon atoms (by one labelling atom)
                                     if b not in todel.keys():
                                         todel[b]=[]
@@ -1538,7 +1538,7 @@ class RunIdentification:
                             for adA in adducts[peakA.ionMode]:
                                 for adB in adducts[peakB.ionMode]:
 
-                                    if adA.mCount == 1 and adB.mCount == 2 and adA.mzoffset < adB.mzoffset:
+                                    if adA.mCount == 1 and adB.mCount == 2:
 
                                         if peakA.loading == adA.charge and peakB.loading == adB.charge and \
                                                 abs((peakA.mz - adA.mzoffset) / adA.mCount * peakA.loading - (peakB.mz - adB.mzoffset) / adB.mCount * peakB.loading) <= (max(peakA.mz, peakB.mz) * 2.5 * self.ppm / 1000000.):
