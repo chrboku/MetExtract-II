@@ -58,7 +58,7 @@ Section "instfiles"
     
     CreateDirectory "$SMPROGRAMS\MetExtractII"
     CreateShortCut "$SMPROGRAMS\MetExtractII\MetExtract II.lnk" "$INSTDIR\MetExtractII_Main.exe"
-    CreateShortCut "$SMPROGRAMS\MetExtractII\Sample data.lnk" "$INSTDIR\sampleData"
+    # CreateShortCut "$SMPROGRAMS\MetExtractII\Sample data.lnk" "$INSTDIR\sampleData"
     CreateShortCut "$SMPROGRAMS\MetExtractII\Documentation.lnk" "$INSTDIR\documentation\index.html"
     
     CreateShortCut "$SMPROGRAMS\MetExtractII\Uninstall.lnk" "$INSTDIR\Uninstall.exe"

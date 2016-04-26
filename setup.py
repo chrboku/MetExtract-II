@@ -296,25 +296,26 @@ try:
 
     copy("./help/INSTALL.txt", "./dist/INSTALL.txt")
 
-    os.makedirs("./dist/sampleData")
-    os.makedirs("./dist/sampleData/LTQ_Orbitrap_XL")
-    os.makedirs("./dist/sampleData/Exactive_plus")
+    if False:
+        os.makedirs("./dist/sampleData")
+        os.makedirs("./dist/sampleData/LTQ_Orbitrap_XL")
+        os.makedirs("./dist/sampleData/Exactive_plus")
 
-    copy("C:/Users/cbueschl/Desktop/implTest/LTQ_Orbitrap_XL/10_Remus_DON.mzXML", "./dist/sampleData/LTQ_Orbitrap_XL/10_Remus_DON.mzXML")
-    copy("C:/Users/cbueschl/Desktop/implTest/LTQ_Orbitrap_XL/10_CM_DON.mzXML", "./dist/sampleData/LTQ_Orbitrap_XL/10_CM_DON.mzXML")
-    copy("C:/Users/cbueschl/Desktop/implTest/Orbitrap.grp", "./dist/sampleData/DON_in_Wheat.grp")
-    copy("C:/Users/cbueschl/Desktop/implTest/Orbitrap_LAC.grp", "./dist/sampleData/DON_in_Wheat_LAC.grp")
+        copy("C:/Users/cbueschl/Desktop/implTest/LTQ_Orbitrap_XL/10_Remus_DON.mzXML", "./dist/sampleData/LTQ_Orbitrap_XL/10_Remus_DON.mzXML")
+        copy("C:/Users/cbueschl/Desktop/implTest/LTQ_Orbitrap_XL/10_CM_DON.mzXML", "./dist/sampleData/LTQ_Orbitrap_XL/10_CM_DON.mzXML")
+        copy("C:/Users/cbueschl/Desktop/implTest/Orbitrap.grp", "./dist/sampleData/DON_in_Wheat.grp")
+        copy("C:/Users/cbueschl/Desktop/implTest/Orbitrap_LAC.grp", "./dist/sampleData/DON_in_Wheat_LAC.grp")
 
-    replaceInFile("python \"%METEXTRACTLOCATION%/MExtract.py\"", "\"%METEXTRACTLOCATION%/MExtract.exe\"",
-                  filein="C:/Users/cbueschl/Desktop/implTest/_processExperiment_LTQOrbitrapXL.bat",
-                  fileout="./dist/sampleData/_processExperiment_LTQOrbitrapXL.bat")
+        replaceInFile("python \"%METEXTRACTLOCATION%/MExtract.py\"", "\"%METEXTRACTLOCATION%/MExtract.exe\"",
+                      filein="C:/Users/cbueschl/Desktop/implTest/_processExperiment_LTQOrbitrapXL.bat",
+                      fileout="./dist/sampleData/_processExperiment_LTQOrbitrapXL.bat")
 
-    copy("C:/Users/cbueschl/Desktop/implTest/Exactive_plus/WheatEar_DON_posneg.mzXML", "./dist/sampleData/Exactive_plus/WheatEar_DON_posneg.mzXML")
-    copy("C:/Users/cbueschl/Desktop/implTest/Exactive_posneg.grp", "./dist/sampleData/Exactive_posneg.grp")
+        copy("C:/Users/cbueschl/Desktop/implTest/Exactive_plus/WheatEar_DON_posneg.mzXML", "./dist/sampleData/Exactive_plus/WheatEar_DON_posneg.mzXML")
+        copy("C:/Users/cbueschl/Desktop/implTest/Exactive_posneg.grp", "./dist/sampleData/Exactive_posneg.grp")
 
-    copy("E:/140124_pos_131_MSMS_FragExtract/Fg_Extract_ACN_CID25.mzXML", "./dist/sampleData/LTQ_Orbitrap_XL/Fg_Extract_ACN_CID25.mzXML")
-    copy("E:/140124_pos_131_MSMS_FragExtract/Fg_Extract_ACN_CID35.mzXML", "./dist/sampleData/LTQ_Orbitrap_XL/Fg_Extract_ACN_CID35.mzXML")
-    copy("E:/140124_pos_131_MSMS_FragExtract/FE_groups_small.grp", "./dist/sampleData/FragExtract.grp")
+        copy("E:/140124_pos_131_MSMS_FragExtract/Fg_Extract_ACN_CID25.mzXML", "./dist/sampleData/LTQ_Orbitrap_XL/Fg_Extract_ACN_CID25.mzXML")
+        copy("E:/140124_pos_131_MSMS_FragExtract/Fg_Extract_ACN_CID35.mzXML", "./dist/sampleData/LTQ_Orbitrap_XL/Fg_Extract_ACN_CID35.mzXML")
+        copy("E:/140124_pos_131_MSMS_FragExtract/FE_groups_small.grp", "./dist/sampleData/FragExtract.grp")
 
     print "Help files copied\n==============================\n"
 
