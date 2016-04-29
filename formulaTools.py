@@ -424,7 +424,7 @@ if __name__ == '__main__':
 
     fT = formulaTools()
 
-    formulas = ["C21H18SO14"]#["H(C2H4O)OH"]
+    formulas = ["C2H3O"]#["H(C2H4O)OH"]
 
     res=[]
     for form in formulas:

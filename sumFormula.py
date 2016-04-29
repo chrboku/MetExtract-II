@@ -207,10 +207,20 @@ if __name__=="__main__":
 
 
 
+    m=97.976755
+    formsCRes=sfg.findFormulas(m, useAtoms=["C", "N", "H", "O", "S", "P"], atomsRange=[(0,200), (0,500), (0,10000), (0,400), (0,400), (0,400)],
+                               useSevenGoldenRules=False, ppm=60.)
 
-    formsCRes=sfg.findFormulas(60.019676, useAtoms=["C", "N", "H", "O", "S", "P"], atomsRange=[(0,200), (0,500), (0,10000), (0,400), (0,400), (0,400)],
-                               useSevenGoldenRules=True, ppm=50.)
-    print "possible sum formulas:", formsCRes
+    from utils import Bunch, printObjectsAsTable
+    from formulaTools import formulaTools
+    fT=formulaTools()
+
+    bs=[]
+    for f in formsCRes:
+        elems=fT.parseFormula(f)
+        bs.append(Bunch(formula=f, mass=fT.calcMolWeight(elems), diffPPM=(fT.calcMolWeight(elems)-m)*1000000./m, diffPPMAt300=(fT.calcMolWeight(elems)-m)*1000000./300))
+
+    printObjectsAsTable(bs, attrs=["formula", "mass", "diffPPM", "diffPPMAt300"])
 
 
 
