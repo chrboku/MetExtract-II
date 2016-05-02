@@ -2661,8 +2661,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                                            "FROM chromPeaks LEFT JOIN tracerConfiguration ON tracerConfiguration.id=chromPeaks.tracer"):
                 numberOfFeaturePairs=row.co
 
-            pw.setText("Fetching feature pairs (%d)"%numberOfFeaturePairs, i=2)
-            pw.setMax(numberOfFeaturePairs, i=2)
+            pw.setTextu("Fetching feature pairs (%d)"%numberOfFeaturePairs, i=2)
+            pw.setMaxu(numberOfFeaturePairs, i=2)
 
             count = 0
             children=[]

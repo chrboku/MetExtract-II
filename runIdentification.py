@@ -1861,7 +1861,7 @@ class RunIdentification:
                                 logging.error("Error while convoluting two feature pairs, skipping..")
                                 SQLInsert(curs, "featurefeatures", fID1=peakA.id, fID2=peakB.id, corr=0)
 
-            self.postMessageToProgressWrapper("text", "%s: Identifying feature groups" % tracer.name)
+            self.postMessageToProgressWrapper("text", "%s: Convoluting feature groups" % tracer.name)
 
             for peak in chromPeaks:
                 delattr(peak, "NXIC")
@@ -1935,6 +1935,7 @@ class RunIdentification:
 
 
             groups=[]
+            done=0
             for tGroup in tGroups:
                 #print "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-"
                 cGroups=[tGroup]
@@ -1949,7 +1950,11 @@ class RunIdentification:
                     else:
                         cGroups.extend(sGroups)
 
+                done=done+1
+                self.postMessageToProgressWrapper("text", "%s: Convoluting feature groups (%d/%d done)" % (tracer.name, done, len(tGroups)))
+
             if True:
+                done=0
                 for gi in range(len(groups)):
                     group = groups[gi]
                     if reportFunction is not None:
@@ -1964,6 +1969,9 @@ class RunIdentification:
                         peaksInGroup[a]=allPeaks[a]
 
                     self.annotateChromPeaks(group, peaksInGroup)# store feature pair annotation in the database
+
+                    done=done+1
+                    self.postMessageToProgressWrapper("text", "%s: Annotating feature groups (%d/%d done)" % (tracer.name, done, len(groups)))
 
 
             for peak in chromPeaks:
