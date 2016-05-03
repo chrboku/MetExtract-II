@@ -3411,7 +3411,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             maxEL=maxE
 
                         xic                   = [u / maxE for u in xic]
+                        xicfirstiso           = [u / maxE for u in xicfirstiso]
                         xicL                  = [u / maxEL for u in xicL]
+                        xicLfirstiso          = [u / maxEL for u in xicLfirstiso]
+                        xicLfirstisoconjugate = [u / maxEL for u in xicLfirstisoconjugate]
                         xic_smoothed                   = [u / maxE for u in xic_smoothed]
                         xicL_smoothed                  = [u / maxEL for u in xicL_smoothed]
 
