@@ -68,7 +68,7 @@ def writeConfigToDB(curs, align, file, groupSizePPM, maxLoading, maxTimeDeviatio
 # bracket results
 def bracketResults(indGroups, minX, maxX, groupSizePPM, positiveScanEvent=None, negativeScanEvent=None,
                  maxTimeDeviation=0.36 * 60, maxLoading=1, file="./results.tsv", align=True, nPolynom=1,
-                 pwMaxSet=None, pwValSet=None, rVersion="", meVersion=""):
+                 pwMaxSet=None, pwValSet=None, rVersion="", meVersion="", generalProcessingParams=Bunch()):
 
 
     # create results SQLite tables
@@ -566,21 +566,26 @@ def bracketResults(indGroups, minX, maxX, groupSizePPM, positiveScanEvent=None, 
 
             if writePDF: pdf.save()
 
-            f.write("# MEVersion=%s, RVersion=%s\n"%(meVersion, rVersion))
 
-            processingParams=[]
-            processingParams.append("FPBRACK_minX=%s"%str(minX))
-            processingParams.append("FPBRACK_maxX=%s"%str(maxX))
-            processingParams.append("FPBRACK_groupSizePPM=%s"%str(groupSizePPM))
-            processingParams.append("FPBRACK_positiveScanEvent=%s"%str(positiveScanEvent))
-            processingParams.append("FPBRACK_negativeScanEvent=%s"%str(negativeScanEvent))
-            processingParams.append("FPBRACK_maxTimeDeviation=%s"%str(maxTimeDeviation))
-            processingParams.append("FPBRACK_maxLoading=%s"%str(maxLoading))
-            processingParams.append("FPBRACK_file=%s"%str(file))
-            processingParams.append("FPBRACK_align=%s"%str(align))
-            processingParams.append("FPBRACK_nPolynom=%s"%str(nPolynom))
+            f.write("## MetExtract II %s\n"%(Bunch(MetExtractVersion=meVersion, RVersion=rVersion).dumpAsJSon().replace("\"", "'")))
 
-            f.write("# %s\n"%(", ".join(processingParams)))
+
+            f.write("## Individual files processing parameters %s\n"%(generalProcessingParams.dumpAsJSon().replace("\"", "'")))
+
+            processingParams=Bunch()
+            processingParams.FPBracketing_min=minX
+            processingParams.FPBracketing_max=maxX
+            processingParams.FPBracketing_groupSizePPM=groupSizePPM
+            processingParams.FPBracketing_positiveScanEvent=positiveScanEvent
+            processingParams.FPBracketing_negativeScanEvent=negativeScanEvent
+            processingParams.FPBracketing_maxTimeDeviation=maxTimeDeviation
+            processingParams.FPBracketing_maxLoading=maxLoading
+            processingParams.FPBracketing_resultsFile=file
+            processingParams.FPBracketing_align=align
+            if align:
+                processingParams.FPBracketing_nPolynom=nPolynom
+
+            f.write("## Bracketing files processing parameters %s\n"%(processingParams.dumpAsJSon().replace("\"", "'")))
 
             print ""
 
@@ -900,10 +905,10 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[],
 
 
 
-        processingParams=[]
-        processingParams.append("MEGROUP_groups=%s"%str(useGroupsForConfig).replace("'","").replace("\"",""))
-        processingParams.append("MEGROUP_connThreshold=%s" % str(minConnectionsInFiles))
-        table.addComment("# %s"%("%s"%(", ".join(processingParams))))
+        processingParams=Bunch()
+        processingParams.MEConvoluting_groups=str(useGroupsForConfig).replace("'","").replace("\"","")
+        processingParams.MEConvoluting_connThreshold=minConnectionsInFiles
+        table.addComment("## Convolution FPs processing parameters %s"%(processingParams.dumpAsJSon().replace("\"", "'")))
 
         TableUtils.saveFile(table, file, order="OGroup, MZ, Xn")
 

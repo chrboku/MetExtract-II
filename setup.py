@@ -186,7 +186,7 @@ except:
 
 # get local files (images, R-Scripts, ...)
 data_files = matplotlib.get_py2exe_datafiles()
-data_files.append("./MassSpecWaveletIdentification.r")
+data_files.append("./chromPeakPicking/MassSpecWaveletIdentification.r")
 data_files.append("./XICAlignment.r")
 
 err = False
@@ -265,7 +265,8 @@ try:
     os.makedirs("./dist/Settings/Tracers/")
     copy("./Settings/Tracers/DON_12C13C.ini", "./dist/Settings/Tracers/DON_12C13C.ini")
 
-    copy("./MassSpecWaveletIdentification.r", "./dist/MassSpecWaveletIdentification.r")
+    os.makedirs("./dist/chromPeakPicking/")
+    copy("./chromPeakPicking/MassSpecWaveletIdentification.r", "./dist/chromPeakPicking/MassSpecWaveletIdentification.r")
     copy("./XICAlignment.r", "./dist/XICAlignment.r")
     copy("./LICENSE.txt", "./dist/LICENSE.txt")
     copy("./calculateIsotopeEnrichment.R", "./dist/calculateIsotopeEnrichment.R")

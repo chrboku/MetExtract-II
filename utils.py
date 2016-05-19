@@ -9,6 +9,11 @@ from numpy import *
 
 from scipy.ndimage import gaussian_filter1d
 
+
+from operator import itemgetter
+
+
+
 def __smooth(x, window_len=11, window='bartlett'):
     """
     (c) http://www.scipy.org/Cookbook/SignalSmooth (last accessed: 30. May 2012)
@@ -324,7 +329,17 @@ class Bunch:
     def hasVar(self, var):
         return self.hasMember(var)
 
-
+    def dumpAsJSon(self):
+        import json
+        return json.dumps(self.__dict__)
+    @staticmethod
+    def loadFromJSon(jsonString):
+        import json
+        d=json.loads(jsonString)
+        b=Bunch()
+        for k, v in d.items():
+            b.__dict__[k]=v
+        return b
 
 
 

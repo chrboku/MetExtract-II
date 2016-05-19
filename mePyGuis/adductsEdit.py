@@ -21,7 +21,7 @@ class ConfiguredAdduct():
         self.entryType = entryType
 
     def __str__(self):
-        return "ConfiguredAdduct %s %.5f %s %d" % (self.name, self.mzoffset, self.polarity, self.charge)
+        return "ConfiguredAdduct (%s %.5f %s %d)" % (self.name, self.mzoffset, self.polarity, self.charge)
 
 
 class ConfiguredElement():
@@ -34,7 +34,7 @@ class ConfiguredElement():
         self.entryType = entryType
 
     def __str__(self):
-        return "ConfiguredElement %s %.5f %d %d %d" % (
+        return "ConfiguredElement (%s %.5f %d %d %d)" % (
             self.name, self.weight, self.numberValenzElectrons, self.minCount, self.maxCount)
 
 

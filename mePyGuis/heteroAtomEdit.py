@@ -22,7 +22,7 @@ class ConfiguredHeteroAtom():
         self.entryType = entryType
 
     def __str__(self):
-        return "ConfiguredHeteroAtom: " + self.name
+        return "ConfiguredHeteroAtom: (%s %.5f)" %( self.name, self.mzOffset)
 
 
 defaultHeteroAtoms = [

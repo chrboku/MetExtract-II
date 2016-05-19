@@ -17,7 +17,9 @@
 
 
 import logging
+
 import LoggingSetup
+
 LoggingSetup.LoggingSetup.Instance().initLogging()
 
 
@@ -37,8 +39,6 @@ from utils import USEGRADIENTDESCENDPEAKPICKING
 
 
 from MetExtractII_Main import MetExtractVersion
-import FragExtract
-
 
 # experiment types
 TRACER=object()
@@ -225,7 +225,7 @@ from sqlite3 import *
 from copy import copy, deepcopy
 from xml.parsers.expat import ExpatError
 from optparse import OptionParser
-from hashlib import md5
+#from hashlib import sha256
 
 
 #</editor-fold>
@@ -292,7 +292,7 @@ def noaxis(ax):
 from Chromatogram import Chromatogram
 #</editor-fold>
 #<editor-fold desc="### MassSpecWavelet Processing Class Import">
-from MassSpecWavelet import MassSpecWavelet
+from chromPeakPicking.MassSpecWavelet import MassSpecWavelet
 #</editor-fold>
 #<editor-fold desc="### RunIdentification Import">
 from runIdentification import RunIdentification
@@ -307,11 +307,11 @@ from annotateResultMatrix import performGroupOmit as grpOmit
 from mePyGuis.mainWindow import Ui_MainWindow
 from mePyGuis.adductsEdit import ConfiguredAdduct, ConfiguredElement
 from mePyGuis.heteroAtomEdit import ConfiguredHeteroAtom
-from mePyGuis.TracerEdit import tracerEdit, ConfiguredTracer
+from mePyGuis.TracerEdit import tracerEdit
 from formulaTools import getIsotopeMass
 #</editor-fold>
 #<editor-fold desc="### Various Imports">
-from utils import natSort, ChromPeakPair, getNormRatio, mean, SampleGroup, Bunch, SQLInsert, SQLSelectAsObject, get_main_dir
+from utils import natSort, ChromPeakPair, getNormRatio, mean, SampleGroup, Bunch, SQLInsert, SQLSelectAsObject, get_main_dir, smoothDataSeries
 from utils import FuncProcess, CallBackMethod
 import HCA_general
 
@@ -337,7 +337,7 @@ class procAreaInFile:
     def __init__(self, forFile, chromPeakFile=None, offset=0):
         if chromPeakFile is None:
             from utils import get_main_dir
-            cpf = get_main_dir()+ "./MassSpecWaveletIdentification.r"
+            cpf = get_main_dir()+ "./chromPeakPicking/MassSpecWaveletIdentification.r"
             chromPeakFile=cpf
 
         self.chromPeakFile = chromPeakFile
@@ -347,11 +347,12 @@ class procAreaInFile:
         self.forFile = forFile
 
     # find chromatographic peak for one detected feature
-    def processAreaFor(self, colToProc, mz, rt, ppm, scanEvent, maxRTShift, scales, snrTH):
-        if colToProc == "":
-            eic, times, scanids = self.t.getEIC(mz, ppm, filterLine=scanEvent)
+    def processAreaFor(self, colToProc, mz, rt, ppm, scanEvent, maxRTShift, scales, snrTH, smoothingWindow, smoothingWindowSize):
 
-            eicSmoothed = smoothDataSeries(times, eic, windowLen=self.ui.eicSmoothingWindowSize.value(),window=str(self.ui.eicSmoothingWindow.currentText()))
+        if colToProc == "":
+
+            eic, times, scanids = self.t.getEIC(mz, ppm, filterLine=scanEvent)
+            eicSmoothed = smoothDataSeries(times, eic, windowLen=smoothingWindowSize,window=smoothingWindow)
             ret = self.CP.getPeaksFor(times, eicSmoothed, scales=scales, snrTh=snrTH)
 
             best = None
@@ -370,7 +371,7 @@ class procAreaInFile:
 
     # re-integrate one detected feature pair
     def processArea(self, oldData, colToProc, colmz, colrt, colLmz, colIonMode, positiveScanEvent, negativeScanEvent,
-                    ppm, maxRTShift, scales, snrTH):
+                    ppm, maxRTShift, scales, snrTH, smoothingWindow, smoothingWindowSize):
 
         scanEvent = ""
         if oldData[self.colInd[colIonMode]] == "+":
@@ -380,8 +381,10 @@ class procAreaInFile:
         else:
             logging.error("undefined scan event", oldData[self.colInd[colIonMode]])
 
+
+
         r = self.processAreaFor(oldData[self.colInd[colToProc + "_Area_N"]], oldData[self.colInd[colmz]],
-                                oldData[self.colInd[colrt]], ppm, scanEvent, maxRTShift, scales, snrTH)
+                                oldData[self.colInd[colrt]], ppm, scanEvent, maxRTShift, scales, snrTH, smoothingWindow, smoothingWindowSize)
 
         nFound = False
         if r is not None:
@@ -389,7 +392,7 @@ class procAreaInFile:
             nFound = True
 
         r = self.processAreaFor(oldData[self.colInd[colToProc + "_Area_L"]], oldData[self.colInd[colLmz]],
-                                oldData[self.colInd[colrt]], ppm, scanEvent, maxRTShift, scales, snrTH)
+                                oldData[self.colInd[colrt]], ppm, scanEvent, maxRTShift, scales, snrTH, smoothingWindow, smoothingWindowSize)
 
         lFound = False
         if r is not None:
@@ -397,8 +400,8 @@ class procAreaInFile:
             lFound = True
 
         if nFound and lFound:
-            oldData[self.colInd[colToProc + "_fold"]] = oldData[self.colInd[colToProc + "_Area_N"]] / oldData[
-                self.colInd[colToProc + "_Area_L"]]
+            oldData[self.colInd[colToProc + "_fold"]] = oldData[self.colInd[colToProc + "_Area_N"]] / oldData[self.colInd[colToProc + "_Area_L"]]
+
 
         self.done += 1
 
@@ -406,7 +409,7 @@ class procAreaInFile:
 
     # re-integrate all detected feature pairs in a given LC-HRMS data file
     def processFile(self, oldData, colToProc, colmz, colrt, colLmz, colIonMode, positiveScanEvent, negativeScanEvent,
-                    ppm, maxRTShift, scales, snrTH):
+                    ppm, maxRTShift, scales, snrTH, smoothingWindow, smoothingWindowSize):
         logging.info("   Reintegration started for file %s" % self.forFile)
 
         z = 0
@@ -418,16 +421,19 @@ class procAreaInFile:
             nDat = [copy(d) for d in oDat]
             try:
                 nDat = self.processArea(nDat, colToProc, colmz, colrt, colLmz, colIonMode, positiveScanEvent,
-                                        negativeScanEvent, ppm, maxRTShift, scales, snrTH)
+                                        negativeScanEvent, ppm, maxRTShift, scales, snrTH, smoothingWindow, smoothingWindowSize)
             except Exception as ex:
+                print ex
                 pass
 
             self.newData.append(nDat)
 
         logging.info("   Reintegration finished for file %s" % self.forFile)
+
     # set re-integration parameters for the current sub-process
     def setParams(self, oldDataFile, headers, colToProc, colmz, colrt, colxcount, colloading, colLmz, colIonMode,
-                  positiveScanEvent, negativeScanEvent, colnum, ppm, maxRTShift, scales, reintegrateIntensityCutoff, snrTH):
+                  positiveScanEvent, negativeScanEvent, colnum, ppm, maxRTShift, scales, reintegrateIntensityCutoff, snrTH,
+                  smoothingWindow, smoothingWindowSize):
         self.oldDataFile = oldDataFile
         self.headers = headers
 
@@ -450,6 +456,9 @@ class procAreaInFile:
         self.scales = scales
         self.reintegrateIntensityCutoff = reintegrateIntensityCutoff
         self.snrTH = snrTH
+
+        self.smoothingWindow=smoothingWindow
+        self.smoothingWindowSize=smoothingWindowSize
 
         self.queue = None
         self.pID = None
@@ -478,14 +487,14 @@ class procAreaInFile:
         if not USEGRADIENTDESCENDPEAKPICKING:
                 self.CP = MassSpecWavelet(self.chromPeakFile)
         else:
-            from GradientPeaks import GradientPeaks
+            from chromPeakPicking.GradientPeaks import GradientPeaks
             self.CP=GradientPeaks()                                                                      ## generic gradient descend peak picking
             self.CP=GradientPeaks(minInt=10000, minIntFlanks=10, minIncreaseRatio=.05, expTime=[25, 250]) ## Swiss Orbitrap HF data
 
         # re-integrate all detected feature pairs from the grouped results in this LC-HRMS data file
         self.processFile(self.oldData, self.colToProc, self.colmz, self.colrt, self.colLmz, self.colIonMode,
                          self.positiveScanEvent, self.negativeScanEvent, self.ppm, self.maxRTShift, self.scales,
-                         self.snrTH)
+                         self.snrTH, self.smoothingWindow, self.smoothingWindowSize)
 
         # ask to release used memory
         self.t.freeMe()
@@ -536,7 +545,7 @@ def interruptReIntegrateFilesProcessing(pool, selfObj):
         return False # don't close progresswrapper and continue processing files
 
 def integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colloading, colLmz, colIonMode, colnum,
-                          ppm=5., maxRTShift=0.25, scales=[3,19], reintegrateIntensityCutoff=0, snrTH=1,
+                          ppm=5., maxRTShift=0.25, scales=[3,19], reintegrateIntensityCutoff=0, snrTH=1, smoothingWindow=None, smoothingWindowSize=0,
                           positiveScanEvent="None", negativeScanEvent="None", pw=None, selfObj=None, cpus=1):
 
     if pw is not None: pw.getCallingFunction()("max")(len(colToProc))
@@ -549,7 +558,7 @@ def integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colloadi
 
         if len(colToProcCur)>=cpus:
             _integrateResultsFile(file, toF, colToProcCur, colmz, colrt, colxcount, colloading, colLmz, colIonMode, colnum,
-                                  ppm, maxRTShift, scales, reintegrateIntensityCutoff, snrTH,
+                                  ppm, maxRTShift, scales, reintegrateIntensityCutoff, snrTH, smoothingWindow, smoothingWindowSize,
                                   positiveScanEvent, negativeScanEvent, pw, selfObj, cpus, pwOffset=pwOffset,
                                   writeConfig=writeConfig)
             pwOffset+=len(colToProcCur)
@@ -558,7 +567,7 @@ def integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colloadi
 
     if len(colToProcCur)>0:
         _integrateResultsFile(file, toF, colToProcCur, colmz, colrt, colxcount, colloading, colLmz, colIonMode, colnum,
-                              ppm, maxRTShift, scales, reintegrateIntensityCutoff, snrTH,
+                              ppm, maxRTShift, scales, reintegrateIntensityCutoff, snrTH, smoothingWindow, smoothingWindowSize,
                               positiveScanEvent, negativeScanEvent, pw, selfObj, cpus, pwOffset=pwOffset,
                               writeConfig=writeConfig)
         colToProcCur={}
@@ -577,7 +586,7 @@ def writeReintegrateConfigToDB(curs, maxRTShift, negativeScanEvent, positiveScan
 
 
 def _integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colloading, colLmz, colIonMode, colnum,
-                         ppm=5.,maxRTShift=0.25, scales=[3, 19], reintegrateIntensityCutoff=0, snrTH=1,
+                         ppm=5.,maxRTShift=0.25, scales=[3, 19], reintegrateIntensityCutoff=0, snrTH=1, smoothingWindow=None, smoothingWindowSize=0,
                          positiveScanEvent="None", negativeScanEvent="None",pw=None, selfObj=None, cpus=1, pwOffset=0,
                          writeConfig=True):
 
@@ -632,7 +641,8 @@ def _integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colload
             s = "_" + s
 
         u.setParams(file, [x.getName() for x in table.getColumns()], s, colmz, colrt, colxcount, colloading,
-                    colLmz, colIonMode, positiveScanEvent, negativeScanEvent, colnum, ppm, maxRTShift, scales, reintegrateIntensityCutoff, snrTH)
+                    colLmz, colIonMode, positiveScanEvent, negativeScanEvent, colnum, ppm, maxRTShift, scales, reintegrateIntensityCutoff, snrTH,
+                    smoothingWindow, smoothingWindowSize)
         u.setMultiProcessingQueue(queue, i)
 
         toProcFiles.append(u)
@@ -720,14 +730,16 @@ def _integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colload
         table.applyFunction(u.matchIntegratedDataToTable)
 
     if writeConfig:
-        processingParams=[]
-        processingParams.append("FPREINT_ppm=%s"%str(ppm))
-        processingParams.append("FPREINT_maxRTShift=%s"%str(maxRTShift))
-        processingParams.append("FPREINT_scales=%s"%str(scales))
-        processingParams.append("FPREINT_reintegrateIntensityCutoff=%s"%str(reintegrateIntensityCutoff))
-        processingParams.append("FPREINT_positiveScanEvent=%s"%str(positiveScanEvent))
-        processingParams.append("FPREINT_negativeScanEvent=%s"%str(negativeScanEvent))
-        table.addComment("# %s"%("%s"%(", ".join(processingParams))))
+        processingParams=Bunch()
+        processingParams.FPReintegrate_ppm=ppm
+        processingParams.FPReintegrate_maxRTShift=maxRTShift
+        processingParams.FPReintegrate_scales=scales
+        processingParams.FPReintegrate_cutoff=reintegrateIntensityCutoff
+        processingParams.FPReintegrate_positiveScanEvent=positiveScanEvent
+        processingParams.FPReintegrate_negativeScanEvent=negativeScanEvent
+        processingParams.FPReintegrate_smoothingWindow=smoothingWindow
+        processingParams.FPReintegrate_smoothingWindowSize=smoothingWindowSize
+        table.addComment("## Reintegration files processing parameters %s"%(processingParams.dumpAsJSon().replace("\"", "'")))
 
     # save the re-integrated data matrix to the input file
     TableUtils.saveFile(table, toF)
@@ -781,7 +793,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
     # check, if a specified mzxml file can be loaded successfully
     def checkFileImport(self, file):
 
-        fhash="%s_%s"%(file, md5(open(file, 'rb').read()).hexdigest())  #self.ckeckedLCMSFiles[fhash]=Bunch(parsed=parsed, fls=tm.getFilterLinesPerPolarity(), pols=tm.getPolarities(), tics=tics)
+        #fhash="%s_%s"%(file, sha256(open(file, 'rb').read()).hexdigest())  #self.ckeckedLCMSFiles[fhash]=Bunch(parsed=parsed, fls=tm.getFilterLinesPerPolarity(), pols=tm.getPolarities(), tics=tics)
+        fhash="%s_NOHash"%(file)  ## ignore hash, files are not likely to change
 
         if fhash not in self.checkedLCMSFiles.keys():
             f=file.replace("\\","/")
@@ -903,7 +916,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         try:
                             if self.checkFileImport(file)==True:
 
-                                fhash="%s_%s"%(file, md5(open(file, 'rb').read()).hexdigest())
+                                #fhash="%s_%s"%(file, sha256(open(file, 'rb').read()).hexdigest())
+                                fhash="%s_NOHash"%(file)  ## ignore hash, files are not likely to change
                                 b=self.checkedLCMSFiles[fhash]
 
                                 pols=b.pols
@@ -2038,21 +2052,23 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         overallStart = time.time()
 
+        writeMZXMLOptions = 0
+        if self.ui.saveMZXML.isChecked():
+            if self.ui.wm_ia.checkState() == QtCore.Qt.Checked:
+                writeMZXMLOptions |= 1
+            if self.ui.wm_iap.checkState() == QtCore.Qt.Checked:
+                writeMZXMLOptions |= 2
+            if self.ui.wm_imb.checkState() == QtCore.Qt.Checked:
+                writeMZXMLOptions |= 4
+            if self.ui.wm_ib.checkState() == QtCore.Qt.Checked:
+                writeMZXMLOptions |= 8
+
         # process individual files
         if self.ui.processIndividualFiles.isChecked():
             logging.info("")
             logging.info("Processing individual LC-HRMS data on %d CPU core(s).."%min(len(files), cpus))
 
-            writeMZXMLOptions = 0
-            if self.ui.saveMZXML.isChecked():
-                if self.ui.wm_ia.checkState() == QtCore.Qt.Checked:
-                    writeMZXMLOptions |= 1
-                if self.ui.wm_iap.checkState() == QtCore.Qt.Checked:
-                    writeMZXMLOptions |= 2
-                if self.ui.wm_imb.checkState() == QtCore.Qt.Checked:
-                    writeMZXMLOptions |= 4
-                if self.ui.wm_ib.checkState() == QtCore.Qt.Checked:
-                    writeMZXMLOptions |= 8
+
 
             # Initialize multiprocessing pool
             p = Pool(processes=min(len(files), cpus))  #, maxtasksperchild=1) # only in python >=2.7
@@ -2251,6 +2267,60 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                 try:
                     #Group results
+                    generalProcessingParams=Bunch(exOperator=str(self.ui.exOperator_LineEdit.text()),
+                                                  exExperimentID=str(self.ui.exExperimentID_LineEdit.text()),
+                                                  exComments=str(self.ui.exComments_TextEdit.toPlainText()),
+                                                  exExperimentName=str(self.ui.exExperimentName_LineEdit.text()),
+                                                  writePDF=self.ui.savePDF.checkState() == QtCore.Qt.Checked,
+                                                  writeTSV=self.ui.saveCSV.checkState() == QtCore.Qt.Checked,
+                                                  writeMZXML=writeMZXMLOptions,
+                                                  metabolisationExperiment=self.labellingExperiment==TRACER,
+                                                  intensityThreshold=self.ui.intensityThreshold.value(),
+                                                  intensityCutoff=self.ui.intensityCutoff.value(),
+                                                  labellingisotopeA=str(self.ui.isotopeAText.text()),
+                                                  labellingisotopeB=str(self.ui.isotopeBText.text()),
+                                                  xOffset=self.isotopeBmass - self.isotopeAmass,
+                                                  useRatio=self.ui.useRatio.checkState()==QtCore.Qt.Checked,
+                                                  minRatio=self.ui.minRatio.value(),
+                                                  maxRatio=self.ui.maxRatio.value(),
+                                                  useCValidation=int(str(self.ui.useCValidation.checkState())),
+                                                  configuredTracers="[%s]"%",".join([str(t) for t in self.configuredTracers]), startTime=self.ui.scanStartTime.value(),
+                                                  stopTime=self.ui.scanEndTime.value(), maxLoading=self.ui.maxLoading.value(),
+                                                  xMin=self.ui.minXCount.value(), xMax=self.ui.maxXCount.value(),
+                                                  ppm=self.ui.ppmRangeIdentification.value(),
+                                                  isotopicPatternCountLeft=self.ui.isotopePatternCountA.value(),
+                                                  isotopicPatternCountRight=self.ui.isotopePatternCountB.value(),
+                                                  lowAbundanceIsotopeCutoff=self.ui.isoAbundance.checkState() == QtCore.Qt.Checked,
+                                                  intensityThresholdIsotopologs=self.ui.intensityThresholdIsotopologs.value(),
+                                                  purityN=self.ui.isotopicAbundanceA.value(),
+                                                  purityL=self.ui.isotopicAbundanceB.value(), intensityErrorN=self.ui.baseRange.value(),
+                                                  intensityErrorL=self.ui.isotopeRange.value(),
+                                                  minSpectraCount=self.ui.minSpectraCount.value(), clustPPM=self.ui.clustPPM.value(),
+                                                  chromPeakPPM=self.ui.wavelet_EICppm.value(),
+                                                  eicSmoothingWindow=str(self.ui.eicSmoothingWindow.currentText()),
+                                                  eicSmoothingWindowSize=self.ui.eicSmoothingWindowSize.value(),
+                                                  scales=[self.ui.wavelet_minScale.value(), self.ui.wavelet_maxScale.value()],
+                                                  snrTh=self.ui.wavelet_SNRThreshold.value(),
+                                                  peakCenterError=self.ui.peak_centerError.value(),
+                                                  peakScaleError=self.ui.peak_scaleError.value(),
+                                                  minPeakCorr=self.ui.minPeakCorr.value(),
+                                                  checkPeaksRatio=self.ui.checkBox_checkPeakRatio.isChecked(),
+                                                  minPeaksRatio=self.ui.doubleSpinBox_minPeakRatio.value(),
+                                                  maxPeaksRatio=self.ui.doubleSpinBox_maxPeakRatio.value(),
+                                                  calcIsoRatioNative=self.ui.calcIsoRatioNative_spinBox.value(),
+                                                  calcIsoRatioLabelled=self.ui.calcIsoRatioLabelled_spinBox.value(),
+                                                  calcIsoRatioMoiety=self.ui.calcIsoRatioMoiety_spinBox.value(),
+                                                  minCorrelationConnections=self.ui.minCorrelationConnections.value(),
+                                                  positiveScanEvent=str(self.ui.positiveScanEvent.currentText()),
+                                                  negativeScanEvent=str(self.ui.negativeScanEvent.currentText()),
+                                                  correctCCount=self.ui.correctcCount.checkState() == QtCore.Qt.Checked,
+                                                  minCorrelation=self.ui.minCorrelation.value(),
+                                                  hAIntensityError=self.ui.hAIntensityError.value(),
+                                                  hAMinScans=self.ui.hAMinScans.value(),
+                                                  adducts="[%s]"%",".join([str(a) for a in self.adducts]),
+                                                  elements="[%s]"%",".join([str(e) for e in self.elementsForNL]),
+                                                  heteroAtoms="[%s]"%",".join([str(h) for h in self.heteroElements]),
+                                                  rVersion=getRVersion(), meVersion="MetExtract (%s)" % MetExtractVersion)
                     procProc = FuncProcess(_target=bracketResults,
                                             indGroups=indGroups, minX=self.ui.minXCount.value(), maxX=self.ui.maxXCount.value(),
                                             groupSizePPM=self.ui.groupPpm.value(),
@@ -2261,7 +2331,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                             file=str(self.ui.groupsSave.text()),
                                             align=(self.ui.alignChromatograms.checkState() == QtCore.Qt.Checked),
                                             nPolynom=self.ui.polynomValue.value(),
-                                            rVersion=getRVersion(), meVersion="MetExtract (%s)" % MetExtractVersion)
+                                            rVersion=getRVersion(), meVersion="MetExtract (%s)" % MetExtractVersion,
+                                            generalProcessingParams=generalProcessingParams)
                     procProc.addKwd("pwMaxSet", procProc.getQueue())
                     procProc.addKwd("pwValSet", procProc.getQueue())
                     procProc.start()
@@ -2443,6 +2514,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                          scales=[self.ui.wavelet_minScale.value(), self.ui.wavelet_maxScale.value()],
                                          reintegrateIntensityCutoff=self.ui.reintegrateIntensityCutoff.value(),
                                          snrTH=self.ui.wavelet_SNRThreshold.value(),
+                                         smoothingWindow=str(self.ui.eicSmoothingWindow.currentText()),
+                                         smoothingWindowSize=self.ui.eicSmoothingWindowSize.value(),
                                          positiveScanEvent=str(self.ui.positiveScanEvent.currentText()),
                                          negativeScanEvent=str(self.ui.negativeScanEvent.currentText()),
                                          pw=pw, selfObj=self, cpus=min(len(files), cpus))
@@ -2558,8 +2631,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             it.myType = "MZs"
             count = 0
             children=[]
-
             pw=ProgressWrapper(pwCount=4)
+
+
+            ## Load mz pairs
             pw.setText("Fetching mzs", i=0)
             pw.setText("", i=1)
             pw.setText("", i=2)
@@ -2604,7 +2679,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             children=[]
 
 
-
+            ## Load mz bins
             pw.setText("Fetching MZBins (%d)"%len(mzbins), i=1)
             pw.setMax(len(mzbins), i=1)
             if len(mzbins)<2500:
@@ -2646,12 +2721,15 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     pw.setValueu(count, i=1)
                 pw.setText("%d MZBins fetched"%count, i=1)
             else:
-                pw.setTextu("MZBins not fetched (too many; %d)"%len(mzbins))
+                pw.setTextu("MZBins not fetched (too many; %d)"%len(mzbins), i=1)
 
 
             it.addChildren(children)
             it.setText(1, "%d" % len(mzbins))
 
+
+
+            ## Load feature pairs
             it = QtGui.QTreeWidgetItem(["Feature pairs"])
             self.ui.res_ExtractedData.addTopLevelItem(it)
             it.myType = "Features"
@@ -2756,6 +2834,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                                            "ORDER BY tracerConfiguration.id, featureGroups.id"):
                 fGs.append(row)
 
+
+            ## Load Feature groups
             pw.setText("Fetching feature groups (%d)"%len(fGs), i=3)
             pw.setMax(len(fGs), i=3)
             for fG in fGs:
@@ -2851,6 +2931,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
             pw.hide()
 
+            ## Load parameters
             it = QtGui.QTreeWidgetItem(["Parameters"]);
             it.myType = "parameter"
             self.ui.res_ExtractedData.addTopLevelItem(it)
@@ -3079,6 +3160,49 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             for i in range(11):
                 self.ui.res_ExtractedData.header().resizeSection(i, sectionSizes[i])
 
+
+
+
+            ## Setup diagnostics
+            it = QtGui.QTreeWidgetItem(["Diagnostics"]);
+            it.myType = "diagnostic"
+            self.ui.res_ExtractedData.addTopLevelItem(it)
+
+            itl = QtGui.QTreeWidgetItem(["Observed intensities"]);
+            it.addChild(itl);
+            itl.myType = "diagnostic - observed intensities"
+
+            itl = QtGui.QTreeWidgetItem(["Relative mz error"]);
+            it.addChild(itl);
+            itl.myType = "diagnostic - relative mz error"
+
+            itl = QtGui.QTreeWidgetItem(["Relative mzbin deviation"]);
+            it.addChild(itl);
+            itl.myType = "diagnostic - relative mzbin deviation"
+
+            itl = QtGui.QTreeWidgetItem(["Feature pair correlations"]);
+            it.addChild(itl);
+            itl.myType = "diagnostic - feature pair correlations"
+
+            itl = QtGui.QTreeWidgetItem(["Feature pair M+1/M ratio"]);
+            it.addChild(itl);
+            itl.myType = "diagnostic - feature pair mp1 to m ratio"
+
+            itl = QtGui.QTreeWidgetItem(["Feature pair M'-1/M' ratio"]);
+            it.addChild(itl);
+            itl.myType = "diagnostic - feature pair mPp1 to mP ratio"
+
+            itl = QtGui.QTreeWidgetItem(["Feature pair assigned MZs"]);
+            it.addChild(itl);
+            itl.myType = "diagnostic - feature pair assigned mzs"
+
+            itl = QtGui.QTreeWidgetItem(["Feature pair MZ deviation"]);
+            it.addChild(itl);
+            itl.myType = "diagnostic - feature pair mz deviation"
+
+
+
+
         else:
             QtGui.QMessageBox.warning(self, "MetExtract", "No results are available for file %s", QtGui.QMessageBox.Ok)
 
@@ -3246,6 +3370,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 plotTypes.add("Features")
             if item.myType == "Feature Groups" or item.myType == "feature group":
                 plotTypes.add("Feature Groups")
+            if item.myType.lower().startswith("diagnostic"):
+                plotTypes.add("diagnostic")
+
 
             if item.myType == "Features" or item.myType == "feature":
                 if hasattr(item, "myData"):
@@ -3312,7 +3439,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             y.append(child.myData.mz)
                         x_vals.append(x)
                         y_vals.append(y)
-                    if(len(xvals)>0):
+                    if(len(x_vals)>0):
                         maxIntX = max(max(x_vals), maxIntX)
                         maxIntY = max(max(y_vals), maxIntY)
                     else:
@@ -3387,7 +3514,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         invert=-1
 
                     for row in self.currentOpenResultsFile.curs.execute(
-                                    "SELECT xic, xicL, xicfirstiso, xicLfirstiso, xicLfirstisoconjugate, xic_smoothed, xicL_smoothed, times FROM XICs WHERE id==%d" % cp.eicID):
+                                    "SELECT xic, xicL, xicfirstiso, xicLfirstiso, xicLfirstisoconjugate, xic_smoothed, xicL_smoothed, times, allPeaks FROM XICs WHERE id==%d" % cp.eicID):
                         xic                   = [float(t) for t in row[0].split(";")]
                         xicL                  = [float(t) for t in row[1].split(";")]
                         xicfirstiso           = [float(t) for t in row[2].split(";")]
@@ -3396,6 +3523,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         xic_smoothed                   = [float(t) for t in row[5].split(";")]
                         xicL_smoothed                  = [float(t) for t in row[6].split(";")]
                         times = [float(t) / 60. for t in row[7].split(";")]
+                        allPeaks = loads(base64.b64decode(str(row[8])))
+
 
                     if self.ui.scaleFeatures.isChecked():
                         s = int(cp.NPeakCenter - cp.NBorderLeft * 1)
@@ -3504,6 +3633,36 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                            ecColor=predefinedColors[useColi % len(predefinedColors)],
                                            arrowColor=predefinedColors[useColi % len(predefinedColors)], alpha=0.25)
 
+
+
+                    if self.ui.showDiagnostics.isChecked():
+                        for pa in allPeaks["peaksN"]:
+                            if pa.peakIndex!=cp.NPeakCenter:
+                                self.addAnnotation(self.ui.pl1, "" ,
+                                                   (times[pa.peakIndex], xic[pa.peakIndex]), (times[pa.peakIndex], xic[pa.peakIndex]), 0,
+                                                   fcColor="slategrey",
+                                                   ecColor="slategrey",
+                                                   arrowColor="slategrey", alpha=0.15, add=30)
+                        for pa in allPeaks["peaksL"]:
+                            self.addAnnotation(self.ui.pl1, "" ,
+                                               (times[pa.peakIndex], xicL[pa.peakIndex]), (times[pa.peakIndex], xicL[pa.peakIndex]), 0,
+                                               fcColor="slategrey",
+                                               ecColor="slategrey",
+                                               arrowColor="slategrey", alpha=0.15, up=False, add=30)
+
+
+
+                        for row in self.currentOpenResultsFile.curs.execute(
+                                    "SELECT c.id, c.eicID, c.NPeakCenterMin, c.NPeakCenter, c.mz, c.xcount, c.loading, (SELECT fg.featureName FROM FeatureGroupFeatures fgf INNER JOIN FeatureGroups fg ON fgf.fGroupID=fg.id WHERE fgf.fID=c.id) AS FGroupID FROM chromPeaks c WHERE c.eicID IN (%d)" % cp.eicID):
+
+                            if cp.NPeakCenter!=row[3]:
+                                self.addAnnotation(self.ui.pl1, "%s\n%.5f\n%.2f min"%(str(row[7]), row[4], row[2]/60.) ,
+                                                   (times[row[3]], xic[row[3]]), (times[row[3]], xic[row[3]]), 0,
+                                                   fcColor="slategrey",
+                                                   ecColor="slategrey",
+                                                   arrowColor="slategrey", alpha=0.15)
+
+
                     isMetabolisationExperiment = self.isTracerMetabolisationExperiment()
                     mzD, purN, purL = self.getLabellingParametersForResult(cp.id)
 
@@ -3551,7 +3710,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                     self.addArrow(self.ui.pl3, (cp.mz, toDrawInts[bm]), (cp.mz, h), drawArrowHead=True)
                     self.addArrow(self.ui.pl3, (cp.mz, h), (cp.mz + mzD * cp.xCount / cp.loading, h),
-                                  ecColor="firebrick")
+                                  ecColor="slategrey")
                     self.addArrow(self.ui.pl3, (cp.mz + mzD * cp.xCount / cp.loading, toDrawInts[bml]),(cp.mz + mzD * cp.xCount / cp.loading, h), drawArrowHead=True)
 
                     annotationHeight=h
@@ -3801,7 +3960,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                               (child.mz, h * intMul), drawArrowHead=True)
                                 self.addArrow(self.ui.pl3, (child.mz, h * intMul),
                                               (child.mz + mzD * child.xCount / child.loading, h * intMul),
-                                              ecColor="firebrick")
+                                              ecColor="slategrey")
                                 self.addArrow(self.ui.pl3, (
                                 child.mz + mzD * child.xCount / child.loading, (toDrawInts[bml]) * intMul),
                                               (child.mz + mzD * child.xCount / child.loading, h * intMul),
@@ -3812,7 +3971,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                         toDrawMzs[i] - (child.mz + 1.00335 / child.loading))) + 1
                                     h = max(toDrawInts[bm], toDrawInts[bml])
                                     self.addArrow(self.ui.pl3, (child.mz, h * intMul),
-                                                  (child.mz + 1.00335 / child.loading, h * intMul), ecColor="firebrick")
+                                                  (child.mz + 1.00335 / child.loading, h * intMul), ecColor="slategrey")
                                     self.addArrow(self.ui.pl3,
                                                   (child.mz + 1.00335 / child.loading, (toDrawInts[bml]) * intMul),
                                                   (child.mz + 1.00335 / child.loading, h * intMul), drawArrowHead=True)
@@ -3830,7 +3989,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                     self.addArrow(self.ui.pl3,
                                                   (child.mz + 1.00335 * (child.xCount - 1) / child.loading, h * intMul),
                                                   (child.mz + 1.00335 * child.xCount / child.loading, h * intMul),
-                                                  ecColor="firebrick")
+                                                  ecColor="slategrey")
 
                                     self.addArrow(self.ui.pl3, (child.mz, 0), (child.mz, intLeft * intMul), linewidth=5,
                                                   ecColor="orange")
@@ -4146,11 +4305,88 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
             #</editor-fold>
 
+
+
             selIndex += 1
 
+        #<editor-fold desc="#featureGroup results">
+
+        if len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - observed intensities":
+            intensities=[]
+            for row in self.currentOpenResultsFile.curs.execute("SELECT mz, intensity, lmz, tmz, xcount, loading FROM mzs"):
+                mz, intensity, lmz, tmz, xcount, loading=row
+                intensities.append(intensity)
+
+            self.ui.pl1.twinxs[0].hist(intensities, 50, normed=False, facecolor='green', alpha=0.5)
+            self.drawCanvas(self.ui.pl1)
+        elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - relative mz error":
+            mzdifferrors=[]
+            for row in self.currentOpenResultsFile.curs.execute("SELECT mz, lmz, tmz, xcount, loading FROM mzs"):
+                mz, lmz, tmz, xcount, loading=row
+                mzdifferrors.append((lmz-mz-tmz)*1000000/mz)
+
+            self.ui.pl1.twinxs[0].hist(mzdifferrors, 50, normed=False, facecolor='green', alpha=0.5)
+            self.drawCanvas(self.ui.pl1)
+        elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - relative mzbin deviation":
+            mzdeviations=[]
+            for row in self.currentOpenResultsFile.curs.execute("SELECT mzbinid, min(mzs.mz), max(mzs.mz), count(mzs.mz) FROM mzbinskids INNER JOIN mzs ON mzs.id=mzbinskids.mzid GROUP BY mzbinid"):
+                binid, mzmin, mzmax, n=row
+                if n>1:
+                    mzdeviations.append((mzmax-mzmin)*1000000/mzmin)
+
+            self.ui.pl1.twinxs[0].hist(mzdeviations, 50, normed=False, facecolor='green', alpha=0.5)
+            self.drawCanvas(self.ui.pl1)
+        elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - feature pair correlations":
+            peaksCorr=[]
+            for row in self.currentOpenResultsFile.curs.execute("SELECT peaksCorr FROM chromPeaks"):
+                peakCorr,=row
+                peaksCorr.append(peakCorr)
+
+            self.ui.pl1.twinxs[0].hist(peaksCorr, 10, normed=False, facecolor='green', alpha=0.5)
+            self.drawCanvas(self.ui.pl1)
+        elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - feature pair mp1 to m ratio":
+            peaksRatio=[]
+            for row in self.currentOpenResultsFile.curs.execute("SELECT peaksRatioMp1 FROM chromPeaks"):
+                peakRatio,=row
+                peaksRatio.append(peakRatio)
+
+            self.ui.pl1.twinxs[0].hist(peaksRatio, 30, normed=False, facecolor='green', alpha=0.5)
+            self.drawCanvas(self.ui.pl1)
+        elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - feature pair mPp1 to mP ratio":
+            peaksRatio=[]
+            for row in self.currentOpenResultsFile.curs.execute("SELECT peaksRatioMPm1 FROM chromPeaks"):
+                peakRatio,=row
+                peaksRatio.append(peakRatio)
+
+            self.ui.pl1.twinxs[0].hist(peaksRatio, 30, normed=False, facecolor='green', alpha=0.5)
+            self.drawCanvas(self.ui.pl1)
+        elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - feature pair assigned mzs":
+            assignedmzs=[]
+            for row in self.currentOpenResultsFile.curs.execute("SELECT assignedMZs FROM chromPeaks"):
+                n,=row
+                assignedmzs.append(n)
+
+            self.ui.pl1.twinxs[0].hist(assignedmzs, 30, normed=False, facecolor='green', alpha=0.5)
+            self.drawCanvas(self.ui.pl1)
+        elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - feature pair mz deviation":
+            devMeans=[]
+            devVals=[]
+            for row in self.currentOpenResultsFile.curs.execute("SELECT mzdifferrors FROM chromPeaks"):
+                mzdifferrors,=row
+                mzdifferrors=loads(base64.b64decode(mzdifferrors))
+                devMeans.append([mzdifferrors.mean if mzdifferrors.mean is not None else -1])
+                devVals.extend([v for v in mzdifferrors.vals if v is not None])
+
+            self.ui.pl1.twinxs[0].hist(devMeans, 30, normed=False, facecolor='green', alpha=0.5, label="Means")
+            self.ui.pl1.twinxs[0].hist(devVals, 30, normed=False, facecolor='blue', alpha=0.5, label="Scan-level")
+            self.ui.pl1.twinxs[0].legend(loc='upper right')
+            self.drawCanvas(self.ui.pl1)
+
+
+        #</editor-fold>
 
         #<editor-fold desc="#feature pair plotting">
-        if "Features" in plotTypes or "Feature Groups" in plotTypes or "feature" in plotTypes:
+        elif "Features" in plotTypes or "Feature Groups" in plotTypes or "feature" in plotTypes:
             if self.ui.scaleFeatures.checkState() == QtCore.Qt.Checked:
                 self.ui.pl1.axes.set_ylabel("Intensity [counts; normalised]")
             else:
@@ -4200,6 +4436,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             self.ui.pl1.twinxs[0].set_xlabel("Retention time [minutes]")
             self.drawCanvas(self.ui.pl1, ylim=[0, maxIntY], xlim=[0, maxIntX])
         #</editor-fold>
+
         else:
             self.drawCanvas(self.ui.pl1)
 
@@ -4207,7 +4444,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
     #</editor-fold>
 
     #<editor-fold desc="### general plotting functions">
-    def addArrow(self, plt, point, at, plotIndex=0, fcColor="white", ecColor="white", arrowColor="firebrick", alpha=1,
+    def addArrow(self, plt, point, at, plotIndex=0, fcColor="white", ecColor="white", arrowColor="slategrey", alpha=1,
                  arrowAlpha=1, drawArrowHead=False, linewidth=1):
 
         if point != at:
@@ -4226,8 +4463,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         pass
 
     def addAnnotation(self, plt, text, point, at, plotIndex=0, rotation=0, arrowAlpha=0.5, offset=(-10, 80),
-                      fcColor="white", ecColor="white", arrowColor="firebrick", alpha=0.8, up=True):
-        add = 80
+                      fcColor="white", ecColor="white", arrowColor="firebrick", alpha=0.8, up=True, add=80):
         if not up:
             add = -add
         plt.twinxs[plotIndex].annotate(text, xy=point, xytext=(-10, add), xycoords='data', textcoords='offset points',

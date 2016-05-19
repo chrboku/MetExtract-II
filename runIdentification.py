@@ -15,24 +15,22 @@
 #    along with this program; if not, write to the Free Software
 #    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-import logging
-
-from copy import copy
-from sqlite3 import *
-import os
-from pickle import loads, dumps
 import base64
+import logging
+import os
 import platform
-import re
-import time
-from math import floor, ceil
-import numpy as np
 import pprint
+import re
+from copy import copy
+from math import floor
+from pickle import loads, dumps
+from sqlite3 import *
 
-from utils import USEGRADIENTDESCENDPEAKPICKING
+import numpy as np
 
-from utils import printArraysAsTable, getNormRatio, CallBackMethod, get_main_dir
 import HCA_general
+from utils import USEGRADIENTDESCENDPEAKPICKING
+from utils import getNormRatio, CallBackMethod, get_main_dir
 
 pp = pprint.PrettyPrinter(indent=1)
 
@@ -75,9 +73,9 @@ class TTR(Flowable):  #TableTextRotate
 from Chromatogram import Chromatogram
 from runIdentification_matchPartners import matchPartners
 from formulaTools import formulaTools, getIsotopeMass
-from utils import getAtomAdd, mean, weightedMean, sd, weightedSd, smoothDataSeries, SQLInsert, SQLSelectAsObject, createTableFromBunch, writeObjectAsSQLInsert
+from utils import getAtomAdd, mean, weightedMean, sd, weightedSd, smoothDataSeries, SQLInsert, SQLSelectAsObject
 from MZHCA import HierarchicalClustering, cutTreeSized
-from MassSpecWavelet import MassSpecWavelet
+from chromPeakPicking.MassSpecWavelet import MassSpecWavelet
 from utils import corr, getSubGraphs, ChromPeakPair, Bunch
 from sumFormula import sumFormulaGenerator
 from mePyGuis.TracerEdit import ConfiguredTracer
@@ -221,7 +219,7 @@ class RunIdentification:
 
         self.chromPeakFile = chromPeakFile
         if self.chromPeakFile is None:
-            cpf = get_main_dir()+ "./MassSpecWaveletIdentification.r"
+            cpf = get_main_dir()+ "./chromPeakPicking/MassSpecWaveletIdentification.r"
             self.chromPeakFile = cpf
 
         self.performCorrectCCount = correctCCount
@@ -304,19 +302,16 @@ class RunIdentification:
             "create table tracerConfiguration(id INTEGER PRIMARY KEY, name TEXT, elementCount INTEGER, natural TEXT, labelling TEXT, deltaMZ REAL, purityN REAL, purityL REAL, amountN REAL, amountL REAL, monoisotopicRatio REAL, lowerError REAL, higherError REAL, tracertype TEXT)")
         curs.execute("DROP TABLE IF EXISTS MZs")
         curs.execute(
-            "create table MZs(id INTEGER PRIMARY KEY, tracer INTEGER, mz REAL, lmz REAL, xcount INTEGER, scanid INTEGER, scantime REAL, loading INTEGER, intensity FLOAT, ionMode TEXT)")
+            "create table MZs(id INTEGER PRIMARY KEY, tracer INTEGER, mz REAL, lmz REAL, tmz REAL, xcount INTEGER, scanid INTEGER, scantime REAL, loading INTEGER, intensity FLOAT, ionMode TEXT)")
         curs.execute("DROP TABLE IF EXISTS MZBins")
         curs.execute("CREATE TABLE MZBins(id INTEGER PRIMARY KEY, mz REAL, ionMode TEXT)")
         curs.execute("DROP TABLE IF EXISTS MZBinsKids")
         curs.execute("CREATE TABLE MZBinsKids(mzbinID INTEGER, mzID INTEGER)")
         curs.execute("DROP TABLE IF EXISTS XICs")
         curs.execute(
-            "CREATE TABLE XICs(id INTEGER PRIMARY KEY, avgmz REAL, xcount INTEGER, loading INTEGER, polarity TEXT, xic TEXT, xic_smoothed TEXT, xicL TEXT, xicL_smoothed TEXT, xicfirstiso TEXT, xicLfirstiso TEXT, xicLfirstisoconjugate TEXT, times TEXT, scanCount INTEGER)")
+            "CREATE TABLE XICs(id INTEGER PRIMARY KEY, avgmz REAL, xcount INTEGER, loading INTEGER, polarity TEXT, xic TEXT, xic_smoothed TEXT, xicL TEXT, xicL_smoothed TEXT, xicfirstiso TEXT, xicLfirstiso TEXT, xicLfirstisoconjugate TEXT, times TEXT, scanCount INTEGER, allPeaks TEXT)")
         curs.execute("DROP TABLE IF EXISTS tics")
         curs.execute("CREATE TABLE tics(id INTEGER PRIMARY KEY, loading INTEGER, scanevent TEXT, times TEXT, intensities TEXT)")
-        curs.execute("DROP TABLE IF EXISTS allXICs")
-        curs.execute(
-            "CREATE TABLE allXICs(id INTEGER PRIMARY KEY, avgmz REAL, xcount INTEGER, loading INTEGER, polarity TEXT, xic TEXT, xic_smoothed TEXT, xicL TEXT, xicL_smoothed TEXT, xicfirstiso TEXT, xicLfirstiso TEXT, xicLfirstisoconjugate TEXT, times TEXT, scanCount INTEGER)")
         curs.execute("DROP TABLE IF EXISTS chromPeaks")
         curs.execute(
             "CREATE TABLE chromPeaks(id INTEGER PRIMARY KEY, tracer INTEGER, eicID INTEGER, NPeakCenter INTEGER, NPeakCenterMin REAL, NPeakScale FLOAT, NSNR REAL, NPeakArea REAL, mz REAL, lmz REAL, xcount INTEGER, xcountId INTEGER, LPeakCenter INTEGER, LPeakCenterMin REAL, LPeakScale FLOAT, LSNR REAL, LPeakArea REAL, Loading INTEGER, peaksCorr FLOAT, heteroAtoms TEXT, NBorderLeft INTEGER, NBorderRight INTEGER, LBorderLeft INTEGER, LBorderRight INTEGER, adducts TEXT, heteroAtomsFeaturePairs TEXT, massSpectrumID INTEGER, ionMode TEXT, assignedMZs INTEGER, fDesc TEXT, peaksRatio FLOAT, peaksRatioMp1 FLOAT, peaksRatioMPm1 FLOAT, isotopesRatios TEXT, mzDiffErrors TEXT, peakType TEXT, assignedName TEXT)")
@@ -762,7 +757,7 @@ class RunIdentification:
             elif mz.ionMode == "-":
                 scanEvent = self.negativeScanEvent
 
-            SQLInsert(curs, "MZs", id=mz.id, tracer=mz.tid, mz=mz.mz, lmz=mz.lmz, xcount=mz.xCount, scanid=mzxml.getIthMS1Scan(mz.scanIndex, scanEvent).id, scanTime=mzxml.getIthMS1Scan(mz.scanIndex, scanEvent).retention_time,
+            SQLInsert(curs, "MZs", id=mz.id, tracer=mz.tid, mz=mz.mz, lmz=mz.lmz, tmz=mz.tmz, xcount=mz.xCount, scanid=mzxml.getIthMS1Scan(mz.scanIndex, scanEvent).id, scanTime=mzxml.getIthMS1Scan(mz.scanIndex, scanEvent).retention_time,
                       loading=mz.loading, intensity=mz.nIntensity, ionMode=mz.ionMode)
 
             self.curMZId = self.curMZId + 1
@@ -1074,21 +1069,11 @@ class RunIdentification:
                                   xic_smoothed                  =";".join(["%f" % (eicSmoothed[i]) for i in range(0, len(eic))]),
                                   xicL_smoothed                 =";".join(["%f" % (eicLSmoothed[i]) for i in range(0, len(eic))]),
 
-
                                   times=";".join(["%f" % (times[i]) for i in range(0, len(times))]),
-                                  scanCount=len(eic))
+                                  scanCount=len(eic),
 
-                        SQLInsert(curs, "allXICs", id=self.curEICId, avgmz=meanmz, xcount=xcount,
-                                  loading=kids[0].getObject().loading, polarity=ionMode,
-                                  xic                  =";".join(["%f" % (eic[i]) for i in range(0, len(eic))]),
-                                  xicL                 =";".join(["%f" % (eicL[i]) for i in range(0, len(eic))]),
-                                  xicfirstiso          =";".join(["%f" % (eicfirstiso[i]) for i in range(0, len(eic))]),
-                                  xicLfirstiso         =";".join(["%f" % (eicLfirstiso[i]) for i in range(0, len(eic))]),
-                                  xicLfirstisoconjugate=";".join(["%f" % (eicLfirstisoconjugate[i]) for i in range(0, len(eic))]),
-                                  xic_smoothed                  =";".join(["%f" % (eicSmoothed[i]) for i in range(0, len(eic))]),
-                                  xicL_smoothed                 =";".join(["%f" % (eicLSmoothed[i]) for i in range(0, len(eic))]),
-                                  times=";".join(["%f" % (times[i]) for i in range(0, len(times))]),
-                                  scanCount=len(eic))
+                                  allPeaks=base64.b64encode(dumps({"peaksN":peaksN, "peaksL":peaksL})))
+
 
                         # save the detected feature pairs in these EICs to the database
                         for peak in curChromPeaks:
@@ -1185,6 +1170,12 @@ class RunIdentification:
                                 if a not in todel.keys():
                                     todel[a]=[]
                                 todel[a].append("singly charged mismatch with half the number of carbon atoms with "+str(peakB.mz)+" "+str(peakB.xCount))
+                        elif abs(peakB.mz-peakA.mz-1.00335/peakA.loading)<= (peakA.mz * 2.5 * self.ppm / 1000000.) and peakB.xCount==peakA.xCount:
+                            ## increased m/z value by one carbon atom, but the same number of labeling atoms ## happens quite often with 15N-labeled metabolites e.g. 415.21374 and 415.7154 or 414.6978 and 415.19966
+                            if b not in todel.keys():
+                                todel[b]=[]
+                            todel[b].append("increased m/z by one labeling atoms while the number of labeled atoms is identical."+str(peakA.mz))
+
                         else:
                             for i in [1,2,3]:
                                 if peakA.loading == peakB.loading and abs(peakB.mz - peakA.mz - i*self.xOffset/peakA.loading) <= peakA.mz * 2.5 * self.ppm / 1000000. and (peakA.xCount - peakB.xCount) in [1,2,3]:
@@ -1198,6 +1189,7 @@ class RunIdentification:
                                         todel[b]=[]
                                     todel[b].append("increased mz (by %d 13C) and same number of labeling atoms with "%(i)+str(peakA.mz)+" "+str(peakA.xCount))
 
+
         for a in range(0, len(chromPeaks)):
             for b in range(0, len(chromPeaks)):
 
@@ -1206,8 +1198,7 @@ class RunIdentification:
                 if a != b and peakA.ionMode == peakB.ionMode:
                     if abs(peakA.NPeakCenter - peakB.NPeakCenter) <= self.peakCenterError:
                         #same chrom peak
-                        if abs(peakA.mz - peakB.mz - peakA.xCount * self.xOffset / peakA.loading) <= peakA.mz * 2 * self.ppm / 1000000. and abs(
-                            peakA.xCount * 2 - peakB.xCount) <= 1:
+                        if abs(peakA.mz - peakB.mz - peakA.xCount * self.xOffset / peakA.loading) <= peakA.mz * 2 * self.ppm / 1000000. and abs(peakA.xCount * 2 - peakB.xCount) <= 1:
                             if a not in todel.keys():
                                 todel[a]=[]
                             todel[a].append("dimer (1)"+str(peakB.mz)+" "+str(peakB.xCount))
@@ -1371,7 +1362,7 @@ class RunIdentification:
 
 
 
-            def findMZDifferenceRelativeToXnForMZs(mzFrom, mzTo, xCount, loading, fromScan, toScan, mzxml, scanEvent, ppm):
+            def findMZDifferenceRelativeToXnForMZs(mzFrom, mzTo, xCount, xoffset, loading, fromScan, toScan, mzxml, scanEvent, ppm):
                 diffs=[]
                 for curScanNum in range(fromScan, toScan):
                     scan = mzxml.getIthMS1Scan(curScanNum, scanEvent)
@@ -1388,11 +1379,11 @@ class RunIdentification:
                             if refBounds != -1:
                                 isoPeakMZ = scan.mz_list[refBounds]
 
-                                diffs.append((abs(isoPeakMZ-peakMZ)-1.00335*xCount/loading)*1000000./mzFrom)
+                                diffs.append((abs(isoPeakMZ-peakMZ)-xoffset*xCount/loading)*1000000./mzFrom)
 
                 return diffs
 
-            diffs=findMZDifferenceRelativeToXnForMZs(peak.mz, peak.mz + self.xOffset * peak.xCount / peak.loading, peak.xCount, peak.loading,
+            diffs=findMZDifferenceRelativeToXnForMZs(peak.mz, peak.mz + self.xOffset * peak.xCount / peak.loading, peak.xCount, self.xOffset, peak.loading,
                                                      int(max(peak.NPeakCenter - peak.NBorderLeft, peak.LPeakCenter - peak.LBorderLeft)),
                                                      int(min(peak.NPeakCenter + peak.NBorderRight, peak.LPeakCenter + peak.LBorderRight)) + 1,
                                                      mzxml, scanEvent, self.ppm)
@@ -2827,9 +2818,10 @@ class RunIdentification:
             if not USEGRADIENTDESCENDPEAKPICKING:
                 self.CP = MassSpecWavelet(self.chromPeakFile)
             else:
-                from GradientPeaks import GradientPeaks
-                self.CP=GradientPeaks()                                                                      ## generic gradient descend peak picking
-                self.CP=GradientPeaks(minInt=10000, minIntFlanks=10, minIncreaseRatio=.05, expTime=[10, 250]) ## Swiss Orbitrap HF data
+                from chromPeakPicking.GradientPeaks import GradientPeaks
+                self.CP=GradientPeaks()                                                                       ## generic gradient descend peak picking - do not use. Parameters need to be optimized
+                self.CP=GradientPeaks(minInt=10000, minIntFlanks=10, minIncreaseRatio=.15, expTime=[10, 250]) ## Swiss Orbitrap HF data
+                self.CP=GradientPeaks(minInt=1000, minIntFlanks=10, minIncreaseRatio=.15, expTime=[5, 150]) ## Bernhard
 
             self.curPeakId = 1
             self.curEICId = 1

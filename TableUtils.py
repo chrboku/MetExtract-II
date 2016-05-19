@@ -24,7 +24,7 @@ class colDef:
         return self.format
 
     def __str__(self):
-        return "name: %s (%s)" % (self.name, self.format)
+        return "name: %s (format:%s)" % (self.name, self.format)
 
 # class table provides generic methods to insert / alter / delete data stored in an in-memory SQLite database table
 # the use is abstracted as much as possible from the SQLite syntax
@@ -96,6 +96,43 @@ class Table:
             self.curs.execute(self.__updateTableName("INSERT INTO :table:_COMMENTS(comment) VALUES(?)"), [comment])
 
         self.conn.commit()
+
+    def renameColumn(self, oldColName, newColName):
+        colDesc=None
+        colNewDesc=None
+        cols=self.getColumns()
+        for col in cols:
+            if col.name==oldColName:
+                colDesc=col
+            if col.name==newColName:
+                colNewDesc=col
+
+        if colDesc is None:
+            raise Exception("Column %s not found" % colDesc.name)
+        if colNewDesc is not None:
+            raise Exception("New column %s already exists" % colNewDesc.name)
+
+        self.addColumn(newColName, colDesc.format)
+
+        self.curs.execute(self.__updateTableName("UPDATE :table: SET %s = %s"%(newColName, oldColName)))
+        self.conn.commit()
+
+        cols=self.getColumns()
+        uCols=["__internalID"]
+        for col in cols:
+            if col.name!=oldColName:
+                uCols.append(col.name)
+
+        self.curs.execute(self.__updateTableName("ALTER TABLE :table: RENAME TO :table:_old"))
+        self.curs.execute(self.__updateTableName("CREATE TABLE :table: AS SELECT %s FROM :table:_old"%(",".join(uCols))))
+        self.curs.execute(self.__updateTableName("DROP TABLE :table:_old"))
+
+        self.conn.commit()
+
+    def addPrefixToAllColumns(self, prefix):
+        for col in self.getColumns():
+            colName=col.name
+            self.renameColumn(colName, prefix+colName)
 
     # get all available columns of the table
     def getColumns(self):
@@ -339,7 +376,12 @@ class TableUtils:
         if not (args.has_key("select")):
             args["select"] = ""
         if not (args.has_key("cols")):
-            args["cols"] = []
+            args["cols"] = ["*"]
+        if "*" in args["cols"]:
+            for col in table.getColumns():
+                if col.name != "__internalID" and col.name not in args["cols"]:
+                    args["cols"].insert(args["cols"].index("*"), col.name)
+            args["cols"].remove("*")
 
         if fType == "xls" or bn.endswith(".xls") or fType == "xlsx" or bn.endswith(".xlsx"):
             if not (args.has_key("sheetName")):

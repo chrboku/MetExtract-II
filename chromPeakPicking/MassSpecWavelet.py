@@ -124,22 +124,6 @@ if __name__ == '__main__':
 
 
     chromatogram = Chromatogram()
-    if False:
-        chromatogram.parse_file("F:/BenediktWarth/160303_final raw data/neg/GEN_24h_5uM_lysate_2_neg_066.mzXML")
-        mz = 269.0456722#349.002275
-        ppm = 5.
-        cn = 4
-        z = 1
-        scales = [1, 5]
-        dmz = 1.00628
-    if False:
-        chromatogram.parse_file("F:/BenediktWarth/160303_final raw data/pos/GEN_24h_5uM_lysate_1_pos_134.mzXML")
-        mz = 271.05970086
-        ppm = 5.
-        cn = 4
-        z = 1
-        scales = [1, 5]
-        dmz = 1.00628
 
     if False:
         chromatogram.parse_file("F:/Thermo_OribtrapTest/OrbitrapHF_Swiss/Vial1_pos_60k_06.mzXML")
@@ -151,13 +135,13 @@ if __name__ == '__main__':
         dmz = 1.00335
 
     if True:
-        chromatogram.parse_file("F:/forTUGraz/140407_neg_147_comparison_solvent_wheat_ear_CM/MeOH_C_neg_6.mzXML")
-        mz = 193.0323
+        chromatogram.parse_file("E:/150425_pos_197_Fg_13C_15N_Labeling/Fg_14N15N_WH1.mzXML")
+        mz = 532.33537
         ppm = 5.
-        cn = 10
+        cn = 4
         z = 1
-        scales = [3,11]
-        dmz = 1.00335
+        scales = [3,19]
+        dmz = 0.99703
 
     scanEvents = chromatogram.getFilterLines()
     for s in scanEvents:

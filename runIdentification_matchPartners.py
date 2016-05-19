@@ -34,9 +34,10 @@ def getSubstitutionArray(purity, xMax, maxSub):
 
 # results object (ion signal pairs)
 class mzFeature:
-    def __init__(self, mz, lmz, xCount, scanIndex, loading, nIntensity, lIntensity, ionMode):
+    def __init__(self, mz, lmz, tmz, xCount, scanIndex, loading, nIntensity, lIntensity, ionMode):
         self.mz = mz
         self.lmz = lmz
+        self.tmz = tmz
         self.xCount = xCount
         self.scanIndex = scanIndex
         self.loading = loading
@@ -109,8 +110,8 @@ def matchPartners(mzXMLData, labellingElement, useCValidation, intensityThres, i
 
                                 possibleLoadings=[]
                                 ## figure out possible loadings
-                                for l in range(1, maxLoading+1, 1):
-                                    iso = curScan.findMZ(curPeakmz + oriXOffset / l, ppm, start=currentPeakIndex)
+                                for l in range(maxLoading, 0, -1):
+                                    iso = curScan.findMZ(curPeakmz + oriCValidationOffset / l, ppm, start=currentPeakIndex)
                                     iso = curScan.getMostIntensePeak(iso[0], iso[1])
 
                                     if iso != -1:
@@ -167,6 +168,7 @@ def matchPartners(mzXMLData, labellingElement, useCValidation, intensityThres, i
                                                             curPeakDetectedIonPairs.append(
                                                                 mzFeature(mz=curPeakmz,
                                                                           lmz=labPeakmz,
+                                                                          tmz=xCount * xOffset,
                                                                           xCount=xCount,
                                                                           scanIndex=curScanIndex,
                                                                           loading=curLoading,
@@ -180,9 +182,6 @@ def matchPartners(mzXMLData, labellingElement, useCValidation, intensityThres, i
                                                         # find M'+1 peak
                                                         isoM_pXp1 = curScan.findMZ(curPeakmz + xCount * xOffset + cValidationOffset, ppm, start=currentPeakIndex)
                                                         isoM_pXp1 = curScan.getMostIntensePeak(isoM_pXp1[0], isoM_pXp1[1])
-
-                                                        ratioN=-1
-                                                        ratioL=-1
 
                                                         # calculate the ratio of M+1/M
                                                         isoPeakIntensity=curScan.intensity_list[isoM_p1]
@@ -207,6 +206,7 @@ def matchPartners(mzXMLData, labellingElement, useCValidation, intensityThres, i
                                                             curPeakDetectedIonPairs.append(
                                                                 mzFeature(mz=curPeakmz,
                                                                           lmz=labPeakmz,
+                                                                          tmz=xCount * xOffset,
                                                                           xCount=xCount,
                                                                           scanIndex=curScanIndex,
                                                                           loading=curLoading,
@@ -220,6 +220,7 @@ def matchPartners(mzXMLData, labellingElement, useCValidation, intensityThres, i
                                                             curPeakDetectedIonPairs.append(
                                                                 mzFeature(mz=curPeakmz,
                                                                           lmz=labPeakmz,
+                                                                          tmz=xCount * xOffset,
                                                                           xCount=xCount,
                                                                           scanIndex=curScanIndex,
                                                                           loading=curLoading,
@@ -273,6 +274,7 @@ def matchPartners(mzXMLData, labellingElement, useCValidation, intensityThres, i
                                                             curPeakDetectedIonPairs.append(
                                                                 mzFeature(mz=curPeakmz,
                                                                           lmz=labPeakmz,
+                                                                          tmz=xCount * xOffset,
                                                                           xCount=xCount,
                                                                           scanIndex=curScanIndex,
                                                                           loading=curLoading,
@@ -330,14 +332,12 @@ def matchPartners(mzXMLData, labellingElement, useCValidation, intensityThres, i
                                                             else:
                                                                 continue     ## discard current peak
 
-
-
-
                                                         # All verification criteria are passed, store the ion signal pair
                                                         # for further processing
                                                         curPeakDetectedIonPairs.append(
                                                             mzFeature(mz=curPeakmz,
                                                                       lmz=labPeakmz,
+                                                                      tmz=xCount * xOffset,
                                                                       xCount=xCount,
                                                                       scanIndex=curScanIndex,
                                                                       loading=curLoading,

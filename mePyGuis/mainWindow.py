@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '.\mePyGuis\guis\mainwindow.ui'
 #
-# Created: Mon Apr 18 09:26:06 2016
+# Created: Wed May 04 10:21:23 2016
 #      by: PyQt4 UI code generator 4.10
 #
 # WARNING! All changes made in this file will be lost!
@@ -1683,6 +1683,14 @@ class Ui_MainWindow(object):
         self.label_35.setText(_fromUtf8(""))
         self.label_35.setObjectName(_fromUtf8("label_35"))
         self.horizontalLayout_10.addWidget(self.label_35)
+        self.line_19 = QtGui.QFrame(self.tab)
+        self.line_19.setFrameShape(QtGui.QFrame.VLine)
+        self.line_19.setFrameShadow(QtGui.QFrame.Sunken)
+        self.line_19.setObjectName(_fromUtf8("line_19"))
+        self.horizontalLayout_10.addWidget(self.line_19)
+        self.showDiagnostics = QtGui.QCheckBox(self.tab)
+        self.showDiagnostics.setObjectName(_fromUtf8("showDiagnostics"))
+        self.horizontalLayout_10.addWidget(self.showDiagnostics)
         spacerItem44 = QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
         self.horizontalLayout_10.addItem(spacerItem44)
         self.gridLayout_19.addLayout(self.horizontalLayout_10, 0, 0, 1, 1)
@@ -2195,6 +2203,7 @@ class Ui_MainWindow(object):
         self.showSmoothedEIC_checkBox.setText(_translate("MainWindow", "Show smoothed signal", None))
         self.flattenXIC.setText(_translate("MainWindow", "Crop", None))
         self.showLegend.setText(_translate("MainWindow", "Legend", None))
+        self.showDiagnostics.setText(_translate("MainWindow", "Diagnostics", None))
         self.tabWidget_2.setTabText(self.tabWidget_2.indexOf(self.tab), _translate("MainWindow", "EICs", None))
         self.tabWidget_2.setTabText(self.tabWidget_2.indexOf(self.tab_2), _translate("MainWindow", "Group results", None))
         self.MSLabels.setText(_translate("MainWindow", "Labels", None))
