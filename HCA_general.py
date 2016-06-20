@@ -80,7 +80,7 @@ def average(clust):
     sums=[0 for i in kids[0].getObj()]
     for kid in kids:
         for i in range(len(kid.getObj())):
-            sums[i]+=kid.getObj()[i]
+            sums[i]=sums[i]+kid.getObj()[i]
     for i in range(len(sums)):
         sums[i]=sums[i]*1./len(kids)
 

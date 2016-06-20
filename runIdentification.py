@@ -314,7 +314,7 @@ class RunIdentification:
         curs.execute("CREATE TABLE tics(id INTEGER PRIMARY KEY, loading INTEGER, scanevent TEXT, times TEXT, intensities TEXT)")
         curs.execute("DROP TABLE IF EXISTS chromPeaks")
         curs.execute(
-            "CREATE TABLE chromPeaks(id INTEGER PRIMARY KEY, tracer INTEGER, eicID INTEGER, NPeakCenter INTEGER, NPeakCenterMin REAL, NPeakScale FLOAT, NSNR REAL, NPeakArea REAL, mz REAL, lmz REAL, xcount INTEGER, xcountId INTEGER, LPeakCenter INTEGER, LPeakCenterMin REAL, LPeakScale FLOAT, LSNR REAL, LPeakArea REAL, Loading INTEGER, peaksCorr FLOAT, heteroAtoms TEXT, NBorderLeft INTEGER, NBorderRight INTEGER, LBorderLeft INTEGER, LBorderRight INTEGER, adducts TEXT, heteroAtomsFeaturePairs TEXT, massSpectrumID INTEGER, ionMode TEXT, assignedMZs INTEGER, fDesc TEXT, peaksRatio FLOAT, peaksRatioMp1 FLOAT, peaksRatioMPm1 FLOAT, isotopesRatios TEXT, mzDiffErrors TEXT, peakType TEXT, assignedName TEXT)")
+            "CREATE TABLE chromPeaks(id INTEGER PRIMARY KEY, tracer INTEGER, eicID INTEGER, NPeakCenter INTEGER, NPeakCenterMin REAL, NPeakScale FLOAT, NSNR REAL, NPeakArea REAL, mz REAL, lmz REAL, xcount INTEGER, xcountId INTEGER, LPeakCenter INTEGER, LPeakCenterMin REAL, LPeakScale FLOAT, LSNR REAL, LPeakArea REAL, Loading INTEGER, peaksCorr FLOAT, heteroAtoms TEXT, NBorderLeft INTEGER, NBorderRight INTEGER, LBorderLeft INTEGER, LBorderRight INTEGER, adducts TEXT, heteroAtomsFeaturePairs TEXT, massSpectrumID INTEGER, ionMode TEXT, assignedMZs INTEGER, fDesc TEXT, peaksRatio FLOAT, peaksRatioMp1 FLOAT, peaksRatioMPm1 FLOAT, isotopesRatios TEXT, mzDiffErrors TEXT, peakType TEXT, assignedName TEXT, correlationsToOthers TEXT)")
         curs.execute("drop table if exists allChromPeaks")
         curs.execute(
             "CREATE TABLE allChromPeaks(id INTEGER PRIMARY KEY, tracer INTEGER, eicID INTEGER, NPeakCenter INTEGER, NPeakCenterMin REAL, NPeakScale FLOAT, NSNR REAL, NPeakArea REAL, mz REAL, lmz REAL, xcount INTEGER, xcountId INTEGER, LPeakCenter INTEGER, LPeakCenterMin REAL, LPeakScale FLOAT, LSNR REAL, LPeakArea REAL, Loading INTEGER, peaksCorr FLOAT, heteroAtoms TEXT, NBorderLeft INTEGER, NBorderRight INTEGER, LBorderLeft INTEGER, LBorderRight INTEGER, adducts TEXT, heteroAtomsFeaturePairs TEXT, ionMode TEXT, assignedMZs INTEGER, fDesc TEXT, peaksRatio FLOAT, peaksRatioMp1 FLOAT, peaksRatioMPm1 FLOAT, isotopesRatios TEXT, mzDiffErrors TEXT, peakType TEXT, assignedName TEXT, comment TEXT)")
@@ -1796,7 +1796,7 @@ class RunIdentification:
                 peak.Ms=[]
                 for assignedAdduct in peak.adducts:
                     if assignedAdduct in adductsDict.keys():
-                        peak.Ms.append(peak.mz-adductsDict[assignedAdduct].mzoffset)
+                        peak.Ms.append((peak.mz-adductsDict[assignedAdduct].mzoffset)/adductsDict[assignedAdduct].mCount/peak.loading)
 
     # data processing step 6: convolute different feature pairs into feature groups using the chromatographic
     # profiles of different metabolite ions
@@ -1812,6 +1812,7 @@ class RunIdentification:
             for peak in chromPeaks:
                 nodes[peak.id] = []
                 allPeaks[peak.id] = peak
+                peak.correlationsToOthers=[]
 
             # compare all detected feature pairs at approximately the same retention time
             cpeakA = 0
@@ -1845,6 +1846,9 @@ class RunIdentification:
                             if pb >= self.minCorrelation:
                                 nodes[peakA.id].append(peakB.id)
                                 nodes[peakB.id].append(peakA.id)
+
+                                peakB.correlationsToOthers.append(peakA.id)
+                                peakA.correlationsToOthers.append(peakB.id)
 
                             try:
                                 SQLInsert(curs, "featurefeatures", fID1=peakA.id, fID2=peakB.id, corr=pb)
@@ -1897,9 +1901,7 @@ class RunIdentification:
                 # split the HCA tree in sub-clusters
                 def checkSubCluster(tree, hca, corrThreshold, cutOffMinRatio):
                     if isinstance(tree, HCA_general.HCALeaf):
-                        corrs=hca.link(tree)
-                        aboveThreshold=sum([corr>corrThreshold for corr in corrs])
-                        return (aboveThreshold*1./len(corrs))>=cutOffMinRatio
+                        return False
                     elif isinstance(tree, HCA_general.HCAComposite):
                         corrsLKid=hca.link(tree.getLeftKid())
                         corrs=hca.link(tree)
@@ -1959,6 +1961,13 @@ class RunIdentification:
                     for a in group:
                         peaksInGroup[a]=allPeaks[a]
 
+                        temp=[]
+                        for j in range(len(peaksInGroup[a].correlationsToOthers)):
+                            if peaksInGroup[a].correlationsToOthers[j] in group:
+                                temp.append(peaksInGroup[a].correlationsToOthers[j])
+
+                        peaksInGroup[a].correlationsToOthers=temp
+
                     self.annotateChromPeaks(group, peaksInGroup)# store feature pair annotation in the database
 
                     done=done+1
@@ -1968,8 +1977,8 @@ class RunIdentification:
             for peak in chromPeaks:
                 adds = countEntries(peak.adducts)
                 peak.adducts = adds.keys()
-                curs.execute("UPDATE chromPeaks SET adducts='%s', fDesc='%s' WHERE id=%d" % (
-                              base64.b64encode(dumps(peak.adducts)), base64.b64encode(dumps(peak.fDesc)), peak.id))
+                curs.execute("UPDATE chromPeaks SET adducts='%s', fDesc='%s', correlationsToOthers='%s' WHERE id=%d" % (
+                              base64.b64encode(dumps(peak.adducts)), base64.b64encode(dumps(peak.fDesc)), base64.b64encode(dumps(peak.correlationsToOthers)), peak.id))
                 curs.execute("UPDATE allChromPeaks SET adducts='%s', fDesc='%s' WHERE id=%d" % (
                               base64.b64encode(dumps(peak.adducts)), base64.b64encode(dumps(peak.fDesc)), peak.id))
 
@@ -2820,8 +2829,12 @@ class RunIdentification:
             else:
                 from chromPeakPicking.GradientPeaks import GradientPeaks
                 self.CP=GradientPeaks()                                                                       ## generic gradient descend peak picking - do not use. Parameters need to be optimized
+                self.CP=GradientPeaks(minInt=1000, minIntFlanks=1, minIncreaseRatio=.01)                                                                       ## LTQ Orbitrap XL
                 self.CP=GradientPeaks(minInt=10000, minIntFlanks=10, minIncreaseRatio=.15, expTime=[10, 250]) ## Swiss Orbitrap HF data
-                self.CP=GradientPeaks(minInt=1000, minIntFlanks=10, minIncreaseRatio=.15, expTime=[5, 150]) ## Bernhard
+                self.CP=GradientPeaks(minInt=1000, minIntFlanks=10, minIncreaseRatio=.15, expTime=[10, 150]) ## Bernhard
+                self.CP=GradientPeaks(minInt=10000, minIntFlanks=100, minIncreaseRatio=.15, expTime=[15, 150])  ## Lin
+                self.CP=GradientPeaks(minInt=50, minIntFlanks=10, minIncreaseRatio=.05, expTime=[15, 150], minDelta=1, minInflectionDelta=2) ## Roitinger
+                self.CP=GradientPeaks(minInt=10000, minIntFlanks=10, minIncreaseRatio=.05, expTime=[5, 45])       ## RNA
 
             self.curPeakId = 1
             self.curEICId = 1

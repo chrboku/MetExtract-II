@@ -4,6 +4,7 @@ from sqlite3 import *
 from operator import itemgetter
 import os
 from math import floor
+import ast
 from collections import defaultdict
 
 from reportlab.graphics.shapes import Drawing
@@ -18,7 +19,13 @@ from utils import ChromPeakPair, Bunch, SQLInsert, natSort, get_main_dir, getSub
 from runIdentification import ChromPeakPair, getDBSuffix
 from TableUtils import TableUtils
 from MZHCA import HierarchicalClustering, cutTreeSized
+
+import base64
+from pickle import dumps, loads
+
 import HCA_general
+
+
 
 
 # HELPER METHOD for writing first page of PDF (unused)
@@ -68,7 +75,7 @@ def writeConfigToDB(curs, align, file, groupSizePPM, maxLoading, maxTimeDeviatio
 # bracket results
 def bracketResults(indGroups, minX, maxX, groupSizePPM, positiveScanEvent=None, negativeScanEvent=None,
                  maxTimeDeviation=0.36 * 60, maxLoading=1, file="./results.tsv", align=True, nPolynom=1,
-                 pwMaxSet=None, pwValSet=None, rVersion="", meVersion="", generalProcessingParams=Bunch()):
+                 pwMaxSet=None, pwValSet=None, pwTextSet=None, rVersion="", meVersion="", generalProcessingParams=Bunch()):
 
 
     # create results SQLite tables
@@ -139,6 +146,7 @@ def bracketResults(indGroups, minX, maxX, groupSizePPM, positiveScanEvent=None, 
                 f.write("\t" + res.fileName + "_Area_L")
                 f.write("\t" + res.fileName + "_FID")
                 f.write("\t" + res.fileName + "_GroupID")
+                f.write("\t" + res.fileName + "_CorrelatesTo")
             for res in results:
                 f.write("\t" + res.fileName + "_fold")
 
@@ -159,13 +167,13 @@ def bracketResults(indGroups, minX, maxX, groupSizePPM, positiveScanEvent=None, 
             # check each processed LC-HRMS file if the used data processing parameters match
             for res in results:
                 for row in res.curs.execute(
-                        "SELECT c.id, c.tracer, c.NPeakCenter, c.NPeakCenterMin, c.NPeakScale, c.NSNR, c.NPeakArea, c.mz, c.xcount, c.LPeakCenter, c.LPeakCenterMin, c.LPeakScale, c.LSNR, c.LPeakArea, c.Loading, f.fGroupId, t.name, c.ionMode "
+                        "SELECT c.id, c.tracer, c.NPeakCenter, c.NPeakCenterMin, c.NPeakScale, c.NSNR, c.NPeakArea, c.mz, c.xcount, c.LPeakCenter, c.LPeakCenterMin, c.LPeakScale, c.LSNR, c.LPeakArea, c.Loading, f.fGroupId, t.name, c.ionMode, c.correlationsToOthers "
                         "FROM chromPeaks c INNER JOIN featureGroupFeatures f ON c.id=f.fID INNER JOIN tracerConfiguration t ON c.tracer=t.id"):
                     cp = ChromPeakPair(id=row[0], tracer=row[1], NPeakCenter=row[2], NPeakCenterMin=row[3],
                                    NPeakScale=row[4], NSNR=row[5], NPeakArea=row[6], mz=row[7], xCount=row[8],
                                    LPeakCenter=row[9], LPeakCenterMin=row[10], LPeakScale=row[11], LSNR=row[12],
                                    LPeakArea=row[13], loading=row[14], fGroupID=row[15], tracerName=row[16],
-                                   ionMode=str(row[17]))
+                                   ionMode=str(row[17]), correlationsToOthers=loads(base64.b64decode(str(row[18]))))
 
                     assert cp.ionMode in ionModes.keys()
                     res.featurePairs.append(cp)
@@ -232,7 +240,7 @@ def bracketResults(indGroups, minX, maxX, groupSizePPM, positiveScanEvent=None, 
                             doneSoFar+=1
                             if floor(doneSoFar/totalThingsToDo*100)>doneSoFarPercent:
                                 doneSoFarPercent=floor(doneSoFar/totalThingsToDo*100)
-                                print "\r   %d%% performed"%doneSoFarPercent,
+                                #print "\r   %d%% performed"%doneSoFarPercent,
 
                             # get all results that match current bracketing criteria
                             chromPeaksAct = 0
@@ -300,8 +308,6 @@ def bracketResults(indGroups, minX, maxX, groupSizePPM, positiveScanEvent=None, 
                                                 pdf = canvas.Canvas(file + "_%d.pdf" % xy)
                                                 _writeFirstPage(pdf, groupSizePPM, maxTimeDeviation, align, nPolynom)
                                                 print "\r   new pdf %d metabolic features.." % xy,
-                                            else:
-                                                print "\r   %d metabolic features.."%xy,
 
                                         # debug purposes: create PDF for current subcluster
                                         if writePDF:
@@ -419,25 +425,20 @@ def bracketResults(indGroups, minX, maxX, groupSizePPM, positiveScanEvent=None, 
                                             for i in range(len(partChromPeaks[k])):
                                                 if not (groupedChromPeaks[aligned[j][1]].has_key(k)):
                                                     groupedChromPeaks[aligned[j][1]][k] = []
-                                                groupedChromPeaks[aligned[j][1]][k].append(
-                                                    (aligned[j], partChromPeaks[k][i]))
+                                                groupedChromPeaks[aligned[j][1]][k].append((aligned[j], partChromPeaks[k][i]))
                                                 groupedChromPeaksAVGMz[aligned[j][1]].append(partChromPeaks[k][i].mz)
-                                                groupedChromPeaksAVGTimes[aligned[j][1]].append(
-                                                    partChromPeaks[k][i].NPeakCenterMin)
+                                                groupedChromPeaksAVGTimes[aligned[j][1]].append(partChromPeaks[k][i].NPeakCenterMin)
 
                                                 j = j + 1
 
                                         assert (j == len(aligned))
-                                        assert (
-                                            len(groupedChromPeaks) == len(groupedChromPeaksAVGMz) == len(
-                                                groupedChromPeaksAVGTimes))
+                                        assert (len(groupedChromPeaks) == len(groupedChromPeaksAVGMz) == len(groupedChromPeaksAVGTimes))
 
                                         # write results to data matrix and SQLite DB
                                         for i in range(minGroup, maxGroup + 1):
                                             if len(groupedChromPeaks[i]) > 0:
                                                 avgmz = sum(groupedChromPeaksAVGMz[i]) / len(groupedChromPeaksAVGMz[i])
-                                                avgtime = sum(groupedChromPeaksAVGTimes[i]) / len(
-                                                    groupedChromPeaksAVGTimes[i])
+                                                avgtime = sum(groupedChromPeaksAVGTimes[i]) / len(groupedChromPeaksAVGTimes[i])
                                                 f.write(str(curNum))
                                                 f.write("\t")
                                                 f.write(str(avgmz))
@@ -502,7 +503,6 @@ def bracketResults(indGroups, minX, maxX, groupSizePPM, positiveScanEvent=None, 
                                                             f.write(str(peak[1].NPeakArea))
 
                                                         f.write("\t")
-
                                                         #13C Area
                                                         appe = False
                                                         for peak in groupedChromPeaks[i][res]:
@@ -513,7 +513,6 @@ def bracketResults(indGroups, minX, maxX, groupSizePPM, positiveScanEvent=None, 
                                                             f.write(str(peak[1].LPeakArea))
 
                                                         f.write("\t")
-
                                                         #Feature ID
                                                         appe = False
                                                         for peak in groupedChromPeaks[i][res]:
@@ -524,7 +523,6 @@ def bracketResults(indGroups, minX, maxX, groupSizePPM, positiveScanEvent=None, 
                                                             f.write("%d" % peak[1].id)
 
                                                         f.write("\t")
-
                                                         #Group ID
                                                         appe = False
                                                         for peak in groupedChromPeaks[i][res]:
@@ -534,8 +532,18 @@ def bracketResults(indGroups, minX, maxX, groupSizePPM, positiveScanEvent=None, 
                                                                 appe = True
                                                             f.write("%d" % peak[1].fGroupID)
 
+                                                        f.write("\t")
+                                                        #CorrelatesTo
+                                                        appe = False
+                                                        for peak in groupedChromPeaks[i][res]:
+                                                            if appe:
+                                                                f.write(";")
+                                                            else:
+                                                                appe = True
+                                                            f.write("%s" % str(peak[1].correlationsToOthers))
+
                                                     else:
-                                                        f.write("\t\t\t")
+                                                        f.write("\t\t\t\t")
                                                 f.write(toapp)
                                                 f.write("\t%d" % doublePeak)
                                                 f.write("\n")
@@ -563,15 +571,12 @@ def bracketResults(indGroups, minX, maxX, groupSizePPM, positiveScanEvent=None, 
                                                 totalChromPeaksProc = totalChromPeaksProc + 1
 
                                     if pwValSet is not None: pwValSet.put(Bunch(mes="value",val=totalChromPeaksProc))
+                                    if pwTextSet is not None: pwTextSet.put(Bunch(mes="text",val="Bracketing results\n%d feature pairs (%d individual pairs processed).."%(curNum, totalChromPeaksProc)))
 
             if writePDF: pdf.save()
 
-
             f.write("## MetExtract II %s\n"%(Bunch(MetExtractVersion=meVersion, RVersion=rVersion).dumpAsJSon().replace("\"", "'")))
-
-
             f.write("## Individual files processing parameters %s\n"%(generalProcessingParams.dumpAsJSon().replace("\"", "'")))
-
             processingParams=Bunch()
             processingParams.FPBracketing_min=minX
             processingParams.FPBracketing_max=maxX
@@ -582,12 +587,9 @@ def bracketResults(indGroups, minX, maxX, groupSizePPM, positiveScanEvent=None, 
             processingParams.FPBracketing_maxLoading=maxLoading
             processingParams.FPBracketing_resultsFile=file
             processingParams.FPBracketing_align=align
-            if align:
-                processingParams.FPBracketing_nPolynom=nPolynom
-
+            if align: processingParams.FPBracketing_nPolynom=nPolynom
             f.write("## Bracketing files processing parameters %s\n"%(processingParams.dumpAsJSon().replace("\"", "'")))
 
-            print ""
 
 
     except Exception as ex:
@@ -658,59 +660,6 @@ def writeMetaboliteGroupingConfigToDB(curs, minConnectionsInFiles, minConnection
     SQLInsert(curs, "config", key="MEGROUP_minConnectionRate", value=str(minConnectionRate))
 
 
-# split the HCA tree in sub-clusters
-def checkSubCluster(tree, hca, corrThreshold, cutOffMinRatio):
-    if isinstance(tree, HCA_general.HCALeaf):
-        corrs=hca.link(tree)
-        aboveThreshold=sum([corr>=corrThreshold for corr in corrs])
-        return (aboveThreshold*1./len(corrs))>=cutOffMinRatio
-    elif isinstance(tree, HCA_general.HCAComposite):
-        corrsLKid=hca.link(tree.getLeftKid())
-        corrs=hca.link(tree)
-        corrsRKid=hca.link(tree.getRightKid())
-
-        aboveThresholdLKid=sum([corr>=corrThreshold for corr in corrsLKid])
-        aboveThreshold=sum([corr>=corrThreshold for corr in corrs])
-        aboveThresholdRKid=sum([corr>=corrThreshold for corr in corrsRKid])
-
-    if (aboveThresholdLKid*1./len(corrs))>=cutOffMinRatio \
-            and (aboveThreshold*1./len(corrs))>=cutOffMinRatio \
-            and (aboveThresholdRKid*1./len(corrs))>=cutOffMinRatio:
-        return False
-    else:
-        return True
-def splitGroupWithHCA(tGroup, correlations, corrThreshold, cutOffMinRatio):
-    # if 1 or two feature pairs are in a group, automatically use them (no further splitting possible)
-    if len(tGroup)<=2:
-        return [tGroup]
-
-    # construct 2-dimensional data matrix
-    data=[]
-    for peakA in tGroup:
-        t=[]
-        for peakB in tGroup:
-            if peakA in correlations.keys() and peakB in correlations[peakA].keys():
-                t.append(correlations[peakA][peakB])
-            elif peakA==peakB:
-                t.append(1.)
-            else:
-                t.append(0.)
-        data.append(t)
-
-    # calculate HCA tree using the correlations between all feature pairs
-    hc=HCA_general.HCA_generic()
-    tree=hc.generateTree(objs=data, ids=tGroup)
-
-
-    subClusts=hc.splitTreeWithCallback(tree,
-                                       CallBackMethod(_target=checkSubCluster,
-                                                      corrThreshold=corrThreshold,
-                                                      cutOffMinRatio=cutOffMinRatio).getRunMethod(),
-                                       recursive=False)
-
-    # convert the subclusters into arrays of feature pairs belonging to the same metabolite
-    return [[leaf.getID() for leaf in subClust.getLeaves()] for subClust in subClusts]
-
 
 
 def calculateMetaboliteGroups(file="./results.tsv", groups=[],
@@ -762,68 +711,68 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[],
 
         # fetch all feature pairs from the results file
         nodes={}
-        for featurePairNum in table.getData(cols=["Num"]):
+        nums=[featurePairNum for featurePairNum in table.getData(cols=["Num"])]
+        for featurePairNum in nums:
             nodes[featurePairNum]={}
 
         # get overall feature pair clusters
 
         # add 1 to the connection density if a connection was detected in a file
+        totalFilesToUse=0
         done=set()
         for group in useGroups:
             for f in group.files:
                 if f not in done:
+                    totalFilesToUse+=1
                     done.add(f)
                     fShort=f[f.rfind("/")+1 : f.rfind(".")]
                     if fShort[0].isdigit():
                         fShort="_"+fShort
 
-                    # get feature pair clusters from current file
-                    fileGroupIDs=defaultdict(list)
-                    for featurePairNum, groupID in table.getData(cols=["Num", "%s_GroupID"%fShort]):
+
+                    fileNumMapping={}
+                    for featurePairNum, featurePairNumInFile in table.getData(cols=["Num", "%s_FID"%fShort]):
+                        if featurePairNumInFile!="":
+                            featurePairNumInFile=float(featurePairNumInFile)
+                            fileNumMapping[featurePairNumInFile]=featurePairNum
+                    for featurePairNum, groupID, correlationsToOthers in table.getData(cols=["Num", "%s_GroupID"%fShort, "%s_CorrelatesTo"%fShort]):
+
                         if groupID!="":
-                            fileGroupIDs[groupID].append(featurePairNum)
+                            correlationsToOthers=ast.literal_eval(str(correlationsToOthers))
 
-                    # update overall feature pair clusters from this file
-                    for i, attachedFeaturePairs in fileGroupIDs.items():
-                        for peakA in attachedFeaturePairs:
-                            for peakB in attachedFeaturePairs:
-                                if peakA != peakB:
-                                    if peakB not in nodes[peakA]:
-                                        nodes[peakA][peakB]=Bunch(posConns=0, negConns=0)
-                                    if peakA not in nodes[peakB]:
-                                        nodes[peakB][peakA]=Bunch(posConns=0, negConns=0)
-                                    nodes[peakA][peakB].posConns+=.5   ## half because this will be done twice (nodes[peakA][peakB] and in different iteration nodes[peakB][peakA]
-                                    nodes[peakB][peakA].posConns+=.5
+                            for corWith in correlationsToOthers:
+                                if corWith in fileNumMapping.keys():
+                                    a=featurePairNum
+                                    b=fileNumMapping[corWith]
+                                    if a not in nodes.keys():
+                                        nodes[a]={}
+                                    if b not in nodes[a].keys():
+                                        nodes[a][b]=Bunch(posConns=0, negConns=0)
+                                    nodes[a][b].posConns+=1
 
-        ## reduce the connection density for those samples, that do not show a correlation for two feature pairs
+                                    b=featurePairNum
+                                    a=fileNumMapping[corWith]
+                                    if a not in nodes.keys():
+                                        nodes[a]={}
+                                    if b not in nodes[a].keys():
+                                        nodes[a][b]=Bunch(posConns=0, negConns=0)
+                                    nodes[a][b].posConns+=1
+
+
+        toRemove=set()
         for peakA in nodes.keys():
             for peakB in nodes[peakA].keys():
-                if peakA != peakB:
-                    done=set()
-                    for group in useGroups:
-                        for f in group.files:
+                node=nodes[peakA][peakB]
+                if node.negConns==0 and node.posConns==0:
+                    if peakA<peakB:
+                        toRemove.add((peakA, peakB))
+                    else:
+                        toRemove.add((peakB, peakA))
 
-                            if f not in done:
-                                done.add(f)
-                                fShort=f[f.rfind("/")+1 : f.rfind(".")]
-                                if fShort[0].isdigit():
-                                    fShort="_"+fShort
-
-                                # get feature pair clusters from current file
-                                peakAGrp=""
-                                peakBGrp=""
-                                for groupID in table.getData(cols=["%s_GroupID"%fShort], where="Num=%d"%peakA):
-                                    peakAGrp=groupID
-                                for groupID in table.getData(cols=["%s_GroupID"%fShort], where="Num=%d"%peakB):
-                                    peakBGrp=groupID
-
-                                if peakAGrp!="" and peakBGrp!="" and peakAGrp!=peakBGrp:
-                                    if peakB not in nodes[peakA]:
-                                        nodes[peakA][peakB]=Bunch(posConns=0, negConns=0)
-                                    if peakA not in nodes[peakB]:
-                                        nodes[peakB][peakA]=Bunch(posConns=0, negConns=0)
-                                    nodes[peakA][peakB].negConns+=0.5            ## corr in this file was too little, reduce connection density
-                                    nodes[peakB][peakA].negConns+=0.5
+        for peakA, peakB in toRemove:
+            del nodes[peakA][peakB]
+            if peakB!=peakA:
+                del nodes[peakB][peakA]
 
 
         # remove edges with no connection
@@ -841,7 +790,8 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[],
 
         for peakA, peakB in toRemove:
             del nodes[peakA][peakB]
-            del nodes[peakB][peakA]
+            if peakB!=peakA:
+                del nodes[peakB][peakA]
 
 
 
@@ -855,13 +805,57 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[],
                 # if only one feature pair is in the group, do nothing
                 table.setData(cols=["OGroup"], vals=[curGroup], where="Num=%d"%tGroup[0])
                 resDB.curs.execute("UPDATE GroupResults SET OGroup=%d WHERE id = %d"%(curGroup, tGroup[0]))
-
-
             else:
                 table.setData(cols=["OGroup"], vals=[curGroup], where="Num IN (%s)"%(",".join([str(t) for t in tGroup])))
                 resDB.curs.execute("UPDATE GroupResults SET OGroup=%d WHERE id IN (%s)"%(curGroup, ",".join([str(t) for t in tGroup])))
 
             curGroup+=1
+
+        '''
+        # 2nd separation
+        for oGroupID in range(curGroup):
+            nodes={}
+            nums=[featurePairNum for featurePairNum in table.getData(cols=["Num"], where="OGroup=%d"%oGroupID)]
+            if len(nums)>1:
+                for featurePairNum in nums:
+                    nodes[featurePairNum]={}
+                    for featurePairNum2 in nums:
+                        nodes[featurePairNum][featurePairNum2]=Bunch(posConns=0, negConns=0)
+
+                # add 1 to the connection density if a connection was detected in a file
+                totalFilesToUse=0
+                done=set()
+                for group in useGroups:
+                    for f in group.files:
+                        if f not in done:
+                            totalFilesToUse+=1
+                            done.add(f)
+                            fShort=f[f.rfind("/")+1 : f.rfind(".")]
+                            if fShort[0].isdigit():
+                                fShort="_"+fShort
+
+                            # get feature pair clusters from current file
+                            fileGroupIDs=defaultdict(list)
+
+                            fileNumMapping={}
+                            for featurePairNum, featurePairNumInFile in table.getData(cols=["Num", "%s_FID"%fShort], where="OGroup=%d"%oGroupID):
+                                if featurePairNumInFile!="":
+                                    fileNumMapping[featurePairNumInFile]=featurePairNum
+
+                            for featurePairNum, groupID, correlationsToOthers in table.getData(cols=["Num", "%s_GroupID"%fShort, "%s_CorrelatesTo"%fShort], where="OGroup=%d"%oGroupID):
+                                if groupID!="":
+                                    correlationsToOthers=ast.literal_eval(str(correlationsToOthers))
+                                    fileGroupIDs[groupID].append(featurePairNum)
+
+                                    for corWith in correlationsToOthers:
+                                        nodes[featurePairNum][fileNumMapping[corWith]].posConns+=1
+                print nums
+        '''
+
+
+        #tGroups=groups
+
+
 
         # Annotate groups with common adducts and in-source fragments
         if runIdentificationInstance is not None:
@@ -910,7 +904,12 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[],
         processingParams.MEConvoluting_connThreshold=minConnectionsInFiles
         table.addComment("## Convolution FPs processing parameters %s"%(processingParams.dumpAsJSon().replace("\"", "'")))
 
-        TableUtils.saveFile(table, file, order="OGroup, MZ, Xn")
+        writeCols=[]
+        for column in table.getColumns():
+            if not column.name.endswith("_CorrelatesTo"):
+                writeCols.append(column.name)
+
+        TableUtils.saveFile(table, file, cols=writeCols, order="OGroup, MZ, Xn")
 
     except Exception as ex:
         import traceback

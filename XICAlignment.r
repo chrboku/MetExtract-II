@@ -153,11 +153,21 @@ alignPeaks<-function(eics, peaks, ncol, align=TRUE, npoly=2, ra=c(1000:1200), ma
   hcl=hclust(dist(allpeaks))
   #plot(hcl)
   #abline(h=maxGroupDist, col="red")
+  #Sys.sleep(3)
   cuted<-cutree(hcl, h=maxGroupDist)
   ret=c()
+
+  #for(j in unique(cuted)){
+  #  centers=allpeaks[cuted==j]
+  #
+  #  n=length(centers)
+  #  print(paste(c("group", j, "Count", n, ":", paste(centers, collapse=",")), collapse=" "))
+  #}
+  #print("---------")
+
+
   for(i in 1:length(cuted)){
     ret=c(ret, allpeaks[i], cuted[i])
   }
-  #cat(ret, "\n")
   return((array(ret, c(2,length(ret)/2))))
 }

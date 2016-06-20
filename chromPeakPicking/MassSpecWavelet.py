@@ -134,7 +134,7 @@ if __name__ == '__main__':
         scales = [11, 31]
         dmz = 1.00335
 
-    if True:
+    if False:
         chromatogram.parse_file("E:/150425_pos_197_Fg_13C_15N_Labeling/Fg_14N15N_WH1.mzXML")
         mz = 532.33537
         ppm = 5.
@@ -142,6 +142,15 @@ if __name__ == '__main__':
         z = 1
         scales = [3,19]
         dmz = 0.99703
+
+    if False:
+        chromatogram.parse_file("F:/HrKoch/Dataset/151215_pos_236_13C_Trp/151215_pos_236_fullyLab_Remus.mzXML")
+        mz = 604.2231
+        ppm = 9.
+        cn = 4
+        z = 1
+        scales = [5,19]
+        dmz = 1.00335
 
     scanEvents = chromatogram.getFilterLines()
     for s in scanEvents:
@@ -155,6 +164,8 @@ if __name__ == '__main__':
     eic, times, timesI  = chromatogram.getEIC(mz, ppm, scanEvent)
     eicL, times, timesI = chromatogram.getEIC(mz+cn*dmz/z, ppm, scanEvent)
 
+    #eic=[e/6/1.6 for e in eic]
+    #eicL=[e/6/1.6 for e in eicL]
 
     smoothWin="gaussian"  ## "triangle", "gaussian", 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'
     #eic  = smoothDataSeries(times, eic , windowLen=3, window=smoothWin)
@@ -162,11 +173,12 @@ if __name__ == '__main__':
 
 
     startIndex=getLastTimeBefore(times, refTime=0*60.)
-    endIndex=getLastTimeBefore(times, refTime=100*60.)
+    endIndex=getLastTimeBefore(times, refTime=10000*60.)
     for i in range(getLastTimeBefore(times, refTime=600.4*60), len(eic)):
         eic[i]=0
     
     from utils import printObjectsAsTable
+    print "Startindex", startIndex, "EndIndex", endIndex
     ret = CP.getPeaksFor(times, eic, scales=scales, startIndex=startIndex, endIndex=endIndex, minScans=1)
     for peak in ret:
         peak.peakAtTime=times[peak.peakIndex] / 60.

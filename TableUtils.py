@@ -7,6 +7,8 @@ import random
 
 import time
 
+from copy import deepcopy
+
 
 # functionality to store / read a table into a generic SQLite table
 # methods to insert / alter / delete data are provided (including bulk-update)
@@ -153,7 +155,7 @@ class Table:
         return colType is not None
 
     # bulk-update: perform a function for each row present in the table
-    def applyFunction(self, func, where="", pwMaxSet=None, pwValSet=None, showProgress=False):
+    def applyFunction(self, func, where="", pwMaxSet=None, pwValSet=None, showProgress=False, funcName="", printAfter=1):
         if len(where) > 0:
             where = "WHERE " + where
 
@@ -172,10 +174,10 @@ class Table:
             data = {}
             for i in r:
                 data[cols[i - 1].name] = row[i]
-            newData = func(data)
+            newData = func(deepcopy(data))
             f = {}
             for col in cols:
-                if col.name in newData.keys():
+                if col.name in newData.keys() and newData[col.name]!=data[col.name]:
                     f[col.name] = str(newData[col.name])
 
             if len(f)>0:
@@ -185,12 +187,14 @@ class Table:
             done+=1
             if showProgress:
                 elapsed=time.time()-started
-                doneP=(1.*done/numOfCols)
-                s=(elapsed*(1-doneP)/doneP)/60.
-                print "\rApplying.. |%-30s| %.1f%% (approximately %.1f minutes remaining, run for %.1f minutes, total %.1f minutes)"%("*"*int(doneP*30), doneP*100, s, elapsed/60., s+elapsed/60.),
+                if elapsed > printAfter:
+                    doneP=(1.*done/numOfCols)
+                    s=(elapsed*(1-doneP)/doneP)/60.
+                    print "\rApplying %s.. |%-30s| %.1f%% (approximately %.1f minutes remaining, running for %.1f minutes, total %.1f minutes)"%(funcName, "*"*int(doneP*30), doneP*100, s, elapsed/60., s+elapsed/60.),
         if showProgress:
             s=(time.time()-started)/60.
-            print "(%.1f minutes)\n"%s
+            if s > printAfter:
+                print "Applying function took %.1f minutes\n"%s
 
         if pwMaxSet!=None: pwMaxSet(len(updates))
         if pwValSet!=None: pwValSet(0)
@@ -205,13 +209,16 @@ class Table:
             doneS+=1
             if showProgress:
                 elapsed=time.time()-started
-                doneP=(1.*doneS/numOfCols)
-                s=(elapsed*(1-doneP)/doneP)/60.
-                print "\rApplying.. |%-30s| %.1f%% (approximately %.1f minutes remaining)"%("*"*int(doneP*30), doneP*100, s),
+                if elapsed > printAfter:
+                    doneP=(1.*doneS/numOfCols)
+                    s=(elapsed*(1-doneP)/doneP)/60.
+                    print "\rUpdating.. |%-30s| %.1f%% (approximately %.1f minutes remaining)"%("*"*int(doneP*30), doneP*100, s),
         if showProgress:
             s=(time.time()-started)/60.
-            print "(%.1f minutes)\n"%s
-
+            if s > printAfter:
+                print "Updating took %.1f minutes"%s
+            else:
+                print ""
         self.conn.commit()
 
     # return the entire table
@@ -259,6 +266,8 @@ class Table:
 
         if where is not None:
             where="WHERE "+where
+        else:
+            where=""
 
         self.curs.execute(self.__updateTableName("UPDATE :table: SET %s %s" % (",".join(sets), where)))
 
@@ -455,16 +464,15 @@ class TableUtilsCSV:
                     fo.write(newLine)
                     headers = True
                     rowsWritten+=1
-                fo.write(delim.join([str(c) for c in row]))
+                fo.write(delim.join([str(c) if c is not None else "" for c in row]))
                 fo.write(newLine)
                 rowsWritten+=1
 
-            if rowsWritten==0:
-                if not headers:
-                    fo.write(delim.join([str(d[0]) for d in table.curs.description]))
-                    fo.write(newLine)
-                    headers = True
-                    rowsWritten+=1
+            if not headers:
+                fo.write(delim.join([str(d[0]) for d in table.curs.description]))
+                fo.write(newLine)
+                headers = True
+                rowsWritten+=1
 
 
             if writeComments:

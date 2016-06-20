@@ -213,6 +213,7 @@ def checkRDependencies(r):
 
 #<editor-fold desc="### Python Standard Library imports">
 import sys
+import shutil
 import gc
 from pickle import loads, dumps
 from collections import defaultdict
@@ -490,6 +491,7 @@ class procAreaInFile:
             from chromPeakPicking.GradientPeaks import GradientPeaks
             self.CP=GradientPeaks()                                                                      ## generic gradient descend peak picking
             self.CP=GradientPeaks(minInt=10000, minIntFlanks=10, minIncreaseRatio=.05, expTime=[25, 250]) ## Swiss Orbitrap HF data
+            self.CP=GradientPeaks(minInt=1000, minIntFlanks=10, minIncreaseRatio=.15, expTime=[10, 150])
 
         # re-integrate all detected feature pairs from the grouped results in this LC-HRMS data file
         self.processFile(self.oldData, self.colToProc, self.colmz, self.colrt, self.colLmz, self.colIonMode,
@@ -559,7 +561,7 @@ def integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colloadi
         if len(colToProcCur)>=cpus:
             _integrateResultsFile(file, toF, colToProcCur, colmz, colrt, colxcount, colloading, colLmz, colIonMode, colnum,
                                   ppm, maxRTShift, scales, reintegrateIntensityCutoff, snrTH, smoothingWindow, smoothingWindowSize,
-                                  positiveScanEvent, negativeScanEvent, pw, selfObj, cpus, pwOffset=pwOffset,
+                                  positiveScanEvent, negativeScanEvent, pw, selfObj, cpus, pwOffset=pwOffset, totalFilesToProc=len(colToProc),
                                   writeConfig=writeConfig)
             pwOffset+=len(colToProcCur)
             colToProcCur={}
@@ -568,7 +570,7 @@ def integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colloadi
     if len(colToProcCur)>0:
         _integrateResultsFile(file, toF, colToProcCur, colmz, colrt, colxcount, colloading, colLmz, colIonMode, colnum,
                               ppm, maxRTShift, scales, reintegrateIntensityCutoff, snrTH, smoothingWindow, smoothingWindowSize,
-                              positiveScanEvent, negativeScanEvent, pw, selfObj, cpus, pwOffset=pwOffset,
+                              positiveScanEvent, negativeScanEvent, pw, selfObj, cpus, pwOffset=pwOffset, totalFilesToProc=len(colToProc),
                               writeConfig=writeConfig)
         colToProcCur={}
         writeConfig=False
@@ -587,7 +589,7 @@ def writeReintegrateConfigToDB(curs, maxRTShift, negativeScanEvent, positiveScan
 
 def _integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colloading, colLmz, colIonMode, colnum,
                          ppm=5.,maxRTShift=0.25, scales=[3, 19], reintegrateIntensityCutoff=0, snrTH=1, smoothingWindow=None, smoothingWindowSize=0,
-                         positiveScanEvent="None", negativeScanEvent="None",pw=None, selfObj=None, cpus=1, pwOffset=0,
+                         positiveScanEvent="None", negativeScanEvent="None",pw=None, selfObj=None, cpus=1, pwOffset=0,totalFilesToProc=1,
                          writeConfig=True):
 
     # read results file
@@ -603,6 +605,7 @@ def _integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colload
 
     if pw is not None: pw.getCallingFunction()("text")("Integrating missed peaks")
     if pw is not None: pw.getCallingFunction()("value")(0+pwOffset)
+    if pw is not None: pw.getCallingFunction()("max")(totalFilesToProc)
 
 
     # check if all expected columns are present in the grouped results
@@ -711,7 +714,7 @@ def _integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colload
 
             if pw is not None: pw.getCallingFunction()("value")(completed+pwOffset)
             if pw is not None: pw.getCallingFunction()("text")("%s%.2f min elapsed %d / %d files done (%d parallel)" % (
-                hours, elapsed % 60, completed, len(colToProc), min(cpus, len(colToProc))))
+                hours, elapsed % 60, completed+pwOffset, totalFilesToProc, min(cpus, len(colToProc))))
 
             QtGui.QApplication.processEvents();
             time.sleep(.5)
@@ -824,9 +827,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     self.checkedLCMSFiles[fhash]=Bunch(parsed=parsed, fls=tm.getFilterLinesPerPolarity(), pols=tm.getPolarities(), tics=tics)
 
                 except ExpatError as ex:
-                    self.checkedLCMSFiles[fhash]=Bunch(parsed="Parsing error")
+                    self.checkedLCMSFiles[fhash]=Bunch(parsed="Parsing error "+ex.message)
                 except Exception as ex:
-                    self.checkedLCMSFiles[fhash]=Bunch(parsed="General error")
+                    self.checkedLCMSFiles[fhash]=Bunch(parsed="General error "+ex.message)
 
         return self.checkedLCMSFiles[fhash].parsed
 
@@ -1277,6 +1280,67 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         groupFile = QtGui.QFileDialog.getSaveFileName(caption="Select group file", directory=self.lastOpenDir,
                                                       filter="Group file (*.grp);;All files(*.*)")
+        groupFile=str(groupFile).replace("\\", "/")
+
+        doAsk=True
+        addWarning=False
+
+        while doAsk:
+
+            text, ok = QtGui.QInputDialog.getText(self.parentWidget(), "Custom evaluation name", "%sDo you want to specify a custom evaluation name for this experiment?<br>"
+                                                                                                 "This lets you test different parameter settings without overwriting the results of other processings using the same input files<br>"
+                                                                                                 "For each evaluation with a provided name, a subfolder will be created where all results will be saved (input files will be duplicated and specified groups will be changed)<br>"
+                                                                                                 "If you want to create or use a custom evaluation name enter its name in the text box below<br>"
+                                                                                                 "If you don't want to use a custom evaluation name leave the line empty or cancel this dialog<br>"
+                                                                                                 "Attention: Existing files will be overwritten and the results groups and data matrix files will be changed to this directory!"%(
+                                "<b>Error: Specified experiment evaluation (%s) may already be in use. Verify or use a different evaluation name<br><br></b>"%(text) if addWarning else ""
+            ))
+            if ok and text != "":
+
+                text="EVAL_"+str(text)
+
+                ## verify directory is empty
+                if os.path.exists(str(groupFile[:groupFile.rfind("/")]+"/"+text)):
+                    addWarning=True
+                else:
+                    ## make directory
+                    os.mkdir(str(groupFile[:groupFile.rfind("/")]+"/"+text))
+                    os.mkdir(str(groupFile[:groupFile.rfind("/")]+"/"+text+"/data"))
+
+                    #groupFile=groupFile[:groupFile.rfind("/")]+"/"+text+groupFile[groupFile.rfind("/"):]
+                    ## copy files
+                    totalCopyFiles=0
+                    for group in [t.data(QListWidgetItem.UserType).toPyObject() for t in natSort(self.ui.groupsList.findItems('*', QtCore.Qt.MatchWildcard), key=lambda x: str(x.data(QListWidgetItem.UserType).toPyObject().name))]:
+                        for i in range(len(group.files)):
+                            totalCopyFiles+=1
+
+                    pw=ProgressWrapper()
+                    pw.setMax(totalCopyFiles)
+                    pw.setValue(0)
+                    pw.show()
+
+                    done=0
+                    for group in [t.data(QListWidgetItem.UserType).toPyObject() for t in natSort(self.ui.groupsList.findItems('*', QtCore.Qt.MatchWildcard), key=lambda x: str(x.data(QListWidgetItem.UserType).toPyObject().name))]:
+                        for i in range(len(group.files)):
+                            pw.setTextu("Copying "+group.files[i][group.files[i].rfind("/"):])
+                            shutil.copy(str(group.files[i]), str(groupFile[:groupFile.rfind("/")]+"/"+text+"/data"+group.files[i][group.files[i].rfind("/"):]))
+                            group.files[i]=str(groupFile[:groupFile.rfind("/")]+"/"+text+"/data"+group.files[i][group.files[i].rfind("/"):])
+                            done=done+1
+                            pw.setValueu(done)
+                    pw.close()
+
+
+
+                    ## rename settings
+                    groupFile=str(groupFile[:groupFile.rfind("/")]+"/"+text+groupFile[groupFile.rfind("/"):])
+                    self.ui.groupsSave.setText(str(groupFile[:groupFile.rfind("/")]+"/results.tsv"))
+
+                    doAsk=False
+                    logging.info("New experiment evaluation. Name: %s"%text)
+            else:
+                doAsk=False
+
+
 
         if groupFile is not None and len(groupFile) > 0:
             self.lastOpenDir = str(groupFile).replace("\\", "/")
@@ -1289,6 +1353,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         if groupFile is not None and len(groupFile) > 0:
             grps = QtCore.QSettings(groupFile, QtCore.QSettings.IniFormat)
+            grps.clear()
 
             grps.beginGroup("ExperimentDescription")
             grps.setValue("ExperimentName", self.ui.exExperimentName_LineEdit.text())
@@ -2266,144 +2331,146 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 pw.getCallingFunction()("header")("Bracketing..")
 
                 try:
-                    #Group results
-                    generalProcessingParams=Bunch(exOperator=str(self.ui.exOperator_LineEdit.text()),
-                                                  exExperimentID=str(self.ui.exExperimentID_LineEdit.text()),
-                                                  exComments=str(self.ui.exComments_TextEdit.toPlainText()),
-                                                  exExperimentName=str(self.ui.exExperimentName_LineEdit.text()),
-                                                  writePDF=self.ui.savePDF.checkState() == QtCore.Qt.Checked,
-                                                  writeTSV=self.ui.saveCSV.checkState() == QtCore.Qt.Checked,
-                                                  writeMZXML=writeMZXMLOptions,
-                                                  metabolisationExperiment=self.labellingExperiment==TRACER,
-                                                  intensityThreshold=self.ui.intensityThreshold.value(),
-                                                  intensityCutoff=self.ui.intensityCutoff.value(),
-                                                  labellingisotopeA=str(self.ui.isotopeAText.text()),
-                                                  labellingisotopeB=str(self.ui.isotopeBText.text()),
-                                                  xOffset=self.isotopeBmass - self.isotopeAmass,
-                                                  useRatio=self.ui.useRatio.checkState()==QtCore.Qt.Checked,
-                                                  minRatio=self.ui.minRatio.value(),
-                                                  maxRatio=self.ui.maxRatio.value(),
-                                                  useCValidation=int(str(self.ui.useCValidation.checkState())),
-                                                  configuredTracers="[%s]"%",".join([str(t) for t in self.configuredTracers]), startTime=self.ui.scanStartTime.value(),
-                                                  stopTime=self.ui.scanEndTime.value(), maxLoading=self.ui.maxLoading.value(),
-                                                  xMin=self.ui.minXCount.value(), xMax=self.ui.maxXCount.value(),
-                                                  ppm=self.ui.ppmRangeIdentification.value(),
-                                                  isotopicPatternCountLeft=self.ui.isotopePatternCountA.value(),
-                                                  isotopicPatternCountRight=self.ui.isotopePatternCountB.value(),
-                                                  lowAbundanceIsotopeCutoff=self.ui.isoAbundance.checkState() == QtCore.Qt.Checked,
-                                                  intensityThresholdIsotopologs=self.ui.intensityThresholdIsotopologs.value(),
-                                                  purityN=self.ui.isotopicAbundanceA.value(),
-                                                  purityL=self.ui.isotopicAbundanceB.value(), intensityErrorN=self.ui.baseRange.value(),
-                                                  intensityErrorL=self.ui.isotopeRange.value(),
-                                                  minSpectraCount=self.ui.minSpectraCount.value(), clustPPM=self.ui.clustPPM.value(),
-                                                  chromPeakPPM=self.ui.wavelet_EICppm.value(),
-                                                  eicSmoothingWindow=str(self.ui.eicSmoothingWindow.currentText()),
-                                                  eicSmoothingWindowSize=self.ui.eicSmoothingWindowSize.value(),
-                                                  scales=[self.ui.wavelet_minScale.value(), self.ui.wavelet_maxScale.value()],
-                                                  snrTh=self.ui.wavelet_SNRThreshold.value(),
-                                                  peakCenterError=self.ui.peak_centerError.value(),
-                                                  peakScaleError=self.ui.peak_scaleError.value(),
-                                                  minPeakCorr=self.ui.minPeakCorr.value(),
-                                                  checkPeaksRatio=self.ui.checkBox_checkPeakRatio.isChecked(),
-                                                  minPeaksRatio=self.ui.doubleSpinBox_minPeakRatio.value(),
-                                                  maxPeaksRatio=self.ui.doubleSpinBox_maxPeakRatio.value(),
-                                                  calcIsoRatioNative=self.ui.calcIsoRatioNative_spinBox.value(),
-                                                  calcIsoRatioLabelled=self.ui.calcIsoRatioLabelled_spinBox.value(),
-                                                  calcIsoRatioMoiety=self.ui.calcIsoRatioMoiety_spinBox.value(),
-                                                  minCorrelationConnections=self.ui.minCorrelationConnections.value(),
-                                                  positiveScanEvent=str(self.ui.positiveScanEvent.currentText()),
-                                                  negativeScanEvent=str(self.ui.negativeScanEvent.currentText()),
-                                                  correctCCount=self.ui.correctcCount.checkState() == QtCore.Qt.Checked,
-                                                  minCorrelation=self.ui.minCorrelation.value(),
-                                                  hAIntensityError=self.ui.hAIntensityError.value(),
-                                                  hAMinScans=self.ui.hAMinScans.value(),
-                                                  adducts="[%s]"%",".join([str(a) for a in self.adducts]),
-                                                  elements="[%s]"%",".join([str(e) for e in self.elementsForNL]),
-                                                  heteroAtoms="[%s]"%",".join([str(h) for h in self.heteroElements]),
-                                                  rVersion=getRVersion(), meVersion="MetExtract (%s)" % MetExtractVersion)
-                    procProc = FuncProcess(_target=bracketResults,
-                                            indGroups=indGroups, minX=self.ui.minXCount.value(), maxX=self.ui.maxXCount.value(),
-                                            groupSizePPM=self.ui.groupPpm.value(),
-                                            maxTimeDeviation=self.ui.groupingRT.value() * 60.,
-                                            maxLoading=self.ui.maxLoading.value(),
-                                            positiveScanEvent=str(self.ui.positiveScanEvent.currentText()),
-                                            negativeScanEvent=str(self.ui.negativeScanEvent.currentText()),
-                                            file=str(self.ui.groupsSave.text()),
-                                            align=(self.ui.alignChromatograms.checkState() == QtCore.Qt.Checked),
-                                            nPolynom=self.ui.polynomValue.value(),
-                                            rVersion=getRVersion(), meVersion="MetExtract (%s)" % MetExtractVersion,
-                                            generalProcessingParams=generalProcessingParams)
-                    procProc.addKwd("pwMaxSet", procProc.getQueue())
-                    procProc.addKwd("pwValSet", procProc.getQueue())
-                    procProc.start()
+                    if True:
+                        #Group results
+                        generalProcessingParams=Bunch(exOperator=str(self.ui.exOperator_LineEdit.text()),
+                                                      exExperimentID=str(self.ui.exExperimentID_LineEdit.text()),
+                                                      exComments=str(self.ui.exComments_TextEdit.toPlainText()),
+                                                      exExperimentName=str(self.ui.exExperimentName_LineEdit.text()),
+                                                      writePDF=self.ui.savePDF.checkState() == QtCore.Qt.Checked,
+                                                      writeTSV=self.ui.saveCSV.checkState() == QtCore.Qt.Checked,
+                                                      writeMZXML=writeMZXMLOptions,
+                                                      metabolisationExperiment=self.labellingExperiment==TRACER,
+                                                      intensityThreshold=self.ui.intensityThreshold.value(),
+                                                      intensityCutoff=self.ui.intensityCutoff.value(),
+                                                      labellingisotopeA=str(self.ui.isotopeAText.text()),
+                                                      labellingisotopeB=str(self.ui.isotopeBText.text()),
+                                                      xOffset=self.isotopeBmass - self.isotopeAmass,
+                                                      useRatio=self.ui.useRatio.checkState()==QtCore.Qt.Checked,
+                                                      minRatio=self.ui.minRatio.value(),
+                                                      maxRatio=self.ui.maxRatio.value(),
+                                                      useCValidation=int(str(self.ui.useCValidation.checkState())),
+                                                      configuredTracers="[%s]"%",".join([str(t) for t in self.configuredTracers]), startTime=self.ui.scanStartTime.value(),
+                                                      stopTime=self.ui.scanEndTime.value(), maxLoading=self.ui.maxLoading.value(),
+                                                      xMin=self.ui.minXCount.value(), xMax=self.ui.maxXCount.value(),
+                                                      ppm=self.ui.ppmRangeIdentification.value(),
+                                                      isotopicPatternCountLeft=self.ui.isotopePatternCountA.value(),
+                                                      isotopicPatternCountRight=self.ui.isotopePatternCountB.value(),
+                                                      lowAbundanceIsotopeCutoff=self.ui.isoAbundance.checkState() == QtCore.Qt.Checked,
+                                                      intensityThresholdIsotopologs=self.ui.intensityThresholdIsotopologs.value(),
+                                                      purityN=self.ui.isotopicAbundanceA.value(),
+                                                      purityL=self.ui.isotopicAbundanceB.value(), intensityErrorN=self.ui.baseRange.value(),
+                                                      intensityErrorL=self.ui.isotopeRange.value(),
+                                                      minSpectraCount=self.ui.minSpectraCount.value(), clustPPM=self.ui.clustPPM.value(),
+                                                      chromPeakPPM=self.ui.wavelet_EICppm.value(),
+                                                      eicSmoothingWindow=str(self.ui.eicSmoothingWindow.currentText()),
+                                                      eicSmoothingWindowSize=self.ui.eicSmoothingWindowSize.value(),
+                                                      scales=[self.ui.wavelet_minScale.value(), self.ui.wavelet_maxScale.value()],
+                                                      snrTh=self.ui.wavelet_SNRThreshold.value(),
+                                                      peakCenterError=self.ui.peak_centerError.value(),
+                                                      peakScaleError=self.ui.peak_scaleError.value(),
+                                                      minPeakCorr=self.ui.minPeakCorr.value(),
+                                                      checkPeaksRatio=self.ui.checkBox_checkPeakRatio.isChecked(),
+                                                      minPeaksRatio=self.ui.doubleSpinBox_minPeakRatio.value(),
+                                                      maxPeaksRatio=self.ui.doubleSpinBox_maxPeakRatio.value(),
+                                                      calcIsoRatioNative=self.ui.calcIsoRatioNative_spinBox.value(),
+                                                      calcIsoRatioLabelled=self.ui.calcIsoRatioLabelled_spinBox.value(),
+                                                      calcIsoRatioMoiety=self.ui.calcIsoRatioMoiety_spinBox.value(),
+                                                      minCorrelationConnections=self.ui.minCorrelationConnections.value(),
+                                                      positiveScanEvent=str(self.ui.positiveScanEvent.currentText()),
+                                                      negativeScanEvent=str(self.ui.negativeScanEvent.currentText()),
+                                                      correctCCount=self.ui.correctcCount.checkState() == QtCore.Qt.Checked,
+                                                      minCorrelation=self.ui.minCorrelation.value(),
+                                                      hAIntensityError=self.ui.hAIntensityError.value(),
+                                                      hAMinScans=self.ui.hAMinScans.value(),
+                                                      adducts="[%s]"%",".join([str(a) for a in self.adducts]),
+                                                      elements="[%s]"%",".join([str(e) for e in self.elementsForNL]),
+                                                      heteroAtoms="[%s]"%",".join([str(h) for h in self.heteroElements]),
+                                                      rVersion=getRVersion(), meVersion="MetExtract (%s)" % MetExtractVersion)
+                        procProc = FuncProcess(_target=bracketResults,
+                                                indGroups=indGroups, minX=self.ui.minXCount.value(), maxX=self.ui.maxXCount.value(),
+                                                groupSizePPM=self.ui.groupPpm.value(),
+                                                maxTimeDeviation=self.ui.groupingRT.value() * 60.,
+                                                maxLoading=self.ui.maxLoading.value(),
+                                                positiveScanEvent=str(self.ui.positiveScanEvent.currentText()),
+                                                negativeScanEvent=str(self.ui.negativeScanEvent.currentText()),
+                                                file=str(self.ui.groupsSave.text()),
+                                                align=(self.ui.alignChromatograms.checkState() == QtCore.Qt.Checked),
+                                                nPolynom=self.ui.polynomValue.value(),
+                                                rVersion=getRVersion(), meVersion="MetExtract (%s)" % MetExtractVersion,
+                                                generalProcessingParams=generalProcessingParams)
+                        procProc.addKwd("pwMaxSet", procProc.getQueue())
+                        procProc.addKwd("pwValSet", procProc.getQueue())
+                        procProc.addKwd("pwTextSet", procProc.getQueue())
+                        procProc.start()
 
-                    pw.setCloseCallback(closeCallBack=CallBackMethod(_target=interruptBracketingOfFeaturePairs, selfObj=self, funcProc=procProc).getRunMethod())
+                        pw.setCloseCallback(closeCallBack=CallBackMethod(_target=interruptBracketingOfFeaturePairs, selfObj=self, funcProc=procProc).getRunMethod())
 
-                    # check for status updates
-                    while procProc.isAlive():
-                        QtGui.QApplication.processEvents();
+                        # check for status updates
+                        while procProc.isAlive():
+                            QtGui.QApplication.processEvents();
 
-                        while not (procProc.getQueue().empty()):
-                            mes = procProc.getQueue().get(block=False, timeout=1)
+                            while not (procProc.getQueue().empty()):
+                                mes = procProc.getQueue().get(block=False, timeout=1)
 
-                            # No idea why / where there are sometimes other objects than Bunch(mes, val), but they occur
-                            if isinstance(mes, Bunch) and hasattr(mes, "mes") and hasattr(mes, "val"):
-                                pw.getCallingFunction()(mes.mes)(mes.val)
+                                # No idea why / where there are sometimes other objects than Bunch(mes, val), but they occur
+                                if isinstance(mes, Bunch) and hasattr(mes, "mes") and (hasattr(mes, "val") or hasattr(mes, "text")):
+                                    pw.getCallingFunction()(mes.mes)(mes.val)
+                                else:
+                                    logging.critical("UNKNONW OBJECT IN PROCESSING QUEUE:", mes)
+
+                            time.sleep(.5)
+
+                        # Log time used for bracketing
+                        elapsed = (time.time() - start) / 60.
+                        hours = ""
+                        if elapsed >= 60.:
+                            if elapsed < 120.:
+                                hours = "1 hour "
                             else:
-                                logging.critical("UNKNONW OBJECT IN PROCESSING QUEUE:", mes)
+                                hours = "%d hours " % (elapsed // 60)
+                        mins = "%.2f min(s)" % (elapsed % 60.)
 
-                        time.sleep(.5)
-
-                    # Log time used for bracketing
-                    elapsed = (time.time() - start) / 60.
-                    hours = ""
-                    if elapsed >= 60.:
-                        if elapsed < 120.:
-                            hours = "1 hour "
+                        if self.terminateJobs:
+                            return
                         else:
-                            hours = "%d hours " % (elapsed // 60)
-                    mins = "%.2f min(s)" % (elapsed % 60.)
+                            logging.info("Bracketing finished (%s%s).." % (hours, mins))
 
-                    if self.terminateJobs:
-                        return
-                    else:
-                        logging.info("Bracketing finished (%s%s).." % (hours, mins))
+                        #Arrange grouped results and add statistics columns
+                        groups = {}
+                        outputOrder = []
 
-                    #Arrange grouped results and add statistics columns
-                    groups = {}
-                    outputOrder = []
-
-                    pw.getCallingFunction()("text")("Adding statistics columns")
-                    if False:
+                        pw.getCallingFunction()("text")("Adding statistics columns\n")
+                        if False:
+                            for group in definedGroups:
+                                preFix="_Stat_N"
+                                grpName=group.name+preFix
+                                grpAdd(groups, group.name+preFix, group.minFound,
+                                       [grp[(grp.rfind("/") + 1):max(grp.lower().rfind(".mzxml"), grp.lower().rfind(".mzml"))] + "_Area_N" for grp in
+                                        natSort(group.files)])
+                                outputOrder.append(grpName)
+                            for group in definedGroups:
+                                preFix="_Stat_L"
+                                grpName=group.name+preFix
+                                grpAdd(groups, group.name+preFix, group.minFound,
+                                       [grp[(grp.rfind("/") + 1):max(grp.lower().rfind(".mzxml"), grp.lower().rfind(".mzml"))] + "_Area_L" for grp in
+                                        natSort(group.files)])
+                                outputOrder.append(grpName)
+                        grpStats=[]
                         for group in definedGroups:
-                            preFix="_Stat_N"
+                            preFix="_Stat_fold"
                             grpName=group.name+preFix
                             grpAdd(groups, group.name+preFix, group.minFound,
-                                   [grp[(grp.rfind("/") + 1):max(grp.lower().rfind(".mzxml"), grp.lower().rfind(".mzml"))] + "_Area_N" for grp in
+                                   [grp[(grp.rfind("/") + 1):max(grp.lower().rfind(".mzxml"), grp.lower().rfind(".mzml"))] + "_fold" for grp in
                                     natSort(group.files)])
                             outputOrder.append(grpName)
-                        for group in definedGroups:
-                            preFix="_Stat_L"
-                            grpName=group.name+preFix
-                            grpAdd(groups, group.name+preFix, group.minFound,
-                                   [grp[(grp.rfind("/") + 1):max(grp.lower().rfind(".mzxml"), grp.lower().rfind(".mzml"))] + "_Area_L" for grp in
-                                    natSort(group.files)])
-                            outputOrder.append(grpName)
-                    grpStats=[]
-                    for group in definedGroups:
-                        preFix="_Stat_fold"
-                        grpName=group.name+preFix
-                        grpAdd(groups, group.name+preFix, group.minFound,
-                               [grp[(grp.rfind("/") + 1):max(grp.lower().rfind(".mzxml"), grp.lower().rfind(".mzml"))] + "_fold" for grp in
-                                natSort(group.files)])
-                        outputOrder.append(grpName)
-                        grpStats.append((str(group.name+"_Stat_fold"), group.minFound, group.omitFeatures))
+                            grpStats.append((str(group.name+"_Stat_fold"), group.minFound, group.omitFeatures))
 
-                    addStatsColumnToResults(str(self.ui.groupsSave.text()), groups, str(self.ui.groupsSave.text()), outputOrder)
+                        addStatsColumnToResults(str(self.ui.groupsSave.text()), groups, str(self.ui.groupsSave.text()), outputOrder)
 
-                    #remove feature pairs not found more than n times (according to user specified omit value)
-                    grpOmit(str(self.ui.groupsSave.text()), grpStats, str(self.ui.groupsSave.text()))
-                    logging.info("Statistic columns added (and feature pairs omitted)..")
+                        #remove feature pairs not found more than n times (according to user specified omit value)
+                        grpOmit(str(self.ui.groupsSave.text()), grpStats, str(self.ui.groupsSave.text()))
+                        logging.info("Statistic columns added (and feature pairs omitted)..")
 
 
                 except Exception as ex:
@@ -2420,7 +2487,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                 try:
                     # Calculate metabolite groups
-                    pw.getCallingFunction()("text")("Convoluting feature pairs")
+                    pw.getCallingFunction()("text")("Convoluting feature pairs\n")
 
                     runIdentificationInstance=RunIdentification(files[0],
                                   exOperator=str(self.ui.exOperator_LineEdit.text()),
@@ -2613,9 +2680,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             return False
 
     def selectedResultChanged(self, ind):
-
         self.ui.res_ExtractedData.clear()
         self.ui.chromPeakName.setText("")
+
+        sortOrder=str(self.ui.sortOrderResults.currentText())
 
         cInd = self.ui.processedFilesComboBox.currentIndex()
         b = self.ui.processedFilesComboBox.itemData(cInd).toPyObject()
@@ -2735,8 +2803,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             it.myType = "Features"
 
             numberOfFeaturePairs=0
-            for row in SQLSelectAsObject(self.currentOpenResultsFile.curs, "SELECT count(chromPeaks.id) AS co "
-                                                                           "FROM chromPeaks LEFT JOIN tracerConfiguration ON tracerConfiguration.id=chromPeaks.tracer"):
+            for row in SQLSelectAsObject(self.currentOpenResultsFile.curs, "SELECT count(chromPeaks.id) AS co FROM chromPeaks"):
                 numberOfFeaturePairs=row.co
 
             pw.setTextu("Fetching feature pairs (%d)"%numberOfFeaturePairs, i=2)
@@ -2773,7 +2840,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                                            "chromPeaks.massSpectrumID AS massSpectrumID, "
                                                                            "assignedMZs "
                                                                            "FROM chromPeaks LEFT JOIN tracerConfiguration ON tracerConfiguration.id=chromPeaks.tracer "
-                                                                           "ORDER BY tracerConfiguration.id, NPeakCenter, mz, xcount"):
+                                                                           "ORDER BY tracerConfiguration.id, %s, NPeakCenter, mz, xcount"%({"M/Z":"mz", "RT":"NPeakCenter", "Intensity":"NPeakArea DESC", "Peaks correlation":"peaksCorr DESC"}[sortOrder])):
                 adducts = ""
                 lk = loads(base64.b64decode(row.adducts))
                 if len(lk) > 0:
@@ -2875,8 +2942,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                                                "c.massSpectrumID AS massSpectrumID, "
                                                                                "c.assignedMZs AS assignedMZs "
                                                                                "FROM chromPeaks c JOIN featureGroupFeatures f ON c.id==f.fID INNER JOIN tracerConfiguration t ON t.id=c.tracer "
-                                                                               "WHERE f.fGroupID=%d ORDER BY c.mz, c.xcount" %
-                                fG.fgID):
+                                                                               "WHERE f.fGroupID=%d ORDER BY %s, c.mz, c.xcount" % (fG.fgID, {"M/Z":"c.mz", "RT":"c.mz", "Intensity":"c.NPeakArea DESC", "Peaks correlation":"peaksCorr DESC"}[sortOrder])):
 
                     adducts = ""
                     lk = loads(base64.b64decode(row.adducts))
@@ -3522,7 +3588,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         xicLfirstisoconjugate = [float(t) for t in row[4].split(";")]
                         xic_smoothed                   = [float(t) for t in row[5].split(";")]
                         xicL_smoothed                  = [float(t) for t in row[6].split(";")]
-                        times = [float(t) / 60. for t in row[7].split(";")]
+                        offset = cp.NPeakCenterMin / 60. if self.ui.setPeakCentersToZero.isChecked() else 0
+                        times = [float(t) / 60. - offset for t in row[7].split(";")]
                         allPeaks = loads(base64.b64decode(str(row[8])))
 
 
@@ -3811,7 +3878,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             #<editor-fold desc="#featureGroup results">
             elif item.myType == "featureGroup" or item.myType == "Feature Groups":
                 self.ui.res_ExtractedData.setHeaderLabels(
-                    QtCore.QStringList(["Name", "# Peaks", "Rt", "Adducts", "Heteroatoms", "M Scale", "M' Rt (min)", "M' Scale", "Corr", "Tracer", "Ratio"]))
+                    QtCore.QStringList(["Feature group / MZ (/Ionmode Z)", "Rt min", "Xn", "Adducts, hetero atoms", "Scale M / M'", "Peak cor", "M:M' peaks ratio / area ratio", "Area M / M'", "Scans", "Tracer"]))
 
 
                 item.setBackgroundColor(0, QColor(predefinedColors[(useColi) % len(predefinedColors)]))

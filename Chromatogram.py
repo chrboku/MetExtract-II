@@ -1,5 +1,6 @@
 import sys
 import base64
+import zlib
 import struct
 import xml.parsers.expat
 from xml.dom.minidom import parse
@@ -227,24 +228,27 @@ class Chromatogram():
         return ret, times, scanIds
 
     # converts base64 coded spectrum in an mz and intensity array
-    def decode_spectrum(self, line):
-        #print line
-        decoded = base64.decodestring(line)
-        tmp_size = len(decoded) / 4
-        unpack_format1 = ">%dL" % tmp_size
-
+    def decode_spectrum(self, line, compression=None):
         idx = 0
         mz_list = []
         intensity_list = []
 
-        for tmp in struct.unpack(unpack_format1, decoded):
-            tmp_i = struct.pack("I", tmp)
-            tmp_f = struct.unpack("f", tmp_i)[0]
-            if idx % 2 == 0:
-                mz_list.append(float(tmp_f))
-            else:
-                intensity_list.append(float(tmp_f))
-            idx += 1
+        if len(line)>0:
+            decoded = base64.decodestring(line)
+            if compression=="zlib":
+                decoded = zlib.decompress(decoded)
+            tmp_size = len(decoded) / 4
+            unpack_format1 = ">%dL" % tmp_size
+
+
+            for tmp in struct.unpack(unpack_format1, decoded):
+                tmp_i = struct.pack("I", tmp)
+                tmp_f = struct.unpack("f", tmp_i)[0]
+                if idx % 2 == 0:
+                    mz_list.append(float(tmp_f))
+                else:
+                    intensity_list.append(float(tmp_f))
+                idx += 1
 
         return mz_list, intensity_list
 
@@ -293,8 +297,10 @@ class Chromatogram():
             tmp_ms.peak_count_tag = int(attrs['peaksCount'])
             tmp_ms.retention_time = float(attrs['retentionTime'].strip('PTS'))
             if tmp_ms.peak_count > 0:
-                tmp_ms.low_mz = float(attrs['lowMz'])
-                tmp_ms.high_mz = float(attrs['highMz'])
+                if attrs.has_key('lowMz'):
+                    tmp_ms.low_mz = float(attrs['lowMz'])
+                if attrs.has_key('highMz'):
+                    tmp_ms.high_mz = float(attrs['highMz'])
                 tmp_ms.base_peak_mz = float(attrs['basePeakMz'])
                 tmp_ms.base_peak_intensity = float(attrs['basePeakIntensity'])
             tmp_ms.total_ion_current = float(attrs['totIonCurrent'])
@@ -326,6 +332,16 @@ class Chromatogram():
                 tmp_ms.ms1_id = self.MS1_list[-1].id
                 self.MS2_list.append(tmp_ms)
 
+        if name == "peaks":
+            if self.msLevel==1:
+                curScan=self.MS1_list[-1]
+            elif self.msLevel==2:
+                curScan=self.MS2_list[-1]
+
+            curScan.compression=None
+            if attrs.has_key("compressionType"):
+                curScan.compression=str(attrs["compressionType"])
+
     # xml parser - end element handler
     def _end_element(self, name):
         #print "end tag", name
@@ -336,7 +352,7 @@ class Chromatogram():
             elif self.msLevel==2:
                 curScan=self.MS2_list[-1]
 
-            mz_list, intensity_list = self.decode_spectrum(curScan.encodedData)
+            mz_list, intensity_list = self.decode_spectrum(curScan.encodedData, compression=curScan.compression)
             assert len(mz_list) == len(intensity_list)
             mz_list = [mz_list[i] for i in range(len(intensity_list)) if intensity_list[i] > self.intensityCutoff]
             intensity_list = [intensity_list[i] for i in range(len(intensity_list)) if intensity_list[i] > self.intensityCutoff]
