@@ -390,6 +390,14 @@ class RunIdentification:
         SQLInsert(curs, "config", key="adducts", value=base64.b64encode(dumps(self.adducts)))
         SQLInsert(curs, "config", key="elements", value=base64.b64encode(dumps(self.elements)))
 
+
+        import uuid
+        import platform
+        import datetime
+
+        self.processingUUID="%s_%s_%s"%(str(uuid.uuid1()), str(platform.node()), str(datetime.datetime.now()))
+        SQLInsert(curs, "config", key="processingUUID_ext", value=base64.b64encode(str(self.processingUUID)))
+
         i = 1
         if self.metabolisationExperiment:
             for tracer in self.configuredTracers:
@@ -415,16 +423,16 @@ class RunIdentification:
         currentHeight = 800
 
         pdf.drawString(50, currentHeight, "Experiment name")
-        pdf.drawString(240, currentHeight, self.experimentName);
-        pdf.line(50, currentHeight - 2, 540, currentHeight - 2);
+        pdf.drawString(240, currentHeight, self.experimentName)
+        pdf.line(50, currentHeight - 2, 540, currentHeight - 2)
         currentHeight -= 20
 
         pdf.drawString(70, currentHeight, "Operator")
-        pdf.drawString(240, currentHeight, self.experimentOperator);
+        pdf.drawString(240, currentHeight, self.experimentOperator)
         currentHeight -= 15
 
         pdf.drawString(70, currentHeight, "ID")
-        pdf.drawString(240, currentHeight, self.experimentID);
+        pdf.drawString(240, currentHeight, self.experimentID)
         currentHeight -= 15
 
         pdf.drawString(70, currentHeight, "Comments")
@@ -613,7 +621,15 @@ class RunIdentification:
 
         pdf.drawString(70, currentHeight, "R-Version")
         pdf.drawString(240, currentHeight, str(self.rVersion));
-        currentHeight -= 25
+        currentHeight -= 15
+
+
+
+        p = Paragraph("MetExtract UUID_ext: "+self.processingUUID, style=getSampleStyleSheet()["Normal"])
+        w, h = p.wrap(450, 120)
+        p.wrapOn(pdf, 450, 120)
+        p.drawOn(pdf, 60, currentHeight - h + 10);
+        currentHeight -= 15
 
         pdf.showPage()
 
@@ -2209,6 +2225,53 @@ class RunIdentification:
 
                 csvFile.write("\t%.5f\t%.5f\t%.5f"%(observedMean, observedSD, theoreticalRatio))
             csvFile.write("\n")
+
+
+
+        csvFile.write("## MetExtract II %s\n"%(Bunch(MetExtractVersion=self.meVersion, RVersion=self.rVersion, UUID_ext=self.processingUUID).dumpAsJSon().replace("\"", "'")))
+
+        processingParams=Bunch()
+        processingParams.experimentOperator=self.experimentOperator
+        processingParams.experimentID=self.experimentID
+        processingParams.experimentComments=self.experimentComments
+        processingParams.experimentName=self.experimentName
+        csvFile.write("## Experiment parameters %s\n"%(processingParams.dumpAsJSon().replace("\"", "'")))
+
+        processingParams=Bunch()
+        processingParams.startTime=self.startTime
+        processingParams.stopTime=self.stopTime
+        processingParams.positiveScanEvent=self.positiveScanEvent
+        processingParams.negativeScanEvent=self.negativeScanEvent
+        processingParams.metabolisationExperiment=self.metabolisationExperiment
+        processingParams.intensityThreshold=self.intensityThreshold
+        processingParams.intensityCutoff=self.intensityCutoff
+        processingParams.maxLoading=self.maxLoading
+        processingParams.xmin=self.xMin
+        processingParams.xmax=self.xMax
+        processingParams.xoffset=self.xOffset
+        processingParams.ppm=self.ppm
+        processingParams.isotopicPatternCountLeft=self.isotopicPatternCountLeft
+        processingParams.isotopicPatternCountRight=self.isotopicPatternCountRight
+        processingParams.lowAbundanceIsotopeCutoff=self.lowAbundanceIsotopeCutoff
+        processingParams.intensityErrorN=self.intensityErrorN
+        processingParams.intensityErrorL=self.intensityErrorL
+        processingParams.purityN=self.purityN
+        processingParams.purityL=self.purityL
+
+        #2. Results clustering
+        processingParams.minSpectraCount=self.minSpectraCount
+        processingParams.clustPPM=self.clustPPM
+
+        #3. Peak detection
+        processingParams.chromPeakPPM=self.chromPeakPPM
+
+        processingParams.eicSmoothingWindow=self.eicSmoothingWindow
+        processingParams.eicSmoothingWindowSize=self.eicSmoothingWindowSize
+        processingParams.scales=self.scales
+        processingParams.minCorr=self.minPeakCorr
+        processingParams.minCorrelationConvolution=self.minCorrelation
+        processingParams.minCorrelationConnections=self.minCorrelationConnections
+        csvFile.write("## Data processing parameters %s\n"%(processingParams.dumpAsJSon().replace("\"", "'")))
 
         csvFile.close()
 

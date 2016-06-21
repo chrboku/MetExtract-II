@@ -575,7 +575,14 @@ def bracketResults(indGroups, minX, maxX, groupSizePPM, positiveScanEvent=None, 
 
             if writePDF: pdf.save()
 
-            f.write("## MetExtract II %s\n"%(Bunch(MetExtractVersion=meVersion, RVersion=rVersion).dumpAsJSon().replace("\"", "'")))
+
+            import uuid
+            import platform
+            import datetime
+
+            identifier="%s_%s_%s"%(str(uuid.uuid1()), str(platform.node()), str(datetime.datetime.now()))
+
+            f.write("## MetExtract II %s\n"%(Bunch(MetExtractVersion=meVersion, RVersion=rVersion, UUID_ext=identifier).dumpAsJSon().replace("\"", "'")))
             f.write("## Individual files processing parameters %s\n"%(generalProcessingParams.dumpAsJSon().replace("\"", "'")))
             processingParams=Bunch()
             processingParams.FPBracketing_min=minX

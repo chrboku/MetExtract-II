@@ -1087,11 +1087,12 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                                 # create an entry for each processed setting
                                 for key, value in curs.execute("SELECT key, value FROM config"):
-                                    if not (settings.has_key(key)):
-                                        settings[key] = {}
-                                    if not (settings[key].has_key(value)):
-                                        settings[key][value] = 0
-                                    settings[key][value] += 1
+                                    if key not in ["experimentOperator", "experimentID", "experimentComments", "experimentName", "processingUUID_ext"]:
+                                        if not (settings.has_key(key)):
+                                            settings[key] = {}
+                                        if not (settings[key].has_key(value)):
+                                            settings[key][value] = 0
+                                        settings[key][value] += 1
                             curs.close()
                             curs = None
                             conn.close()
@@ -1979,6 +1980,11 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
             sett.setValue("Version",MetExtractVersion)
             sett.setValue("RVersion", getRVersion())
+            import uuid
+            import platform
+            import datetime
+
+            sett.setValue("UUID_ext", "%s_%s_%s"%(str(uuid.uuid1()), str(platform.node()), str(datetime.datetime.now())))
 
             sett.endGroup()
     #</editor-fold>
