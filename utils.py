@@ -1,4 +1,4 @@
-USEGRADIENTDESCENDPEAKPICKING=False
+USEGRADIENTDESCENDPEAKPICKING=True
 
 from math import pow, sqrt
 from copy import copy as copycopy
@@ -167,7 +167,7 @@ def _smoothTriangle(data, degree, dropVals=False):
     return smoothed
 
 # smooth data series
-def smoothDataSeries(x, y, windowLen=2, polynom=3, window="gaussian"):
+def smoothDataSeries(x, y, windowLen=2, polynom=3, window="gaussian", removeNegIntensities=True):
     if window == None or window.lower() == "none":
         return y
 
@@ -196,6 +196,9 @@ def smoothDataSeries(x, y, windowLen=2, polynom=3, window="gaussian"):
         ys = ys[addD:(len(y) + addD)]
     else:
         raise Exception("Unsupported smoothing window")
+
+    if removeNegIntensities:
+        ys=[max(0, i) for i in ys]
 
     return ys
 

@@ -111,7 +111,7 @@ class GradientPeaks:
 
         peak.baseLineRatio=(y[peak.peakIndex]-(y[peak.peakIndex-peak.peakLeftFlank]+y[peak.peakIndex+peak.peakRightFlank])/2.)/y[peak.peakIndex]
 
-        return (peak.leftDelta>=self.minDelta or peak.rightDelta>=self.minDelta) and (peak.leftInflectionDelta>=self.minInflectionDelta or peak.rightInflectionDelta>=self.minInflectionDelta) and peak.baseLineRatio>=self.minBaseLineRatio
+        return (peak.leftDelta>=self.minDelta and peak.rightDelta>=self.minDelta) and (peak.leftInflectionDelta>=self.minInflectionDelta and peak.rightInflectionDelta>=self.minInflectionDelta) and peak.baseLineRatio>=self.minBaseLineRatio
 
 
 
@@ -216,6 +216,18 @@ if __name__=="__main__":
 
 
     if True:
+        mzXMLFile="F:/Bayer_BernhardKluger/HSS_pos/pos_12C13C_L19_Mock_Rep1_28.mzXML"
+
+        mz=519.11316
+        ppm=5.
+        cn=24
+        z=1
+        scales=[3,6]
+        dmz=1.00335
+        gp=GradientPeaks(minInt=1000, minIntFlanks=10, minIncreaseRatio=.05, minDelta=10000, expTime=[5, 150]) ## Bernhard
+
+
+    if False:
         mzXMLFile="F:/Sciex/IFA_Tulin_mzXML_A/IFA_Tulln_neg_CM_stem_12C13C_1_01_CM_stem_12C13C_Vial_1.mzXML"
 
         mz=583.21851
@@ -224,7 +236,7 @@ if __name__=="__main__":
         z=1
         scales=[3,6]
         dmz=1.00335
-        gp=GradientPeaks(minInt=50, minIntFlanks=10, minIncreaseRatio=.05, expTime=[15, 150], minDelta=1, minInflectionDelta=2)
+        gp=GradientPeaks(minInt=50, minIntFlanks=10, minIncreaseRatio=.05, expTime=[15, 150], minDelta=10000, minInflectionDelta=2)
 
     sw.start()
     t.parse_file(mzXMLFile)
@@ -245,12 +257,12 @@ if __name__=="__main__":
     plt.plot(timesMin, eicN_raw)
     plt.plot(timesMin, [-e for e in eicL_raw])
 
-    smoothWin="gaussian"  ## "flat", "triangle", "gaussian", 'flat'
+    smoothWin="SavitzkyGolay"  ## "gaussian", "flat", "triangle", "gaussian", "flat", "savitzkygolay"
 
     sw.start()
     for i in range(1000):
-        eicN = smoothDataSeries(times, eicN_raw, windowLen=5, window=smoothWin, polynom=5)
-        eicL = smoothDataSeries(times, eicL_raw, windowLen=5, window=smoothWin, polynom=5)
+        eicN = smoothDataSeries(times, eicN_raw, windowLen=9, window=smoothWin, polynom=3)
+        eicL = smoothDataSeries(times, eicL_raw, windowLen=9, window=smoothWin, polynom=3)
     sw.stop()
     durationMessages.append("Smoothing the EICs took %.1f seconds (1000 times)"%sw.getDurationInSeconds())
 

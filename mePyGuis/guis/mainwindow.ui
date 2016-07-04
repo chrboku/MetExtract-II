@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1785</width>
+    <width>1864</width>
     <height>1190</height>
    </rect>
   </property>
@@ -61,7 +61,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>2</number>
+       <number>1</number>
       </property>
       <widget class="QWidget" name="inputTab">
        <attribute name="title">
@@ -985,8 +985,8 @@ font: 7pt;</string>
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1293</width>
-             <height>1059</height>
+             <width>1369</width>
+             <height>1116</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -2181,6 +2181,12 @@ font: 7pt;</string>
                                 <verstretch>0</verstretch>
                                </sizepolicy>
                               </property>
+                              <property name="minimumSize">
+                               <size>
+                                <width>130</width>
+                                <height>0</height>
+                               </size>
+                              </property>
                               <item>
                                <property name="text">
                                 <string>None</string>
@@ -2204,6 +2210,11 @@ font: 7pt;</string>
                               <item>
                                <property name="text">
                                 <string>Hanning</string>
+                               </property>
+                              </item>
+                              <item>
+                               <property name="text">
+                                <string>SavitzkyGolay</string>
                                </property>
                               </item>
                              </widget>
@@ -2238,6 +2249,16 @@ font: 7pt;</string>
                                <number>20</number>
                               </property>
                              </widget>
+                            </item>
+                            <item row="3" column="0">
+                             <widget class="QLabel" name="smoothingWindowPolynomLabel">
+                              <property name="text">
+                               <string>Polynom</string>
+                              </property>
+                             </widget>
+                            </item>
+                            <item row="3" column="1">
+                             <widget class="QSpinBox" name="smoothingPolynom_spinner"/>
                             </item>
                            </layout>
                           </widget>
@@ -3375,8 +3396,8 @@ p, li { white-space: pre-wrap; }
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1764</width>
-             <height>1117</height>
+             <width>1831</width>
+             <height>1138</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_15">
@@ -3975,8 +3996,8 @@ p, li { white-space: pre-wrap; }
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1257</width>
-             <height>681</height>
+             <width>1809</width>
+             <height>1116</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_40">
@@ -4262,7 +4283,7 @@ p, li { white-space: pre-wrap; }
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1785</width>
+     <width>1864</width>
      <height>26</height>
     </rect>
    </property>

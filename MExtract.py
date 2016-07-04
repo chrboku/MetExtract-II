@@ -348,12 +348,12 @@ class procAreaInFile:
         self.forFile = forFile
 
     # find chromatographic peak for one detected feature
-    def processAreaFor(self, colToProc, mz, rt, ppm, scanEvent, maxRTShift, scales, snrTH, smoothingWindow, smoothingWindowSize):
+    def processAreaFor(self, colToProc, mz, rt, ppm, scanEvent, maxRTShift, scales, snrTH, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom):
 
         if colToProc == "":
 
             eic, times, scanids = self.t.getEIC(mz, ppm, filterLine=scanEvent)
-            eicSmoothed = smoothDataSeries(times, eic, windowLen=smoothingWindowSize,window=smoothingWindow)
+            eicSmoothed = smoothDataSeries(times, eic, windowLen=smoothingWindowSize,window=smoothingWindow, polynom=smoothingWindowPolynom)
             ret = self.CP.getPeaksFor(times, eicSmoothed, scales=scales, snrTh=snrTH)
 
             best = None
@@ -372,7 +372,7 @@ class procAreaInFile:
 
     # re-integrate one detected feature pair
     def processArea(self, oldData, colToProc, colmz, colrt, colLmz, colIonMode, positiveScanEvent, negativeScanEvent,
-                    ppm, maxRTShift, scales, snrTH, smoothingWindow, smoothingWindowSize):
+                    ppm, maxRTShift, scales, snrTH, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom):
 
         scanEvent = ""
         if oldData[self.colInd[colIonMode]] == "+":
@@ -385,7 +385,7 @@ class procAreaInFile:
 
 
         r = self.processAreaFor(oldData[self.colInd[colToProc + "_Area_N"]], oldData[self.colInd[colmz]],
-                                oldData[self.colInd[colrt]], ppm, scanEvent, maxRTShift, scales, snrTH, smoothingWindow, smoothingWindowSize)
+                                oldData[self.colInd[colrt]], ppm, scanEvent, maxRTShift, scales, snrTH, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom)
 
         nFound = False
         if r is not None:
@@ -393,7 +393,7 @@ class procAreaInFile:
             nFound = True
 
         r = self.processAreaFor(oldData[self.colInd[colToProc + "_Area_L"]], oldData[self.colInd[colLmz]],
-                                oldData[self.colInd[colrt]], ppm, scanEvent, maxRTShift, scales, snrTH, smoothingWindow, smoothingWindowSize)
+                                oldData[self.colInd[colrt]], ppm, scanEvent, maxRTShift, scales, snrTH, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom)
 
         lFound = False
         if r is not None:
@@ -410,7 +410,7 @@ class procAreaInFile:
 
     # re-integrate all detected feature pairs in a given LC-HRMS data file
     def processFile(self, oldData, colToProc, colmz, colrt, colLmz, colIonMode, positiveScanEvent, negativeScanEvent,
-                    ppm, maxRTShift, scales, snrTH, smoothingWindow, smoothingWindowSize):
+                    ppm, maxRTShift, scales, snrTH, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom):
         logging.info("   Reintegration started for file %s" % self.forFile)
 
         z = 0
@@ -422,7 +422,7 @@ class procAreaInFile:
             nDat = [copy(d) for d in oDat]
             try:
                 nDat = self.processArea(nDat, colToProc, colmz, colrt, colLmz, colIonMode, positiveScanEvent,
-                                        negativeScanEvent, ppm, maxRTShift, scales, snrTH, smoothingWindow, smoothingWindowSize)
+                                        negativeScanEvent, ppm, maxRTShift, scales, snrTH, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom)
             except Exception as ex:
                 print ex
                 pass
@@ -434,7 +434,7 @@ class procAreaInFile:
     # set re-integration parameters for the current sub-process
     def setParams(self, oldDataFile, headers, colToProc, colmz, colrt, colxcount, colloading, colLmz, colIonMode,
                   positiveScanEvent, negativeScanEvent, colnum, ppm, maxRTShift, scales, reintegrateIntensityCutoff, snrTH,
-                  smoothingWindow, smoothingWindowSize):
+                  smoothingWindow, smoothingWindowSize, smoothingWindowPolynom):
         self.oldDataFile = oldDataFile
         self.headers = headers
 
@@ -460,6 +460,7 @@ class procAreaInFile:
 
         self.smoothingWindow=smoothingWindow
         self.smoothingWindowSize=smoothingWindowSize
+        self.smoothingWindowPolynom=smoothingWindowPolynom
 
         self.queue = None
         self.pID = None
@@ -492,11 +493,12 @@ class procAreaInFile:
             self.CP=GradientPeaks()                                                                      ## generic gradient descend peak picking
             self.CP=GradientPeaks(minInt=10000, minIntFlanks=10, minIncreaseRatio=.05, expTime=[25, 250]) ## Swiss Orbitrap HF data
             self.CP=GradientPeaks(minInt=1000, minIntFlanks=10, minIncreaseRatio=.15, expTime=[10, 150])
+            self.CP=GradientPeaks(minInt=1000, minIntFlanks=10, minIncreaseRatio=.05, minDelta=10000, expTime=[5, 150]) ## Bernhard
 
         # re-integrate all detected feature pairs from the grouped results in this LC-HRMS data file
         self.processFile(self.oldData, self.colToProc, self.colmz, self.colrt, self.colLmz, self.colIonMode,
                          self.positiveScanEvent, self.negativeScanEvent, self.ppm, self.maxRTShift, self.scales,
-                         self.snrTH, self.smoothingWindow, self.smoothingWindowSize)
+                         self.snrTH, self.smoothingWindow, self.smoothingWindowSize, self.smoothingWindowPolynom)
 
         # ask to release used memory
         self.t.freeMe()
@@ -547,7 +549,7 @@ def interruptReIntegrateFilesProcessing(pool, selfObj):
         return False # don't close progresswrapper and continue processing files
 
 def integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colloading, colLmz, colIonMode, colnum,
-                          ppm=5., maxRTShift=0.25, scales=[3,19], reintegrateIntensityCutoff=0, snrTH=1, smoothingWindow=None, smoothingWindowSize=0,
+                          ppm=5., maxRTShift=0.25, scales=[3,19], reintegrateIntensityCutoff=0, snrTH=1, smoothingWindow=None, smoothingWindowSize=0, smoothingWindowPolynom=0,
                           positiveScanEvent="None", negativeScanEvent="None", pw=None, selfObj=None, cpus=1):
 
     if pw is not None: pw.getCallingFunction()("max")(len(colToProc))
@@ -560,7 +562,7 @@ def integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colloadi
 
         if len(colToProcCur)>=cpus:
             _integrateResultsFile(file, toF, colToProcCur, colmz, colrt, colxcount, colloading, colLmz, colIonMode, colnum,
-                                  ppm, maxRTShift, scales, reintegrateIntensityCutoff, snrTH, smoothingWindow, smoothingWindowSize,
+                                  ppm, maxRTShift, scales, reintegrateIntensityCutoff, snrTH, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom,
                                   positiveScanEvent, negativeScanEvent, pw, selfObj, cpus, pwOffset=pwOffset, totalFilesToProc=len(colToProc),
                                   writeConfig=writeConfig)
             pwOffset+=len(colToProcCur)
@@ -569,7 +571,7 @@ def integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colloadi
 
     if len(colToProcCur)>0:
         _integrateResultsFile(file, toF, colToProcCur, colmz, colrt, colxcount, colloading, colLmz, colIonMode, colnum,
-                              ppm, maxRTShift, scales, reintegrateIntensityCutoff, snrTH, smoothingWindow, smoothingWindowSize,
+                              ppm, maxRTShift, scales, reintegrateIntensityCutoff, snrTH, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom,
                               positiveScanEvent, negativeScanEvent, pw, selfObj, cpus, pwOffset=pwOffset, totalFilesToProc=len(colToProc),
                               writeConfig=writeConfig)
         colToProcCur={}
@@ -588,7 +590,7 @@ def writeReintegrateConfigToDB(curs, maxRTShift, negativeScanEvent, positiveScan
 
 
 def _integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colloading, colLmz, colIonMode, colnum,
-                         ppm=5.,maxRTShift=0.25, scales=[3, 19], reintegrateIntensityCutoff=0, snrTH=1, smoothingWindow=None, smoothingWindowSize=0,
+                         ppm=5.,maxRTShift=0.25, scales=[3, 19], reintegrateIntensityCutoff=0, snrTH=1, smoothingWindow=None, smoothingWindowSize=0, smoothingWindowPolynom=0,
                          positiveScanEvent="None", negativeScanEvent="None",pw=None, selfObj=None, cpus=1, pwOffset=0,totalFilesToProc=1,
                          writeConfig=True):
 
@@ -645,7 +647,7 @@ def _integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colload
 
         u.setParams(file, [x.getName() for x in table.getColumns()], s, colmz, colrt, colxcount, colloading,
                     colLmz, colIonMode, positiveScanEvent, negativeScanEvent, colnum, ppm, maxRTShift, scales, reintegrateIntensityCutoff, snrTH,
-                    smoothingWindow, smoothingWindowSize)
+                    smoothingWindow, smoothingWindowSize, smoothingWindowPolynom)
         u.setMultiProcessingQueue(queue, i)
 
         toProcFiles.append(u)
@@ -742,6 +744,7 @@ def _integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colload
         processingParams.FPReintegrate_negativeScanEvent=negativeScanEvent
         processingParams.FPReintegrate_smoothingWindow=smoothingWindow
         processingParams.FPReintegrate_smoothingWindowSize=smoothingWindowSize
+        processingParams.FPReintegrate_smoothingWindowPolynom=smoothingWindowPolynom
         table.addComment("## Reintegration files processing parameters %s"%(processingParams.dumpAsJSon().replace("\"", "'")))
 
     # save the re-integrated data matrix to the input file
@@ -1049,8 +1052,12 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
     def smoothingWindowChanged(self):
         e=self.ui.eicSmoothingWindow.currentText()!="None"
-        self.ui.eicSmoothingWindowSize.setEnabled(e)
-        self.ui.smoothingWindowSizeLabel.setEnabled(e)
+        self.ui.eicSmoothingWindowSize.setVisible(e)
+        self.ui.smoothingWindowSizeLabel.setVisible(e)
+
+        e=self.ui.eicSmoothingWindow.currentText()=="SavitzkyGolay"
+        self.ui.smoothingWindowPolynomLabel.setVisible(e)
+        self.ui.smoothingPolynom_spinner.setVisible(e)
 
     def isoSearchChanged(self):
         self.ui.label_73.setVisible(self.ui.isoAbundance.checkState()==QtCore.Qt.Checked)
@@ -1761,6 +1768,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     self.ui.eicSmoothingWindow.setCurrentIndex(0)
             if sett.contains("EICSmoothingWindowSize"):
                 self.ui.eicSmoothingWindowSize.setValue(sett.value("EICSmoothingWindowSize").toInt()[0])
+            if sett.contains("smoothingPolynom_spinner"):
+                self.ui.smoothingPolynom_spinner.setValue(sett.value("smoothingPolynom_spinner").toInt()[0])
+
+
             if sett.contains("Wavelet_MinScale"):
                 self.ui.wavelet_minScale.setValue(sett.value("Wavelet_MinScale").toInt()[0])
             if sett.contains("Wavelet_MaxScale"):
@@ -1919,8 +1930,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             sett.setValue("minSpectraCount", self.ui.minSpectraCount.value())
             sett.setValue("correctCCount", self.ui.correctcCount.checkState() == QtCore.Qt.Checked)
             sett.setValue("EICppm", self.ui.wavelet_EICppm.value())
-            sett.setValue("EICSmoothingWindow", str(self.ui.eicSmoothingWindow.currentText())),
-            sett.setValue("EICSmoothingWindowSize", self.ui.eicSmoothingWindowSize.value()),
+            sett.setValue("EICSmoothingWindow", str(self.ui.eicSmoothingWindow.currentText()))
+            sett.setValue("EICSmoothingWindowSize", self.ui.eicSmoothingWindowSize.value())
+            sett.setValue("smoothingPolynom_spinner", self.ui.smoothingPolynom_spinner.value())
+
             sett.setValue("Wavelet_MinScale", self.ui.wavelet_minScale.value())
             sett.setValue("Wavelet_MaxScale", self.ui.wavelet_maxScale.value())
             sett.setValue("Wavelet_SNRTh", self.ui.wavelet_SNRThreshold.value())
@@ -2186,6 +2199,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                   chromPeakPPM=self.ui.wavelet_EICppm.value(),
                                   eicSmoothingWindow=str(self.ui.eicSmoothingWindow.currentText()),
                                   eicSmoothingWindowSize=self.ui.eicSmoothingWindowSize.value(),
+                                  eicSmoothingPolynom=self.ui.smoothingPolynom_spinner.value(),
                                   scales=[self.ui.wavelet_minScale.value(), self.ui.wavelet_maxScale.value()],
                                   snrTh=self.ui.wavelet_SNRThreshold.value(),
                                   peakCenterError=self.ui.peak_centerError.value(),
@@ -2371,6 +2385,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                       chromPeakPPM=self.ui.wavelet_EICppm.value(),
                                                       eicSmoothingWindow=str(self.ui.eicSmoothingWindow.currentText()),
                                                       eicSmoothingWindowSize=self.ui.eicSmoothingWindowSize.value(),
+                                                      eicSmoothingPolynom=self.ui.smoothingPolynom_spinner.value(),
                                                       scales=[self.ui.wavelet_minScale.value(), self.ui.wavelet_maxScale.value()],
                                                       snrTh=self.ui.wavelet_SNRThreshold.value(),
                                                       peakCenterError=self.ui.peak_centerError.value(),
@@ -2527,6 +2542,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                   chromPeakPPM=self.ui.wavelet_EICppm.value(),
                                   eicSmoothingWindow=str(self.ui.eicSmoothingWindow.currentText()),
                                   eicSmoothingWindowSize=self.ui.eicSmoothingWindowSize.value(),
+                                  eicSmoothingPolynom=self.ui.smoothingPolynom_spinner.value(),
                                   scales=[self.ui.wavelet_minScale.value(), self.ui.wavelet_maxScale.value()],
                                   snrTh=self.ui.wavelet_SNRThreshold.value(),
                                   peakCenterError=self.ui.peak_centerError.value(),
@@ -2589,6 +2605,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                          snrTH=self.ui.wavelet_SNRThreshold.value(),
                                          smoothingWindow=str(self.ui.eicSmoothingWindow.currentText()),
                                          smoothingWindowSize=self.ui.eicSmoothingWindowSize.value(),
+                                         smoothingWindowPolynom=self.ui.smoothingPolynom_spinner.value(),
                                          positiveScanEvent=str(self.ui.positiveScanEvent.currentText()),
                                          negativeScanEvent=str(self.ui.negativeScanEvent.currentText()),
                                          pw=pw, selfObj=self, cpus=min(len(files), cpus))
@@ -5207,7 +5224,6 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.ui.polynomLabel.setEnabled(val)
         self.ui.polynomValue.setEnabled(val)
 
-
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls:
             event.accept()
@@ -5381,6 +5397,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.ui.processMultipleFiles.toggled.connect(self.processMultipleFilesChanged)
         self.ui.saveMZXML.toggled.connect(self.saveMZXMLChanged)
         self.updateIndividualFileProcessing = True
+
+        self.ui.smoothingPolynom_spinner.valueChanged.connect(self.smoothingWindowChanged)
 
         self.ui.alignChromatograms.toggled.connect(self.alignToggled)
 

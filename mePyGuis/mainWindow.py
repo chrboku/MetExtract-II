@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '.\mePyGuis\guis\mainwindow.ui'
 #
-# Created: Thu May 19 16:22:31 2016
+# Created: Thu Jun 23 09:26:25 2016
 #      by: PyQt4 UI code generator 4.10
 #
 # WARNING! All changes made in this file will be lost!
@@ -26,7 +26,7 @@ except AttributeError:
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName(_fromUtf8("MainWindow"))
-        MainWindow.resize(1785, 1190)
+        MainWindow.resize(1864, 1190)
         MainWindow.setAcceptDrops(True)
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap(_fromUtf8(":/MEIcon/ressources/MEIcon.ico")), QtGui.QIcon.Normal, QtGui.QIcon.Off)
@@ -456,7 +456,7 @@ class Ui_MainWindow(object):
         self.scrollArea_2.setWidgetResizable(True)
         self.scrollArea_2.setObjectName(_fromUtf8("scrollArea_2"))
         self.scrollAreaWidgetContents_5 = QtGui.QWidget()
-        self.scrollAreaWidgetContents_5.setGeometry(QtCore.QRect(0, 0, 1293, 1059))
+        self.scrollAreaWidgetContents_5.setGeometry(QtCore.QRect(0, 0, 1369, 1116))
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Preferred)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -966,7 +966,9 @@ class Ui_MainWindow(object):
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.eicSmoothingWindow.sizePolicy().hasHeightForWidth())
         self.eicSmoothingWindow.setSizePolicy(sizePolicy)
+        self.eicSmoothingWindow.setMinimumSize(QtCore.QSize(130, 0))
         self.eicSmoothingWindow.setObjectName(_fromUtf8("eicSmoothingWindow"))
+        self.eicSmoothingWindow.addItem(_fromUtf8(""))
         self.eicSmoothingWindow.addItem(_fromUtf8(""))
         self.eicSmoothingWindow.addItem(_fromUtf8(""))
         self.eicSmoothingWindow.addItem(_fromUtf8(""))
@@ -988,6 +990,12 @@ class Ui_MainWindow(object):
         self.eicSmoothingWindowSize.setMaximum(20)
         self.eicSmoothingWindowSize.setObjectName(_fromUtf8("eicSmoothingWindowSize"))
         self.gridLayout_36.addWidget(self.eicSmoothingWindowSize, 2, 1, 1, 1)
+        self.smoothingWindowPolynomLabel = QtGui.QLabel(self.groupBox_7)
+        self.smoothingWindowPolynomLabel.setObjectName(_fromUtf8("smoothingWindowPolynomLabel"))
+        self.gridLayout_36.addWidget(self.smoothingWindowPolynomLabel, 3, 0, 1, 1)
+        self.smoothingPolynom_spinner = QtGui.QSpinBox(self.groupBox_7)
+        self.smoothingPolynom_spinner.setObjectName(_fromUtf8("smoothingPolynom_spinner"))
+        self.gridLayout_36.addWidget(self.smoothingPolynom_spinner, 3, 1, 1, 1)
         self.verticalLayout_4.addWidget(self.groupBox_7)
         self.groupBox_10 = QtGui.QGroupBox(self.procIndFiles)
         self.groupBox_10.setObjectName(_fromUtf8("groupBox_10"))
@@ -1510,7 +1518,7 @@ class Ui_MainWindow(object):
         self.scrollArea_3.setWidgetResizable(True)
         self.scrollArea_3.setObjectName(_fromUtf8("scrollArea_3"))
         self.scrollAreaWidgetContents_6 = QtGui.QWidget()
-        self.scrollAreaWidgetContents_6.setGeometry(QtCore.QRect(0, 0, 1764, 1117))
+        self.scrollAreaWidgetContents_6.setGeometry(QtCore.QRect(0, 0, 1831, 1138))
         self.scrollAreaWidgetContents_6.setObjectName(_fromUtf8("scrollAreaWidgetContents_6"))
         self.gridLayout_15 = QtGui.QGridLayout(self.scrollAreaWidgetContents_6)
         self.gridLayout_15.setObjectName(_fromUtf8("gridLayout_15"))
@@ -1783,7 +1791,7 @@ class Ui_MainWindow(object):
         self.scrollArea.setWidgetResizable(True)
         self.scrollArea.setObjectName(_fromUtf8("scrollArea"))
         self.scrollAreaWidgetContents = QtGui.QWidget()
-        self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 1257, 681))
+        self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 1809, 1116))
         self.scrollAreaWidgetContents.setObjectName(_fromUtf8("scrollAreaWidgetContents"))
         self.gridLayout_40 = QtGui.QGridLayout(self.scrollAreaWidgetContents)
         self.gridLayout_40.setObjectName(_fromUtf8("gridLayout_40"))
@@ -1906,7 +1914,7 @@ class Ui_MainWindow(object):
         self.gridLayout_7.addWidget(self.INFOLabel, 0, 1, 1, 1)
         MainWindow.setCentralWidget(self.centralWidget)
         self.menuBar = QtGui.QMenuBar(MainWindow)
-        self.menuBar.setGeometry(QtCore.QRect(0, 0, 1785, 26))
+        self.menuBar.setGeometry(QtCore.QRect(0, 0, 1864, 26))
         self.menuBar.setObjectName(_fromUtf8("menuBar"))
         self.menuHelp = QtGui.QMenu(self.menuBar)
         self.menuHelp.setObjectName(_fromUtf8("menuHelp"))
@@ -1938,7 +1946,7 @@ class Ui_MainWindow(object):
         self.menuBar.addAction(self.menuHelp.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.tabWidget.setCurrentIndex(2)
+        self.tabWidget.setCurrentIndex(1)
         self.tabWidget_2.setCurrentIndex(0)
         self.tabWidget_3.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
@@ -2127,8 +2135,10 @@ class Ui_MainWindow(object):
         self.eicSmoothingWindow.setItemText(2, _translate("MainWindow", "Flat", None))
         self.eicSmoothingWindow.setItemText(3, _translate("MainWindow", "Gaussian", None))
         self.eicSmoothingWindow.setItemText(4, _translate("MainWindow", "Hanning", None))
+        self.eicSmoothingWindow.setItemText(5, _translate("MainWindow", "SavitzkyGolay", None))
         self.label_30.setText(_translate("MainWindow", "Smoothing window", None))
         self.smoothingWindowSizeLabel.setText(_translate("MainWindow", "Window size", None))
+        self.smoothingWindowPolynomLabel.setText(_translate("MainWindow", "Polynom", None))
         self.groupBox_10.setTitle(_translate("MainWindow", "Chromatographic separation", None))
         self.label_32.setText(_translate("MainWindow", "Min. scale", None))
         self.label_33.setText(_translate("MainWindow", "Max. scale", None))

@@ -125,8 +125,8 @@ class RunIdentification:
                  checkPeaksRatio=False, minPeaksRatio=0, maxPeaksRatio=99999999,
                  calcIsoRatioNative=1, calcIsoRatioLabelled=-1, calcIsoRatioMoiety=1,
                  startTime=2, stopTime=37, positiveScanEvent="None", negativeScanEvent="None",
-                 eicSmoothingWindow="None", eicSmoothingWindowSize=2, correctCCount=True,
-                 minCorrelation=0.85, minCorrelationConnections=0.4, hAIntensityError=5., hAMinScans=3, adducts=[],
+                 eicSmoothingWindow="None", eicSmoothingWindowSize=0, eicSmoothingPolynom=0,
+                 correctCCount=True, minCorrelation=0.85, minCorrelationConnections=0.4, hAIntensityError=5., hAMinScans=3, adducts=[],
                  elements=[], heteroAtoms=[], chromPeakFile=None, lock=None, queue=None, pID=-1, rVersion="NA",
                  meVersion="NA"):
 
@@ -204,6 +204,7 @@ class RunIdentification:
             eicSmoothingWindow = "None"
         self.eicSmoothingWindow = eicSmoothingWindow
         self.eicSmoothingWindowSize = eicSmoothingWindowSize
+        self.eicSmoothingPolynom = eicSmoothingPolynom
         self.snrTh = snrTh
         self.scales = scales
         self.peakCenterError = peakCenterError
@@ -370,6 +371,7 @@ class RunIdentification:
         SQLInsert(curs, "config", key="chromPeakPPM", value=self.chromPeakPPM)
         SQLInsert(curs, "config", key="eicSmoothing", value=self.eicSmoothingWindow)
         SQLInsert(curs, "config", key="eicSmoothingWindowSize", value=self.eicSmoothingWindowSize)
+        SQLInsert(curs, "config", key="eicSmoothingPolynom", value=self.eicSmoothingPolynom)
         SQLInsert(curs, "config", key="snrTh", value=self.snrTh)
         SQLInsert(curs, "config", key="scales", value=base64.b64encode(dumps(self.scales)))
         SQLInsert(curs, "config", key="peakCenterError", value=self.peakCenterError)
@@ -539,6 +541,11 @@ class RunIdentification:
         if self.eicSmoothingWindow.lower() != "none":
             pdf.drawString(70, currentHeight, "EIC Smoothing Window Size")
             pdf.drawString(240, currentHeight, str(self.eicSmoothingWindowSize))
+            currentHeight -= 15
+
+        if self.eicSmoothingWindow.lower() == "SavitzkyGolay":
+            pdf.drawString(70, currentHeight, "EIC Smoothing Polynom")
+            pdf.drawString(240, currentHeight, str(self.eicSmoothingPolynom))
             currentHeight -= 15
 
         pdf.drawString(70, currentHeight, "Scales")
@@ -944,11 +951,11 @@ class RunIdentification:
                     # extract the EIC of the native ion and detect its chromatographic peaks
                     # optionally: smoothing
                     eic, times, scanIds = mzxml.getEIC(meanmz, self.chromPeakPPM, filterLine=scanEvent)
-                    eicSmoothed = smoothDataSeries(times, eic, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow)
+                    eicSmoothed = smoothDataSeries(times, eic, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
                     # extract the EIC of the labelled ion and detect its chromatographic peaks
                     # optionally: smoothing
                     eicL, times, scanIds = mzxml.getEIC(meanmzLabelled,self.chromPeakPPM, filterLine=scanEvent)
-                    eicLSmoothed = smoothDataSeries(times, eicL, windowLen=self.eicSmoothingWindowSize,window=self.eicSmoothingWindow)
+                    eicLSmoothed = smoothDataSeries(times, eicL, windowLen=self.eicSmoothingWindowSize,window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
 
                     # determine boundaries for chromatographic peak picking
                     minInd=min([kid.getObject().scanIndex for kid in kids])
@@ -981,17 +988,17 @@ class RunIdentification:
                     eicfirstiso, timesL, scanIdsL = mzxml.getEIC(
                         meanmz + 1 * self.xOffset / loading, self.chromPeakPPM,
                         filterLine=scanEvent)
-                    #eicfirstisoSmoothed = smoothDataSeries(times, eicfirstiso, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow)
+                    #eicfirstisoSmoothed = smoothDataSeries(times, eicfirstiso, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
 
                     eicLfirstiso, timesL, scanIdsL = mzxml.getEIC(
                         meanmz + (xcount - 1) * self.xOffset / loading, self.chromPeakPPM,
                         filterLine=scanEvent)
-                    #eicLfirstisoSmoothed = smoothDataSeries(times, eicLfirstiso, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow)
+                    #eicLfirstisoSmoothed = smoothDataSeries(times, eicLfirstiso, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
 
                     eicLfirstisoconjugate, timesL, scanIdsL = mzxml.getEIC(
                         meanmz + (xcount + 1) * self.xOffset / loading, self.chromPeakPPM,
                         filterLine=scanEvent)
-                    #eicLfirstisoconjugateSmoothed = smoothDataSeries(times, eicLfirstisoconjugate, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow)
+                    #eicLfirstisoconjugateSmoothed = smoothDataSeries(times, eicLfirstisoconjugate, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
 
                     peaksBoth = []
 
@@ -2267,6 +2274,7 @@ class RunIdentification:
 
         processingParams.eicSmoothingWindow=self.eicSmoothingWindow
         processingParams.eicSmoothingWindowSize=self.eicSmoothingWindowSize
+        processingParams.eicSmoothingPolynom=self.eicSmoothingPolynom
         processingParams.scales=self.scales
         processingParams.minCorr=self.minPeakCorr
         processingParams.minCorrelationConvolution=self.minCorrelation
@@ -2685,17 +2693,17 @@ class RunIdentification:
                         gPeaks = []
 
                     eicN, times, scanIds = mzxml.getEIC(peak.mz, self.chromPeakPPM, filterLine=scanEvent)
-                    eicN = smoothDataSeries(times, eicN, windowLen=self.eicSmoothingWindowSize,window=self.eicSmoothingWindow)
+                    eicN = smoothDataSeries(times, eicN, windowLen=self.eicSmoothingWindowSize,window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
                     eicN_cropped = copy(eicN)
 
                     eicL, times, scanIds = mzxml.getEIC(peak.mz + peak.xCount * tracer.mzDelta / peak.loading,self.chromPeakPPM, filterLine=scanEvent)
-                    eicL = smoothDataSeries(times, eicL, windowLen=self.eicSmoothingWindowSize,window=self.eicSmoothingWindow)
+                    eicL = smoothDataSeries(times, eicL, windowLen=self.eicSmoothingWindowSize,window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
 
                     eicNP1, times, scanIds = mzxml.getEIC(peak.mz + 1 * tracer.mzDelta / peak.loading,self.chromPeakPPM, filterLine=scanEvent)
-                    eicNP1 = smoothDataSeries(times, eicNP1, windowLen=self.eicSmoothingWindowSize,window=self.eicSmoothingWindow)
+                    eicNP1 = smoothDataSeries(times, eicNP1, windowLen=self.eicSmoothingWindowSize,window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
 
                     eicLm1, times, scanIds = mzxml.getEIC(peak.mz + (peak.xCount - 1) * tracer.mzDelta / peak.loading,self.chromPeakPPM, filterLine=scanEvent)
-                    eicLm1 = smoothDataSeries(times, eicLm1, windowLen=self.eicSmoothingWindowSize,window=self.eicSmoothingWindow)
+                    eicLm1 = smoothDataSeries(times, eicLm1, windowLen=self.eicSmoothingWindowSize,window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
 
                     gPeaks.append([peak, eicN, eicN_cropped, times, scanIds])
 
@@ -2894,10 +2902,10 @@ class RunIdentification:
                 self.CP=GradientPeaks()                                                                       ## generic gradient descend peak picking - do not use. Parameters need to be optimized
                 self.CP=GradientPeaks(minInt=1000, minIntFlanks=1, minIncreaseRatio=.01)                                                                       ## LTQ Orbitrap XL
                 self.CP=GradientPeaks(minInt=10000, minIntFlanks=10, minIncreaseRatio=.15, expTime=[10, 250]) ## Swiss Orbitrap HF data
-                self.CP=GradientPeaks(minInt=1000, minIntFlanks=10, minIncreaseRatio=.15, expTime=[10, 150]) ## Bernhard
-                self.CP=GradientPeaks(minInt=10000, minIntFlanks=100, minIncreaseRatio=.15, expTime=[15, 150])  ## Lin
-                self.CP=GradientPeaks(minInt=50, minIntFlanks=10, minIncreaseRatio=.05, expTime=[15, 150], minDelta=1, minInflectionDelta=2) ## Roitinger
-                self.CP=GradientPeaks(minInt=10000, minIntFlanks=10, minIncreaseRatio=.05, expTime=[5, 45])       ## RNA
+                self.CP=GradientPeaks(minInt=1000, minIntFlanks=10, minIncreaseRatio=.05, minDelta=10000, expTime=[5, 150]) ## Bernhard
+                #self.CP=GradientPeaks(minInt=10000, minIntFlanks=100, minIncreaseRatio=.15, expTime=[15, 150])  ## Lin
+                #self.CP=GradientPeaks(minInt=50, minIntFlanks=10, minIncreaseRatio=.05, expTime=[15, 150], minDelta=1, minInflectionDelta=2) ## Roitinger
+                #self.CP=GradientPeaks(minInt=10000, minIntFlanks=10, minIncreaseRatio=.05, expTime=[5, 45])       ## RNA
 
             self.curPeakId = 1
             self.curEICId = 1
