@@ -56,13 +56,12 @@ def _writeFirstPage(pdf, groupSizePPM, maxTimeDeviation, align, nPolynom):
 
 
 # store used configuration to DB file
-def writeConfigToDB(curs, align, file, groupSizePPM, maxLoading, maxTimeDeviation, maxX, minX, nPolynom,
+def writeConfigToDB(curs, align, file, groupSizePPM, maxLoading, maxTimeDeviation, xCounts, nPolynom,
                     negativeScanEvent, positiveScanEvent, rVersion, meVersion):
     SQLInsert(curs, "config", key="MEVersion", value=str(meVersion))
     SQLInsert(curs, "config", key="RVersion", value=str(rVersion))
 
-    SQLInsert(curs, "config", key="FPBRACK_minX", value=str(minX))
-    SQLInsert(curs, "config", key="FPBRACK_maxX", value=str(maxX))
+    SQLInsert(curs, "config", key="FPBRACK_xCounts", value=str(xCounts))
     SQLInsert(curs, "config", key="FPBRACK_groupSizePPM", value=str(groupSizePPM))
     SQLInsert(curs, "config", key="FPBRACK_positiveScanEvent", value=str(positiveScanEvent))
     SQLInsert(curs, "config", key="FPBRACK_negativeScanEvent", value=str(negativeScanEvent))
@@ -73,7 +72,7 @@ def writeConfigToDB(curs, align, file, groupSizePPM, maxLoading, maxTimeDeviatio
     SQLInsert(curs, "config", key="FPBRACK_nPolynom", value=str(nPolynom))
 
 # bracket results
-def bracketResults(indGroups, minX, maxX, groupSizePPM, positiveScanEvent=None, negativeScanEvent=None,
+def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, negativeScanEvent=None,
                  maxTimeDeviation=0.36 * 60, maxLoading=1, file="./results.tsv", align=True, nPolynom=1,
                  pwMaxSet=None, pwValSet=None, pwTextSet=None, rVersion="", meVersion="", generalProcessingParams=Bunch()):
 
@@ -108,7 +107,7 @@ def bracketResults(indGroups, minX, maxX, groupSizePPM, positiveScanEvent=None, 
         resDB.curs.execute("DROP TABLE IF EXISTS config")
         resDB.curs.execute("CREATE TABLE config(id INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT, value TEXT)")
 
-        writeConfigToDB(resDB.curs, align, file, groupSizePPM, maxLoading, maxTimeDeviation, maxX, minX, nPolynom,
+        writeConfigToDB(resDB.curs, align, file, groupSizePPM, maxLoading, maxTimeDeviation, xCounts, nPolynom,
                         negativeScanEvent, positiveScanEvent, rVersion, meVersion)
 
 
@@ -218,12 +217,21 @@ def bracketResults(indGroups, minX, maxX, groupSizePPM, positiveScanEvent=None, 
 
             curNum = 1
 
+            xCountshelp = []
+            a=xCounts.replace(" ", "").split(",")
+            for j in a:
+                if "-" in j:
+                    xCountshelp.extend(range(int(j[0:j.find("-")]), int(j[j.find("-")+1:len(j)])+1))
+                else:
+                    xCountshelp.append(int(j))
+            xCounts=sorted(list(set(xCountshelp)))
+
             # prefetch number of bracketing steps for the progress bar
             totalThingsToDo=0
             for ionMode in ionModes:
                 scanEvent = ionModes[ionMode]
                 for tracer in tracersDeltaMZ:
-                    for xCount in range(minX, maxX + 1):
+                    for xCount in xCounts:
                         for cLoading in range(maxLoading, 0, -1):
                             totalThingsToDo+=1
 
@@ -235,7 +243,7 @@ def bracketResults(indGroups, minX, maxX, groupSizePPM, positiveScanEvent=None, 
             for ionMode in ionModes:
                 scanEvent = ionModes[ionMode]
                 for tracer in tracersDeltaMZ:
-                    for xCount in range(minX, maxX + 1):
+                    for xCount in xCounts:
                         for cLoading in range(maxLoading, 0, -1):
                             doneSoFar+=1
                             if floor(doneSoFar/totalThingsToDo*100)>doneSoFarPercent:
@@ -585,8 +593,7 @@ def bracketResults(indGroups, minX, maxX, groupSizePPM, positiveScanEvent=None, 
             f.write("## MetExtract II %s\n"%(Bunch(MetExtractVersion=meVersion, RVersion=rVersion, UUID_ext=identifier).dumpAsJSon().replace("\"", "'")))
             f.write("## Individual files processing parameters %s\n"%(generalProcessingParams.dumpAsJSon().replace("\"", "'")))
             processingParams=Bunch()
-            processingParams.FPBracketing_min=minX
-            processingParams.FPBracketing_max=maxX
+            processingParams.FPBracketing_xCounts=xCounts
             processingParams.FPBracketing_groupSizePPM=groupSizePPM
             processingParams.FPBracketing_positiveScanEvent=positiveScanEvent
             processingParams.FPBracketing_negativeScanEvent=negativeScanEvent

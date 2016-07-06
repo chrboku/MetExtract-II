@@ -2494,42 +2494,7 @@ font: 7pt;</string>
                          </property>
                          <layout class="QGridLayout" name="gridLayout_31">
                           <item row="0" column="0">
-                           <layout class="QGridLayout" name="gridLayout_14">
-                            <item row="0" column="1">
-                             <widget class="QSpinBox" name="minXCount">
-                              <property name="value">
-                               <number>3</number>
-                              </property>
-                             </widget>
-                            </item>
-                            <item row="1" column="0">
-                             <widget class="QLabel" name="label_14">
-                              <property name="toolTip">
-                               <string>Maximum number of Element Atoms that Meta searches for</string>
-                              </property>
-                              <property name="text">
-                               <string>Max. </string>
-                              </property>
-                             </widget>
-                            </item>
-                            <item row="1" column="1">
-                             <widget class="QSpinBox" name="maxXCount">
-                              <property name="value">
-                               <number>70</number>
-                              </property>
-                             </widget>
-                            </item>
-                            <item row="0" column="0">
-                             <widget class="QLabel" name="label_13">
-                              <property name="toolTip">
-                               <string>Minimum number of Element Atoms that Meta searches for</string>
-                              </property>
-                              <property name="text">
-                               <string>Min. </string>
-                              </property>
-                             </widget>
-                            </item>
-                           </layout>
+                           <widget class="QLineEdit" name="xCountSearch"/>
                           </item>
                          </layout>
                         </widget>
@@ -3396,8 +3361,8 @@ p, li { white-space: pre-wrap; }
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1831</width>
-             <height>1138</height>
+             <width>1764</width>
+             <height>625</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_15">
@@ -3996,8 +3961,8 @@ p, li { white-space: pre-wrap; }
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1809</width>
-             <height>1116</height>
+             <width>1257</width>
+             <height>681</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_40">
@@ -4360,8 +4325,6 @@ p, li { white-space: pre-wrap; }
   <tabstop>minRatio</tabstop>
   <tabstop>maxRatio</tabstop>
   <tabstop>setupTracers</tabstop>
-  <tabstop>minXCount</tabstop>
-  <tabstop>maxXCount</tabstop>
   <tabstop>scanStartTime</tabstop>
   <tabstop>scanEndTime</tabstop>
   <tabstop>intensityThreshold</tabstop>

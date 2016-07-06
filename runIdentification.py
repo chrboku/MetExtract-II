@@ -118,7 +118,7 @@ class RunIdentification:
                  metabolisationExperiment=False,
                  labellingisotopeA='12C', labellingisotopeB='13C', useCValidation=False, xOffset=1.00335,
                  minRatio=0, maxRatio=9999999, useRatio=False,
-                 configuredTracers=[], intensityThreshold=0, intensityCutoff=0, maxLoading=1, xMin=3, xMax=70, ppm=2.,
+                 configuredTracers=[], intensityThreshold=0, intensityCutoff=0, maxLoading=1, xCounts="", ppm=2.,
                  isotopicPatternCountLeft=2, isotopicPatternCountRight=2, lowAbundanceIsotopeCutoff=True, intensityThresholdIsotopologs=1000,
                  intensityErrorN=0.25, intensityErrorL=0.25, purityN=0.99, purityL=0.99, minSpectraCount=1, clustPPM=8.,
                  chromPeakPPM=5., snrTh=1., scales=[1, 35], peakCenterError=5, peakScaleError=3, minPeakCorr=0.85,
@@ -180,8 +180,17 @@ class RunIdentification:
         self.intensityThreshold = intensityThreshold
         self.intensityCutoff = intensityCutoff
         self.maxLoading = maxLoading
-        self.xMin = xMin
-        self.xMax = xMax
+
+        self.xCounts = []
+        self.xCountsString=xCounts
+        a=xCounts.replace(" ", "").split(",")
+        for j in a:
+            if "-" in j:
+                self.xCounts.extend(range(int(j[0:j.find("-")]), int(j[j.find("-")+1:len(j)])+1))
+            else:
+                self.xCounts.append(int(j))
+        self.xCounts=sorted(list(set(self.xCounts)))
+
         self.xOffset = xOffset
         self.ppm = ppm
         self.isotopicPatternCountLeft = isotopicPatternCountLeft
@@ -355,8 +364,7 @@ class RunIdentification:
         SQLInsert(curs, "config", key="intensityThreshold", value=self.intensityThreshold)
         SQLInsert(curs, "config", key="intensityCutoff", value=self.intensityCutoff)
         SQLInsert(curs, "config", key="maxLoading", value=self.maxLoading)
-        SQLInsert(curs, "config", key="xMin", value=self.xMin)
-        SQLInsert(curs, "config", key="xMax", value=self.xMax)
+        SQLInsert(curs, "config", key="xCounts", value=self.xCountsString)
         SQLInsert(curs, "config", key="xOffset", value=self.xOffset)
         SQLInsert(curs, "config", key="ppm", value=self.ppm)
         SQLInsert(curs, "config", key="isotopicPatternCountLeft", value=self.isotopicPatternCountLeft)
@@ -503,7 +511,7 @@ class RunIdentification:
         currentHeight -= 15
 
         pdf.drawString(70, currentHeight, "Atom count")
-        pdf.drawString(240, currentHeight, "%d - %d" % (self.xMin, self.xMax));
+        pdf.drawString(240, currentHeight, "%s" % (",".join(str(x) for x in self.xCountsString)));
         currentHeight -= 15
 
         pdf.drawString(70, currentHeight, "Max. charge")
@@ -715,7 +723,7 @@ class RunIdentification:
                               intensityThres=self.intensityThreshold,
                               isotopologIntensityThres=self.intensityThresholdIsotopologs,
                               maxLoading=self.maxLoading,
-                              xMin=self.xMin, xMax=self.xMax,
+                              xCounts=self.xCounts,
                               xOffset=self.xOffset,
                               ppm=self.ppm,
                               intensityErrorN=self.intensityErrorN, intensityErrorL=self.intensityErrorL,
@@ -746,7 +754,7 @@ class RunIdentification:
                               intensityThres=self.intensityThreshold,
                               isotopologIntensityThres=self.intensityThresholdIsotopologs,
                               maxLoading=self.maxLoading,
-                              xMin=self.xMin, xMax=self.xMax,
+                              xCounts=self.xCounts,
                               xOffset=self.xOffset,
                               ppm=self.ppm,
                               intensityErrorN=self.intensityErrorN, intensityErrorL=self.intensityErrorL,
@@ -796,9 +804,10 @@ class RunIdentification:
         mzbins['-'] = []
 
         # cluster each detected number of carbon atoms separately
-        for xCount in range(self.xMin, self.xMax + 1):
+        donei=0
+        for xCount in self.xCounts:
             if reportFunction is not None:
-                reportFunction((xCount - self.xMin) / (1. * self.xMax - self.xMin + 1), "Current Xn: %d" % xCount)
+                reportFunction(donei / len(self.xCounts), "Current Xn: %d" % xCount)
             # cluster each detected number of loadings separately
             for loading in range(self.maxLoading, 0, -1):
                 for ionMode in ['+', '-']:
@@ -2253,8 +2262,7 @@ class RunIdentification:
         processingParams.intensityThreshold=self.intensityThreshold
         processingParams.intensityCutoff=self.intensityCutoff
         processingParams.maxLoading=self.maxLoading
-        processingParams.xmin=self.xMin
-        processingParams.xmax=self.xMax
+        processingParams.xCounts=self.xCountsString
         processingParams.xoffset=self.xOffset
         processingParams.ppm=self.ppm
         processingParams.isotopicPatternCountLeft=self.isotopicPatternCountLeft

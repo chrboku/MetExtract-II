@@ -52,6 +52,7 @@ def checkR():
 
         v = r("R.Version()$version.string")     # if this R-commando is executed, the RPy2 connection to the
                                                 # R subprocess has been established
+
         return True
     except:
         # The R subprocess could not be started / accessed successfully
@@ -1335,9 +1336,41 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             group.files[i]=str(groupFile[:groupFile.rfind("/")]+"/"+text+"/data"+group.files[i][group.files[i].rfind("/"):])
                             done=done+1
                             pw.setValueu(done)
+
+                    try:
+                        pw.setTextu("Zipping current MetExtract II application for documentation")
+                        import zipfile
+
+                        def zipdir(path, zip):
+                            for root, dirs, files in os.walk(path):
+                                for file in files:
+                                    zip.write(os.path.join(root, file))
+
+                        zipF = zipfile.ZipFile(str(groupFile[:groupFile.rfind("/")]+"/"+text+"/MetExtractII_application.zip"), 'w')
+                        zipdir(get_main_dir(), zipF)
+
+                        import tempfile
+                        tmpF=tempfile.NamedTemporaryFile(delete=False)
+
+                        import rpy2.robjects as ro              # import RPy2 module
+                        r = ro.r                                # make R globally accessible
+                        v = r("sessionInfo()")                  # get R sessin infos
+
+                        tmpF.write(str(v))
+                        tmpF.write("\n\nInstalled packages:\n")
+                        v = r("ip <- as.data.frame(installed.packages()[,c(1,3:4)]); rownames(ip) <- NULL; ip <- ip[is.na(ip$Priority),1:2,drop=FALSE]; print(ip)")
+                        tmpF.write(str(v))
+
+                        tmpF.close()
+
+                        zipF.write(tmpF.name, arcname="RSessioninfo.txt")
+                        zipF.close()
+
+                    except Exception as ex:
+                        print ex
+                        logging.warning("Could not zip MetExtract II application for documentation")
+
                     pw.close()
-
-
 
                     ## rename settings
                     groupFile=str(groupFile[:groupFile.rfind("/")]+"/"+text+groupFile[groupFile.rfind("/"):])
@@ -1729,10 +1762,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 self.ui.scanStartTime.setValue(sett.value("ScanStart").toDouble()[0])
             if sett.contains("ScanEnd"):
                 self.ui.scanEndTime.setValue(sett.value("ScanEnd").toDouble()[0])
-            if sett.contains("MinXCount"):
-                self.ui.minXCount.setValue(sett.value("MinXCount").toInt()[0])
-            if sett.contains("MaxXCount"):
-                self.ui.maxXCount.setValue(sett.value("MaxXCount").toInt()[0])
+            if sett.contains("xCounts"):
+                self.ui.xCountSearch.setText(str(sett.value("xCounts").toString()))
             if sett.contains("MaxLoading"):
                 self.ui.maxLoading.setValue(sett.value("MaxLoading").toInt()[0])
             if sett.contains("MaxMassDeviation"):
@@ -1915,8 +1946,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             sett.setValue("IntensityCutoff", self.ui.intensityCutoff.value())
             sett.setValue("ScanStart", self.ui.scanStartTime.value())
             sett.setValue("ScanEnd", self.ui.scanEndTime.value())
-            sett.setValue("MinXCount", self.ui.minXCount.value())
-            sett.setValue("MaxXCount", self.ui.maxXCount.value())
+            sett.setValue("xCounts", str(self.ui.xCountSearch.text()))
             sett.setValue("MaxLoading", self.ui.maxLoading.value())
             sett.setValue("MaxMassDeviation", self.ui.ppmRangeIdentification.value())
             sett.setValue("IsotopicPatternCountA", self.ui.isotopePatternCountA.value())
@@ -2186,7 +2216,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                   useCValidation=int(str(self.ui.useCValidation.checkState())),
                                   configuredTracers=self.configuredTracers, startTime=self.ui.scanStartTime.value(),
                                   stopTime=self.ui.scanEndTime.value(), maxLoading=self.ui.maxLoading.value(),
-                                  xMin=self.ui.minXCount.value(), xMax=self.ui.maxXCount.value(),
+                                  xCounts=str(self.ui.xCountSearch.text()),
                                   ppm=self.ui.ppmRangeIdentification.value(),
                                   isotopicPatternCountLeft=self.ui.isotopePatternCountA.value(),
                                   isotopicPatternCountRight=self.ui.isotopePatternCountB.value(),
@@ -2372,7 +2402,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                       useCValidation=int(str(self.ui.useCValidation.checkState())),
                                                       configuredTracers="[%s]"%",".join([str(t) for t in self.configuredTracers]), startTime=self.ui.scanStartTime.value(),
                                                       stopTime=self.ui.scanEndTime.value(), maxLoading=self.ui.maxLoading.value(),
-                                                      xMin=self.ui.minXCount.value(), xMax=self.ui.maxXCount.value(),
+                                                      xCounts=str(self.ui.xCountSearch.text()),
                                                       ppm=self.ui.ppmRangeIdentification.value(),
                                                       isotopicPatternCountLeft=self.ui.isotopePatternCountA.value(),
                                                       isotopicPatternCountRight=self.ui.isotopePatternCountB.value(),
@@ -2409,7 +2439,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                       heteroAtoms="[%s]"%",".join([str(h) for h in self.heteroElements]),
                                                       rVersion=getRVersion(), meVersion="MetExtract (%s)" % MetExtractVersion)
                         procProc = FuncProcess(_target=bracketResults,
-                                                indGroups=indGroups, minX=self.ui.minXCount.value(), maxX=self.ui.maxXCount.value(),
+                                                indGroups=indGroups, xCounts=str(self.ui.xCountSearch.text()),
                                                 groupSizePPM=self.ui.groupPpm.value(),
                                                 maxTimeDeviation=self.ui.groupingRT.value() * 60.,
                                                 maxLoading=self.ui.maxLoading.value(),
@@ -2530,8 +2560,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                   useCValidation=int(str(self.ui.useCValidation.checkState())),
                                   configuredTracers=self.configuredTracers, startTime=self.ui.scanStartTime.value(),
                                   stopTime=self.ui.scanEndTime.value(), maxLoading=self.ui.maxLoading.value(),
-                                  xMin=self.ui.minXCount.value(), xMax=self.ui.maxXCount.value(),
-                                  ppm=self.ui.ppmRangeIdentification.value(),
+                                  xCounts=str(self.ui.xCountSearch.text()),
                                   isotopicPatternCountLeft=self.ui.isotopePatternCountA.value(),
                                   isotopicPatternCountRight=self.ui.isotopePatternCountB.value(),
                                   lowAbundanceIsotopeCutoff=self.ui.isoAbundance.checkState() == QtCore.Qt.Checked,

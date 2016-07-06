@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '.\mePyGuis\guis\TracerEditor.ui'
 #
-# Created: Wed Jul 06 10:45:35 2016
+# Created: Wed Jul 06 18:33:37 2016
 #      by: PyQt4 UI code generator 4.10
 #
 # WARNING! All changes made in this file will be lost!

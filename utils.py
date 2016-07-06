@@ -1,4 +1,4 @@
-USEGRADIENTDESCENDPEAKPICKING=True
+USEGRADIENTDESCENDPEAKPICKING=False
 
 from math import pow, sqrt
 from copy import copy as copycopy

@@ -190,42 +190,46 @@ class Chromatogram():
 
     # returns an eic. Single MS peaks and such below a certain threshold may be removed
     def getEIC(self, mz, ppm, filterLine="", removeSingles=True, intThreshold=0, useMS1=True, useMS2=False, startTime=0, endTime=1000000):
-        ret = []
+        eic = []
         times = []
         scanIds = []
 
+        eicAppend = eic.append
+        timesAppend = times.append
+        scanIdsAppend = scanIds.append
+
         if useMS1:
             for scan in self.MS1_list:
-                if (filterLine == "" or scan.filter_line == filterLine) and startTime <= scan.retention_time <= endTime:
+                if (scan.filter_line == filterLine or filterLine == "") and startTime <= scan.retention_time <= endTime:
                     bounds = scan.findMZ(mz, ppm)
                     if bounds[0] != -1:
-                        ret.append(max(scan.intensity_list[bounds[0]:(bounds[1] + 1)]))
+                        eicAppend(max(scan.intensity_list[bounds[0]:(bounds[1] + 1)]))
                     else:
-                        ret.append(0)
-                    times.append(scan.retention_time)
-                    scanIds.append(scan.id)
+                        eicAppend(0)
+                    timesAppend(scan.retention_time)
+                    scanIdsAppend(scan.id)
 
         if useMS2:
             for scan in self.MS2_list:
-                if (filterLine == "" or scan.filter_line == filterLine) and startTime <= scan.retention_time <= endTime:
+                if (scan.filter_line == filterLine or filterLine == "") and startTime <= scan.retention_time <= endTime:
                     bounds = scan.findMZ(mz, ppm)
                     if bounds[0] != -1:
-                        ret.append(max(scan.intensity_list[bounds[0]:(bounds[1] + 1)]))
+                        eicAppend(max(scan.intensity_list[bounds[0]:(bounds[1] + 1)]))
                     else:
-                        ret.append(0)
-                    times.append(scan.retention_time)
-                    scanIds.append(scan.id)
+                        eicAppend(0)
+                    timesAppend(scan.retention_time)
+                    scanIdsAppend(scan.id)
 
-        for i in range(1, len(ret)):
-            if ret[i] < intThreshold:
-                ret[i] = 0
+        for i in range(1, len(eic)):
+            if eic[i] < intThreshold:
+                eic[i] = 0
 
         if removeSingles:
-            for i in range(1, len(ret) - 1):
-                if ret[i - 1] == 0 and ret[i + 1] == 0:
-                    ret[i] = 0
+            for i in range(1, len(eic) - 1):
+                if eic[i - 1] == 0 and eic[i + 1] == 0:
+                    eic[i] = 0
 
-        return ret, times, scanIds
+        return eic, times, scanIds
 
     # converts base64 coded spectrum in an mz and intensity array
     def decode_spectrum(self, line, compression=None):

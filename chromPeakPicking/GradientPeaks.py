@@ -56,7 +56,7 @@ class GradientPeaks:
 
     ### expand a local maxima by following its gradient to the bottom
     def expandPeak(self, peak, x, y):
-        #print "peak at ", peak.peakIndex, x[peak.peakIndex]
+        ##print "peak at ", peak.peakIndex, x[peak.peakIndex]
 
         # find left border
         peak.peakLeftFlank=0
@@ -66,7 +66,7 @@ class GradientPeaks:
         while goOn and (peak.peakIndex-peak.peakLeftFlank-1)>0:
             rat=y[peak.peakIndex-peak.peakLeftFlank-1]/y[peak.peakIndex-peak.peakLeftFlank]
             delta=(y[peak.peakIndex-peak.peakLeftFlank]-y[peak.peakIndex-peak.peakLeftFlank-1])/(x[peak.peakIndex-peak.peakLeftFlank]-x[peak.peakIndex-peak.peakLeftFlank-1])
-            #print y[peak.peakIndex-peak.peakLeftFlank-1], y[peak.peakIndex-peak.peakLeftFlank], rat, delta, goOnInflection, goOn
+            #print "left", y[peak.peakIndex-peak.peakLeftFlank-1], y[peak.peakIndex-peak.peakLeftFlank], rat, delta, goOnInflection, goOn
 
             if goOnInflection and delta<=lastDelta:
                 peak.leftInflection=peak.peakLeftFlank
@@ -88,6 +88,7 @@ class GradientPeaks:
         while goOn and (peak.peakIndex+peak.peakRightFlank+1)<len(x):
             rat=y[peak.peakIndex+peak.peakRightFlank+1]/y[peak.peakIndex+peak.peakRightFlank]
             delta=(y[peak.peakIndex+peak.peakRightFlank]-y[peak.peakIndex+peak.peakRightFlank+1])/(x[peak.peakIndex+peak.peakRightFlank+1]-x[peak.peakIndex+peak.peakRightFlank])
+            #print "right", y[peak.peakIndex-peak.peakLeftFlank-1], y[peak.peakIndex-peak.peakLeftFlank], rat, delta, goOnInflection, goOn
 
             if goOnInflection and delta<=lastDelta:
                 peak.rightInflection=peak.peakRightFlank
@@ -206,7 +207,7 @@ if __name__=="__main__":
         dmz = 1.00335
 
     if True:
-        mzXMLFile="F:/Waterhouse/Quinones/negMode/a12131.mzXML"
+        mzXMLFile="F:/Waterhouse/Quinones/mzXML/a12131_neg.mzXML"
 
         mz = 249.022961
         ppm = 10.
@@ -246,8 +247,13 @@ if __name__=="__main__":
     durationMessages.append("Importing the file took %.1f seconds (1 time)"%sw.getDurationInSeconds())
 
     filterLine=[i for i in t.getFilterLines(includeMS2=False)][0]
-    eicN_raw, times, scanIds = t.getEIC(mz, ppm, filterLine=filterLine)
-    eicL_raw, times, scanIds = t.getEIC(mz+cn*dmz/z, ppm, filterLine)
+
+    sw.start()
+    for i in range(100):
+        eicN_raw, times, scanIds = t.getEIC(mz, ppm, filterLine=filterLine)
+        eicL_raw, times, scanIds = t.getEIC(mz+cn*dmz/z, ppm, filterLine=filterLine)
+    sw.stop()
+    durationMessages.append("Calculating the EICs took %.1f seconds (100 times)"%sw.getDurationInSeconds())
 
 
 
