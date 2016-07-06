@@ -14,7 +14,7 @@ from formulaTools import formulaTools, getIsotopeMass
 
 class ConfiguredTracer():
     def __init__(self, name="", elementCount=15, isotopeA="12C", isotopeB="13C", enrichmentA=.9893, enrichmentB=.995,
-                 amountA=.9, amountB=1., monoisotopicRatio=0, maxRelNegBias=30, maxRelPosBias=30, tracerType="user",
+                 amountA=.9, amountB=1., monoisotopicRatio=1, maxRelNegBias=70, maxRelPosBias=130, tracerType="user",
                  id=-1, mzDelta=None):
         self.id = id
 
@@ -298,8 +298,8 @@ class tracerEdit(QtGui.QDialog, Ui_Dialog):
         self.data=[ConfiguredTracer(name="", tracerType="empty")]
         self.headers = ["Tracer", "Element count", "Isotope N", "Isotope L", "Natural abundance isotope N (%)",
                         "Enriched abundance isotope L (%)", "Amount N", "Amount L",
-                        "Ratio (N:L)", "Max. negative bias",
-                        "Max. positive bias", "Type"]
+                        "Ratio (N:L)", "Min. ratio (%)",
+                        "Max. ratio (%)", "Type"]
 
         self.tracerModel = TracerTableModel(self.data, self.headers)
         self.tracers.setModel(self.tracerModel)

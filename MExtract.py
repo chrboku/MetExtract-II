@@ -493,7 +493,7 @@ class procAreaInFile:
             self.CP=GradientPeaks()                                                                      ## generic gradient descend peak picking
             self.CP=GradientPeaks(minInt=10000, minIntFlanks=10, minIncreaseRatio=.05, expTime=[25, 250]) ## Swiss Orbitrap HF data
             self.CP=GradientPeaks(minInt=1000, minIntFlanks=10, minIncreaseRatio=.15, expTime=[10, 150])
-            self.CP=GradientPeaks(minInt=1000, minIntFlanks=10, minIncreaseRatio=.05, minDelta=10000, expTime=[5, 150]) ## Bernhard
+            self.CP=GradientPeaks(minInt=1000, minIntFlanks=10, minIncreaseRatio=.05, minDelta=10000, expTime=[5, 150]) ## Bernhard HSS
 
         # re-integrate all detected feature pairs from the grouped results in this LC-HRMS data file
         self.processFile(self.oldData, self.colToProc, self.colmz, self.colrt, self.colLmz, self.colIonMode,
@@ -2773,7 +2773,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             ## Load mz bins
             pw.setText("Fetching MZBins (%d)"%len(mzbins), i=1)
             pw.setMax(len(mzbins), i=1)
-            if len(mzbins)<2500:
+            if numberOfMZs<maxMZsFetch:
                 for mzbin in mzbins:
                     d = QtGui.QTreeWidgetItem([str(mzbin.mz)])
                     d.myType = "mzbin"
@@ -5187,7 +5187,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
             logging.info("Configured tracers:")
             for tracer in self.configuredTracers:
-                logging.info(" * %s (%s/%s)" % (tracer.name, tracer.isotopeA, tracer.isotopeB))
+                logging.info(" * %s (%s/%s) ratio: %.2f (min. %.2f, max. %.2f)" % (tracer.name, tracer.isotopeA, tracer.isotopeB, tracer.monoisotopicRatio, tracer.monoisotopicRatio*tracer.maxRelNegBias, tracer.monoisotopicRatio*tracer.maxRelPosBias))
         self.updateTracerInfo()
 
     def updateTracerInfo(self):

@@ -280,14 +280,14 @@ class ProcessTarget:
 
         return bestMatch
 
-    def scaleMSScan(self, msScan, minVal=1., maxVal=100., minMZ=0, maxMZ=10000000):
+    def scaleMSScan(self, msScan, minVal=0., maxVal=100., minMZ=0, maxMZ=10000000):
         if len(msScan.intensity_list)==0:
             return msScan
         if len(msScan.intensity_list)==1:
             msScan.intensity_list[0]=100.
             return msScan
 
-        minInt=min([msScan.intensity_list[index] for index in range(len(msScan.intensity_list)) if minMZ<=msScan.mz_list[index]<=maxMZ])
+        minInt=0  # min([msScan.intensity_list[index] for index in range(len(msScan.intensity_list)) if minMZ<=msScan.mz_list[index]<=maxMZ])
         maxInt=max([msScan.intensity_list[index] for index in range(len(msScan.intensity_list)) if minMZ<=msScan.mz_list[index]<=maxMZ])
 
         for i in range(len(msScan.intensity_list)):

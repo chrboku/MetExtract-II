@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '.\mePyGuis\guis\ModuleSelectionWindow.ui'
 #
-# Created: Thu Jun 23 09:26:26 2016
+# Created: Wed Jul 06 10:45:36 2016
 #      by: PyQt4 UI code generator 4.10
 #
 # WARNING! All changes made in this file will be lost!

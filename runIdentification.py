@@ -674,8 +674,8 @@ class RunIdentification:
 
         pdf.drawString(70, currentHeight, "Max. intensity error")
         pdf.drawString(240, currentHeight, "-%.1f%%, +%.1f%% (%.3f - %.3f)" % (
-            tracer.maxRelNegBias * 100., tracer.maxRelPosBias * 100., tracer.monoisotopicRatio - tracer.maxRelNegBias,
-            tracer.monoisotopicRatio + tracer.maxRelPosBias));
+            tracer.maxRelNegBias * 100., tracer.maxRelPosBias * 100., tracer.monoisotopicRatio *tracer.maxRelNegBias,
+            tracer.monoisotopicRatio *tracer.maxRelPosBias));
         currentHeight -= 15
 
         pdf.showPage()
@@ -694,8 +694,8 @@ class RunIdentification:
 
         if self.metabolisationExperiment:
             checkRatio=True
-            minRatio=tracer.monoisotopicRatio-tracer.maxRelNegBias
-            maxRatio=tracer.monoisotopicRatio+tracer.maxRelPosBias
+            minRatio=tracer.monoisotopicRatio*tracer.maxRelNegBias
+            maxRatio=tracer.monoisotopicRatio*tracer.maxRelPosBias
         else:
             checkRatio=self.useRatio
             minRatio=self.minRatio
@@ -2902,8 +2902,8 @@ class RunIdentification:
                 self.CP=GradientPeaks()                                                                       ## generic gradient descend peak picking - do not use. Parameters need to be optimized
                 self.CP=GradientPeaks(minInt=1000, minIntFlanks=1, minIncreaseRatio=.01)                                                                       ## LTQ Orbitrap XL
                 self.CP=GradientPeaks(minInt=10000, minIntFlanks=10, minIncreaseRatio=.15, expTime=[10, 250]) ## Swiss Orbitrap HF data
-                self.CP=GradientPeaks(minInt=1000, minIntFlanks=10, minIncreaseRatio=.05, minDelta=10000, expTime=[5, 150]) ## Bernhard
-                #self.CP=GradientPeaks(minInt=10000, minIntFlanks=100, minIncreaseRatio=.15, expTime=[15, 150])  ## Lin
+                self.CP=GradientPeaks(minInt=1000, minIntFlanks=10, minIncreaseRatio=.05, minDelta=10000, expTime=[5, 150]) ## Bernhard HSS
+                self.CP=GradientPeaks(minInt=1000, minIntFlanks=100, minIncreaseRatio=.5, minDelta=1000, expTime=[10, 150])  ## Lin
                 #self.CP=GradientPeaks(minInt=50, minIntFlanks=10, minIncreaseRatio=.05, expTime=[15, 150], minDelta=1, minInflectionDelta=2) ## Roitinger
                 #self.CP=GradientPeaks(minInt=10000, minIntFlanks=10, minIncreaseRatio=.05, expTime=[5, 45])       ## RNA
 

@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '.\mePyGuis\guis\FE_mainWindow.ui'
 #
-# Created: Thu Jun 23 09:26:26 2016
+# Created: Wed Jul 06 10:45:36 2016
 #      by: PyQt4 UI code generator 4.10
 #
 # WARNING! All changes made in this file will be lost!
@@ -251,8 +251,8 @@ class Ui_MainWindow(object):
         self.gridLayout_13.addWidget(self.label_11, 0, 0, 1, 1)
         self.minScaledPeakIntensity_Spinner = QtGui.QDoubleSpinBox(self.groupBox_2)
         self.minScaledPeakIntensity_Spinner.setDecimals(1)
-        self.minScaledPeakIntensity_Spinner.setMinimum(1.0)
-        self.minScaledPeakIntensity_Spinner.setProperty("value", 2.0)
+        self.minScaledPeakIntensity_Spinner.setMinimum(0.0)
+        self.minScaledPeakIntensity_Spinner.setProperty("value", 0.5)
         self.minScaledPeakIntensity_Spinner.setObjectName(_fromUtf8("minScaledPeakIntensity_Spinner"))
         self.gridLayout_13.addWidget(self.minScaledPeakIntensity_Spinner, 1, 0, 1, 1)
         self.verticalLayout.addWidget(self.groupBox_2)

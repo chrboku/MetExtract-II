@@ -56,6 +56,7 @@ class GradientPeaks:
 
     ### expand a local maxima by following its gradient to the bottom
     def expandPeak(self, peak, x, y):
+        #print "peak at ", peak.peakIndex, x[peak.peakIndex]
 
         # find left border
         peak.peakLeftFlank=0
@@ -65,6 +66,7 @@ class GradientPeaks:
         while goOn and (peak.peakIndex-peak.peakLeftFlank-1)>0:
             rat=y[peak.peakIndex-peak.peakLeftFlank-1]/y[peak.peakIndex-peak.peakLeftFlank]
             delta=(y[peak.peakIndex-peak.peakLeftFlank]-y[peak.peakIndex-peak.peakLeftFlank-1])/(x[peak.peakIndex-peak.peakLeftFlank]-x[peak.peakIndex-peak.peakLeftFlank-1])
+            #print y[peak.peakIndex-peak.peakLeftFlank-1], y[peak.peakIndex-peak.peakLeftFlank], rat, delta, goOnInflection, goOn
 
             if goOnInflection and delta<=lastDelta:
                 peak.leftInflection=peak.peakLeftFlank
@@ -75,7 +77,7 @@ class GradientPeaks:
 
             if rat>self.minIncreaseRatio and rat<1. and y[peak.peakIndex-peak.peakLeftFlank-1]>=self.minIntFlanks:
                 peak.peakLeftFlank+=1
-            else:
+            elif not goOnInflection:
                 goOn=False
 
         #find right border
@@ -96,7 +98,7 @@ class GradientPeaks:
 
             if rat>self.minIncreaseRatio and rat<1. and y[peak.peakIndex+peak.peakRightFlank+1]>=self.minIntFlanks:
                 peak.peakRightFlank+=1
-            else:
+            elif not goOnInflection:
                 goOn=False
 
         peakWidthValid=self.expTime[0]<=peak.peakRightFlank<=self.expTime[1] or self.expTime[0]<=peak.peakLeftFlank<=self.expTime[1]
@@ -203,19 +205,19 @@ if __name__=="__main__":
         scales = [5,19]
         dmz = 1.00335
 
-    if False:
+    if True:
         mzXMLFile="F:/Waterhouse/Quinones/negMode/a12131.mzXML"
 
-        mz = 265.01804
+        mz = 249.022961
         ppm = 10.
         cn = 6
         z = 1
         scales = [5,19]
         dmz = 1.00335
-        gp=GradientPeaks(minInt=10000, minIntFlanks=100, minIncreaseRatio=.15, expTime=[15, 150])
+        gp=GradientPeaks(minInt=10000, minIntFlanks=100, minIncreaseRatio=.5, minDelta=1000, expTime=[15, 150])
 
 
-    if True:
+    if False:
         mzXMLFile="F:/Bayer_BernhardKluger/HSS_pos/pos_12C13C_L19_Mock_Rep1_28.mzXML"
 
         mz=519.11316
@@ -257,7 +259,7 @@ if __name__=="__main__":
     plt.plot(timesMin, eicN_raw)
     plt.plot(timesMin, [-e for e in eicL_raw])
 
-    smoothWin="SavitzkyGolay"  ## "gaussian", "flat", "triangle", "gaussian", "flat", "savitzkygolay"
+    smoothWin="savitzkygolay"  ## "gaussian", "flat", "triangle", "gaussian", "flat", "savitzkygolay"
 
     sw.start()
     for i in range(1000):
