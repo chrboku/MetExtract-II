@@ -183,11 +183,11 @@ class RunIdentification:
 
         self.xCounts = []
         self.xCountsString=xCounts
-        a=xCounts.replace(" ", "").split(",")
+        a=xCounts.replace(" ", "").replace(";").split(",")
         for j in a:
             if "-" in j:
                 self.xCounts.extend(range(int(j[0:j.find("-")]), int(j[j.find("-")+1:len(j)])+1))
-            else:
+            elif j!="":
                 self.xCounts.append(int(j))
         self.xCounts=sorted(list(set(self.xCounts)))
 
@@ -2912,7 +2912,7 @@ class RunIdentification:
                 self.CP=GradientPeaks(minInt=10000, minIntFlanks=10, minIncreaseRatio=.15, expTime=[10, 250]) ## Swiss Orbitrap HF data
                 self.CP=GradientPeaks(minInt=1000, minIntFlanks=10, minIncreaseRatio=.05, minDelta=10000, expTime=[5, 150]) ## Bernhard HSS
                 self.CP=GradientPeaks(minInt=1000, minIntFlanks=100, minIncreaseRatio=.5, minDelta=1000, expTime=[10, 150])  ## Lin
-                #self.CP=GradientPeaks(minInt=50, minIntFlanks=10, minIncreaseRatio=.05, expTime=[15, 150], minDelta=1, minInflectionDelta=2) ## Roitinger
+                self.CP=GradientPeaks(minInt=5, minIntFlanks=2, minIncreaseRatio=.05, expTime=[15, 150], minDelta=1, minInflectionDelta=2) ## Roitinger
                 #self.CP=GradientPeaks(minInt=10000, minIntFlanks=10, minIncreaseRatio=.05, expTime=[5, 45])       ## RNA
 
             self.curPeakId = 1

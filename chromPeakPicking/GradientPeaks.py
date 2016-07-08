@@ -206,7 +206,7 @@ if __name__=="__main__":
         scales = [5,19]
         dmz = 1.00335
 
-    if True:
+    if False:
         mzXMLFile="F:/Waterhouse/Quinones/mzXML/a12131_neg.mzXML"
 
         mz = 249.022961
@@ -234,6 +234,18 @@ if __name__=="__main__":
         mzXMLFile="F:/Sciex/IFA_Tulin_mzXML_A/IFA_Tulln_neg_CM_stem_12C13C_1_01_CM_stem_12C13C_Vial_1.mzXML"
 
         mz=583.21851
+        ppm=5.
+        cn=31
+        z=1
+        scales=[3,6]
+        dmz=1.00335
+        gp=GradientPeaks(minInt=50, minIntFlanks=10, minIncreaseRatio=.05, expTime=[15, 150], minDelta=10000, minInflectionDelta=2)
+
+
+    if False:                            ##Bruker
+        mzXMLFile="F:/10er Mix 100 ppb foc_RA3_01_1138.d/10er_Mix_100_ppb_foc_RA3_01_1138.mzXML"
+
+        mz=716.45728
         ppm=5.
         cn=31
         z=1

@@ -305,8 +305,10 @@ class Chromatogram():
                     tmp_ms.low_mz = float(attrs['lowMz'])
                 if attrs.has_key('highMz'):
                     tmp_ms.high_mz = float(attrs['highMz'])
-                tmp_ms.base_peak_mz = float(attrs['basePeakMz'])
-                tmp_ms.base_peak_intensity = float(attrs['basePeakIntensity'])
+                if attrs.has_key('basePeakMz'):
+                    tmp_ms.base_peak_mz = float(attrs['basePeakMz'])
+                if attrs.has_key('basePeakIntensity'):
+                    tmp_ms.base_peak_intensity = float(attrs['basePeakIntensity'])
             tmp_ms.total_ion_current = float(attrs['totIonCurrent'])
             tmp_ms.list_size = 0
             tmp_ms.polarity = str(attrs['polarity'])

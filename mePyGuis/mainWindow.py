@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '.\mePyGuis\guis\mainwindow.ui'
 #
-# Created: Wed Jul 06 18:33:36 2016
+# Created: Fri Jul 08 10:58:19 2016
 #      by: PyQt4 UI code generator 4.10
 #
 # WARNING! All changes made in this file will be lost!
@@ -1115,6 +1115,7 @@ class Ui_MainWindow(object):
         self.gridLayout_31 = QtGui.QGridLayout(self.groupBox_2)
         self.gridLayout_31.setObjectName(_fromUtf8("gridLayout_31"))
         self.xCountSearch = QtGui.QLineEdit(self.groupBox_2)
+        self.xCountSearch.setText(_fromUtf8(""))
         self.xCountSearch.setObjectName(_fromUtf8("xCountSearch"))
         self.gridLayout_31.addWidget(self.xCountSearch, 0, 0, 1, 1)
         self.verticalLayout_21.addWidget(self.groupBox_2)
@@ -2136,6 +2137,7 @@ class Ui_MainWindow(object):
         self.label_78.setText(_translate("MainWindow", "Max. ratio", None))
         self.label_49.setText(_translate("MainWindow", "MZ picking", None))
         self.groupBox_2.setTitle(_translate("MainWindow", "Number of X atoms to search for", None))
+        self.xCountSearch.setPlaceholderText(_translate("MainWindow", "12-15, 30, 45", None))
         self.groupBox.setTitle(_translate("MainWindow", "Scan range", None))
         self.label_37.setText(_translate("MainWindow", "Start (min)", None))
         self.label_38.setText(_translate("MainWindow", "End (min)", None))

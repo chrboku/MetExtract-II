@@ -2494,7 +2494,14 @@ font: 7pt;</string>
                          </property>
                          <layout class="QGridLayout" name="gridLayout_31">
                           <item row="0" column="0">
-                           <widget class="QLineEdit" name="xCountSearch"/>
+                           <widget class="QLineEdit" name="xCountSearch">
+                            <property name="text">
+                             <string/>
+                            </property>
+                            <property name="placeholderText">
+                             <string>12-15, 30, 45</string>
+                            </property>
+                           </widget>
                           </item>
                          </layout>
                         </widget>
