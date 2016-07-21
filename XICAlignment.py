@@ -58,8 +58,9 @@ class XICAlignment:
         r('source(\"' + scriptLocation + '\")')
 
     # aligns the EICs and matches the chromatographic peaks detected earlier
-    def alignXIC(self, eics, peakss, scantimes, align=True, nPolynom=3, maxTimeDiff=0.36 * 60, pretend=100, scanDuration=1):
+    def alignXIC(self, eics, peakss, scantimes, align=True, nPolynom=3, maxTimeDiff=0.36 * 60, pretend=100, scanDuration=0.25):
         assert (len(eics) == len(peakss) == len(scantimes))
+
 
         nPolynom = max(nPolynom, 1)
 
@@ -73,18 +74,19 @@ class XICAlignment:
             return ret
 
         # add a constant part before and after the actual EIC as an anchor for the alignment
-        eics, scantimes= preAppendEICs(eics, scantimes, pretend=pretend, scanDuration=scanDuration)
+        eics, scantimesEnlarged= preAppendEICs(eics, scantimes, pretend=pretend, scanDuration=scanDuration)
 
         maxTime = max([max(scanTime) for scanTime in scantimes])
-        refTimes = range(int(maxTime))
+        refTimes = [i*scanDuration for i in range(int(maxTime/scanDuration))]
 
         for i in range(len(eics)):
-            eics[i] = mapArrayToRefTimes(eics[i], scantimes[i], refTimes)
+            eics[i] = mapArrayToRefTimes(eics[i], scantimesEnlarged[i], refTimes)
             # peak translation to ref Time
             for j in range(len(peakss[i])):
-                peakTime = scantimes[i][peakss[i][j].NPeakCenter] +pretend*scanDuration
+                peakTime = scantimes[i][peakss[i][j].NPeakCenter]+pretend*scanDuration
                 minindex, minvalue = min(enumerate([abs(z - peakTime) for z in refTimes]), key=lambda x:x[1])
                 peakss[i][j].NPeakCenter = minindex
+
 
         # convert the EICs to R-function parameters
         maxLen = max([len(eic) for eic in eics])
@@ -116,8 +118,7 @@ class XICAlignment:
         alignR = "TRUE"
         if not align:
             alignR = "FALSE"
-        ret = r('alignPeaks(c(' + eicsR + '), c(' + peakssR + '), ' + str(
-            len(eics)) + ', align=' + alignR + ', npoly=' + str(nPolynom) + ', maxGroupDist=' + str(
+        ret = r('alignPeaks(c(' + eicsR + '), c(' + peakssR + '), ' + str(len(eics)) + ', refTimes=c(' + ",".join([str(f) for f in refTimes]) + '), align=' + alignR + ', npoly=' + str(nPolynom) + ', maxGroupDist=' + str(
             int(maxTimeDiff)) + ')')
 
         # convert R-results object to python arrays

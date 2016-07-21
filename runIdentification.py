@@ -183,7 +183,7 @@ class RunIdentification:
 
         self.xCounts = []
         self.xCountsString=xCounts
-        a=xCounts.replace(" ", "").replace(";").split(",")
+        a=xCounts.replace(" ", "").replace(";",",").split(",")
         for j in a:
             if "-" in j:
                 self.xCounts.extend(range(int(j[0:j.find("-")]), int(j[j.find("-")+1:len(j)])+1))
@@ -312,7 +312,7 @@ class RunIdentification:
             "create table tracerConfiguration(id INTEGER PRIMARY KEY, name TEXT, elementCount INTEGER, natural TEXT, labelling TEXT, deltaMZ REAL, purityN REAL, purityL REAL, amountN REAL, amountL REAL, monoisotopicRatio REAL, lowerError REAL, higherError REAL, tracertype TEXT)")
         curs.execute("DROP TABLE IF EXISTS MZs")
         curs.execute(
-            "create table MZs(id INTEGER PRIMARY KEY, tracer INTEGER, mz REAL, lmz REAL, tmz REAL, xcount INTEGER, scanid INTEGER, scantime REAL, loading INTEGER, intensity FLOAT, ionMode TEXT)")
+            "create table MZs(id INTEGER PRIMARY KEY, tracer INTEGER, mz REAL, lmz REAL, tmz REAL, xcount INTEGER, scanid INTEGER, scantime REAL, loading INTEGER, intensity FLOAT, intensityL FLOAT, ionMode TEXT)")
         curs.execute("DROP TABLE IF EXISTS MZBins")
         curs.execute("CREATE TABLE MZBins(id INTEGER PRIMARY KEY, mz REAL, ionMode TEXT)")
         curs.execute("DROP TABLE IF EXISTS MZBinsKids")
@@ -717,7 +717,7 @@ class RunIdentification:
                 def reportFunctionHelper(curVal, text):
                     reportFunction(curVal / 2, text)
 
-            p = matchPartners(mzXMLData=mzxml,
+            p = matchPartners(mzXMLData=mzxml, forFile=self.file,
                               labellingElement=self.labellingElement,
                               useCValidation=self.useCValidation,
                               intensityThres=self.intensityThreshold,
@@ -748,7 +748,7 @@ class RunIdentification:
                 def reportFunctionHelper(curVal, text):
                     reportFunction(.5 + curVal / 2, text)
 
-            n = matchPartners(mzXMLData=mzxml,
+            n = matchPartners(mzXMLData=mzxml, forFile=self.file,
                               labellingElement=self.labellingElement,
                               useCValidation=self.useCValidation,
                               intensityThres=self.intensityThreshold,
@@ -789,7 +789,7 @@ class RunIdentification:
                 scanEvent = self.negativeScanEvent
 
             SQLInsert(curs, "MZs", id=mz.id, tracer=mz.tid, mz=mz.mz, lmz=mz.lmz, tmz=mz.tmz, xcount=mz.xCount, scanid=mzxml.getIthMS1Scan(mz.scanIndex, scanEvent).id, scanTime=mzxml.getIthMS1Scan(mz.scanIndex, scanEvent).retention_time,
-                      loading=mz.loading, intensity=mz.nIntensity, ionMode=mz.ionMode)
+                      loading=mz.loading, intensity=mz.nIntensity, intensityL=mz.lIntensity, ionMode=mz.ionMode)
 
             self.curMZId = self.curMZId + 1
 
@@ -894,9 +894,11 @@ class RunIdentification:
                 ratios = [1. * eicA[o] / eicB[o] for o in os]
                 weights = [1. * normEIC[o] / normSum for o in os]
 
+
                 if len(ratios) >= minRatiosNecessary:
                     assert len(ratios) == len(weights)
                     ratio = sum([ratios[o] * weights[o] for o in range(len(ratios))])
+                    deviation = sum([ratios[o] * weights[o] for o in range(len(ratios))])
                     return ratio
                 else:
                     return -1
@@ -2911,8 +2913,8 @@ class RunIdentification:
                 self.CP=GradientPeaks(minInt=1000, minIntFlanks=1, minIncreaseRatio=.01)                                                                       ## LTQ Orbitrap XL
                 self.CP=GradientPeaks(minInt=10000, minIntFlanks=10, minIncreaseRatio=.15, expTime=[10, 250]) ## Swiss Orbitrap HF data
                 self.CP=GradientPeaks(minInt=1000, minIntFlanks=10, minIncreaseRatio=.05, minDelta=10000, expTime=[5, 150]) ## Bernhard HSS
-                self.CP=GradientPeaks(minInt=1000, minIntFlanks=100, minIncreaseRatio=.5, minDelta=1000, expTime=[10, 150])  ## Lin
-                self.CP=GradientPeaks(minInt=5, minIntFlanks=2, minIncreaseRatio=.05, expTime=[15, 150], minDelta=1, minInflectionDelta=2) ## Roitinger
+                #self.CP=GradientPeaks(minInt=1000, minIntFlanks=100, minIncreaseRatio=.5, minDelta=1000, expTime=[10, 150])  ## Lin
+                #self.CP=GradientPeaks(minInt=5, minIntFlanks=2, minIncreaseRatio=.05, expTime=[15, 150], minDelta=1, minInflectionDelta=2) ## Roitinger
                 #self.CP=GradientPeaks(minInt=10000, minIntFlanks=10, minIncreaseRatio=.05, expTime=[5, 45])       ## RNA
 
             self.curPeakId = 1

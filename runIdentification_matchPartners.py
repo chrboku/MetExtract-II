@@ -54,10 +54,11 @@ class mzFeature:
 # labelled and have the same chance to be labelled. Thus, fluxomics applications or such isotope patterns
 # are in general not supported. They can, however, be detected if not isotopolog verification step is
 # used (not recommended)
-def matchPartners(mzXMLData, labellingElement, useCValidation, intensityThres, isotopologIntensityThres, maxLoading, xCounts, xOffset, ppm,
+def matchPartners(mzXMLData, forFile,
+                  labellingElement, useCValidation, intensityThres, isotopologIntensityThres, maxLoading, xCounts, xOffset, ppm,
                   intensityErrorN, intensityErrorL, purityN, purityL, startTime, stopTime, filterLine, ionMode,
                   peakCountLeft, peakCountRight, lowAbundanceIsotopeCutoff, metabolisationExperiment, checkRatio,
-                  minRatio, maxRatio, reportFunction=None):
+                  minRatio, maxRatio, reportFunction=None, writeExtendedDiagnostics=True):
     scanRTRange = stopTime - startTime
 
     cValidationOffset = 1.00335   # mass difference between 12C and 13C
@@ -206,7 +207,7 @@ def matchPartners(mzXMLData, labellingElement, useCValidation, intensityThres, i
                                                             curPeakDetectedIonPairs.append(
                                                                 mzFeature(mz=curPeakmz,
                                                                           lmz=labPeakmz,
-                                                                          tmz=labPeakmz-curPeakmz,
+                                                                          tmz=xCount * xOffset,
                                                                           xCount=xCount,
                                                                           scanIndex=curScanIndex,
                                                                           loading=curLoading,
@@ -220,7 +221,7 @@ def matchPartners(mzXMLData, labellingElement, useCValidation, intensityThres, i
                                                             curPeakDetectedIonPairs.append(
                                                                 mzFeature(mz=curPeakmz,
                                                                           lmz=labPeakmz,
-                                                                          tmz=labPeakmz-curPeakmz,
+                                                                          tmz=xCount * xOffset,
                                                                           xCount=xCount,
                                                                           scanIndex=curScanIndex,
                                                                           loading=curLoading,
@@ -274,7 +275,7 @@ def matchPartners(mzXMLData, labellingElement, useCValidation, intensityThres, i
                                                             curPeakDetectedIonPairs.append(
                                                                 mzFeature(mz=curPeakmz,
                                                                           lmz=labPeakmz,
-                                                                          tmz=labPeakmz-curPeakmz,
+                                                                          tmz=xCount * cValidationOffset,
                                                                           xCount=xCount,
                                                                           scanIndex=curScanIndex,
                                                                           loading=curLoading,
@@ -337,7 +338,7 @@ def matchPartners(mzXMLData, labellingElement, useCValidation, intensityThres, i
                                                         curPeakDetectedIonPairs.append(
                                                             mzFeature(mz=curPeakmz,
                                                                       lmz=labPeakmz,
-                                                                      tmz=labPeakmz-curPeakmz,
+                                                                      tmz=xCount * cValidationOffset,
                                                                       xCount=xCount,
                                                                       scanIndex=curScanIndex,
                                                                       loading=curLoading,

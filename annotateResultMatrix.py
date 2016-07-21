@@ -27,6 +27,9 @@ def addStatsColumnToResults(metaFile, groups, toFile, outputOrder, commentStarti
     data = []
     comments = []
 
+    mzInd=-1
+    rtInd=-1
+
     with open(metaFile, "rb") as x:
         meta = csv.reader(x, delimiter="\t")
 
@@ -38,6 +41,13 @@ def addStatsColumnToResults(metaFile, groups, toFile, outputOrder, commentStarti
 
             if rowNum == 0:
                 headers = line
+                j=0
+                for header in headers:
+                    if header=="MZ":
+                        mzInd=j
+                    if header=="RT":
+                        rtInd=j
+                    j+=1
                 matchRows(groups, line)
             else:
                 data.append(line)
@@ -57,7 +67,7 @@ def addStatsColumnToResults(metaFile, groups, toFile, outputOrder, commentStarti
                     pass;
             row.append(str(found))
 
-    data = sorted(data, key=lambda x: (float(x[4]), float(x[1])))   # sort results according to rt and mz
+    data = sorted(data, key=lambda x: (float(x[rtInd]), float(x[mzInd])))   # sort results according to rt and mz
     data.insert(0, headers)
 
     with open(toFile, "wb") as x:

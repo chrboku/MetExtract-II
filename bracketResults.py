@@ -139,7 +139,7 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
         with open(file, "wb") as f:
             # initialise TSV results file
 
-            f.write("Num\tMZ\tL_MZ\tD_MZ\tRT\tXn\tCharge\tScanEvent\tIonisation_Mode\tTracer\tOGroup\tIon\tLoss\tM")
+            f.write("Num\tMZ\tL_MZ\tD_MZ\tMZ_Range\tRT\tRT_Range\tXn\tCharge\tScanEvent\tIonisation_Mode\tTracer\tOGroup\tIon\tLoss\tM")
             for res in results:
                 f.write("\t" + res.fileName + "_Area_N")
                 f.write("\t" + res.fileName + "_Area_L")
@@ -323,18 +323,16 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
 
                                             lp = LinePlot()
                                             lp.x = 50
-                                            lp.y = 50
-                                            lp.height = 400
+                                            lp.y = 30
+                                            lp.height = 350
                                             lp.width = 500
 
                                             dd = []
 
                                             tr = 0
                                             pdf.drawString(40, 810, "Tracer: %s IonMode: %s" % (tracer, ionMode))
-                                            pdf.drawString(40, 795, "MZ: (min: %f - max: %f (tolerated: %f ppm: %.1f)) " % (
-                                                lowMZ, maxMZInGroup, minMZ, (maxMZInGroup - lowMZ) * 1000000 / lowMZ))
-                                            pdf.drawString(40, 780, "xCount: %d Z: %d Feature pairs: %d" % (
-                                            xCount, cLoading, len(partXICs)))
+                                            pdf.drawString(40, 795, "MZ: (min: %f - max: %f (tolerated: %f ppm: %.1f)) " % (lowMZ, maxMZInGroup, minMZ, (maxMZInGroup - lowMZ) * 1000000 / lowMZ))
+                                            pdf.drawString(40, 780, "xCount: %d Z: %d Feature pairs: %d" % (xCount, cLoading, len(partXICs)))
                                             pdj = []
                                             pdjm = []
                                             for r in partXICs.keys():
@@ -344,6 +342,7 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                                     pdjm.append(xic[1])
                                                     dd.append([(xic[1][i] / 60., xic[2][i]) for i in range(0, len(xic[1]))])
                                                     tr = tr + 1
+                                            pdf.drawString(40, 765, "Aligning %d EICs" % (tr))
 
                                             lp.data = dd
 
@@ -355,14 +354,14 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
 
                                             lp.joinedLines = 1
                                             drawing.add(lp)
-                                            renderPDF.draw(drawing, pdf, 10, 310)
+                                            renderPDF.draw(drawing, pdf, 10, 380)
 
                                             alignedEICs = xicAlign.getAligendXICs(pdj, pdjm, align=align, nPolynom=nPolynom)[0]
                                             drawing = Drawing(500, 350)
                                             lp = LinePlot()
                                             lp.x = 50
-                                            lp.y = 50
-                                            lp.height = 400
+                                            lp.y = 30
+                                            lp.height = 350
                                             lp.width = 500
 
                                             dd = []
@@ -382,7 +381,7 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
 
                                             lp.joinedLines = 1
                                             drawing.add(lp)
-                                            renderPDF.draw(drawing, pdf, 10, 10)
+                                            renderPDF.draw(drawing, pdf, 10, 0)
 
                                             pdf.showPage()
 
@@ -447,6 +446,7 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                             if len(groupedChromPeaks[i]) > 0:
                                                 avgmz = sum(groupedChromPeaksAVGMz[i]) / len(groupedChromPeaksAVGMz[i])
                                                 avgtime = sum(groupedChromPeaksAVGTimes[i]) / len(groupedChromPeaksAVGTimes[i])
+
                                                 f.write(str(curNum))
                                                 f.write("\t")
                                                 f.write(str(avgmz))
@@ -455,7 +455,11 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                                 f.write("\t")
                                                 f.write(str(xCount * tracersDeltaMZ[tracer] / cLoading))
                                                 f.write("\t")
+                                                f.write("%.6f - %.6f"%(min(groupedChromPeaksAVGMz[i]), max(groupedChromPeaksAVGMz[i])))
+                                                f.write("\t")
                                                 f.write("%.2f" % (avgtime / 60.))
+                                                f.write("\t")
+                                                f.write("%.3f - %.3f" %(min(groupedChromPeaksAVGTimes[i])/60., max(groupedChromPeaksAVGTimes[i])/60.))
                                                 f.write("\t")
                                                 f.write("%d" % xCount)
                                                 f.write("\t")
@@ -710,6 +714,19 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[],
         assert "Loss" in cols
         assert "M" in cols
         assert "doublePeak" in cols
+
+        doublePeaks=0
+        for row in table.getData(cols=["COUNT(*)"], where="doublePeak>0"):
+            doublePeaks=int(row)
+
+        if doublePeaks>0:
+            print "found double peaks:", doublePeaks
+        writeCols=[]
+        for column in table.getColumns():
+            if not column.name.endswith("_CorrelatesTo"):
+                writeCols.append(column.name)
+        TableUtils.saveFile(table, file.replace(".tsv", ".doublePeaks.tsv"), cols=writeCols, order="OGroup, MZ, Xn", where="doublePeak>0")
+
         table.executeSQL("DELETE FROM :table: WHERE doublePeak>0")
         ## file specific columns
 

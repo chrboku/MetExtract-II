@@ -220,6 +220,7 @@ from pickle import loads, dumps
 from collections import defaultdict
 import base64
 import re
+from math import log10
 import functools
 from operator import itemgetter
 from multiprocessing import Pool, freeze_support, cpu_count, Manager
@@ -794,7 +795,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
     #<editor-fold desc="### check group functions">
     def forceUpdateFL(self):
-        self.updateLCMSSampleSettings(force=True)
+        self.updateLCMSSampleSettings()
 
 
     # check, if a specified mzxml file can be loaded successfully
@@ -839,217 +840,216 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
 
 
-    def updateLCMSSampleSettings(self, force=False):
-
-        if not (self.ui.dontUpdateFilterLine.isChecked()) or force:
-
-            # fetch LC-HRMS data (polarity, filter-lines)
-            self.ui.processedFilesComboBox.clear()
-            self.ui.processedFilesComboBox.addItem("--", Bunch(file=None))
-            self.ui.res_ExtractedData.clear()
-            self.ui.chromPeakName.setText("")
-
-            filterLines = set()
-            polarities = set()
-
-            # find out, how many files are to be inspected
-            all = 0
-            done = []
-            indGroups = {}
-            filesDict = {}
-
-            for group in [t.data(QListWidgetItem.UserType).toPyObject() for t in natSort(self.ui.groupsList.findItems('*', QtCore.Qt.MatchWildcard), key=lambda x: str(x.data(QListWidgetItem.UserType).toPyObject().name))]:
-                indGroups[group.name] = natSort(group.files)
-                for file in natSort(group.files):
-                    if file not in done:
-                        all += 1
-                        done.append(file)
-
-                    if file not in filesDict.keys():
-                        filesDict[file]=set()
-                    filesDict[file].add(group.name)
+    def updateLCMSSampleSettings(self):
 
 
-            multipleFiles = {}
-            for file in filesDict.keys():
-                if len(filesDict[file])>1:
-                    multipleFiles[file]=filesDict[file]
+        # fetch LC-HRMS data (polarity, filter-lines)
+        self.ui.processedFilesComboBox.clear()
+        self.ui.processedFilesComboBox.addItem("--", Bunch(file=None))
+        self.ui.res_ExtractedData.clear()
+        self.ui.chromPeakName.setText("")
 
-            if len(multipleFiles)>0:
-                fc=[]
-                for f in multipleFiles.keys():
-                    fc.append(f)
-                    for group in multipleFiles[f]:
-                        fc.append("  - group %s"%group)
+        filterLines = set()
+        polarities = set()
 
-                QtGui.QMessageBox.warning(self, "MetExtract II", "Some files were used more than once. Please check if all groups have been imported / created correctly\n\nThe files are:\n%s"%("\n".join(fc)),
-                                          QtGui.QMessageBox.Ok)
+        # find out, how many files are to be inspected
+        all = 0
+        done = []
+        indGroups = {}
+        filesDict = {}
 
-            pw = ProgressWrapper(1, parent=self, showIndProgress=True, indGroups=indGroups)
-            pw.show()
-            pw.getCallingFunction()("max")(all)
+        for group in [t.data(QListWidgetItem.UserType).toPyObject() for t in natSort(self.ui.groupsList.findItems('*', QtCore.Qt.MatchWildcard), key=lambda x: str(x.data(QListWidgetItem.UserType).toPyObject().name))]:
+            indGroups[group.name] = natSort(group.files)
+            for file in natSort(group.files):
+                if file not in done:
+                    all += 1
+                    done.append(file)
 
-            i = 0
-            done = []
-            commonFilterLines = {}
-            color = False
-            failed = defaultdict(list)
-            self.clearPlot(self.ui.pl_tic)
-
-            # try to import each LC-HRMS file and get its polarities and filter lines (MS only)
-            # draw the TICs of the individual filter lines
-            for group in [t.data(QListWidgetItem.UserType).toPyObject() for t in natSort(self.ui.groupsList.findItems('*', QtCore.Qt.MatchWildcard), key=lambda x: str(x.data(QListWidgetItem.UserType).toPyObject().name))]:
-                for file in natSort(group.files):
-                    if file not in done:
-
-                        pw.getCallingFunction()("text")("Importing group " + group.name + "\n" + file)
-                        pw.getCallingFunction()("statuscolor")(file, "Orange")
-                        pw.getCallingFunction()("statustext")(file, text="File: %s\nStatus: %s" % (file, "importing"))
-
-                        f=file.replace("\\","/")
-                        f=f[f.rfind("/")+1:f.rfind(".")]
-
-                        if not(re.match("^[a-zA-Z0-9_]*$", f)):
-                            failed["Invalid characters"].append(file)
-                            pw.getCallingFunction()("statuscolor")(file, "firebrick")
-                            continue
+                if file not in filesDict.keys():
+                    filesDict[file]=set()
+                filesDict[file].add(group.name)
 
 
-                        if not(os.path.isfile(file)):
-                            failed["File not found"].append(file)
-                            pw.getCallingFunction()("statuscolor")(file, "firebrick")
-                            continue
+        multipleFiles = {}
+        for file in filesDict.keys():
+            if len(filesDict[file])>1:
+                multipleFiles[file]=filesDict[file]
 
-                        try:
-                            if self.checkFileImport(file)==True:
+        if len(multipleFiles)>0:
+            fc=[]
+            for f in multipleFiles.keys():
+                fc.append(f)
+                for group in multipleFiles[f]:
+                    fc.append("  - group %s"%group)
 
-                                #fhash="%s_%s"%(file, sha256(open(file, 'rb').read()).hexdigest())
-                                fhash="%s_NOHash"%(file)  ## ignore hash, files are not likely to change
-                                b=self.checkedLCMSFiles[fhash]
+            QtGui.QMessageBox.warning(self, "MetExtract II", "Some files were used more than once. Please check if all groups have been imported / created correctly\n\nThe files are:\n%s"%("\n".join(fc)),
+                                      QtGui.QMessageBox.Ok)
 
-                                pols=b.pols
-                                fls=b.fls
+        pw = ProgressWrapper(1, parent=self, showIndProgress=True, indGroups=indGroups)
+        pw.show()
+        pw.getCallingFunction()("max")(all)
 
-                                if '+' in pols:
-                                    self.drawPlot(self.ui.pl_tic, 0, [t/60. for t in b.tics['+'].times], b.tics['+'].tic, useCol=group.color)
-                                if '-' in pols:
-                                    mult=1
-                                    if '+' in pols and '-' in pols:
-                                        mult=-1
-                                    self.drawPlot(self.ui.pl_tic, 0, [t/60. for t in b.tics['-'].times], [e*mult for e in b.tics['-'].tic], useCol=group.color)
+        i = 0
+        done = []
+        commonFilterLines = {}
+        color = False
+        failed = defaultdict(list)
+        self.clearPlot(self.ui.pl_tic)
 
-                                for pol in pols:
-                                    if len(fls[pol])>0:
-                                        if pol not in commonFilterLines:
-                                            commonFilterLines[pol]=fls[pol]
-                                        else:
-                                            commonFilterLines[pol]=commonFilterLines[pol].intersection(fls[pol])
+        # try to import each LC-HRMS file and get its polarities and filter lines (MS only)
+        # draw the TICs of the individual filter lines
+        for group in [t.data(QListWidgetItem.UserType).toPyObject() for t in natSort(self.ui.groupsList.findItems('*', QtCore.Qt.MatchWildcard), key=lambda x: str(x.data(QListWidgetItem.UserType).toPyObject().name))]:
+            for file in natSort(group.files):
+                if file not in done:
 
-                                for pol in pols:
-                                    polarities.add(pol)
+                    pw.getCallingFunction()("text")("Importing group " + group.name + "\n" + file)
+                    pw.getCallingFunction()("statuscolor")(file, "Orange")
+                    pw.getCallingFunction()("statustext")(file, text="File: %s\nStatus: %s" % (file, "importing"))
 
-                                # if file has been processed successfully (FileName.identified.sqlite DB exists) add it to the successfully processed list
-                                if os.path.exists(file + ".identified.sqlite") and os.path.isfile(file + ".identified.sqlite"):
-                                    fname=fname=file[(file.rfind("/") + 1):]
-                                    self.ui.processedFilesComboBox.addItem(fname, userData=Bunch(file=file))
+                    f=file.replace("\\","/")
+                    f=f[f.rfind("/")+1:f.rfind(".")]
 
-                                done.append(file)
+                    if not(re.match("^[a-zA-Z0-9_]*$", f)):
+                        failed["Invalid characters"].append(file)
+                        pw.getCallingFunction()("statuscolor")(file, "firebrick")
+                        continue
 
-                                pw.getCallingFunction()("statuscolor")(file, "olivedrab")
-                                pw.getCallingFunction()("statustext")(file,
-                                                                      text="File: %s\nStatus: %s" % (file, "imported"))
-                            else:
 
-                                pw.getCallingFunction()("statuscolor")(file, "firebrick")
-                                pw.getCallingFunction()("statustext")(file, text="File: %s\nStatus: %s" % (file, "failed"))
-                                failed["General error"].append(file)
+                    if not(os.path.isfile(file)):
+                        failed["File not found"].append(file)
+                        pw.getCallingFunction()("statuscolor")(file, "firebrick")
+                        continue
 
-                        except ExpatError as ex:
-                            pw.getCallingFunction()("statuscolor")(file, "firebrick")
-                            pw.getCallingFunction()("statustext")(file, text="File: %s\nStatus: %s" % (file, "failed"))
-                            failed["Parsing error"].append(file)
-                        except Exception as ex:
+                    try:
+                        if self.checkFileImport(file)==True:
+
+                            #fhash="%s_%s"%(file, sha256(open(file, 'rb').read()).hexdigest())
+                            fhash="%s_NOHash"%(file)  ## ignore hash, files are not likely to change
+                            b=self.checkedLCMSFiles[fhash]
+
+                            pols=b.pols
+                            fls=b.fls
+
+                            if '+' in pols:
+                                self.drawPlot(self.ui.pl_tic, 0, [t/60. for t in b.tics['+'].times], b.tics['+'].tic, useCol=group.color)
+                            if '-' in pols:
+                                mult=1
+                                if '+' in pols and '-' in pols:
+                                    mult=-1
+                                self.drawPlot(self.ui.pl_tic, 0, [t/60. for t in b.tics['-'].times], [e*mult for e in b.tics['-'].tic], useCol=group.color)
+
+                            for pol in pols:
+                                if len(fls[pol])>0:
+                                    if pol not in commonFilterLines:
+                                        commonFilterLines[pol]=fls[pol]
+                                    else:
+                                        commonFilterLines[pol]=commonFilterLines[pol].intersection(fls[pol])
+
+                            for pol in pols:
+                                polarities.add(pol)
+
+                            # if file has been processed successfully (FileName.identified.sqlite DB exists) add it to the successfully processed list
+                            if os.path.exists(file + ".identified.sqlite") and os.path.isfile(file + ".identified.sqlite"):
+                                fname=fname=file[(file.rfind("/") + 1):]
+                                self.ui.processedFilesComboBox.addItem(fname, userData=Bunch(file=file))
+
+                            done.append(file)
+
+                            pw.getCallingFunction()("statuscolor")(file, "olivedrab")
+                            pw.getCallingFunction()("statustext")(file,
+                                                                  text="File: %s\nStatus: %s" % (file, "imported"))
+                        else:
+
                             pw.getCallingFunction()("statuscolor")(file, "firebrick")
                             pw.getCallingFunction()("statustext")(file, text="File: %s\nStatus: %s" % (file, "failed"))
                             failed["General error"].append(file)
 
-                        i += 1
-                        pw.getCallingFunction()("value")(i)
-                color = not color
+                    except ExpatError as ex:
+                        pw.getCallingFunction()("statuscolor")(file, "firebrick")
+                        pw.getCallingFunction()("statustext")(file, text="File: %s\nStatus: %s" % (file, "failed"))
+                        failed["Parsing error"].append(file)
+                    except Exception as ex:
+                        pw.getCallingFunction()("statuscolor")(file, "firebrick")
+                        pw.getCallingFunction()("statustext")(file, text="File: %s\nStatus: %s" % (file, "failed"))
+                        failed["General error"].append(file)
 
-            # update the TIC graph
-            pw.hide()
-            self.drawCanvas(self.ui.pl_tic)
+                    i += 1
+                    pw.getCallingFunction()("value")(i)
+            color = not color
 
-            if len(failed) > 0:
-                t=[]
-                for q in failed.keys():
-                    t.append(q)
+        # update the TIC graph
+        pw.hide()
+        self.drawCanvas(self.ui.pl_tic)
+
+        if len(failed) > 0:
+            t=[]
+            for q in failed.keys():
+                t.append(q)
+                t.append("\n")
+                for w in failed[q]:
+                    t.append("  - ")
+                    t.append(w)
                     t.append("\n")
-                    for w in failed[q]:
-                        t.append("  - ")
-                        t.append(w)
-                        t.append("\n")
-                t="".join(t)
-                QtGui.QMessageBox.warning(self, "MetExtract",
-                                          "%d failed to import correctly. Please resolve the following problems before continuing.\n\nFailed files:\n%s" % (len(failed), t),
-                                          QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)
-                return False
+            t="".join(t)
+            QtGui.QMessageBox.warning(self, "MetExtract",
+                                      "%d failed to import correctly. Please resolve the following problems before continuing.\n\nFailed files:\n%s" % (len(failed), t),
+                                      QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)
+            return False
 
-            if len(commonFilterLines) == 0:
-                QtGui.QMessageBox.information(self, "MetExtract",
-                                              "No common scan events among files. Please use files with at least one identical measurement method",
-                                              QtGui.QMessageBox.Ok)
-                return False
+        if len(commonFilterLines) == 0:
+            QtGui.QMessageBox.information(self, "MetExtract",
+                                          "No common scan events among files. Please use files with at least one identical measurement method",
+                                          QtGui.QMessageBox.Ok)
+            return False
 
-            # Create list with positive mode scan events
-            qslpos = QtCore.QStringList()
-            if "+" in commonFilterLines.keys():
-                for fl in commonFilterLines["+"]:
-                    filterLines.add(fl)
-                    qslpos.append(fl)
+        # Create list with positive mode scan events
+        qslpos = QtCore.QStringList()
+        if "+" in commonFilterLines.keys():
+            for fl in commonFilterLines["+"]:
+                filterLines.add(fl)
+                qslpos.append(fl)
 
-            # Create list with negative mode scan events
-            qslneg = QtCore.QStringList()
-            if "-" in commonFilterLines.keys():
-                for fl in commonFilterLines["-"]:
-                    filterLines.add(fl)
-                    qslneg.append(fl)
+        # Create list with negative mode scan events
+        qslneg = QtCore.QStringList()
+        if "-" in commonFilterLines.keys():
+            for fl in commonFilterLines["-"]:
+                filterLines.add(fl)
+                qslneg.append(fl)
 
-            # Add empty scan event to both ionisation modes if positive and negative ionisation scans are available
-            if (len(qslneg) == 0 and len(qslpos) == 0) or (len(qslneg) >= 1 and len(qslpos) >= 1):
-                qslneg.insert(0, "None")
-                qslpos.insert(0, "None")
+        # Add empty scan event to both ionisation modes if positive and negative ionisation scans are available
+        if (len(qslneg) == 0 and len(qslpos) == 0) or (len(qslneg) >= 1 and len(qslpos) >= 1):
+            qslneg.insert(0, "None")
+            qslpos.insert(0, "None")
 
-            # Add empty scan event if only one ionisation mode was used to the opposite ionisation mode
-            if len(qslneg) == 0 and len(qslpos) >= 1:
-                qslneg.insert(0, "None")
-            if len(qslpos) == 0 and len(qslneg) >= 1:
-                qslpos.insert(0, "None")
+        # Add empty scan event if only one ionisation mode was used to the opposite ionisation mode
+        if len(qslneg) == 0 and len(qslpos) >= 1:
+            qslneg.insert(0, "None")
+        if len(qslpos) == 0 and len(qslneg) >= 1:
+            qslpos.insert(0, "None")
 
-            # Set scan event in user GUI
-            self.ui.positiveScanEvent.clear()
-            self.ui.positiveScanEvent.addItems(qslpos)
-            self.ui.negativeScanEvent.clear()
-            self.ui.negativeScanEvent.addItems(qslneg)
+        # Set scan event in user GUI
+        self.ui.positiveScanEvent.clear()
+        self.ui.positiveScanEvent.addItems(qslpos)
+        self.ui.negativeScanEvent.clear()
+        self.ui.negativeScanEvent.addItems(qslneg)
 
-            # Set selected scan event. If both ionisation modes have scan events, select the first of both
-            # If only one ionisation mode was used, set the first there and set the other ionisation mode to empty
-            self.ui.positiveScanEvent.setCurrentIndex(0)
-            self.ui.negativeScanEvent.setCurrentIndex(0)
-            if len(qslpos) > 1 and len(qslneg) > 1:
-                self.ui.positiveScanEvent.setCurrentIndex(1)
-                self.ui.negativeScanEvent.setCurrentIndex(1)
+        # Set selected scan event. If both ionisation modes have scan events, select the first of both
+        # If only one ionisation mode was used, set the first there and set the other ionisation mode to empty
+        self.ui.positiveScanEvent.setCurrentIndex(0)
+        self.ui.negativeScanEvent.setCurrentIndex(0)
+        if len(qslpos) > 1 and len(qslneg) > 1:
+            self.ui.positiveScanEvent.setCurrentIndex(1)
+            self.ui.negativeScanEvent.setCurrentIndex(1)
 
-            # Allow user to process files and view the results
-            self.ui.pickingTab.setEnabled(len(filterLines) > 0)
-            self.ui.resultsTab.setEnabled(self.ui.processedFilesComboBox.count() > 0)
+        # Allow user to process files and view the results
+        self.ui.pickingTab.setEnabled(len(filterLines) > 0)
+        self.ui.resultsTab.setEnabled(self.ui.processedFilesComboBox.count() > 0)
 
-            self.checkIndFilesSettings()
+        self.checkIndFilesSettings()
 
-            self.loadGroupsResultsFile(str(self.ui.groupsSave.text()))
+        self.loadGroupsResultsFile(str(self.ui.groupsSave.text()))
 
-            return True
+        return True
 
     def smoothingWindowChanged(self):
         e=self.ui.eicSmoothingWindow.currentText()!="None"
@@ -1651,7 +1651,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                     bestCenter=i
                             centerInt=1
                             if self.ui.resultsExperimentNormaliseXICs_checkBox.checkState()==QtCore.Qt.Checked:
-                                centerInt=XICObj.xic[bestCenter]
+                                centerInt=XICObj.xicL[bestCenter]
 
                             self.ui.resultsExperiment_plot.axes.plot([t/60. for t in XICObj.times], [f/centerInt for f in XICObj.xic],   color=predefinedColors[groupID%len(predefinedColors)])
                             self.ui.resultsExperiment_plot.axes.plot([t/60. for t in XICObj.times], [-f/centerInt for f in XICObj.xicL], color=predefinedColors[groupID%len(predefinedColors)])
@@ -1664,12 +1664,13 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             self.ui.resultsExperimentSeparatedPeaks_plot.axes.plot([t/60. +offsetCount*0.33 for t in XICObj.times[minInd:maxInd]], [f/centerInt for f in XICObj.xic[minInd:maxInd]],   color=predefinedColors[groupID%len(predefinedColors)])
                             self.ui.resultsExperimentSeparatedPeaks_plot.axes.plot([t/60. +offsetCount*0.33 for t in XICObj.times[minInd:maxInd]], [-f/centerInt for f in XICObj.xicL[minInd:maxInd]], color=predefinedColors[groupID%len(predefinedColors)])
 
-                        if msSpectrumID is not None:
-                            for msSpectrum in SQLSelectAsObject(curs, "SELECT mzs, intensities, ionMode FROM massspectrum WHERE mID=%d"%msSpectrumID):
-                                mzs=[float(f) for f in msSpectrum.mzs.split(";")]
-                                intensities=[float(f) for f in msSpectrum.intensities.split(";")]
+                        if False:
+                            if msSpectrumID is not None:
+                                for msSpectrum in SQLSelectAsObject(curs, "SELECT mzs, intensities, ionMode FROM massspectrum WHERE mID=%d"%msSpectrumID):
+                                    mzs=[float(f) for f in msSpectrum.mzs.split(";")]
+                                    intensities=[float(f) for f in msSpectrum.intensities.split(";")]
 
-                                self.ui.resultsExperimentMSScanPeaks_plot.axes.stem(mzs, intensities, lineEdgeColor=predefinedColors[groupID%len(predefinedColors)],color=predefinedColors[groupID%len(predefinedColors)])
+                                    self.ui.resultsExperimentMSScanPeaks_plot.axes.stem(mzs, intensities, lineEdgeColor=predefinedColors[groupID%len(predefinedColors)],color=predefinedColors[groupID%len(predefinedColors)])
 
 
                         curs.close()
@@ -1762,8 +1763,16 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 self.ui.scanStartTime.setValue(sett.value("ScanStart").toDouble()[0])
             if sett.contains("ScanEnd"):
                 self.ui.scanEndTime.setValue(sett.value("ScanEnd").toDouble()[0])
+            xCountsStr=""
             if sett.contains("xCounts"):
-                self.ui.xCountSearch.setText(str(sett.value("xCounts").toString()))
+                xCountsStr=str(sett.value("xCounts").toString())
+
+            if xCountsStr=="":
+                if sett.contains("MinXCount") and sett.contains("MaxXCount"):
+                    minX=sett.value("MinXCount").toInt()[0]
+                    maxX=sett.value("MaxXCount").toInt()[0]
+                    xCountsStr="%d-%d"%(minX, maxX)
+            self.ui.xCountSearch.setText(xCountsStr)
             if sett.contains("MaxLoading"):
                 self.ui.maxLoading.setValue(sett.value("MaxLoading").toInt()[0])
             if sett.contains("MaxMassDeviation"):
@@ -2667,7 +2676,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
 
 
-        self.updateLCMSSampleSettings(force=True)
+        self.updateLCMSSampleSettings()
 
         # Log time used for bracketing
         elapsed = (time.time() - overallStart) / 60.
@@ -3290,9 +3299,17 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             it.addChild(itl);
             itl.myType = "diagnostic - observed intensities"
 
+            itl = QtGui.QTreeWidgetItem(["Native vs. labeled signal intensity"]);
+            it.addChild(itl);
+            itl.myType = "diagnostic - observed intensities comparison"
+
             itl = QtGui.QTreeWidgetItem(["Relative mz error"]);
             it.addChild(itl);
             itl.myType = "diagnostic - relative mz error"
+
+            itl = QtGui.QTreeWidgetItem(["Relative mz error vs. signal intensity"]);
+            it.addChild(itl);
+            itl.myType = "diagnostic - relative mz error vs intensity"
 
             itl = QtGui.QTreeWidgetItem(["Relative mzbin deviation"]);
             it.addChild(itl);
@@ -3313,6 +3330,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             itl = QtGui.QTreeWidgetItem(["Feature pair assigned MZs"]);
             it.addChild(itl);
             itl.myType = "diagnostic - feature pair assigned mzs"
+
+            itl = QtGui.QTreeWidgetItem(["Mean feature pair MZ deviation"]);
+            it.addChild(itl);
+            itl.myType = "diagnostic - feature pair mz deviation mean"
 
             itl = QtGui.QTreeWidgetItem(["Feature pair MZ deviation"]);
             it.addChild(itl);
@@ -4434,71 +4455,137 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             intensities=[]
             for row in self.currentOpenResultsFile.curs.execute("SELECT mz, intensity, lmz, tmz, xcount, loading FROM mzs"):
                 mz, intensity, lmz, tmz, xcount, loading=row
-                intensities.append(intensity)
-
+                intensities.append(log10(intensity))
             self.ui.pl1.twinxs[0].hist(intensities, 50, normed=False, facecolor='green', alpha=0.5)
+            self.ui.pl1.axes.set_title("Histogram of matched signal pairs - intensity of native signals")
+            self.ui.pl1.axes.set_xlabel("Log10(Signal intensity)")
+            self.ui.pl1.axes.set_ylabel("Frequency")
             self.drawCanvas(self.ui.pl1)
+
+        elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - observed intensities comparison":
+            intensities=[]
+            intensitiesL=[]
+            for row in self.currentOpenResultsFile.curs.execute("SELECT mz, intensity, intensityL, lmz, tmz, xcount, loading FROM mzs"):
+                mz, intensity, intensityL, lmz, tmz, xcount, loading=row
+                intensities.append(log10(intensity))
+                intensitiesL.append(log10(intensityL))
+            minInt=min(min(intensities), min(intensitiesL))
+            maxInt=max(max(intensities), max(intensitiesL))
+
+            self.ui.pl1.twinxs[0].plot([minInt, maxInt], [minInt, maxInt])
+            self.ui.pl1.twinxs[0].plot(intensities, intensitiesL, 'ro')
+            self.ui.pl1.axes.set_title("Histogram of matched signal pairs - intensity of native and labeled signals")
+            self.ui.pl1.axes.set_xlabel("Log10(Native signal intensity)")
+            self.ui.pl1.axes.set_ylabel("Log10(Labeled signal intensity)")
+            self.drawCanvas(self.ui.pl1)
+
         elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - relative mz error":
             mzdifferrors=[]
             for row in self.currentOpenResultsFile.curs.execute("SELECT mz, lmz, tmz, xcount, loading FROM mzs"):
                 mz, lmz, tmz, xcount, loading=row
                 mzdifferrors.append((lmz-mz-tmz)*1000000/mz)
-
             self.ui.pl1.twinxs[0].hist(mzdifferrors, 50, normed=False, facecolor='green', alpha=0.5)
+            self.ui.pl1.axes.set_title("Histogram of matched signal pairs - relative m/z error (ppm)")
+            self.ui.pl1.axes.set_xlabel("Relative m/z error (ppm)")
+            self.ui.pl1.axes.set_ylabel("Frequency")
             self.drawCanvas(self.ui.pl1)
+
+        elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - relative mz error vs intensity":
+            mzdifferrors=[]
+            intensities=[]
+            for row in self.currentOpenResultsFile.curs.execute("SELECT mz, lmz, tmz, xcount, loading, intensity FROM mzs"):
+                mz, lmz, tmz, xcount, loading, intensity=row
+                mzdifferrors.append((lmz-mz-tmz)*1000000/mz)
+                intensities.append(log10(intensity))
+            self.ui.pl1.twinxs[0].plot(mzdifferrors, intensities, 'ro')
+            self.ui.pl1.axes.set_title("Matched signal pairs - relative m/z error (ppm) vs. signal intensity")
+            self.ui.pl1.axes.set_xlabel("Relative m/z error (ppm)")
+            self.ui.pl1.axes.set_ylabel("Log10(Signal intensity)")
+            self.drawCanvas(self.ui.pl1)
+
+
         elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - relative mzbin deviation":
             mzdeviations=[]
             for row in self.currentOpenResultsFile.curs.execute("SELECT mzbinid, min(mzs.mz), max(mzs.mz), count(mzs.mz) FROM mzbinskids INNER JOIN mzs ON mzs.id=mzbinskids.mzid GROUP BY mzbinid"):
                 binid, mzmin, mzmax, n=row
                 if n>1:
                     mzdeviations.append((mzmax-mzmin)*1000000/mzmin)
-
             self.ui.pl1.twinxs[0].hist(mzdeviations, 50, normed=False, facecolor='green', alpha=0.5)
+            self.ui.pl1.axes.set_title("Histogram of binned signal pairs - relative m/z variance (ppm)")
+            self.ui.pl1.axes.set_xlabel("Relative m/z deviation (ppm)")
+            self.ui.pl1.axes.set_ylabel("Frequency")
             self.drawCanvas(self.ui.pl1)
+
         elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - feature pair correlations":
             peaksCorr=[]
             for row in self.currentOpenResultsFile.curs.execute("SELECT peaksCorr FROM chromPeaks"):
                 peakCorr,=row
                 peaksCorr.append(peakCorr)
-
             self.ui.pl1.twinxs[0].hist(peaksCorr, 10, normed=False, facecolor='green', alpha=0.5)
+            self.ui.pl1.axes.set_title("Histogram of matched feature pairs - peak correlations")
+            self.ui.pl1.axes.set_xlabel("Peak correlation")
+            self.ui.pl1.axes.set_ylabel("Frequency")
             self.drawCanvas(self.ui.pl1)
+
         elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - feature pair mp1 to m ratio":
             peaksRatio=[]
-            for row in self.currentOpenResultsFile.curs.execute("SELECT peaksRatioMp1 FROM chromPeaks"):
-                peakRatio,=row
-                peaksRatio.append(peakRatio)
-
+            for row in self.currentOpenResultsFile.curs.execute("SELECT peaksRatioMp1, xcount FROM chromPeaks"):
+                peakRatio,xcount=row
+                peaksRatio.append(peakRatio-getNormRatio(0.9893, xcount, 1))
             self.ui.pl1.twinxs[0].hist(peaksRatio, 30, normed=False, facecolor='green', alpha=0.5)
+            self.ui.pl1.axes.set_title("Histogram of isotopolog ratio error - observed minus theoretical ratio for M+1 to M")
+            self.ui.pl1.axes.set_xlabel("Ratio error (%)")
+            self.ui.pl1.axes.set_ylabel("Frequency")
             self.drawCanvas(self.ui.pl1)
+
         elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - feature pair mPp1 to mP ratio":
             peaksRatio=[]
-            for row in self.currentOpenResultsFile.curs.execute("SELECT peaksRatioMPm1 FROM chromPeaks"):
-                peakRatio,=row
-                peaksRatio.append(peakRatio)
-
+            for row in self.currentOpenResultsFile.curs.execute("SELECT peaksRatioMPm1, xcount FROM chromPeaks"):
+                peakRatio,xcount=row
+                peaksRatio.append(peakRatio-getNormRatio(0.97, xcount, 1))
             self.ui.pl1.twinxs[0].hist(peaksRatio, 30, normed=False, facecolor='green', alpha=0.5)
+            self.ui.pl1.axes.set_title("Histogram of isotopolog ratio error - observed minus theoretical ratio for M'-1 to M'")
+            self.ui.pl1.axes.set_xlabel("Ratio error (%)")
+            self.ui.pl1.axes.set_ylabel("Frequency")
             self.drawCanvas(self.ui.pl1)
+
         elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - feature pair assigned mzs":
             assignedmzs=[]
             for row in self.currentOpenResultsFile.curs.execute("SELECT assignedMZs FROM chromPeaks"):
                 n,=row
                 assignedmzs.append(n)
-
             self.ui.pl1.twinxs[0].hist(assignedmzs, 30, normed=False, facecolor='green', alpha=0.5)
+            self.ui.pl1.axes.set_title("Histogram of signal pairs assigned to feature pairs")
+            self.ui.pl1.axes.set_xlabel("Number of signal pairs for a feature pair")
+            self.ui.pl1.axes.set_ylabel("Frequency")
             self.drawCanvas(self.ui.pl1)
+
+        elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - feature pair mz deviation mean":
+            devMeans=[]
+            devVals=[]
+            for row in self.currentOpenResultsFile.curs.execute("SELECT mzdifferrors FROM chromPeaks"):
+                mzdifferrors,=row
+                mzdifferrors=loads(base64.b64decode(mzdifferrors))
+                devMeans.append(mzdifferrors.mean if mzdifferrors.mean is not None else -1)
+            self.ui.pl1.twinxs[0].hist(devMeans, 30, normed=False, facecolor='green', alpha=0.5, label="Means")
+            self.ui.pl1.twinxs[0].legend(loc='upper right')
+            self.ui.pl1.axes.set_title("Histogram of feature pairs - mean relative m/z error (ppm)")
+            self.ui.pl1.axes.set_xlabel("Mean, relative m/z error (ppm)")
+            self.ui.pl1.axes.set_ylabel("Frequency")
+            self.drawCanvas(self.ui.pl1)
+
         elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - feature pair mz deviation":
             devMeans=[]
             devVals=[]
             for row in self.currentOpenResultsFile.curs.execute("SELECT mzdifferrors FROM chromPeaks"):
                 mzdifferrors,=row
                 mzdifferrors=loads(base64.b64decode(mzdifferrors))
-                devMeans.append([mzdifferrors.mean if mzdifferrors.mean is not None else -1])
                 devVals.extend([v for v in mzdifferrors.vals if v is not None])
-
-            self.ui.pl1.twinxs[0].hist(devMeans, 30, normed=False, facecolor='green', alpha=0.5, label="Means")
             self.ui.pl1.twinxs[0].hist(devVals, 30, normed=False, facecolor='blue', alpha=0.5, label="Scan-level")
             self.ui.pl1.twinxs[0].legend(loc='upper right')
+            self.ui.pl1.axes.set_title("Histogram of feature pairs - mean relative m/z error (ppm)")
+            self.ui.pl1.axes.set_xlabel("Mean, relative m/z error (ppm)")
+            self.ui.pl1.axes.set_ylabel("Frequency")
             self.drawCanvas(self.ui.pl1)
 
 
@@ -5437,8 +5524,6 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.ui.saveGroups.clicked.connect(self.saveGroupsClicked)
         self.ui.loadGroups.clicked.connect(self.loadGroupsClicked)
         self.ui.removeGroup.clicked.connect(self.remGrp)
-
-        self.ui.forceFilterLineUpdate.clicked.connect(self.forceUpdateFL)
 
         self.ui.groupsList.doubleClicked.connect(self.editGroup)
 

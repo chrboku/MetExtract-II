@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '.\mePyGuis\guis\groupEditor.ui'
 #
-# Created: Fri Jul 08 10:58:20 2016
+# Created: Tue Jul 19 15:19:54 2016
 #      by: PyQt4 UI code generator 4.10
 #
 # WARNING! All changes made in this file will be lost!
