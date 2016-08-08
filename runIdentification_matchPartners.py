@@ -247,6 +247,15 @@ def matchPartners(mzXMLData, forFile,
                                         # NOTE: - Approach is mainly used for 13C-labelling
                                         # region
                                         if useCValidation==0:
+                                            # # verify that peak is M and not something else (e.g. M+1, M+1...)
+                                            # isoM_m1 = curScan.findMZ(curPeakmz - cValidationOffset, ppm)
+                                            # isoM_m1 = curScan.getMostIntensePeak(isoM_m1[0], isoM_m1[1])
+                                            # ## TODO improve me. Use seven golden rules or another smart method
+                                            # if isoM_m1 != -1:
+                                            #     obRatio=curScan.intensity_list[isoM_m1] / curPeakIntensity
+                                            #     if obRatio>=0.5:
+                                            #         continue
+
                                             # find M+1 peak
                                             isoM_p1 = curScan.findMZ(curPeakmz + cValidationOffset, ppm, start=currentPeakIndex)
                                             isoM_p1 = curScan.getMostIntensePeak(isoM_p1[0], isoM_p1[1])
@@ -269,6 +278,7 @@ def matchPartners(mzXMLData, forFile,
                                                                 pass     ## ratio check passed
                                                             else:
                                                                 continue ## ratio check not passed
+
 
                                                         ## no isotopolog verification needs to be performed
                                                         if peakCountLeft == 1 and peakCountRight == 1:

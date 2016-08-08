@@ -49,7 +49,14 @@ getAlignXICs<-function(eics, ncol, align=TRUE, npoly=2, ra=c(1:length(eics[0])))
     for(i in 1:ncol){
       poly<-rep(0, npoly)
       poly[2]=1
+
       w<-ptw(eicCum, mdat[,i], init.coef=poly)
+
+      warp.samp <- w$warped.sample
+      warp.samp[is.na(warp.samp)] <- 0
+
+      w <- ptw(eicCum, warp.samp, init.coef=c(0,1,0,0,0,0))
+
       ret[,i]=w$warped.sample
       ret[is.na(ret[,i]),i]<-0
       for(j in 1:len){
@@ -108,7 +115,14 @@ alignPeaks<-function(eics, refTimes, peaks, ncol, align=TRUE, npoly=2, ra=c(1000
     for(i in 1:ncol){
       poly<-rep(0, npoly)
       poly[2]=1
+
       w<-ptw(eicCum, mdat[,i], init.coef=poly)
+
+      warp.samp <- w$warped.sample
+      warp.samp[is.na(warp.samp)] <- 0
+
+      w <- ptw(eicCum, warp.samp, init.coef=c(0,1,0,0,0,0))
+
       #for(j in 1:len){
       #  eicd[j]=eicd[j]+w$warped.sample[j]
       #}

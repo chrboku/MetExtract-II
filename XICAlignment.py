@@ -6,7 +6,7 @@ from copy import deepcopy
 
 
 # HELPER METHOD for adding a constant part before and after the actual EIC
-def preAppendEICs(eics, scanTimes, pretend=10, scanDuration=1, mIntMult=1):
+def preAppendEICs(eics, scanTimes, pretend=10, scanDuration=1, mIntMult=0, addFront=True, addBack=False):
     assert len(eics)==len(scanTimes)
     eics=deepcopy(eics)
     scanTimes=deepcopy(scanTimes)
@@ -21,17 +21,19 @@ def preAppendEICs(eics, scanTimes, pretend=10, scanDuration=1, mIntMult=1):
         mScanTime=max(scanTimes[j])
 
         for i in range(pretend):
-            eics[j].append(pInt)
-            eics[j].insert(0, pInt)
+            if addFront:
+                eics[j].insert(0, pInt)
+                scanTimes[j].insert(i, i*scanDuration)
+            if addBack:
+                eics[j].append(pInt)
+                scanTimes[j].append(mScanTime+(1+i)*scanDuration)
 
-            scanTimes[j].append(mScanTime+(1+i)*scanDuration)
-            scanTimes[j].insert(i, i*scanDuration)
 
     return eics, scanTimes
 
 # HELPER METHOD for removing a constant part before and after the actual EIC.
 # Used im combination with preAppendEICs
-def undoPreAppendEICs(eics, refTimes, pretend=10, scanDuration=1):
+def undoPreAppendEICs(eics, refTimes, pretend=10, scanDuration=1, removeFront=True, removeBack=False):
 
     eics=deepcopy(eics)
     refTimes=deepcopy(refTimes)
@@ -42,11 +44,19 @@ def undoPreAppendEICs(eics, refTimes, pretend=10, scanDuration=1):
     remTime=scanDuration*(pretend)
     mStart=min(enumerate(refTimes), key=lambda x: abs(x[1]-remTime))[0]
 
-    refTimes=refTimes[mStart:-mStart]
-    refTimes=[refTimes[i]-remTime for i in range(len(refTimes))]
+    if removeFront:
+        refTimes=refTimes[mStart:]
+        refTimes=[refTimes[i]-remTime for i in range(len(refTimes))]
+
+    if removeBack:
+        refTimes=refTimes[:-mStart]
+
 
     for j in range(len(eics)):
-        eics[j]=eics[j][mStart:-mStart]
+        if removeFront:
+            eics[j]=eics[j][mStart:]
+        if removeBack:
+            eics[j]=eics[j][:-mStart]
 
     return eics, refTimes
 
@@ -115,11 +125,7 @@ class XICAlignment:
                 peakssR = peakssR + "," + ",".join([str(0) for p in range(len(peaks), maxPeaks)])
 
         # align the EICs and bracket the chromatographic peaks
-        alignR = "TRUE"
-        if not align:
-            alignR = "FALSE"
-        ret = r('alignPeaks(c(' + eicsR + '), c(' + peakssR + '), ' + str(len(eics)) + ', refTimes=c(' + ",".join([str(f) for f in refTimes]) + '), align=' + alignR + ', npoly=' + str(nPolynom) + ', maxGroupDist=' + str(
-            int(maxTimeDiff)) + ')')
+        ret = r('alignPeaks(c(' + eicsR + '), c(' + peakssR + '), ' + str(len(eics)) + ', refTimes=c(' + ",".join([str(f) for f in refTimes]) + '), align=' + ("TRUE" if align else "FALSE") + ', npoly=' + str(nPolynom) + ', maxGroupDist=' + str(int(maxTimeDiff)) + ')')
 
         # convert R-results object to python arrays
         retl = []
@@ -180,11 +186,7 @@ class XICAlignment:
             if len(eic) < maxLen:
                 eicsR = eicsR + "," + ",".join([str(0) for p in range(len(eic), maxLen)])
 
-        alignR = "TRUE"
-        if not align:
-            alignR = "FALSE"
-        ret = r('getAlignXICs(c(' + eicsR + '),  ' + str(len(eics)) + ', align=' + alignR + ', npoly=' + str(
-            nPolynom) + ')')
+        ret = r('getAlignXICs(c(' + eicsR + '),  ' + str(len(eics)) + ', align=' + ("TRUE" if align else "FALSE") + ', npoly=' + str(nPolynom) + ')')
         retl = []
         for i in range(len(eics)):
             d = []

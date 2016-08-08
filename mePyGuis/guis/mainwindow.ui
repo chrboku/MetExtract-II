@@ -61,7 +61,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>3</number>
       </property>
       <widget class="QWidget" name="inputTab">
        <attribute name="title">
@@ -885,7 +885,7 @@ font: 7pt;</string>
              <x>0</x>
              <y>0</y>
              <width>1369</width>
-             <height>1156</height>
+             <height>1088</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -3270,8 +3270,8 @@ p, li { white-space: pre-wrap; }
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>2222</width>
-             <height>1178</height>
+             <width>1764</width>
+             <height>625</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_15">
@@ -3930,158 +3930,6 @@ p, li { white-space: pre-wrap; }
               </column>
              </widget>
             </item>
-            <item row="0" column="1">
-             <widget class="QGroupBox" name="groupBox_4">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="title">
-               <string>Details</string>
-              </property>
-              <layout class="QGridLayout" name="gridLayout_41">
-               <item row="0" column="0" colspan="3">
-                <layout class="QHBoxLayout" name="horizontalLayout_11">
-                 <item>
-                  <widget class="QLabel" name="label_63">
-                   <property name="text">
-                    <string>ID</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QLineEdit" name="expRes_ID_LineEdit">
-                   <property name="minimumSize">
-                    <size>
-                     <width>40</width>
-                     <height>0</height>
-                    </size>
-                   </property>
-                   <property name="maximumSize">
-                    <size>
-                     <width>40</width>
-                     <height>16777215</height>
-                    </size>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QLabel" name="label_64">
-                   <property name="text">
-                    <string>MZ</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QDoubleSpinBox" name="expRes_MZ_Spinner">
-                   <property name="decimals">
-                    <number>5</number>
-                   </property>
-                   <property name="maximum">
-                    <double>99999.000000000000000</double>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QLabel" name="label_65">
-                   <property name="text">
-                    <string>RT</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QDoubleSpinBox" name="expRes_RT_Spinner"/>
-                 </item>
-                 <item>
-                  <widget class="QLabel" name="label_66">
-                   <property name="text">
-                    <string>Z</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QSpinBox" name="expRes_Z_Spinner">
-                   <property name="minimum">
-                    <number>-9</number>
-                   </property>
-                   <property name="maximum">
-                    <number>9</number>
-                   </property>
-                   <property name="value">
-                    <number>1</number>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QLabel" name="label_67">
-                   <property name="text">
-                    <string>Ionisation mode</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QLineEdit" name="expRes_IonMode_LineEdit">
-                   <property name="minimumSize">
-                    <size>
-                     <width>20</width>
-                     <height>0</height>
-                    </size>
-                   </property>
-                   <property name="maximumSize">
-                    <size>
-                     <width>20</width>
-                     <height>16777215</height>
-                    </size>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <spacer name="horizontalSpacer_7">
-                   <property name="orientation">
-                    <enum>Qt::Horizontal</enum>
-                   </property>
-                   <property name="sizeHint" stdset="0">
-                    <size>
-                     <width>40</width>
-                     <height>20</height>
-                    </size>
-                   </property>
-                  </spacer>
-                 </item>
-                </layout>
-               </item>
-               <item row="3" column="0" colspan="3">
-                <layout class="QHBoxLayout" name="horizontalLayout_12">
-                 <item>
-                  <widget class="QCheckBox" name="resultsExperimentNormaliseXICs_checkBox">
-                   <property name="text">
-                    <string>Normalise to labeled features</string>
-                   </property>
-                   <property name="checked">
-                    <bool>true</bool>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <spacer name="horizontalSpacer_22">
-                   <property name="orientation">
-                    <enum>Qt::Horizontal</enum>
-                   </property>
-                   <property name="sizeHint" stdset="0">
-                    <size>
-                     <width>40</width>
-                     <height>20</height>
-                    </size>
-                   </property>
-                  </spacer>
-                 </item>
-                </layout>
-               </item>
-              </layout>
-             </widget>
-            </item>
             <item row="1" column="1">
              <widget class="QTabWidget" name="tabWidget_3">
               <property name="currentIndex">
@@ -4092,8 +3940,14 @@ p, li { white-space: pre-wrap; }
                 <string>XICs</string>
                </attribute>
                <layout class="QGridLayout" name="gridLayout_42">
-                <item row="0" column="0">
+                <item row="1" column="0">
                  <widget class="QWidget" name="resultsExperiment_widget" native="true">
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
                   <property name="minimumSize">
                    <size>
                     <width>700</width>
@@ -4101,6 +3955,33 @@ p, li { white-space: pre-wrap; }
                    </size>
                   </property>
                  </widget>
+                </item>
+                <item row="0" column="0">
+                 <layout class="QHBoxLayout" name="horizontalLayout_12">
+                  <item>
+                   <widget class="QCheckBox" name="resultsExperimentNormaliseXICs_checkBox">
+                    <property name="text">
+                     <string>Normalise to labeled features</string>
+                    </property>
+                    <property name="checked">
+                     <bool>true</bool>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <spacer name="horizontalSpacer_22">
+                    <property name="orientation">
+                     <enum>Qt::Horizontal</enum>
+                    </property>
+                    <property name="sizeHint" stdset="0">
+                     <size>
+                      <width>40</width>
+                      <height>20</height>
+                     </size>
+                    </property>
+                   </spacer>
+                  </item>
+                 </layout>
                 </item>
                </layout>
               </widget>
@@ -4308,11 +4189,6 @@ p, li { white-space: pre-wrap; }
   <tabstop>drawFPIsotopologues</tabstop>
   <tabstop>scrollArea</tabstop>
   <tabstop>resultsExperiment_TreeWidget</tabstop>
-  <tabstop>expRes_ID_LineEdit</tabstop>
-  <tabstop>expRes_MZ_Spinner</tabstop>
-  <tabstop>expRes_RT_Spinner</tabstop>
-  <tabstop>expRes_Z_Spinner</tabstop>
-  <tabstop>expRes_IonMode_LineEdit</tabstop>
   <tabstop>resultsExperimentNormaliseXICs_checkBox</tabstop>
   <tabstop>tabWidget_3</tabstop>
  </tabstops>

@@ -206,16 +206,16 @@ if __name__=="__main__":
         scales = [5,19]
         dmz = 1.00335
 
-    if False:
+    if True:
         mzXMLFile="F:/Waterhouse/Quinones/mzXML/a12131_neg.mzXML"
 
-        mz = 249.022961
-        ppm = 10.
-        cn = 6
+        mz = 1006.34489#912.31805
+        ppm = 50.
+        cn = 12
         z = 1
         scales = [5,19]
         dmz = 1.00335
-        gp=GradientPeaks(minInt=10000, minIntFlanks=100, minIncreaseRatio=.5, minDelta=1000, expTime=[15, 150])
+        gp=GradientPeaks(minInt=1000, minIntFlanks=100, minIncreaseRatio=.5, minDelta=1, expTime=[3, 150])
 
 
     if False:

@@ -355,7 +355,7 @@ class procAreaInFile:
         if colToProc == "":
 
             eic, times, scanids = self.t.getEIC(mz, ppm, filterLine=scanEvent)
-            eicSmoothed = smoothDataSeries(times, eic, windowLen=smoothingWindowSize,window=smoothingWindow, polynom=smoothingWindowPolynom)
+            eicSmoothed = smoothDataSeries(times, eic, windowLen=smoothingWindowSize, window=smoothingWindow, polynom=smoothingWindowPolynom)
             ret = self.CP.getPeaksFor(times, eicSmoothed, scales=scales, snrTh=snrTH)
 
             best = None
@@ -416,6 +416,9 @@ class procAreaInFile:
         logging.info("   Reintegration started for file %s" % self.forFile)
 
         z = 0
+
+        scanEventsPerPolarity=self.t.getFilterLinesPerPolarity()
+
         for oDat in oldData:
 
             if self.queue is not None: self.queue.put(Bunch(pid=self.pID, mes="value", val=z))
@@ -423,10 +426,13 @@ class procAreaInFile:
 
             nDat = [copy(d) for d in oDat]
             try:
-                nDat = self.processArea(nDat, colToProc, colmz, colrt, colLmz, colIonMode, positiveScanEvent,
-                                        negativeScanEvent, ppm, maxRTShift, scales, snrTH, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom)
+                if (nDat[self.colInd[colIonMode]]=="+" and positiveScanEvent in scanEventsPerPolarity["+"]) or (nDat[self.colInd[colIonMode]]=="-" and negativeScanEvent in scanEventsPerPolarity["-"]):
+                    nDat = self.processArea(nDat, colToProc, colmz, colrt, colLmz, colIonMode, positiveScanEvent,
+                                            negativeScanEvent, ppm, maxRTShift, scales, snrTH, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom)
             except Exception as ex:
-                print ex
+                import traceback
+                traceback.print_exc()
+                logging.error(str(traceback))
                 pass
 
             self.newData.append(nDat)
@@ -496,6 +502,7 @@ class procAreaInFile:
             self.CP=GradientPeaks(minInt=10000, minIntFlanks=10, minIncreaseRatio=.05, expTime=[25, 250]) ## Swiss Orbitrap HF data
             self.CP=GradientPeaks(minInt=1000, minIntFlanks=10, minIncreaseRatio=.15, expTime=[10, 150])
             self.CP=GradientPeaks(minInt=1000, minIntFlanks=10, minIncreaseRatio=.05, minDelta=10000, expTime=[5, 150]) ## Bernhard HSS
+            #self.CP=GradientPeaks(minInt=1000, minIntFlanks=100, minIncreaseRatio=.5, minDelta=1000, expTime=[10, 150])  ## Lin
 
         # re-integrate all detected feature pairs from the grouped results in this LC-HRMS data file
         self.processFile(self.oldData, self.colToProc, self.colmz, self.colrt, self.colLmz, self.colIonMode,
@@ -1330,10 +1337,11 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                     done=0
                     for group in [t.data(QListWidgetItem.UserType).toPyObject() for t in natSort(self.ui.groupsList.findItems('*', QtCore.Qt.MatchWildcard), key=lambda x: str(x.data(QListWidgetItem.UserType).toPyObject().name))]:
+                        os.mkdir(str(groupFile[:groupFile.rfind("/")]+"/"+text+"/data/"+group.name))
                         for i in range(len(group.files)):
                             pw.setTextu("Copying "+group.files[i][group.files[i].rfind("/"):])
-                            shutil.copy(str(group.files[i]), str(groupFile[:groupFile.rfind("/")]+"/"+text+"/data"+group.files[i][group.files[i].rfind("/"):]))
-                            group.files[i]=str(groupFile[:groupFile.rfind("/")]+"/"+text+"/data"+group.files[i][group.files[i].rfind("/"):])
+                            shutil.copy(str(group.files[i]), str(groupFile[:groupFile.rfind("/")]+"/"+text+"/data/"+group.name+group.files[i][group.files[i].rfind("/"):]))
+                            group.files[i]=str(groupFile[:groupFile.rfind("/")]+"/"+text+"/data/"+group.name+group.files[i][group.files[i].rfind("/"):])
                             done=done+1
                             pw.setValueu(done)
 
@@ -1594,14 +1602,13 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             if item.bunchData.type=="featurePair":
                 plotItems.append(item)
 
+        axlimMin=100000
+        axlimMax=0
+
+        itemNum=0
         for item in plotItems:
             assert item.bunchData.type=="featurePair"
-            self.ui.expRes_ID_LineEdit.setText(str(item.bunchData.id))
-            self.ui.expRes_MZ_Spinner.setValue(item.bunchData.mz)
             rt=item.bunchData.rt/60.
-            self.ui.expRes_RT_Spinner.setValue(rt)
-            self.ui.expRes_Z_Spinner.setValue(item.bunchData.charge)
-            self.ui.expRes_IonMode_LineEdit.setText(item.bunchData.ionisationMode)
 
             groups={}
             for group in SQLSelectAsObject(self.experimentResults.curs, "SELECT groupName, id FROM FileGroups"):
@@ -1653,9 +1660,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             if self.ui.resultsExperimentNormaliseXICs_checkBox.checkState()==QtCore.Qt.Checked:
                                 centerInt=XICObj.xicL[bestCenter]
 
-                            self.ui.resultsExperiment_plot.axes.plot([t/60. for t in XICObj.times], [f/centerInt for f in XICObj.xic],   color=predefinedColors[groupID%len(predefinedColors)])
-                            self.ui.resultsExperiment_plot.axes.plot([t/60. for t in XICObj.times], [-f/centerInt for f in XICObj.xicL], color=predefinedColors[groupID%len(predefinedColors)])
-                            self.ui.resultsExperiment_plot.axes.set_xlim([rt-.5, rt+.5])
+                            self.ui.resultsExperiment_plot.axes.plot([t/60. for t in XICObj.times], [f/centerInt for f in XICObj.xic],   color=predefinedColors[itemNum%len(predefinedColors)])
+                            self.ui.resultsExperiment_plot.axes.plot([t/60. for t in XICObj.times], [-f/centerInt for f in XICObj.xicL], color=predefinedColors[itemNum%len(predefinedColors)])
+                            axlimMin=min(axlimMin, rt-.5)
+                            axlimMax=max(axlimMax, rt+.5)
 
 
                             minInd=min(useInds)
@@ -1676,8 +1684,11 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         curs.close()
                         conn.close()
 
-                offsetCount = offsetCount+1
+                offsetCount += 1
 
+            itemNum += 1
+
+        self.ui.resultsExperiment_plot.axes.set_xlim([axlimMin, axlimMax])
         self.drawCanvas(self.ui.resultsExperiment_plot)
         self.drawCanvas(self.ui.resultsExperimentSeparatedPeaks_plot)
         self.drawCanvas(self.ui.resultsExperimentMSScanPeaks_plot)
@@ -3690,23 +3701,22 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     xicL                  = [invert*u for u in xicL]
                     xicLfirstiso          = [invert*u for u in xicLfirstiso]
                     xicLfirstisoconjugate = [invert*u for u in xicLfirstisoconjugate]
-                    xicL_smoothed                  = [invert*u for u in xicL_smoothed]
+                    xicL_smoothed         = [invert*u for u in xicL_smoothed]
 
                     if self.ui.flattenXIC.isChecked():
-                        ps = int(cp.NPeakCenter - cp.NPeakScale * 2)
-                        pe = int(cp.NPeakCenter + cp.NPeakScale * 2)
-                        for u in range(len(xic)):
-                            if u < ps or u > pe:
-                                xic[u] = 0
-                                xicfirstiso[u] = 0
-                        ps = int(cp.LPeakCenter - cp.LPeakScale * 2)
-                        pe = int(cp.LPeakCenter + cp.LPeakScale * 2)
-                        for u in range(len(xicL)):
-                            if u < ps or u > pe:
-                                xicL[u] = 0
-                                xicLfirstiso[u] = 0
-                                xicL_smoothed[u] = 0
-                                xicLfirstiso[u] = 0
+                        ps = min(int(cp.NPeakCenter - cp.NPeakScale * 2), int(cp.LPeakCenter - cp.LPeakScale * 2))
+                        pe = max(int(cp.NPeakCenter + cp.NPeakScale * 2), int(cp.LPeakCenter + cp.LPeakScale * 2))
+                    else:
+                        ps=0
+                        pe=len(times)
+                        #times=times[ps:pe]
+                        #xic=xic[ps:pe]
+                        #xic_smoothed=xic_smoothed[ps:pe]
+                        #xicfirstiso=xicfirstiso[ps:pe]
+                        #xicL=xicL[ps:pe]
+                        #xicL_smoothed=xicL_smoothed[ps:pe]
+                        #xicLfirstiso=xicLfirstiso[ps:pe]
+                        #xicLfirstisoconjugate=xicLfirstisoconjugate[ps:pe]
                     try:
                         minTime = min(minTime, min(
                             times[int(cp.NPeakCenter - cp.NPeakScale * 1): int(cp.NPeakCenter + cp.NPeakScale * 1)]))
@@ -3728,37 +3738,37 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     item.setBackgroundColor(6, QColor(predefinedColors[useColi % len(predefinedColors)]))
                     item.setBackgroundColor(7, QColor(predefinedColors[useColi % len(predefinedColors)]))
 
-                    self.drawPlot(self.ui.pl1, plotIndex=0, x=times, y=xic,
+                    self.drawPlot(self.ui.pl1, plotIndex=0, x=times[ps:pe], y=xic[ps:pe],
                                   fill=[int(cp.NPeakCenter - cp.NBorderLeft),
                                         int(cp.NPeakCenter + cp.NBorderRight)], rearrange=len(selectedItems) == 1,
                                   label="%.4f (%d)"%(cp.mz, cp.xCount), useCol=useColi)
 
                     if self.ui.showSmoothedEIC_checkBox.isChecked():
-                        self.drawPlot(self.ui.pl1, plotIndex=0, x=times, y=xic_smoothed,
+                        self.drawPlot(self.ui.pl1, plotIndex=0, x=times[ps:pe], y=xic_smoothed[ps:pe],
                                       fill=[int(cp.NPeakCenter - cp.NBorderLeft),
                                             int(cp.NPeakCenter + cp.NBorderRight)], rearrange=len(selectedItems) == 1,
                                       label=None, useCol=useColi, linestyle="--")
 
 
                     if self.ui.showIsotopologues.isChecked():
-                        self.drawPlot(self.ui.pl1, plotIndex=0, x=times, y=xicfirstiso,
+                        self.drawPlot(self.ui.pl1, plotIndex=0, x=times[ps:pe], y=xicfirstiso[ps:pe],
                                       fill=[int(cp.NPeakCenter - cp.NBorderLeft),
                                             int(cp.NPeakCenter + cp.NBorderRight)], rearrange=len(selectedItems) == 1,
                                       label=None, useCol=useColi)
 
-                    self.drawPlot(self.ui.pl1, plotIndex=0, x=times, y=xicL,
+                    self.drawPlot(self.ui.pl1, plotIndex=0, x=times[ps:pe], y=xicL[ps:pe],
                                   fill=[int(cp.LPeakCenter - cp.LBorderLeft),
                                         int(cp.LPeakCenter + cp.LBorderRight)], rearrange=len(selectedItems) == 1,
                                   label=None, useCol=useColi)
 
                     if self.ui.showSmoothedEIC_checkBox.isChecked():
-                        self.drawPlot(self.ui.pl1, plotIndex=0, x=times, y=xicL_smoothed,
+                        self.drawPlot(self.ui.pl1, plotIndex=0, x=times[ps:pe], y=xicL_smoothed[ps:pe],
                                       fill=[int(cp.LPeakCenter - cp.LBorderLeft),
                                             int(cp.LPeakCenter + cp.LBorderRight)], rearrange=len(selectedItems) == 1,
                                       label=None, useCol=useColi, linestyle="--")
 
                     if self.ui.showIsotopologues.isChecked():
-                        self.drawPlot(self.ui.pl1, plotIndex=0, x=times, y=xicLfirstiso,
+                        self.drawPlot(self.ui.pl1, plotIndex=0, x=times[ps:pe], y=xicLfirstiso[ps:pe],
                                       fill=[int(cp.LPeakCenter - cp.LBorderLeft),
                                             int(cp.LPeakCenter + cp.LBorderRight)], rearrange=len(selectedItems) == 1,
                                       label=None, useCol=useColi)
@@ -4250,17 +4260,19 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             xicLfirstisoconjugate = [invert*u for u in xicLfirstisoconjugate]
 
                             if self.ui.flattenXIC.isChecked():
-                                ps = int(child.NPeakCenter - child.NPeakScale * 2)
-                                pe = int(child.NPeakCenter + child.NPeakScale * 2)
-                                for u in range(len(xic)):
-                                    if u < ps or u > pe:
-                                        xic[u] = 0
-
-                                ps = int(child.LPeakCenter - child.LPeakScale * 2)
-                                pe = int(child.LPeakCenter + child.LPeakScale * 2)
-                                for u in range(len(xicL)):
-                                    if u < ps or u > pe:
-                                        xicL[u] = 0
+                                ps = min(int(child.NPeakCenter - child.NPeakScale * 2), int(child.LPeakCenter - child.LPeakScale * 2))
+                                pe = max(int(child.NPeakCenter + child.NPeakScale * 2), int(child.LPeakCenter + child.LPeakScale * 2))
+                            else:
+                                ps=0
+                                pe=len(times)
+                                #times=times[ps:pe]
+                                #xic=xic[ps:pe]
+                                #xic_smoothed=xic_smoothed[ps:pe]
+                                #xicfirstiso=xicfirstiso[ps:pe]
+                                #xicL=xicL[ps:pe]
+                                #xicL_smoothed=xicL_smoothed[ps:pe]
+                                #xicLfirstiso=xicLfirstiso[ps:pe]
+                                #xicLfirstisoconjugate=xicLfirstisoconjugate[ps:pe]
 
                             maxInt = max(maxInt, max(xic[int(child.NPeakCenter - child.NPeakScale * 1): int(
                                 child.NPeakCenter + child.NPeakScale * 1)]))
@@ -4270,7 +4282,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             minIntY = min(minIntY, min(xicL[int(child.LPeakCenter - child.LPeakScale * 1): int(
                                 child.LPeakCenter + child.LPeakScale * 1)]))
 
-                            self.drawPlot(self.ui.pl1, plotIndex=0, x=times, y=xic, fill=[
+                            self.drawPlot(self.ui.pl1, plotIndex=0, x=times[ps:pe], y=xic[ps:pe], fill=[
                                 max(int(child.LPeakCenter - child.LBorderLeft),
                                     int(child.NPeakCenter - child.NBorderLeft)),
                                 min(int(child.NPeakCenter + child.NBorderRight),
@@ -4278,7 +4290,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                           label="%.4f (%d)"%(child.mz, child.xCount), useCol=useColi)  #useCol=selIndex*2)
 
                             if self.ui.showSmoothedEIC_checkBox.isChecked():
-                                self.drawPlot(self.ui.pl1, plotIndex=0, x=times, y=xic_smoothed, fill=[
+                                self.drawPlot(self.ui.pl1, plotIndex=0, x=times[ps:pe], y=xic_smoothed[ps:pe], fill=[
                                     max(int(child.LPeakCenter - child.LBorderLeft),
                                         int(child.NPeakCenter - child.NBorderLeft)),
                                     min(int(child.NPeakCenter + child.NBorderRight),
@@ -4286,14 +4298,14 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                               label="", useCol=useColi, linestyle="--")
 
                             if self.ui.showIsotopologues.isChecked():
-                                self.drawPlot(self.ui.pl1, plotIndex=0, x=times, y=xicfirstiso, fill=[
+                                self.drawPlot(self.ui.pl1, plotIndex=0, x=times[ps:pe], y=xicfirstiso[ps:pe], fill=[
                                     max(int(child.LPeakCenter - child.LBorderLeft),
                                         int(child.NPeakCenter - child.NBorderLeft)),
                                     min(int(child.NPeakCenter + child.NBorderRight),
                                         int(child.LPeakCenter + child.LBorderRight))],
                                               rearrange=len(selectedItems) == 1, label=None, useCol=useColi)
 
-                            self.drawPlot(self.ui.pl1, plotIndex=0, x=times, y=xicL, fill=[
+                            self.drawPlot(self.ui.pl1, plotIndex=0, x=times[ps:pe], y=xicL[ps:pe], fill=[
                                 max(int(child.LPeakCenter - child.LBorderLeft),
                                     int(child.NPeakCenter - child.NBorderLeft)),
                                 min(int(child.NPeakCenter + child.NBorderRight),
@@ -4301,7 +4313,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                           label=None, useCol=useColi)
 
                             if self.ui.showSmoothedEIC_checkBox.isChecked():
-                                self.drawPlot(self.ui.pl1, plotIndex=0, x=times, y=xicL_smoothed, fill=[
+                                self.drawPlot(self.ui.pl1, plotIndex=0, x=times[ps:pe], y=xicL_smoothed[ps:pe], fill=[
                                     max(int(child.LPeakCenter - child.LBorderLeft),
                                         int(child.NPeakCenter - child.NBorderLeft)),
                                     min(int(child.NPeakCenter + child.NBorderRight),
@@ -4310,7 +4322,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
 
                             if self.ui.showIsotopologues.isChecked():
-                                self.drawPlot(self.ui.pl1, plotIndex=0, x=times, y=xicLfirstiso, fill=[
+                                self.drawPlot(self.ui.pl1, plotIndex=0, x=times[ps:pe], y=xicLfirstiso[ps:pe], fill=[
                                     max(int(child.LPeakCenter - child.LBorderLeft),
                                         int(child.NPeakCenter - child.NBorderLeft)),
                                     min(int(child.NPeakCenter + child.NBorderRight),
@@ -4521,7 +4533,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             for row in self.currentOpenResultsFile.curs.execute("SELECT peaksCorr FROM chromPeaks"):
                 peakCorr,=row
                 peaksCorr.append(peakCorr)
-            self.ui.pl1.twinxs[0].hist(peaksCorr, 10, normed=False, facecolor='green', alpha=0.5)
+            self.ui.pl1.twinxs[0].hist(peaksCorr, [i/100. for i in range(-100, 100, 1)], normed=False, facecolor='green', alpha=0.5)
             self.ui.pl1.axes.set_title("Histogram of matched feature pairs - peak correlations")
             self.ui.pl1.axes.set_xlabel("Peak correlation")
             self.ui.pl1.axes.set_ylabel("Frequency")
@@ -4531,8 +4543,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             peaksRatio=[]
             for row in self.currentOpenResultsFile.curs.execute("SELECT peaksRatioMp1, xcount FROM chromPeaks"):
                 peakRatio,xcount=row
-                peaksRatio.append(peakRatio-getNormRatio(0.9893, xcount, 1))
-            self.ui.pl1.twinxs[0].hist(peaksRatio, 30, normed=False, facecolor='green', alpha=0.5)
+                peaksRatio.append(100.*max(-1, min(1, peakRatio-getNormRatio(0.9893, xcount, 1))))
+            self.ui.pl1.twinxs[0].hist(peaksRatio, [i/100. for i in range(-100, 100, 5)], normed=False, facecolor='green', alpha=0.5)
             self.ui.pl1.axes.set_title("Histogram of isotopolog ratio error - observed minus theoretical ratio for M+1 to M")
             self.ui.pl1.axes.set_xlabel("Ratio error (%)")
             self.ui.pl1.axes.set_ylabel("Frequency")
@@ -4542,8 +4554,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             peaksRatio=[]
             for row in self.currentOpenResultsFile.curs.execute("SELECT peaksRatioMPm1, xcount FROM chromPeaks"):
                 peakRatio,xcount=row
-                peaksRatio.append(peakRatio-getNormRatio(0.97, xcount, 1))
-            self.ui.pl1.twinxs[0].hist(peaksRatio, 30, normed=False, facecolor='green', alpha=0.5)
+                peaksRatio.append(100.*max(-1, min(1, peakRatio-getNormRatio(0.986, xcount, 1))))
+            self.ui.pl1.twinxs[0].hist(peaksRatio, [i/100. for i in range(-100, 100, 5)], normed=False, facecolor='green', alpha=0.5)
             self.ui.pl1.axes.set_title("Histogram of isotopolog ratio error - observed minus theoretical ratio for M'-1 to M'")
             self.ui.pl1.axes.set_xlabel("Ratio error (%)")
             self.ui.pl1.axes.set_ylabel("Frequency")
@@ -4587,8 +4599,6 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             self.ui.pl1.axes.set_xlabel("Mean, relative m/z error (ppm)")
             self.ui.pl1.axes.set_ylabel("Frequency")
             self.drawCanvas(self.ui.pl1)
-
-
         #</editor-fold>
 
         #<editor-fold desc="#feature pair plotting">

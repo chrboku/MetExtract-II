@@ -687,15 +687,15 @@
                 <dd>The amount of the labeled tracer form used</dd>
                 <dt class="inactive">Ratio (N:L)</dt>
                 <dd class="inactive">Theoretical intensity ratio of the monoisotopic <sup>12</sup>C to <sup>13</sup>C-labeled ion signals of the tracer. This field cannot be specified. Its value is calculated automatically from the other tracer-specific parameter settings</dd>
-                <dt>Max. negative bias</dt>
-                <dd>Maximum allowed negative ratio bias relative to 'Ratio (native:enriched)' (i.e. 'Ratio (native:enriched)'-'Max. negative bias'). If the specified tracer is an endogenous substance to the biological system, use 9999999</dd>
-                <dt>Max. positive bias</dt>
-                <dd>Maximum allowed positive ratio bias relative to 'Ratio (native:enriched)' (i.e. 'Ratio (native:enriched)'+'Max. positive bias'). If the specified tracer is an endogenous substance to the biological system and thus the ratio can be different for different metabolites, use 9999999</dd>
+                <dt>Min. ratio (%)</dt>
+                <dd>Minimal allowed ratio relative to 'Ratio (native:enriched)' (i.e. 'Ratio (native:enriched)'*'Min. ratio (%)'). If the specified tracer is an endogenous substance to the biological system, use 0.00000001</dd>
+                <dt>Max. ratio (%)</dt>
+                <dd>Maximum allowed ratio relative to 'Ratio (native:enriched)' (i.e. 'Ratio (native:enriched)'*'Max. ratio (%)'). If the specified tracer is an endogenous substance to the biological system and thus the ratio can be different for different metabolites, use 9999999</dd>
                 <dt class="inactive">Type</dt>
                 <dd class="inactive">Currently unused</dd>
             </dl>
             <p>
-                <img class="caption" src="figures/defineTracerDialog.png" data-caption="Fig 7: Tracer dialog with <sup>12</sup>C and <sup>13</sup>C deoxynivalenol (DON) configured as the used tracer. As both isotopolog forms have a different enrichment of the respective carbon isotope, the mono-isotopic ratio is only 0.92 although equal amounts (50:50) were mixed and applied to the organism of interest. Moreover, all 15 Carbon atoms of the labeled deoxynivalenol tracer were equally enriched with <sup>13</sup>C. See figure 8 for the LC-HRMS data for this configured tracer." />
+                <img class="caption" src="figures/defineTracerDialog.png" width="90%" data-caption="Fig 7: Tracer dialog with <sup>12</sup>C and <sup>13</sup>C deoxynivalenol (DON) configured as the used tracer. As both isotopolog forms have a different enrichment of the respective carbon isotope, the mono-isotopic ratio is only 0.92 although equal amounts (50:50) were mixed and applied to the organism of interest. Moreover, all 15 Carbon atoms of the labeled deoxynivalenol tracer were equally enriched with <sup>13</sup>C. See figure 8 for the LC-HRMS data for this configured tracer." />
             </p>
             <p>
                 <img class="caption" src="figures/Sample_DON_Tracer.png" data-caption="Fig 8: Native and uniformly <sup>13</sup>C-labeled DON-tracer. Although an equal amount of native and labeled DON has be spiked into the sample, the relative ratio M:M' is slightly different. This bias is explained by the high isotopic enrichment in the <sup>13</sup>C-labeled tracer form, which is approximately 99.5%.">

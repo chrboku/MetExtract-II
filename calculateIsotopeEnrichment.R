@@ -1,12 +1,3 @@
-# example
-# Calculate isotopic enrichment using M+1 and M (or M'-1 and M')
-# Note: Use determined number of carbon atoms (delta M' and M) only in AllExtract data processing or 
-#       to determine the isotopic enrichment of the 13C-labelled tracer
-Cn=11
-ratioOfMpOneToM=.25
-substitutions=1
-
-
 ################################################################################
 ################################################################################
 ######################## Function definitions
@@ -30,22 +21,16 @@ getIsotopicEnrichment<-function(a,s,r){
 ################################################################################
 ################################################################################
 ######################## Calculate isotopic enrichment
-
+Cn=50
+ratioOfMpOneToM=.23
+substitutions=1
 enrichment=getIsotopicEnrichment(Cn, substitutions, ratioOfMpOneToM)
-
-
-
-
-################################################################################
-################################################################################
-######################## Display results
-
 print(sprintf("Enrichment is %.2f%% at a ratio of %.4f with Cn %d at M+%d/M (or M'-%d/M')", enrichment*100, ratioOfMpOneToM, Cn, substitutions, substitutions))
 
 
 
 
-
+getNormalisedIsotopePatternRatio(50, 1, 0.986)-getNormalisedIsotopePatternRatio(50, 1, 0.9893)
 
 
 

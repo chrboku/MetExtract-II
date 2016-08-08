@@ -611,7 +611,7 @@ class RunIdentification:
         pdf.drawString(70, currentHeight, "Adducts")
         currentHeight -=15
         p = Paragraph(str(", ".join(
-            ["%s (m/z: %.4f, polarity %s, charge %d)" % (ad.name, ad.mzoffset, ad.polarity, ad.charge) for ad in self.adducts])), style=getSampleStyleSheet()["Normal"])
+            ["%s (m/z: %.4f, z:%d%s)" % (ad.name, ad.mzoffset, ad.charge, ad.polarity) for ad in self.adducts])), style=getSampleStyleSheet()["Normal"])
         w, h = p.wrap(460, 60)
         p.wrapOn(pdf, 460, 60)
         p.drawOn(pdf, 80, currentHeight - h + 10);
@@ -639,8 +639,7 @@ class RunIdentification:
         currentHeight -= 15
 
 
-
-        p = Paragraph("MetExtract UUID_ext: "+self.processingUUID, style=getSampleStyleSheet()["Normal"])
+        p = Paragraph("UUID_ext: "+self.processingUUID, style=getSampleStyleSheet()["Normal"])
         w, h = p.wrap(450, 120)
         p.wrapOn(pdf, 450, 120)
         p.drawOn(pdf, 60, currentHeight - h + 10);
@@ -681,7 +680,7 @@ class RunIdentification:
         currentHeight -= 15
 
         pdf.drawString(70, currentHeight, "Max. intensity error")
-        pdf.drawString(240, currentHeight, "-%.1f%%, +%.1f%% (%.3f - %.3f)" % (
+        pdf.drawString(240, currentHeight, "%.1f%%, %.1f%% (%.3f - %.3f)" % (
             tracer.maxRelNegBias * 100., tracer.maxRelPosBias * 100., tracer.monoisotopicRatio *tracer.maxRelNegBias,
             tracer.monoisotopicRatio *tracer.maxRelPosBias));
         currentHeight -= 15
@@ -704,6 +703,7 @@ class RunIdentification:
             checkRatio=True
             minRatio=tracer.monoisotopicRatio*tracer.maxRelNegBias
             maxRatio=tracer.monoisotopicRatio*tracer.maxRelPosBias
+            self.printMessage("Tracer mono-isotopic ratio: %.5f (allowed: %.5f-%.5f)"%(tracer.monoisotopicRatio, minRatio, maxRatio))
         else:
             checkRatio=self.useRatio
             minRatio=self.minRatio
@@ -1204,7 +1204,8 @@ class RunIdentification:
                                 if a not in todel.keys():
                                     todel[a]=[]
                                 todel[a].append("singly charged mismatch with half the number of carbon atoms with "+str(peakB.mz)+" "+str(peakB.xCount))
-                        elif abs(peakB.mz-peakA.mz-1.00335/peakA.loading)<= (peakA.mz * 2.5 * self.ppm / 1000000.) and peakB.xCount==peakA.xCount:
+
+                        elif abs(peakB.mz-peakA.mz-1.00335/peakA.loading) <= (peakA.mz * 2.5 * self.ppm / 1000000.) and peakB.xCount==peakA.xCount and peakB.NPeakArea < 2*peakA.NPeakArea:
                             ## increased m/z value by one carbon atom, but the same number of labeling atoms ## happens quite often with 15N-labeled metabolites e.g. 415.21374 and 415.7154 or 414.6978 and 415.19966
                             if b not in todel.keys():
                                 todel[b]=[]
@@ -2913,7 +2914,7 @@ class RunIdentification:
                 self.CP=GradientPeaks(minInt=1000, minIntFlanks=1, minIncreaseRatio=.01)                                                                       ## LTQ Orbitrap XL
                 self.CP=GradientPeaks(minInt=10000, minIntFlanks=10, minIncreaseRatio=.15, expTime=[10, 250]) ## Swiss Orbitrap HF data
                 self.CP=GradientPeaks(minInt=1000, minIntFlanks=10, minIncreaseRatio=.05, minDelta=10000, expTime=[5, 150]) ## Bernhard HSS
-                #self.CP=GradientPeaks(minInt=1000, minIntFlanks=100, minIncreaseRatio=.5, minDelta=1000, expTime=[10, 150])  ## Lin
+                self.CP=GradientPeaks(minInt=1000, minIntFlanks=100, minIncreaseRatio=.5, minDelta=100, expTime=[5, 150])  ## Lin
                 #self.CP=GradientPeaks(minInt=5, minIntFlanks=2, minIncreaseRatio=.05, expTime=[15, 150], minDelta=1, minInflectionDelta=2) ## Roitinger
                 #self.CP=GradientPeaks(minInt=10000, minIntFlanks=10, minIncreaseRatio=.05, expTime=[5, 45])       ## RNA
 

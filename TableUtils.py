@@ -9,6 +9,7 @@ import time
 
 from copy import deepcopy
 
+from utils import Bunch
 
 # functionality to store / read a table into a generic SQLite table
 # methods to insert / alter / delete data are provided (including bulk-update)
@@ -222,7 +223,7 @@ class Table:
         self.conn.commit()
 
     # return the entire table
-    def getData(self, cols=None, where=None, orderby=None):
+    def getData(self, cols=None, where=None, orderby=None, getResultsAsBunchObjects=False):
         ret = []
         if where is None:
             where = ""
@@ -246,10 +247,13 @@ class Table:
         cols=tCols
 
         for row in self.curs.execute(self.__updateTableName("SELECT %s FROM :table: %s %s" % (",".join([col for col in cols]), where, orderby))):
-            if len(row) == 1:
-                ret.append(row[0])
+            if getResultsAsBunchObjects:
+                ret.append(Bunch(_addFollowing=dict(zip(cols, row))))
             else:
-                ret.append(row)
+                if len(row) == 1:
+                    ret.append(row[0])
+                else:
+                    ret.append(row)
 
         return ret
 
