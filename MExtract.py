@@ -4544,7 +4544,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             for row in self.currentOpenResultsFile.curs.execute("SELECT peaksRatioMp1, xcount FROM chromPeaks"):
                 peakRatio,xcount=row
                 peaksRatio.append(100.*max(-1, min(1, peakRatio-getNormRatio(0.9893, xcount, 1))))
-            self.ui.pl1.twinxs[0].hist(peaksRatio, [i/100. for i in range(-100, 100, 5)], normed=False, facecolor='green', alpha=0.5)
+            self.ui.pl1.twinxs[0].hist(peaksRatio, [i for i in range(-100, 100, 5)], normed=False, facecolor='green', alpha=0.5)
             self.ui.pl1.axes.set_title("Histogram of isotopolog ratio error - observed minus theoretical ratio for M+1 to M")
             self.ui.pl1.axes.set_xlabel("Ratio error (%)")
             self.ui.pl1.axes.set_ylabel("Frequency")
@@ -4555,7 +4555,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             for row in self.currentOpenResultsFile.curs.execute("SELECT peaksRatioMPm1, xcount FROM chromPeaks"):
                 peakRatio,xcount=row
                 peaksRatio.append(100.*max(-1, min(1, peakRatio-getNormRatio(0.986, xcount, 1))))
-            self.ui.pl1.twinxs[0].hist(peaksRatio, [i/100. for i in range(-100, 100, 5)], normed=False, facecolor='green', alpha=0.5)
+            self.ui.pl1.twinxs[0].hist(peaksRatio, [i for i in range(-100, 100, 5)], normed=False, facecolor='green', alpha=0.5)
             self.ui.pl1.axes.set_title("Histogram of isotopolog ratio error - observed minus theoretical ratio for M'-1 to M'")
             self.ui.pl1.axes.set_xlabel("Ratio error (%)")
             self.ui.pl1.axes.set_ylabel("Frequency")
