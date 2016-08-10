@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '.\mePyGuis\guis\mainwindow.ui'
 #
-# Created: Thu Aug 04 09:16:05 2016
+# Created: Wed Aug 10 11:32:01 2016
 #      by: PyQt4 UI code generator 4.10
 #
 # WARNING! All changes made in this file will be lost!
@@ -1815,6 +1815,8 @@ class Ui_MainWindow(object):
         self.menuFile.setObjectName(_fromUtf8("menuFile"))
         self.menuAvailable_Settings = QtGui.QMenu(self.menuFile)
         self.menuAvailable_Settings.setObjectName(_fromUtf8("menuAvailable_Settings"))
+        self.menuTools = QtGui.QMenu(self.menuBar)
+        self.menuTools.setObjectName(_fromUtf8("menuTools"))
         MainWindow.setMenuBar(self.menuBar)
         self.aboutMenue = QtGui.QAction(MainWindow)
         self.aboutMenue.setObjectName(_fromUtf8("aboutMenue"))
@@ -1826,6 +1828,8 @@ class Ui_MainWindow(object):
         self.actionSave_Settings.setObjectName(_fromUtf8("actionSave_Settings"))
         self.helpMenue = QtGui.QAction(MainWindow)
         self.helpMenue.setObjectName(_fromUtf8("helpMenue"))
+        self.actionIsotopic_enrichment = QtGui.QAction(MainWindow)
+        self.actionIsotopic_enrichment.setObjectName(_fromUtf8("actionIsotopic_enrichment"))
         self.menuHelp.addAction(self.helpMenue)
         self.menuHelp.addSeparator()
         self.menuHelp.addAction(self.aboutMenue)
@@ -1835,7 +1839,9 @@ class Ui_MainWindow(object):
         self.menuFile.addAction(self.actionSave_Settings)
         self.menuFile.addSeparator()
         self.menuFile.addAction(self.exitMenue)
+        self.menuTools.addAction(self.actionIsotopic_enrichment)
         self.menuBar.addAction(self.menuFile.menuAction())
+        self.menuBar.addAction(self.menuTools.menuAction())
         self.menuBar.addAction(self.menuHelp.menuAction())
 
         self.retranslateUi(MainWindow)
@@ -2128,11 +2134,13 @@ class Ui_MainWindow(object):
         self.menuHelp.setTitle(_translate("MainWindow", "Help", None))
         self.menuFile.setTitle(_translate("MainWindow", "File", None))
         self.menuAvailable_Settings.setTitle(_translate("MainWindow", "Load Settings", None))
+        self.menuTools.setTitle(_translate("MainWindow", "Tools", None))
         self.aboutMenue.setText(_translate("MainWindow", "About", None))
         self.exitMenue.setText(_translate("MainWindow", "Exit", None))
         self.actionLoad_Settings.setText(_translate("MainWindow", "Load from file", None))
         self.actionSave_Settings.setText(_translate("MainWindow", "Save Settings", None))
         self.helpMenue.setText(_translate("MainWindow", "Help", None))
+        self.actionIsotopic_enrichment.setText(_translate("MainWindow", "Isotopic enrichment", None))
 
 import ressources_rc
 

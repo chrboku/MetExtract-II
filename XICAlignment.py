@@ -6,7 +6,7 @@ from copy import deepcopy
 
 
 # HELPER METHOD for adding a constant part before and after the actual EIC
-def preAppendEICs(eics, scanTimes, pretend=10, scanDuration=1, mIntMult=0, addFront=True, addBack=False):
+def preAppendEICs(eics, scanTimes, pretend=25, scanDuration=1, mIntMult=1, addFront=True, addBack=False):
     assert len(eics)==len(scanTimes)
     eics=deepcopy(eics)
     scanTimes=deepcopy(scanTimes)
@@ -33,7 +33,7 @@ def preAppendEICs(eics, scanTimes, pretend=10, scanDuration=1, mIntMult=0, addFr
 
 # HELPER METHOD for removing a constant part before and after the actual EIC.
 # Used im combination with preAppendEICs
-def undoPreAppendEICs(eics, refTimes, pretend=10, scanDuration=1, removeFront=True, removeBack=False):
+def undoPreAppendEICs(eics, refTimes, pretend=25, scanDuration=1, removeFront=True, removeBack=False):
 
     eics=deepcopy(eics)
     refTimes=deepcopy(refTimes)
@@ -68,7 +68,7 @@ class XICAlignment:
         r('source(\"' + scriptLocation + '\")')
 
     # aligns the EICs and matches the chromatographic peaks detected earlier
-    def alignXIC(self, eics, peakss, scantimes, align=True, nPolynom=3, maxTimeDiff=0.36 * 60, pretend=100, scanDuration=0.25):
+    def alignXIC(self, eics, peakss, scantimes, align=True, nPolynom=3, maxTimeDiff=0.36 * 60, pretend=100, scanDuration=1):
         assert (len(eics) == len(peakss) == len(scantimes))
 
 
@@ -125,7 +125,7 @@ class XICAlignment:
                 peakssR = peakssR + "," + ",".join([str(0) for p in range(len(peaks), maxPeaks)])
 
         # align the EICs and bracket the chromatographic peaks
-        ret = r('alignPeaks(c(' + eicsR + '), c(' + peakssR + '), ' + str(len(eics)) + ', refTimes=c(' + ",".join([str(f) for f in refTimes]) + '), align=' + ("TRUE" if align else "FALSE") + ', npoly=' + str(nPolynom) + ', maxGroupDist=' + str(int(maxTimeDiff)) + ')')
+        ret = r('alignPeaks(c(' + eicsR + '), c(' + peakssR + '), ' + str(len(eics)) + ', refTimes=c(' + ",".join([str(f) for f in refTimes]) + '), align=' + ("TRUE" if align else "FALSE") + ', npoly=' + str(nPolynom) + ', maxGroupDist=' + str(int(maxTimeDiff)) + ', scanDuration=' + str(scanDuration) + ')')
 
         # convert R-results object to python arrays
         retl = []

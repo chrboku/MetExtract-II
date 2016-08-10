@@ -17,4 +17,7 @@
   <qresource prefix="FragExtract">
     <file>ressources/FragExtract.png</file>
   </qresource>
+  <qresource prefix="EnrichmentDialog">
+    <file>ressources/EnrichmentDialog.png</file>
+  </qresource>
 </RCC>

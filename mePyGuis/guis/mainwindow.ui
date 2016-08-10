@@ -4066,7 +4066,14 @@ p, li { white-space: pre-wrap; }
     <addaction name="separator"/>
     <addaction name="exitMenue"/>
    </widget>
+   <widget class="QMenu" name="menuTools">
+    <property name="title">
+     <string>Tools</string>
+    </property>
+    <addaction name="actionIsotopic_enrichment"/>
+   </widget>
    <addaction name="menuFile"/>
+   <addaction name="menuTools"/>
    <addaction name="menuHelp"/>
   </widget>
   <action name="aboutMenue">
@@ -4092,6 +4099,11 @@ p, li { white-space: pre-wrap; }
   <action name="helpMenue">
    <property name="text">
     <string>Help</string>
+   </property>
+  </action>
+  <action name="actionIsotopic_enrichment">
+   <property name="text">
+    <string>Isotopic enrichment</string>
    </property>
   </action>
  </widget>

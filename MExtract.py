@@ -34,6 +34,7 @@ from mePyGuis.adductsEdit import adductsEdit
 from mePyGuis.heteroAtomEdit import heteroAtomEdit
 from mePyGuis.DependenciesDialog import DependenciesDialog
 from mePyGuis.ProgressWrapper import ProgressWrapper
+from mePyGuis.calcIsoEnrichmentDialog import calcIsoEnrichmentDialog
 
 from utils import USEGRADIENTDESCENDPEAKPICKING
 
@@ -2072,6 +2073,13 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
     def exitMe(self):
         QtGui.QApplication.exit()
+
+
+
+    def showCalcIsoEnrichmentDialog(self):
+        diag = calcIsoEnrichmentDialog()
+        diag.executeDialog()
+
 
     def aboutMe(self):
         lic="THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR "\
@@ -5545,6 +5553,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.ui.isotopeBText.setText("13C")
 
         self.ui.groupsSelectFile.clicked.connect(self.selectGroupsFile)
+
+        self.ui.actionIsotopic_enrichment.triggered.connect(self.showCalcIsoEnrichmentDialog)
 
         self.ui.aboutMenue.triggered.connect(self.aboutMe)
         self.ui.helpMenue.triggered.connect(self.helpMe)

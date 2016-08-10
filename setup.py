@@ -399,6 +399,7 @@ copyAllFilesInFolder("./../BootstrapKnitr_Template/dataOut", "./BootstrapKnitr_T
 copyAllFilesInFolder("./../BootstrapKnitr_Template/figure", "./BootstrapKnitr_Template/figure")
 copyAllFilesInFolder("./../BootstrapKnitr_Template/documentation", "./BootstrapKnitr_Template/documentation")
 copyAllFilesInFolder("./../BootstrapKnitr_Template/documentation/figures", "./BootstrapKnitr_Template/documentation/figures")
+copyAllFilesInFolder("./../BootstrapKnitr_Template/documentation/importantPackagesWithVersion", "./BootstrapKnitr_Template/documentation/importantPackagesWithVersion")
 copyAllFilesInFolder("./../BootstrapKnitr_Template/scripts/templateScripts", "./BootstrapKnitr_Template/scripts/templateScripts")
 copyAllFilesInFolder("./../BootstrapKnitr_Template/scripts/extLib", "./BootstrapKnitr_Template/scripts/extLib")
 copyAllFilesInFolder("./../BootstrapKnitr_Template/scripts/js", "./BootstrapKnitr_Template/scripts/js")
