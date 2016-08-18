@@ -23,7 +23,7 @@ from MSScan import MS2Scan
 from copy import deepcopy
 
 
-
+from math import floor
 
 from reportlab.graphics.shapes import Drawing
 from reportlab.graphics.charts.lineplots import LinePlot
@@ -206,9 +206,8 @@ class AnnotatedMSMSSpectra:
 
 class ProcessTarget:
     def __init__(self, targets, chromatogramFile,
-                 useOtherAdducts,
                  fullScanEICppm, fullScanThreshold, minMSMSPeakIntensityScaled,
-                 minXn, useZeroLabelingAtoms,
+                 minXn, useZeroLabelingAtoms, useTracExtractAnnotation,
                  labellingOffset, matchingPPM, maxRelError, annotationElements, annotationPPM, useParentFragmentConsistencyRule,
                  saveAsTSV, saveAsPDF,
                  lock, queue, pID, feVersion):
@@ -216,9 +215,6 @@ class ProcessTarget:
         self.targets=targets
         self.chromatogramFile=chromatogramFile
 
-        if useOtherAdducts is None:
-            useOtherAdducts=[]
-        self.useOtherAdducts=useOtherAdducts
 
         self.labellingOffset=labellingOffset
         self.fullScanEICppm=fullScanEICppm
@@ -230,6 +226,7 @@ class ProcessTarget:
 
         self.minXn=minXn
         self.useZeroLabelingAtoms=useZeroLabelingAtoms
+        self.useTracExtractAnnotation=useTracExtractAnnotation
 
         self.annotationElements=annotationElements
         self.annotationPPM=annotationPPM
@@ -280,15 +277,19 @@ class ProcessTarget:
 
         return bestMatch
 
-    def scaleMSScan(self, msScan, minVal=0., maxVal=100., minMZ=0, maxMZ=10000000):
+    def scaleMSScan(self, msScan, precursorMZ=-1, minVal=0., maxVal=100., minMZ=0, maxMZ=10000000, ppm=5.):
         if len(msScan.intensity_list)==0:
             return msScan
         if len(msScan.intensity_list)==1:
             msScan.intensity_list[0]=100.
             return msScan
 
-        minInt=0  # min([msScan.intensity_list[index] for index in range(len(msScan.intensity_list)) if minMZ<=msScan.mz_list[index]<=maxMZ])
-        maxInt=max([msScan.intensity_list[index] for index in range(len(msScan.intensity_list)) if minMZ<=msScan.mz_list[index]<=maxMZ])
+        if precursorMZ==-1:
+            minInt=minVal
+            maxInt=max([msScan.intensity_list[index] for index in range(len(msScan.intensity_list)) if minMZ<=msScan.mz_list[index]<=maxMZ])
+        else:
+            minInt=minVal
+            maxInt=max([msScan.intensity_list[index] for index in range(len(msScan.intensity_list)) if precursorMZ*(1.-ppm/1000000.)<=msScan.mz_list[index]<=precursorMZ*(1.+ppm/1000000.)])
 
         for i in range(len(msScan.intensity_list)):
             msScan.intensity_list[i]=minVal+(maxVal-minVal)*msScan.intensity_list[i]*1./(maxInt-minInt)
@@ -401,17 +402,26 @@ class ProcessTarget:
                 if self.useZeroLabelingAtoms:
                     atoms.insert(0, 0)
 
-                for n in atoms:
+                _debug=True
 
-                    # check if delta mz is explained by n carbon atoms
-                    if nMz<lMz and (abs(lMz-nMz-n*isotopeOffset/metaboliteCharge)*1e6/nMz)<=matchingPPM:
+                if nMz<(lMz+1):
 
-                        # check if intensity ratios are within expected error window
-                        if abs(lInt-nInt)<=maxRelError:
+                    for n in atoms:
 
-                            if abs(lInt-nInt)<bestRat:
-                                bestMatch=Bunch(nInd=i, lInd=j, Cn=n)
-                                bestRat=abs(lInt-nInt)
+                        if n < nMz/12:
+                            ppmDiff=abs(lMz-nMz-n*isotopeOffset/metaboliteCharge)*1e6/nMz
+                            if ppmDiff < 200 and _debug: print "mz native: {0: >10.3f}, mz labeled: {1: >10.3f}, Cn: {2: >2d}, ppmdiff: {3: >10.3f}, nInt: {4: >10.3f}, lInt: {5: >10.3f}".format(nMz, lMz, n, ppmDiff, nInt, lInt),
+                            # check if delta mz is explained by n carbon atoms
+                            if ppmDiff<=matchingPPM:
+
+                                # check if intensity ratios are within expected error window
+                                if abs(lInt-nInt)<=maxRelError:
+
+                                    if abs(lInt-nInt)<bestRat:
+                                        bestMatch=Bunch(nInd=i, lInd=j, Cn=n)
+                                        bestRat=abs(lInt-nInt)
+                                        if ppmDiff < 200 and _debug: print " ***",
+                            if ppmDiff < 200 and _debug: print ""
 
             if bestMatch.nInd!=-1:
                 retMS.newAnnotationForPeakInScan(nativeIndex=bestMatch.nInd,labelledIndex=bestMatch.lInd,
@@ -421,7 +431,7 @@ class ProcessTarget:
     def calculateOptimalMatch(self, scanMS2Native, scanMS2Labelled, matchingPPM, maxRelError, maxCn, charge, isotopeOffset=1.00335):
         scanMS2Annotated=self.calculateCn(charge, scanMS2Native, scanMS2Labelled, matchingPPM=matchingPPM, maxRelError=maxRelError, maxCn=maxCn, isotopeOffset=isotopeOffset)
 
-        for lUsedPeakIndex in sorted(list(set([anno.LIndex for anno in scanMS2Annotated.peakAnnotations]))):
+        for lUsedPeakIndex in [anno.LIndex for anno in scanMS2Annotated.peakAnnotations]:
             annosFor=[anno for anno in scanMS2Annotated.peakAnnotations if anno.LIndex==lUsedPeakIndex]
             bAnno=min(annosFor, key=lambda x:x.ratioError)
             t=list(set(scanMS2Annotated.peakAnnotations).difference(set(annosFor)))
@@ -462,11 +472,16 @@ class ProcessTarget:
             uA=deepcopy(useAtoms)
             ar=deepcopy(atomsRange)
             f=deepcopy(fixed)
+
             if uA[0]=="C":
-                ar[0]=annotation.Cn
+                if self.useTracExtractAnnotation:
+                    ar[0]=(annotation.Cn, int(floor((scanAnnotated.nativeMz_list[annotation.NIndex]-adductObj.mzoffset/adductObj.charge)/12.)))
+                    del f[f.index('C')]
+                else:
+                    ar[0]=annotation.Cn
 
             sfs=sfg.findFormulas(scanAnnotated.nativeMz_list[annotation.NIndex]-adductObj.mzoffset/adductObj.charge, ppm=ppm,
-                                 useAtoms=uA, atomsRange=ar, fixed=f, useSevenGoldenRules=useSevenGoldenRules)
+                                 useAtoms=uA, atomsRange=ar, fixed=f, useSevenGoldenRules=useSevenGoldenRules, useSecondRule=False)
 
 
             if len(sfs)>0:
@@ -478,19 +493,6 @@ class ProcessTarget:
 
                     annotation.generatedSumFormulas[adductObj.name].append(Bunch(sumFormula=sf, deltaPPM=dppm, neutralLossToParent=""))
 
-            for adduct in self.useOtherAdducts:
-                sfs=sfg.findFormulas(scanAnnotated.nativeMz_list[annotation.NIndex]-adduct.mzoffset/adduct.charge, ppm=ppm,
-                                 useAtoms=uA, atomsRange=ar, fixed=f,
-                                 useSevenGoldenRules=useSevenGoldenRules)
-
-                if len(sfs)>0:
-                    annotation.generatedSumFormulas[adduct.name]=[]
-                    for sf in sfs:
-                        elems=ft.parseFormula(sf)
-                        massSF=ft.calcMolWeight(elems)+adduct.mzoffset/adduct.charge
-                        dppm=(scanAnnotated.nativeMz_list[annotation.NIndex]-massSF)*1000000./massSF
-
-                        annotation.generatedSumFormulas[adduct.name].append(Bunch(sumFormula=sf, deltaPPM=dppm, neutralLossToParent=""))
 
     def calcNeutralLosses(self, scanAnnotated, parentSumFormula, ppm):
         assert isinstance(parentSumFormula, str) and parentSumFormula!=""
@@ -520,7 +522,6 @@ class ProcessTarget:
 
 
     def calcParentSumFormulas(self, nativeMZ, Cn, adductObj, useAtoms, atomsRange, fixed, ppm, useSevenGoldenRules=True):
-        fT=formulaTools()
         sfg=sumFormulaGenerator()
 
         mParent=nativeMZ-adductObj.mzoffset/adductObj.charge
@@ -531,7 +532,7 @@ class ProcessTarget:
         if uA[0]=="C":
             ar[0]=Cn
 
-        sfs=sfg.findFormulas(mParent, ppm=ppm, useAtoms=uA, atomsRange=ar, fixed=f, useSevenGoldenRules=useSevenGoldenRules)
+        sfs=sfg.findFormulas(mParent, ppm=ppm, useAtoms=uA, atomsRange=ar, fixed=f, useSevenGoldenRules=useSevenGoldenRules, useSecondRule=False)
 
         return sfs
 
@@ -586,31 +587,55 @@ class ProcessTarget:
 
 
     def saveResultsToTSV(self, target, curs):
-        annotatedSpectrum=[p for p in SQLSelectAsObject(curs,
-                            selectStatement="select mzs, ints, annos as annos from MSSpectra where forTarget=%d and type='native_cleaned'"%target.id)][0]
+        annotatedSpectrumNative=[p for p in SQLSelectAsObject(curs,
+                            selectStatement="SELECt mzs, ints, annos AS annos FROM MSSpectra WHERE forTarget=%d AND type='native_cleaned'"%target.id)][0]
+        annotatedSpectrumLabeled=[p for p in SQLSelectAsObject(curs,
+                            selectStatement="SELECt mzs, ints, annos AS annos FROM MSSpectra WHERE forTarget=%d AND type='labelled_cleaned'"%target.id)][0]
 
-        if len(annotatedSpectrum.mzs)>0:
-            annotatedSpectrum.mzs=[float(mz) for mz in annotatedSpectrum.mzs.split(",")]
+        if len(annotatedSpectrumNative.mzs)>0:
+            annotatedSpectrumNative.mzs=[float(mz) for mz in annotatedSpectrumNative.mzs.split(",")]
         else:
-            annotatedSpectrum.mzs=[]
+            annotatedSpectrumNative.mzs=[]
 
-        if len(annotatedSpectrum.ints)>0:
-            annotatedSpectrum.ints=[float(i) for i in annotatedSpectrum.ints.split(",")]
+        if len(annotatedSpectrumNative.ints)>0:
+            annotatedSpectrumNative.ints=[float(i) for i in annotatedSpectrumNative.ints.split(",")]
         else:
-            annotatedSpectrum.ints=[]
+            annotatedSpectrumNative.ints=[]
 
-        if len(annotatedSpectrum.annos)>0:
-            annotatedSpectrum.annos=pickle.loads(base64.b64decode(annotatedSpectrum.annos))
+        if len(annotatedSpectrumNative.annos)>0:
+            annotatedSpectrumNative.annos=pickle.loads(base64.b64decode(annotatedSpectrumNative.annos))
         else:
-            annotatedSpectrum.annos=[]
+            annotatedSpectrumNative.annos=[]
+
+        if len(annotatedSpectrumLabeled.mzs)>0:
+            annotatedSpectrumLabeled.mzs=[float(mz) for mz in annotatedSpectrumLabeled.mzs.split(",")]
+        else:
+            annotatedSpectrumLabeled.mzs=[]
+
+        if len(annotatedSpectrumLabeled.ints)>0:
+            annotatedSpectrumLabeled.ints=[float(i) for i in annotatedSpectrumLabeled.ints.split(",")]
+        else:
+            annotatedSpectrumLabeled.ints=[]
+
+        if len(annotatedSpectrumLabeled.annos)>0:
+            annotatedSpectrumLabeled.annos=pickle.loads(base64.b64decode(annotatedSpectrumLabeled.annos))
+        else:
+            annotatedSpectrumLabeled.annos=[]
 
         with open(target.lcmsmsFile + "." + target.targetName + ".tsv", "wb") as fOut:
 
-            fOut.write("\t".join(["Num", "mz", "relInt", "Cn", "sumFormula", "Adduct", "NeutralLoss"]))
+            fOut.write("\t".join(["Num", "MZ", "L_MZ", "D_MZ_ppm", "relInt", "L_relInt", "Cn", "sumFormula", "Adduct", "NeutralLoss"]))
             fOut.write("\n")
-            for index in range(len(annotatedSpectrum.mzs)):
-                b = Bunch(index=index, mz=annotatedSpectrum.mzs[index], relInt=annotatedSpectrum.ints[index],
-                          Cn=annotatedSpectrum.annos[index].Cn, sumFormulas=annotatedSpectrum.annos[index].generatedSumFormulas)
+
+            lines=[]
+            mzs=[]
+            for index in range(len(annotatedSpectrumNative.mzs)):
+                line=[]
+                indexLab=annotatedSpectrumNative.annos[index].LIndex
+                b = Bunch(index=index, mz=annotatedSpectrumNative.mzs[index], relInt=annotatedSpectrumNative.ints[index], l_mz=annotatedSpectrumLabeled.mzs[indexLab], l_relInt=annotatedSpectrumLabeled.ints[indexLab],
+                          Cn=annotatedSpectrumNative.annos[index].Cn, sumFormulas=annotatedSpectrumNative.annos[index].generatedSumFormulas)
+                b.dmzppm=(b.l_mz-b.mz-b.Cn*1.00335)*1000000./b.mz
+                ##(generatedSumFormulas:{'[M]+': [(neutralLossToParent:,deltaPPM:-12.0126539494,sumFormula:C4H5O2N3)]},ratioError:6.78271579018,NIndex:0,Cn:0,LIndex:0)
 
                 totSumForms=0
                 for key, val in b.sumFormulas.items():
@@ -618,23 +643,31 @@ class ProcessTarget:
                     if len(val)==0:
                         del b.sumFormulas[key]
 
-                fOut.write("\t".join([str(b.index), "%.4f"%b.mz, "%.1f"%b.relInt, "%d"%b.Cn]))
-                fOut.write("\t")
+                line.append("\t".join([str(b.index), "%.4f"%b.mz, "%.4f"%b.l_mz, "%.4f"%b.dmzppm,  "%.1f"%b.relInt, "%.1f"%b.l_relInt, "%d"%b.Cn]))
+                line.append("\t")
+                mzs.append(b.mz)
 
                 if totSumForms==0:
                     pass
                 elif totSumForms==1:
-                    fOut.write("\t".join([str(list(b.sumFormulas.values())[0][0].sumFormula),
+                    line.append("\t".join([str(list(b.sumFormulas.values())[0][0].sumFormula),
+                                          # "%.2f"%list(b.sumFormulas.values())[0][0].deltaPPM,
                                           str(list(b.sumFormulas.keys())[0]),
                                           str(list(b.sumFormulas.values())[0][0].neutralLossToParent)]))
                 else:
-                    fOut.write("*")
+                    line.append("*")
                     for adduct in b.sumFormulas.keys():
                         if len(b.sumFormulas[adduct])>0:
                             for sumForm in b.sumFormulas[adduct]:
-                                fOut.write("\n")
-                                fOut.write("\t".join(["", "", "", "", sumForm.sumFormula, adduct, sumForm.neutralLossToParent]))
+                                line.append("\n")
+                                line.append("\t".join(["", "", "", "", "", "", "", sumForm.sumFormula, adduct, sumForm.neutralLossToParent]))
+                lines.append(line)
+
+            for i, v in sorted(enumerate(mzs), key=lambda x:x[1]):
+                fOut.write("".join(lines[i]))
                 fOut.write("\n")
+
+
 
     def saveResultsToPDF(self, target, curs):
 
@@ -695,7 +728,7 @@ class ProcessTarget:
             labelledRawSpectrum.ints=[]
 
         annotatedSpectrum=[p for p in SQLSelectAsObject(curs,
-                        selectStatement="select mzs, ints, annos as annos from MSSpectra where forTarget=%d and type='native_cleaned'"%target.id)][0]
+                        selectStatement="SELECT mzs, ints, annos AS annos FROM MSSpectra WHERE forTarget=%d AND type='native_cleaned'"%target.id)][0]
         if len(annotatedSpectrum.mzs)>0:
             annotatedSpectrum.mzs=[float(mz) for mz in annotatedSpectrum.mzs.split(",")]
         else:
@@ -982,8 +1015,8 @@ class ProcessTarget:
         # endregion
 
         # region 5. Processing step: scale MS scans
-        scanMS2Native=self.scaleMSScan(scanMS2Native, maxMZ=target.precursorMZ+0.5)
-        scanMS2Labelled=self.scaleMSScan(scanMS2Labelled, maxMZ=target.precursorMZ+self.labellingOffset*target.Cn/target.chargeCount+.5)
+        scanMS2Native=self.scaleMSScan(scanMS2Native, maxMZ=target.precursorMZ+0.5, precursorMZ=target.precursorMZ, ppm=self.matchingPPM)
+        scanMS2Labelled=self.scaleMSScan(scanMS2Labelled, maxMZ=target.precursorMZ+self.labellingOffset*target.Cn/target.chargeCount+.5, precursorMZ=target.precursorMZ+self.labellingOffset*target.Cn/target.chargeCount, ppm=self.matchingPPM)
 
         assert maxIntFullScanTime==scanFS.retention_time and maxIntMS2NativeTime==scanMS2Native.retention_time and maxIntMS2LabelledTime==scanMS2Labelled.retention_time
         assert isinstance(scanMS2Native, MS2Scan) and isinstance(scanMS2Labelled, MS2Scan)

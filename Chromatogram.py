@@ -444,10 +444,6 @@ class Chromatogram():
             tmp_ms.peak_count = len(specturm.peaks)
             tmp_ms.retention_time = specturm["scan time"]*60
             #if tmp_ms.peak_count > 0:
-            #    tmp_ms.low_mz = float(specturm['lowest observed m/z'])
-            #    tmp_ms.high_mz = float(specturm['highest observed m/z'])
-            #    tmp_ms.base_peak_mz = float(specturm['base peak m/z'])
-            #    tmp_ms.base_peak_intensity = float(specturm['base peak intensity'])
             tmp_ms.total_ion_current = specturm["total ion current"]
             tmp_ms.list_size = 0
             if specturm.has_key("positive scan"):

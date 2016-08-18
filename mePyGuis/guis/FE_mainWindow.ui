@@ -30,7 +30,7 @@
        <enum>QTabWidget::West</enum>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>0</number>
       </property>
       <widget class="QWidget" name="inputTab">
        <attribute name="title">
@@ -652,9 +652,9 @@ font: 7pt;</string>
                 </widget>
                </item>
                <item row="6" column="0">
-                <widget class="QCheckBox" name="useRadicalIonCheckbox">
+                <widget class="QCheckBox" name="useTracExtractAnnotation">
                  <property name="text">
-                  <string>Use [M]+ or [M]- fragment annotation</string>
+                  <string>Allow additional Cn (e.g. biotransformation products)</string>
                  </property>
                 </widget>
                </item>

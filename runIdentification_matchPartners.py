@@ -247,14 +247,15 @@ def matchPartners(mzXMLData, forFile,
                                         # NOTE: - Approach is mainly used for 13C-labelling
                                         # region
                                         if useCValidation==0:
-                                            # # verify that peak is M and not something else (e.g. M+1, M+1...)
-                                            # isoM_m1 = curScan.findMZ(curPeakmz - cValidationOffset, ppm)
-                                            # isoM_m1 = curScan.getMostIntensePeak(isoM_m1[0], isoM_m1[1])
-                                            # ## TODO improve me. Use seven golden rules or another smart method
-                                            # if isoM_m1 != -1:
-                                            #     obRatio=curScan.intensity_list[isoM_m1] / curPeakIntensity
-                                            #     if obRatio>=0.5:
-                                            #         continue
+                                            # (0.) verify that peak is M and not something else (e.g. M+1, M+1...)
+                                            ## TODO improve me. Use seven golden rules or the number of carbon atoms
+                                            isoM_m1 = curScan.findMZ(curPeakmz - cValidationOffset, ppm)
+                                            isoM_m1 = curScan.getMostIntensePeak(isoM_m1[0], isoM_m1[1])
+                                            if isoM_m1 != -1:
+                                                obRatio=curScan.intensity_list[isoM_m1] / curPeakIntensity
+                                                if obRatio>=0.5:
+                                                    continue
+
 
                                             # find M+1 peak
                                             isoM_p1 = curScan.findMZ(curPeakmz + cValidationOffset, ppm, start=currentPeakIndex)
@@ -263,6 +264,10 @@ def matchPartners(mzXMLData, forFile,
                                                 # test certain number of labelled carbon atoms
 
                                                 for xCount in sorted(xCounts, reverse=True):
+                                                    # stop for impossible carbon atom number
+                                                    if xCount > curPeakmz*curLoading/12:
+                                                        continue
+
                                                     # find corresponding M' peak
                                                     isoM_pX = curScan.findMZ(curPeakmz + xCount * cValidationOffset, ppm, start=currentPeakIndex)
                                                     isoM_pX = curScan.getMostIntensePeak(isoM_pX[0], isoM_pX[1], intensityThres)
@@ -270,6 +275,18 @@ def matchPartners(mzXMLData, forFile,
 
                                                         labPeakmz=curScan.mz_list[isoM_pX]
                                                         labPeakIntensity=curScan.intensity_list[isoM_pX]
+
+                                                        # (0.) verify that peak is M' and not something else (e.g. M'-1, M'-2)
+                                                        # only for AllExtract experiments
+                                                        adjRatio=0
+                                                        isoM_pXp1 = curScan.findMZ( curPeakmz + (xCount + 1) * cValidationOffset, ppm, start=currentPeakIndex)
+                                                        isoM_pXp1 = curScan.getMostIntensePeak( isoM_pXp1[0], isoM_pXp1[1])
+                                                        if isoM_pXp1 != -1:
+                                                            adjRatio=curScan.intensity_list[isoM_pXp1] / labPeakIntensity
+
+                                                        if not metabolisationExperiment:
+                                                            if adjRatio>=0.5:
+                                                                continue
 
                                                         # (1.) check if M' and M ratio are as expected
                                                         if checkRatio:
@@ -324,14 +341,6 @@ def matchPartners(mzXMLData, forFile,
                                                         # 3. check if the observed M+1/M ratio fits the theoretical one
                                                         if peakCountLeft > 1 or (lowAbundanceIsotopeCutoff and curPeakIntensity*normRatioN <= isotopologIntensityThres):
                                                             observedRatioM = curScan.intensity_list[isoM_p1] / curPeakIntensity
-                                                            adjRatio=0
-
-                                                            if metabolisationExperiment:
-                                                                # if experiment is a tracer-fate study, assume a conjugated moiety and correct M+1/M ratio for it
-                                                                isoM_pXp1 = curScan.findMZ( curPeakmz + (xCount + 1) * xOffset, ppm, start=currentPeakIndex)
-                                                                isoM_pXp1 = curScan.getMostIntensePeak( isoM_pXp1[0], isoM_pXp1[1])
-                                                                if isoM_pXp1 != -1:
-                                                                    adjRatio=curScan.intensity_list[isoM_pXp1] / labPeakIntensity
 
                                                             if abs(abs(observedRatioM-adjRatio)-normRatioN) <= intensityErrorN:
                                                                 pass         ## acceptPeak

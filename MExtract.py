@@ -503,7 +503,7 @@ class procAreaInFile:
             self.CP=GradientPeaks(minInt=10000, minIntFlanks=10, minIncreaseRatio=.05, expTime=[25, 250]) ## Swiss Orbitrap HF data
             self.CP=GradientPeaks(minInt=1000, minIntFlanks=10, minIncreaseRatio=.15, expTime=[10, 150])
             self.CP=GradientPeaks(minInt=1000, minIntFlanks=10, minIncreaseRatio=.05, minDelta=10000, expTime=[5, 150]) ## Bernhard HSS
-            #self.CP=GradientPeaks(minInt=1000, minIntFlanks=100, minIncreaseRatio=.5, minDelta=1000, expTime=[10, 150])  ## Lin
+            self.CP=GradientPeaks(minInt=1000,minIntFlanks=100,minIncreaseRatio=.5,minDelta=100,expTime=[5,150])   ##Lin
 
         # re-integrate all detected feature pairs from the grouped results in this LC-HRMS data file
         self.processFile(self.oldData, self.colToProc, self.colmz, self.colrt, self.colLmz, self.colIonMode,
@@ -4485,6 +4485,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - observed intensities comparison":
             intensities=[]
             intensitiesL=[]
+            text, ok = QtGui.QInputDialog.getText(self.parentWidget(), "Observed intensities comparions", "Please enter the expected ratio of native to labeled signal pair abundances (e.g. 1)")
+            expRatio=1
+            if ok:
+                expRatio=float(text)
             for row in self.currentOpenResultsFile.curs.execute("SELECT mz, intensity, intensityL, lmz, tmz, xcount, loading FROM mzs"):
                 mz, intensity, intensityL, lmz, tmz, xcount, loading=row
                 intensities.append(log10(intensity))
@@ -4492,7 +4496,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             minInt=min(min(intensities), min(intensitiesL))
             maxInt=max(max(intensities), max(intensitiesL))
 
-            self.ui.pl1.twinxs[0].plot([minInt, maxInt], [minInt, maxInt])
+            self.ui.pl1.twinxs[0].plot([log10(10**minInt), log10((10**maxInt)*2)], [log10((10**minInt)*expRatio), log10((10**maxInt)*2*expRatio)])
             self.ui.pl1.twinxs[0].plot(intensities, intensitiesL, 'ro')
             self.ui.pl1.axes.set_title("Histogram of matched signal pairs - intensity of native and labeled signals")
             self.ui.pl1.axes.set_xlabel("Log10(Native signal intensity)")
@@ -4551,7 +4555,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             peaksRatio=[]
             for row in self.currentOpenResultsFile.curs.execute("SELECT peaksRatioMp1, xcount FROM chromPeaks"):
                 peakRatio,xcount=row
-                peaksRatio.append(100.*max(-1, min(1, peakRatio-getNormRatio(0.9893, xcount, 1))))
+                if peakRatio==-1:
+                    peaksRatio.append(-100.)
+                else:
+                    peaksRatio.append(100.*max(-100, min(100, peakRatio-getNormRatio(0.9893, xcount, 1))))
             self.ui.pl1.twinxs[0].hist(peaksRatio, [i for i in range(-100, 100, 5)], normed=False, facecolor='green', alpha=0.5)
             self.ui.pl1.axes.set_title("Histogram of isotopolog ratio error - observed minus theoretical ratio for M+1 to M")
             self.ui.pl1.axes.set_xlabel("Ratio error (%)")
@@ -4560,9 +4567,16 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - feature pair mPp1 to mP ratio":
             peaksRatio=[]
+            text, ok = QtGui.QInputDialog.getText(self.parentWidget(), "Isotopic enrichment", "Please enter the isotopic enrichment to be used for the diagnostics plot (e.g. 0.986)")
+            isoEnr=0.986
+            if ok:
+                isoEnr=float(text)
             for row in self.currentOpenResultsFile.curs.execute("SELECT peaksRatioMPm1, xcount FROM chromPeaks"):
                 peakRatio,xcount=row
-                peaksRatio.append(100.*max(-1, min(1, peakRatio-getNormRatio(0.986, xcount, 1))))
+                if peakRatio==-1:
+                    peaksRatio.append(-100.)
+                else:
+                    peaksRatio.append(100.*max(-100, min(100, peakRatio-getNormRatio(isoEnr, xcount, 1))))
             self.ui.pl1.twinxs[0].hist(peaksRatio, [i for i in range(-100, 100, 5)], normed=False, facecolor='green', alpha=0.5)
             self.ui.pl1.axes.set_title("Histogram of isotopolog ratio error - observed minus theoretical ratio for M'-1 to M'")
             self.ui.pl1.axes.set_xlabel("Ratio error (%)")

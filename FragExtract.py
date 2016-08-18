@@ -354,6 +354,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 ConfiguredElement(name="S",  weight=31.97207,  numberValenzElectrons=6, minCount=0, maxCount=4),
         ]
         self.MSMSTargetModel.adducts = {
+                "[M]+":         ConfiguredAdduct(name="[M]+",         mzoffset=  -.00055 , charge=1, polarity='+', entryType="user"),
                 "[M+H]+":       ConfiguredAdduct(name="[M+H]+",       mzoffset=  1.007276, charge=1, polarity='+', entryType="user"),
                 "[M+NH4]+":     ConfiguredAdduct(name="[M+NH4]+",     mzoffset= 18.033823, charge=1, polarity='+', entryType="user"),
                 "[M+Na]+":      ConfiguredAdduct(name="[M+Na]+",      mzoffset= 22.989218, charge=1, polarity='+', entryType="user"),
@@ -370,6 +371,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 "[M+2Na]++":    ConfiguredAdduct(name="[M+2Na]++",    mzoffset= 22.989218, charge=2, polarity='+', entryType="user"),
 
                 "[M-H2O-H]-":   ConfiguredAdduct(name="[M-H2O-H]-",   mzoffset=-19.01839 , charge=1, polarity='-', entryType="user"),
+                "[M]-":         ConfiguredAdduct(name="[M]-",         mzoffset=   .00055 , charge=1, polarity='-', entryType="user"),
                 "[M-H]-":       ConfiguredAdduct(name="[M-H]-",       mzoffset=- 1.007276, charge=1, polarity='-', entryType="user"),
                 "[M+Na-2H]-":   ConfiguredAdduct(name="[M+Na-2H]-",   mzoffset= 20.974666, charge=1, polarity='-', entryType="user"),
                 "[M+Cl]-":      ConfiguredAdduct(name="[M+Cl]-",      mzoffset= 34.969402, charge=1, polarity='-', entryType="user"),
@@ -670,6 +672,8 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
             self.useZeroLabelingAtoms.setChecked(sett.value("useZeroLabelingAtoms").toBool())
         if sett.contains("minXn"):
             self.minXn.setValue(sett.value("minXn").toInt()[0])
+        if sett.contains("useTracExtractAnnotation"):
+            self.useTracExtractAnnotation.setChecked(sett.value("useTracExtractAnnotation").toBool())
         if sett.contains("maxRelativeIntensityError"):
             self.maxRelIntensityError_spinner.setValue(sett.value("maxRelativeIntensityError").toDouble()[0])
 
@@ -707,6 +711,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
         sett.setValue("maxPPMMatchingError", self.maxPPMErrorMatching_Spinner.value())
         sett.setValue("useZeroLabelingAtoms", self.useZeroLabelingAtoms.checkState()==QtCore.Qt.Checked)
         sett.setValue("minXn", self.minXn.value())
+        sett.setValue("useTracExtractAnnotation", self.useTracExtractAnnotation.checkState()==QtCore.Qt.Checked)
         sett.setValue("maxRelativeIntensityError", self.maxRelIntensityError_spinner.value())
 
         sett.setValue("configuredElements", base64.b64encode(pickle.dumps(self.elements)))
@@ -938,12 +943,6 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 indGroups[str(target.lcmsmsFileName)[(str(target.lcmsmsFileName).rfind("/")+1):]]=[]
             indGroups[str(target.lcmsmsFileName)[(str(target.lcmsmsFileName).rfind("/")+1):]].append("%s//%s (%d)"%(str(target.lcmsmsFileName), str(target.targetName), index+1))
 
-            useOtherAdducts=[]
-            if self.useRadicalIonCheckbox.checkState()==QtCore.Qt.Checked:
-                if self.MSMSTargetModel.adducts[target.usedAdduct].polarity=='+':
-                    useOtherAdducts.append(ConfiguredAdduct(name="[M]+",   mzoffset=-0.00055 , charge=1, polarity='+', entryType="user"))
-                if self.MSMSTargetModel.adducts[target.usedAdduct].polarity=='-':
-                    useOtherAdducts.append(ConfiguredAdduct(name="[M]+",   mzoffset= 0.00055 , charge=1, polarity='+', entryType="user"))
 
 
             processingTarget=Bunch(id=0, targetName=str(target.targetName), lcmsmsFile=str(target.lcmsmsFileName),
@@ -976,12 +975,12 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
         for lcmsmsFileName, targets in filesTargets.items():
 
             f=ProcessTarget(targets=targets, chromatogramFile=lcmsmsFileName,
-                            useOtherAdducts=useOtherAdducts,
 
                             fullScanEICppm=self.eicPPMSpinner.value(), fullScanThreshold=self.intensityThresoldSpinner.value(),
                             minMSMSPeakIntensityScaled=self.minScaledPeakIntensity_Spinner.value(),
                             matchingPPM=self.maxPPMErrorMatching_Spinner.value(), maxRelError=self.maxRelIntensityError_spinner.value(),
                             minXn=self.minXn.value(), useZeroLabelingAtoms=self.useZeroLabelingAtoms.checkState()==QtCore.Qt.Checked,
+                            useTracExtractAnnotation=self.useTracExtractAnnotation.checkState()==QtCore.Qt.Checked,
 
                             labellingOffset=1.00335, annotationElements=self.elements, annotationPPM=self.annotationPPMErrorSpinner.value(),
                             useParentFragmentConsistencyRule=self.applyParentFragmentConsistencyRuleCheckBox.checkState()==QtCore.Qt.Checked,
@@ -1287,17 +1286,24 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                       color=(148/255.,32/255.,146/255.), linewidth=2, alpha=1 if highlightCleandPeak is None else 0.5)
 
             if highlightCleandPeak is not None:
-                self.pl1.twinxs[0].vlines(x=nativeSpectraCleaned.mzs[highlightCleandPeak], ymin=0, ymax=nativeSpectraCleaned.ints[highlightCleandPeak],
+                self.pl1.twinxs[0].vlines(x=nativeSpectraCleaned.mzs[highlightCleandPeak],
+                                          ymin=0, ymax=nativeSpectraCleaned.ints[highlightCleandPeak],
                                           color=(148/255.,32/255.,146/255.), linewidth=2)
                 self.pl1.twinxs[0].vlines(x=nativeSpectraCleaned.mzs[highlightCleandPeak]+nativeSpectraCleaned.annos[highlightCleandPeak].Cn*1.00335,
                                           ymin=0, ymax=-nativeSpectraCleaned.ints[highlightCleandPeak],
                                           color=(148/255.,32/255.,146/255.), linewidth=2)
 
         for index in range(len(nativeSpectraCleaned.annos)):
-            self.pl1.twinxs[0].text(x=nativeSpectraCleaned.mzs[index]-.5, y=nativeSpectraCleaned.ints[index]+2.5, s="%d"%index,
-                                    color="lightslategrey")
-            self.pl1.twinxs[0].text(x=nativeSpectraCleaned.mzs[index]+nativeSpectraCleaned.annos[index].Cn*1.00335-.5, y=-nativeSpectraCleaned.ints[index]-13., s="%d"%index,
-                                    color="lightslategrey")
+            if index==highlightCleandPeak:
+                self.pl1.twinxs[0].text(x=nativeSpectraCleaned.mzs[index], y=nativeSpectraCleaned.ints[index]+2.5, s="%d"%index,
+                                        color="black")
+                self.pl1.twinxs[0].text(x=nativeSpectraCleaned.mzs[index]+nativeSpectraCleaned.annos[index].Cn*1.00335, y=-nativeSpectraCleaned.ints[index]-13., s="%d"%index,
+                                        color="black")
+            else:
+                self.pl1.twinxs[0].text(x=nativeSpectraCleaned.mzs[index], y=nativeSpectraCleaned.ints[index]+2.5, s="%d"%index,
+                                        color="lightgrey")
+                self.pl1.twinxs[0].text(x=nativeSpectraCleaned.mzs[index]+nativeSpectraCleaned.annos[index].Cn*1.00335, y=-nativeSpectraCleaned.ints[index]-13., s="%d"%index,
+                                        color="lightgrey")
 
 
         eics=[eic for eic in
@@ -1318,13 +1324,29 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
             if eic.type=="Labeled":
                 intensities=[-i for i in intensities]
 
-            col="lightslategrey"
+            col="lightgrey"
             linewidth=1
+
+            self.pl2.twinxs[0].plot(times, intensities, color=col, linewidth=linewidth)
+
+        for eic in eics:
+            times=[float(f) for f in eic.timesList.split(",")]
+            intensities=[float(f) for f in eic.intensityList.split(",")]
+
+            times=[t/60. for t in times]
+
+            m=max(intensities)
+            if m==0:
+                m=1
+            intensities=[i/m for i in intensities]
+
+            if eic.type=="Labeled":
+                intensities=[-i for i in intensities]
 
             if highlightCleandPeak is not None and abs(nativeSpectraCleaned.mzs[highlightCleandPeak]-eic.forMZ)<=0.0001:
                 col=(148/255.,32/255.,146/255.)
                 linewidth=2
-            self.pl2.twinxs[0].plot(times, intensities, color=col, linewidth=linewidth)
+                self.pl2.twinxs[0].plot(times, intensities, color=col, linewidth=linewidth)
 
     def updateResultsIllustration(self):
         clearPlot(self.pl1)

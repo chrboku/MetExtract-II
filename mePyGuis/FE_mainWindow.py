@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '.\mePyGuis\guis\FE_mainWindow.ui'
 #
-# Created: Wed Aug 10 11:32:02 2016
+# Created: Tue Aug 16 17:25:58 2016
 #      by: PyQt4 UI code generator 4.10
 #
 # WARNING! All changes made in this file will be lost!
@@ -274,9 +274,9 @@ class Ui_MainWindow(object):
         self.label_14 = QtGui.QLabel(self.groupBox_4)
         self.label_14.setObjectName(_fromUtf8("label_14"))
         self.gridLayout_17.addWidget(self.label_14, 3, 0, 1, 1)
-        self.useRadicalIonCheckbox = QtGui.QCheckBox(self.groupBox_4)
-        self.useRadicalIonCheckbox.setObjectName(_fromUtf8("useRadicalIonCheckbox"))
-        self.gridLayout_17.addWidget(self.useRadicalIonCheckbox, 6, 0, 1, 1)
+        self.useTracExtractAnnotation = QtGui.QCheckBox(self.groupBox_4)
+        self.useTracExtractAnnotation.setObjectName(_fromUtf8("useTracExtractAnnotation"))
+        self.gridLayout_17.addWidget(self.useTracExtractAnnotation, 6, 0, 1, 1)
         self.horizontalLayout_4 = QtGui.QHBoxLayout()
         self.horizontalLayout_4.setObjectName(_fromUtf8("horizontalLayout_4"))
         self.annotationPPMErrorSpinner = QtGui.QDoubleSpinBox(self.groupBox_4)
@@ -445,7 +445,7 @@ class Ui_MainWindow(object):
         self.menuBar.addAction(self.menuHelp.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.tabWidget.setCurrentIndex(1)
+        self.tabWidget.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):
@@ -476,7 +476,7 @@ class Ui_MainWindow(object):
         self.groupBox_4.setTitle(_translate("MainWindow", "Fragment annotation", None))
         self.fragmentAnnotationButton.setText(_translate("MainWindow", "Used elements", None))
         self.label_14.setText(_translate("MainWindow", "Max. ppm error", None))
-        self.useRadicalIonCheckbox.setText(_translate("MainWindow", "Use [M]+ or [M]- fragment annotation", None))
+        self.useTracExtractAnnotation.setText(_translate("MainWindow", "Allow additional Cn (e.g. biotransformation products)", None))
         self.label_15.setText(_translate("MainWindow", "Min. number of labeling atoms", None))
         self.useZeroLabelingAtoms.setText(_translate("MainWindow", "Use zero labeling atoms (for biotransformation products)", None))
         self.groupBox_5.setTitle(_translate("MainWindow", "Parent annotation", None))

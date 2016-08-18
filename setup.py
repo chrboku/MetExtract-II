@@ -240,6 +240,11 @@ setup(console=[{"script": "MExtract.py"}],
       data_files=data_files,
       requires=['matplotlib'])
 shutil.copytree("./dist", "./dist_MExtract")
+
+print "forced waiting..."
+import time
+time.sleep(3)
+
 rmtree("./dist/")
 rmtree("./build/")
 

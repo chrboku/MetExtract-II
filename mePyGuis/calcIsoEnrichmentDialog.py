@@ -31,8 +31,8 @@ class calcIsoEnrichmentDialog(QtGui.QDialog, Ui_Dialog):
             try:
                 m=float(self.tableWidget.item(rowi, 0).text())
                 mpo=float(self.tableWidget.item(rowi, 1).text())
-                mpmo=float(self.tableWidget.item(rowi, 3).text())
-                mp=float(self.tableWidget.item(rowi, 2).text())
+                mpmo=float(self.tableWidget.item(rowi, 2).text())
+                mp=float(self.tableWidget.item(rowi, 3).text())
                 cn=int(self.tableWidget.item(rowi, 4).text())
 
                 self.tableWidget.setItem(rowi, 5, QtGui.QTableWidgetItem("%.4f%%"%(100.*calcIsoEnrichment(  cn, 1, mpo/m  ))))

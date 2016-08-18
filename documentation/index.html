@@ -387,13 +387,13 @@
             <h3>Proteo Wizard</h3>
             <p>The program msConvert is a part of the ProteoWizard software package and has a graphical user interface, multi core support, and is capable of importing different MS vendor data formats. It can be downloaded from <a href="http://proteowizard.sourceforge.net/.">http://proteowizard.sourceforge.net/.</a>
             </p>
-            <p>Before the conversion is started, add "peakPicking" filter (options 1-), select the "mzXML" output format and discard the "scanHeader" filter. In case MSMS experiments are also recorded in the respective measurement files, do not use the "msLevel" filter. Compression of mzXML files is not supported by MetExtract II as of yet. </p>
+            <p>Before the conversion is started, add "peakPicking" filter (options 1-), select the "mzXML" output format and discard the "scanHeader" filter. Set the 'Binary Encoding Precision' to 32-bit as MetExtract II currently does not support 64-bit encoding. In case MSMS experiments are also recorded in the respective measurement files, do not use the "msLevel" filter. Compression of mzXML files is not supported by MetExtract II as of yet. </p>
 
 
         </div>
         <div id="viewer" class="container">
             <h2>MZxml viewer</h2>
-            <p>An open source viewer for converted mzXML files is TOPPView from the OpenMS package. It can be downloaded from <a href="http://open-ms.sourceforge.net">http://open-ms.sourceforge.net</a> (Sturm et al. (2008)). The viewer allows easy navigation among the LC-HRMS(/MS) files and also provides a convenient way to evaluate <i>m/z</i> value differences or estimate labeling-enrichment parameters.</p>
+            <p>An open source viewer for converted mzXML files is TOPPView from the OpenMS package. It can be downloaded from <a href="http://www.openms.de/">http://www.openms.de/</a> (Sturm et al. (2008)). The viewer allows easy navigation among the LC-HRMS(/MS) files and also provides a convenient way to evaluate <i>m/z</i> value differences or estimate labeling-enrichment parameters.</p>
         </div>
     </div>
 
@@ -717,6 +717,9 @@
                 </li>
             </ul>
             -->
+        
+        
+        
             <h3>Pre-selection of heavy isotopes X</h3>
             <p>To detect putative native and labeled metabolite ions and fragments, MetExtract tests a certain range of possible carbon atoms. This range needs to be specified by the user:</p>
             <ul>
@@ -749,6 +752,9 @@
             <p>The parameters "Isotopologs N" and "Isotopologs L" specify how many isotopologs of the natural and the labeled isotopologs must be present and are verified in the respective patterns (e.g. a value of 2 for "Isotopologs N" means that the isotopologs M and M+1 must be present for the native ion form). If "1" is used, MetExtract will only check for and use the two corresponding MS signals M and M' for confirmation. </p>
 
             <p>The parameters "Intensity abundance error" for "Non-labeled ion (&plusmn;)" and "Labelled ion (&plusmn;)" specify the maximium relative deviation between the expected and the observed ion intensity ratios of M+y relative to M and M`-x relative to M'. A parameter setting of e.g. 0.2 corresponds to a maximum tolerated relative isotopic abundance error of 20% compared to the theoretically expected one. In case of a tracer-fate experiment, the ratios of M'-y to M' are corrected by the factor M'+y to M' to account for possible moieties conjugated to the studied tracer substance. </p>
+        
+            <h4>Note: Optimization step</h4>
+            <p>MetExtract II tries to find valid pairs of M and M' signals. However, it can also happen that M+1, M+2, M'-2, M'-1 signals are incorrectly paired leading to false-positives. To reduce the number of such pairings, MetExtract II only accepts MS signals, if no M-1 or M'+1 signal is detected in the same scan (the latter verification is suspended when TracExtract is used).</p>
 
 
 

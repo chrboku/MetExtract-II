@@ -118,7 +118,7 @@ class sumFormulaGenerator:
         return useAtoms, atomsRange
 
     def perm(self, molMass, massDiff, useAtoms=["C", "H", "O"], atomsRange=[[0, 10], [0, 20], [0, 6]], i=0,
-             curAtoms=[0, 0, 0], curMass=0., fixed=[], useSevenGoldenRules=True):
+             curAtoms=[0, 0, 0], curMass=0., fixed=[], useSevenGoldenRules=True, useSecondRule=True):
         ret = []
 
         for c in range(max(0, atomsRange[i][0]), atomsRange[i][1] + 1):
@@ -130,7 +130,7 @@ class sumFormulaGenerator:
             curAtoms[i] = c
             t = curMass + self.atoms[useAtoms[i]][0] * c
 
-            if abs(t - molMass) < massDiff and (not useSevenGoldenRules or self.secondGoldenRule(useAtoms, curAtoms)):
+            if abs(t - molMass) < massDiff and (not useSevenGoldenRules or (self.secondGoldenRule(useAtoms, curAtoms) or not(useSecondRule))):
                 ret.append("".join(
                     [str(useAtoms[j]) + str(curAtoms[j] > 1 and curAtoms[j] or "") for j in range(0, len(useAtoms)) if
                      curAtoms[j] != 0]))
@@ -139,7 +139,7 @@ class sumFormulaGenerator:
             else:
                 if (i + 1) < len(useAtoms):
                     d = self.perm(molMass, massDiff, useAtoms, atomsRange, i + 1, curAtoms, t, fixed,
-                                  useSevenGoldenRules=useSevenGoldenRules)
+                                  useSevenGoldenRules=useSevenGoldenRules, useSecondRule=useSecondRule)
                     if len(d) > 0:
                         ret.extend(d)
         curAtoms[i] = 0
@@ -169,7 +169,7 @@ class sumFormulaGenerator:
 
     #make sure, C is always the first element in useAtoms
     def findFormulas(self, molMass, ppm=5., useAtoms=["C", "H", "O", "N"], atomsRange=[], fixed=[],
-                     useSevenGoldenRules=True):
+                     useSevenGoldenRules=True, useSecondRule=True):
         #use Golden rule number 1
         if len(atomsRange) == 0:
             atomsRange = [[0, 1000] for u in useAtoms]
@@ -193,7 +193,7 @@ class sumFormulaGenerator:
             atomsRange = self.firstGoldenRule(molMass, useAtoms, atomsRange, fixed=fixed)
 
         res = self.perm(molMass, molMass * (ppm / 1000000.), useAtoms, atomsRange, curAtoms=[t[0] for t in atomsRange],
-                        fixed=fixed, useSevenGoldenRules=useSevenGoldenRules)
+                        fixed=fixed, useSevenGoldenRules=useSevenGoldenRules, useSecondRule=useSecondRule)
 
         return res
 
@@ -207,9 +207,11 @@ if __name__=="__main__":
 
 
 
-    m=97.976755
-    formsCRes=sfg.findFormulas(m, useAtoms=["C", "N", "H", "O", "S", "P"], atomsRange=[(0,200), (0,500), (0,10000), (0,400), (0,400), (0,400)],
-                               useSevenGoldenRules=False, ppm=60.)
+    m=720.3923+0.00055#702.27351+18.033823+0.00055
+
+    formsCRes=sfg.findFormulas(m, useAtoms=["C", "N", "H", "O"], atomsRange=[(32,32), (0,500), (0,10000), (0,400)],
+                               fixed=["C"],
+                               useSevenGoldenRules=False, useSecondRule=False, ppm=5.)
 
     from utils import Bunch, printObjectsAsTable
     from formulaTools import formulaTools

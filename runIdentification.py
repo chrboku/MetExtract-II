@@ -816,6 +816,8 @@ class RunIdentification:
                         [mz for mz in mzs if mz.ionMode == ionMode and mz.xCount == xCount and mz.loading == loading],
                         key=lambda x: x.mz)
 
+                    doClusterings=[]
+
                     if len(xAct) > 0:
                         lastUnused = 0
                         usedCount = 0
@@ -825,23 +827,44 @@ class RunIdentification:
                         for i in range(1, len(xAct)):
                             ppmDiff = (xAct[i].mz - xAct[i - 1].mz) * 1000000 / xAct[i - 1].mz
                             if ppmDiff > self.clustPPM:
-                                hc = HierarchicalClustering(xAct[lastUnused:i],
-                                                            dist=lambda x, y: x.getValue() - y.getValue(),
-                                                            val=lambda x: x.mz,
-                                                            mean=lambda x, y: x / y,
-                                                            add=lambda x, y: x + y)
-
-                                # separate HC subclusters according to the maximal allowed ppm difference
-                                for n in cutTreeSized(hc.getTree(), self.clustPPM):
-                                    mzbins[ionMode].append(n)
+                                doClusterings.append(xAct[lastUnused:i])
 
                                 usedCount = usedCount + i - lastUnused
                                 lastUnused = i
 
                         # cluster remainign signal pairs
                         if lastUnused < len(xAct):
+                            doClusterings.append(xAct[lastUnused:len(xAct)])
                             usedCount = usedCount + len(xAct) - lastUnused
-                            hc = HierarchicalClustering(xAct[lastUnused:len(xAct)],
+
+                        assert usedCount == len(xAct)
+
+                        temp=doClusterings
+                        doClusterings=[]
+                        for t in temp:
+                            xAct=sorted([mz for mz in t], key=lambda x: x.scanIndex)
+
+                            lastUnused = 0
+                            usedCount = 0
+
+                            for i in range(1, len(xAct)):
+                                scanDiff = xAct[i].scanIndex - xAct[i - 1].scanIndex
+                                if scanDiff > 20:
+                                    doClusterings.append(xAct[lastUnused:i])
+
+                                    usedCount = usedCount + i - lastUnused
+                                    lastUnused = i
+
+                            # cluster remainign signal pairs
+                            if lastUnused < len(xAct):
+                                doClusterings.append(xAct[lastUnused:len(xAct)])
+                                usedCount = usedCount + len(xAct) - lastUnused
+
+                            assert usedCount == len(xAct)
+
+
+                        for doClustering in doClusterings:
+                            hc = HierarchicalClustering(doClustering,
                                                         dist=lambda x, y: x.getValue() - y.getValue(),
                                                         val=lambda x: x.mz,
                                                         mean=lambda x, y: x / y,
@@ -849,8 +872,6 @@ class RunIdentification:
 
                             for n in cutTreeSized(hc.getTree(), self.clustPPM):
                                 mzbins[ionMode].append(n)
-
-                        assert usedCount == len(xAct)
 
         return mzbins
 
@@ -2914,7 +2935,7 @@ class RunIdentification:
                 self.CP=GradientPeaks(minInt=1000, minIntFlanks=1, minIncreaseRatio=.01)                                                                       ## LTQ Orbitrap XL
                 self.CP=GradientPeaks(minInt=10000, minIntFlanks=10, minIncreaseRatio=.15, expTime=[10, 250]) ## Swiss Orbitrap HF data
                 self.CP=GradientPeaks(minInt=1000, minIntFlanks=10, minIncreaseRatio=.05, minDelta=10000, expTime=[5, 150]) ## Bernhard HSS
-                self.CP=GradientPeaks(minInt=1000, minIntFlanks=100, minIncreaseRatio=.5, minDelta=100, expTime=[5, 150])  ## Lin
+                self.CP=GradientPeaks(minInt=1000,minIntFlanks=100,minIncreaseRatio=.5,minDelta=100,expTime=[5,150])    ##Lin
                 #self.CP=GradientPeaks(minInt=5, minIntFlanks=2, minIncreaseRatio=.05, expTime=[15, 150], minDelta=1, minInflectionDelta=2) ## Roitinger
                 #self.CP=GradientPeaks(minInt=10000, minIntFlanks=10, minIncreaseRatio=.05, expTime=[5, 45])       ## RNA
 
