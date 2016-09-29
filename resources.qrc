@@ -1,23 +1,23 @@
 <RCC>
   <qresource prefix="AllExtract">
-    <file>ressources/AllExtract.png</file>
+    <file>resources/AllExtract.png</file>
   </qresource>
   <qresource prefix="MEIcon_Large">
-    <file>ressources/MEIcon_Large.png</file>
+    <file>resources/MEIcon_Large.png</file>
   </qresource>
   <qresource prefix="MEIcon">
-    <file>ressources/MEIcon.ico</file>
+    <file>resources/MEIcon.ico</file>
   </qresource>
   <qresource prefix="Documentation">
-    <file>ressources/Documentation.png</file>
+    <file>resources/Documentation.png</file>
   </qresource>
   <qresource prefix="TracExtract">
-    <file>ressources/TracExtract.png</file>
+    <file>resources/TracExtract.png</file>
   </qresource>
   <qresource prefix="FragExtract">
-    <file>ressources/FragExtract.png</file>
+    <file>resources/FragExtract.png</file>
   </qresource>
   <qresource prefix="EnrichmentDialog">
-    <file>ressources/EnrichmentDialog.png</file>
+    <file>resources/EnrichmentDialog.png</file>
   </qresource>
 </RCC>

@@ -10,7 +10,7 @@ CALL c:\Python26\Lib\site-packages\PyQt4\pyuic4.bat -x .\mePyGuis\guis\calcIsoto
 
 CALL c:\Python26\Lib\site-packages\PyQt4\pyuic4.bat -x .\mePyGuis\guis\FE_mainWindow.ui               -o .\mePyGuis\FE_mainWindow.py
 
-CALL c:\Python26\Lib\site-packages\PyQt4\pyrcc4 -o ressources_rc.py ressources.qrc
+CALL c:\Python26\Lib\site-packages\PyQt4\pyrcc4 -o resources_rc.py resources.qrc
 
 echo "Guis created.."
 
