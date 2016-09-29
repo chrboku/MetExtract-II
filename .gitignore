@@ -56,3 +56,5 @@ run_LuxLinster_2nd.bat
 run_Exp134.bat
 dist/
 build/
+resources/R-2.15.2-win.exe
+fileImport.sqlite.cache
