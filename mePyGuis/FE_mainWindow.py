@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '.\mePyGuis\guis\FE_mainWindow.ui'
 #
-# Created: Tue Aug 16 17:25:58 2016
+# Created: Fri Oct 14 17:38:07 2016
 #      by: PyQt4 UI code generator 4.10
 #
 # WARNING! All changes made in this file will be lost!
@@ -139,7 +139,7 @@ class Ui_MainWindow(object):
         spacerItem8 = QtGui.QSpacerItem(0, 5, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Maximum)
         self.gridLayout_10.addItem(spacerItem8, 1, 0, 1, 1)
         self.label_6 = QtGui.QLabel(self.processTab)
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Fixed)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.label_6.sizePolicy().hasHeightForWidth())
@@ -148,7 +148,7 @@ class Ui_MainWindow(object):
         self.label_6.setObjectName(_fromUtf8("label_6"))
         self.gridLayout_10.addWidget(self.label_6, 0, 0, 1, 1)
         self.label = QtGui.QLabel(self.processTab)
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Fixed)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.label.sizePolicy().hasHeightForWidth())
@@ -255,6 +255,14 @@ class Ui_MainWindow(object):
         self.minScaledPeakIntensity_Spinner.setProperty("value", 0.5)
         self.minScaledPeakIntensity_Spinner.setObjectName(_fromUtf8("minScaledPeakIntensity_Spinner"))
         self.gridLayout_13.addWidget(self.minScaledPeakIntensity_Spinner, 1, 0, 1, 1)
+        self.scalePrecursorMZ = QtGui.QCheckBox(self.groupBox_2)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Fixed)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.scalePrecursorMZ.sizePolicy().hasHeightForWidth())
+        self.scalePrecursorMZ.setSizePolicy(sizePolicy)
+        self.scalePrecursorMZ.setObjectName(_fromUtf8("scalePrecursorMZ"))
+        self.gridLayout_13.addWidget(self.scalePrecursorMZ, 2, 0, 1, 1)
         self.verticalLayout.addWidget(self.groupBox_2)
         spacerItem13 = QtGui.QSpacerItem(0, 20, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Ignored)
         self.verticalLayout.addItem(spacerItem13)
@@ -308,7 +316,7 @@ class Ui_MainWindow(object):
         self.applyParentFragmentConsistencyRuleCheckBox = QtGui.QCheckBox(self.groupBox_5)
         self.applyParentFragmentConsistencyRuleCheckBox.setObjectName(_fromUtf8("applyParentFragmentConsistencyRuleCheckBox"))
         self.verticalLayout_3.addWidget(self.applyParentFragmentConsistencyRuleCheckBox)
-        spacerItem16 = QtGui.QSpacerItem(20, 40, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Fixed)
+        spacerItem16 = QtGui.QSpacerItem(20, 40, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Preferred)
         self.verticalLayout_3.addItem(spacerItem16)
         self.gridLayout_14.addWidget(self.groupBox_5, 1, 3, 1, 1)
         self.groupBox_6 = QtGui.QGroupBox(self.processTab)
@@ -445,7 +453,7 @@ class Ui_MainWindow(object):
         self.menuBar.addAction(self.menuHelp.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.tabWidget.setCurrentIndex(0)
+        self.tabWidget.setCurrentIndex(1)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):
@@ -473,6 +481,7 @@ class Ui_MainWindow(object):
         self.label_13.setText(_translate("MainWindow", "Max. relative intensity error", None))
         self.groupBox_2.setTitle(_translate("MainWindow", "Scan pre-processing", None))
         self.label_11.setText(_translate("MainWindow", "Min. scaled peak intensity [%]", None))
+        self.scalePrecursorMZ.setText(_translate("MainWindow", "Scale to precursor mz", None))
         self.groupBox_4.setTitle(_translate("MainWindow", "Fragment annotation", None))
         self.fragmentAnnotationButton.setText(_translate("MainWindow", "Used elements", None))
         self.label_14.setText(_translate("MainWindow", "Max. ppm error", None))

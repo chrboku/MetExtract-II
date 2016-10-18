@@ -60,7 +60,7 @@ class ProgressWrapper(QtGui.QDialog):
             p.setStyleSheet("QScrollArea { border-width: 0px;border-style: solid;border-color: rgb(170, 170, 170);}")
             p.setWidgetResizable(True)
             p.setVerticalScrollBarPolicy(2)
-            p.setMaximumHeight(min(600, 35*len(indGroups))-(10 if len(indGroups)>1 else 0))
+            p.setMaximumHeight(min(900, 35*len(indGroups))-(10 if len(indGroups)>1 else 0))
             p.setMinimumHeight(min(600, 35*len(indGroups))-(10 if len(indGroups)>1 else 0))
             p.setContentsMargins(0,0,0,0)
             l.addWidget(p)
@@ -102,7 +102,7 @@ class ProgressWrapper(QtGui.QDialog):
                         ccol = 0
 
                 spacerItem = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
-                t.addItem(spacerItem, crow, ccol)
+                t.addItem(spacerItem, crow, indProgColumns)
 
                 if ccol < indProgColumns:
                     spacerItem = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
@@ -280,14 +280,14 @@ if __name__ == '__main__':
     # create a ProgressWrapper with 3 progress bars, a log and 3 groups with individual files in each group
     pw = ProgressWrapper(3, showProgressBars=True, showLog=False, showIndProgress=True,
                          indGroups={"blanks": ["blank_1", "blank_2", "blank_3"],
-                                    "PH1": ["PH1_1", "PH1_2", "PH1_3", "PH1_4", "PH1_5"],
+                                    "PH1": ["PH1_%d"%i for i in range(1, 28)],
                                     "TRI5": ["TRI5_1", "TRI5_2", "TRI5_3", "TRI5_4"],
                                     "test1":["Test1", "Test2"],
                                     "test2":["Test2", "Test4"]})
     pw.setCloseCallback(closeCallBack=CallBackMethod(_target=callBack, b="Joe", qt=pw).getRunMethod())
     pw.show()
 
-    pw.getCallingFunction(0)("text")("first elementfirst elementfirst elementfirst elementfirst elementfirst elementfirst element")
+    pw.getCallingFunction(0)("text")("<p align='right' style='background-color: red;'>first element</p>\n\nfirst elementfirst elementfirst elementfirst elementfirst elementfirst element")
     pw.getCallingFunction(1)("text")("second element")
     pw.getCallingFunction(2)("text")("third element")
 

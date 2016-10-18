@@ -55,7 +55,7 @@ class mzFeature:
 # are in general not supported. They can, however, be detected if not isotopolog verification step is
 # used (not recommended)
 def matchPartners(mzXMLData, forFile,
-                  labellingElement, useCValidation, intensityThres, isotopologIntensityThres, maxLoading, xCounts, xOffset, ppm,
+                  labellingElement, useCIsotopePatternValidation, intensityThres, isotopologIntensityThres, maxLoading, xCounts, xOffset, ppm,
                   intensityErrorN, intensityErrorL, purityN, purityL, startTime, stopTime, filterLine, ionMode,
                   peakCountLeft, peakCountRight, lowAbundanceIsotopeCutoff, metabolisationExperiment, checkRatio,
                   minRatio, maxRatio, reportFunction=None, writeExtendedDiagnostics=True):
@@ -69,7 +69,7 @@ def matchPartners(mzXMLData, forFile,
     oriCValidationOffset = cValidationOffset
 
     if labellingElement == 'C':
-        useCValidation = 0
+        useCIsotopePatternValidation = 0
         # Carbon validation is the only possible method
         # when the labelling element is carbon (to some extend that's logical)
 
@@ -134,13 +134,13 @@ def matchPartners(mzXMLData, forFile,
                                         # E.g. 15N-labelling
                                         # |    <--   Nn   -->    |
                                         # ||                     ||
-                                        # |||                   ||||
+                                        # |||                   .|||
                                         # Required for some labelling applications (e.g. S, N, Cl)
                                         # Requires: - a high resolution and separation of different isotoplogs (especially carbon)
                                         # EXPERIMENTAL: has not been tested with real data (not N or S labelled sample material
                                         #               was available)
                                         # region
-                                        if useCValidation == 2:
+                                        if useCIsotopePatternValidation != 0:
                                             # find M+1 peak
                                             isoM_p1 = curScan.findMZ(curPeakmz + cValidationOffset, ppm, start=currentPeakIndex)
                                             isoM_p1 = curScan.getMostIntensePeak(isoM_p1[0], isoM_p1[1])
@@ -242,11 +242,11 @@ def matchPartners(mzXMLData, forFile,
                                         # E.g. native 12C and uniformly / partially 13C-labelled metabolites
                                         # |    <--   Cn   -->    |
                                         # ||                    ||
-                                        # |||                  ||||
+                                        # |||                  |||
                                         # Necessary mainly for 13C-labelling with mirror-symmetric isotope patterns
                                         # NOTE: - Approach is mainly used for 13C-labelling
                                         # region
-                                        if useCValidation==0:
+                                        if useCIsotopePatternValidation==0:
                                             # (0.) verify that peak is M and not something else (e.g. M+1, M+1...)
                                             ## TODO improve me. Use seven golden rules or the number of carbon atoms
                                             isoM_m1 = curScan.findMZ(curPeakmz - cValidationOffset, ppm)

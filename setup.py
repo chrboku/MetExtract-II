@@ -212,7 +212,10 @@ print "########## Packing MetExtractII_Main"
 print "###################################################"
 setup(console=[{"script": "MetExtractII_Main.py"}],
       options={"py2exe": {
-                 "includes": ["sip"]}})
+                 "includes": ["sip", "matplotlib.backends.backend_tkagg"],  # use this line if above does not work
+                 "dll_excludes": ["MSVCP90.dll"],
+                 "excludes": ["_gtkagg", "_tkagg"]
+      }})
 shutil.copytree("./dist", "./dist_MetExtract_Main")
 #rmtree("./build/")
 
@@ -234,7 +237,7 @@ print "########## Packing MExtract"
 print "###################################################"
 setup(console=[{"script": "MExtract.py"}],
       options={"py2exe": {
-                 "includes": ["sip", "matplotlib.backends.backend_tkagg"],  # use this line if above does not work
+                 "includes": ["sip", "matplotlib.backends.backend_tkagg"],
                  "dll_excludes": ["MSVCP90.dll"],
                  "excludes": ["_gtkagg", "_tkagg"]}},
       data_files=data_files,

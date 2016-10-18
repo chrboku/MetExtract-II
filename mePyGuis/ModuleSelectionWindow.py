@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '.\mePyGuis\guis\ModuleSelectionWindow.ui'
 #
-# Created: Tue Aug 16 17:25:58 2016
+# Created: Fri Oct 14 17:38:07 2016
 #      by: PyQt4 UI code generator 4.10
 #
 # WARNING! All changes made in this file will be lost!
@@ -28,7 +28,7 @@ class Ui_MainWindow(object):
         MainWindow.setObjectName(_fromUtf8("MainWindow"))
         MainWindow.resize(794, 503)
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap(_fromUtf8(":/MEIcon/ressources/MEIcon.ico")), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon.addPixmap(QtGui.QPixmap(_fromUtf8(":/MEIcon/resources/MEIcon.ico")), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         MainWindow.setWindowIcon(icon)
         MainWindow.setStyleSheet(_fromUtf8("background-color: rgb(255, 255, 255);"))
         self.centralwidget = QtGui.QWidget(MainWindow)
@@ -75,7 +75,7 @@ class Ui_MainWindow(object):
         sizePolicy.setHeightForWidth(self.allExtractIcon.sizePolicy().hasHeightForWidth())
         self.allExtractIcon.setSizePolicy(sizePolicy)
         self.allExtractIcon.setMinimumSize(QtCore.QSize(90, 90))
-        self.allExtractIcon.setStyleSheet(_fromUtf8("background-image: url(:/AllExtract/ressources/AllExtract.png);"))
+        self.allExtractIcon.setStyleSheet(_fromUtf8("background-image: url(:/AllExtract/resources/AllExtract.png);"))
         self.allExtractIcon.setText(_fromUtf8(""))
         self.allExtractIcon.setFlat(True)
         self.allExtractIcon.setObjectName(_fromUtf8("allExtractIcon"))
@@ -87,7 +87,7 @@ class Ui_MainWindow(object):
         sizePolicy.setHeightForWidth(self.tracExtractIcon.sizePolicy().hasHeightForWidth())
         self.tracExtractIcon.setSizePolicy(sizePolicy)
         self.tracExtractIcon.setMinimumSize(QtCore.QSize(90, 90))
-        self.tracExtractIcon.setStyleSheet(_fromUtf8("background-image: url(:/TracExtract/ressources/TracExtract.png);"))
+        self.tracExtractIcon.setStyleSheet(_fromUtf8("background-image: url(:/TracExtract/resources/TracExtract.png);"))
         self.tracExtractIcon.setText(_fromUtf8(""))
         self.tracExtractIcon.setFlat(True)
         self.tracExtractIcon.setObjectName(_fromUtf8("tracExtractIcon"))
@@ -99,7 +99,7 @@ class Ui_MainWindow(object):
         sizePolicy.setHeightForWidth(self.fragExtractIcon.sizePolicy().hasHeightForWidth())
         self.fragExtractIcon.setSizePolicy(sizePolicy)
         self.fragExtractIcon.setMinimumSize(QtCore.QSize(90, 90))
-        self.fragExtractIcon.setStyleSheet(_fromUtf8("background-image: url(:/FragExtract/ressources/FragExtract.png);"))
+        self.fragExtractIcon.setStyleSheet(_fromUtf8("background-image: url(:/FragExtract/resources/FragExtract.png);"))
         self.fragExtractIcon.setText(_fromUtf8(""))
         self.fragExtractIcon.setFlat(True)
         self.fragExtractIcon.setObjectName(_fromUtf8("fragExtractIcon"))
@@ -111,7 +111,7 @@ class Ui_MainWindow(object):
         sizePolicy.setHeightForWidth(self.documentationIcon.sizePolicy().hasHeightForWidth())
         self.documentationIcon.setSizePolicy(sizePolicy)
         self.documentationIcon.setMinimumSize(QtCore.QSize(90, 90))
-        self.documentationIcon.setStyleSheet(_fromUtf8("background-image: url(:/Documentation/ressources/Documentation.png);"))
+        self.documentationIcon.setStyleSheet(_fromUtf8("background-image: url(:/Documentation/resources/Documentation.png);"))
         self.documentationIcon.setText(_fromUtf8(""))
         self.documentationIcon.setFlat(True)
         self.documentationIcon.setObjectName(_fromUtf8("documentationIcon"))
@@ -153,7 +153,7 @@ class Ui_MainWindow(object):
         sizePolicy.setHeightForWidth(self.label.sizePolicy().hasHeightForWidth())
         self.label.setSizePolicy(sizePolicy)
         self.label.setMinimumSize(QtCore.QSize(80, 80))
-        self.label.setStyleSheet(_fromUtf8("image: url(:/MEIcon_Large/ressources/MEIcon_Large.png);"))
+        self.label.setStyleSheet(_fromUtf8("image: url(:/MEIcon_Large/resources/MEIcon_Large.png);"))
         self.label.setText(_fromUtf8(""))
         self.label.setObjectName(_fromUtf8("label"))
         self.horizontalLayout.addWidget(self.label)
@@ -175,7 +175,7 @@ class Ui_MainWindow(object):
         self.allExtractLabel.setText(_translate("MainWindow", "AllExtract", None))
         self.documentationLabel.setText(_translate("MainWindow", "Documentation", None))
 
-import ressources_rc
+import resources_rc
 
 if __name__ == "__main__":
     import sys

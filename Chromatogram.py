@@ -231,6 +231,38 @@ class Chromatogram():
 
         return eic, times, scanIds
 
+
+    def getSignalCount(self, filterLine="", removeSingles=True, intThreshold=0, useMS1=True, useMS2=False, startTime=0, endTime=1000000):
+        totSignals=0
+        for scan in self.MS1_list+self.MS2_list:
+            if (scan.filter_line == filterLine or filterLine == "") and startTime <= scan.retention_time <= endTime:
+                totSignals+=len([i for i in scan.intensity_list if i>=intThreshold])
+
+        return totSignals
+
+
+    def getMinMaxAvgSignalIntensities(self, filterLine="", removeSingles=True, intThreshold=0, useMS1=True, useMS2=False, startTime=0, endTime=1000000):
+        minInt=10000000000
+        maxInt=0
+        avgsum=0
+        avgcount=0
+        for scan in self.MS1_list+self.MS2_list:
+            if (scan.filter_line == filterLine or filterLine == "") and startTime <= scan.retention_time <= endTime:
+
+                uVals=[i for i in scan.intensity_list if i>=intThreshold]
+                if len(uVals)==0:
+                    uVals=[0]
+
+                minInt=min(minInt, min(uVals))
+                maxInt=max(minInt, max(uVals))
+                avgsum+=sum(uVals)
+                avgcount+=len(uVals)
+
+        if avgcount==0:
+            return 0, 0, 0
+        else:
+            return minInt, maxInt, avgsum/avgcount
+
     # converts base64 coded spectrum in an mz and intensity array
     def decode_spectrum(self, line, compression=None):
         idx = 0
@@ -472,7 +504,7 @@ class Chromatogram():
         elif filename_xml.lower().endswith(".mzml"):
             return self.parseMzMLFile(filename_xml, intensityCutoff, ignoreCharacterData)
         else:
-            return RuntimeError("Invalid file type")
+            raise RuntimeError("Invalid file type")
 
 
     # updates the data of this MS scan
@@ -480,12 +512,9 @@ class Chromatogram():
     def updateScan(self, scan, data):
         scanID = int(scan.getAttribute("num"))
 
-        # Do not use. Only if you want to simulate a positive and negative recorded full scan.
-        if False:
-            if scanID % 2:
-                scan.setAttribute("polarity", "+")
-            else:
-                scan.setAttribute("polarity", "-")
+        #  tmp_ms.retention_time = float(attrs['retentionTime'].strip('PTS'))
+        if data.has_key(scanID) and hasattr(data[scanID], "rt"):
+            scan.setAttribute("retentionTime", "PT%.3fS"%(data[scanID].rt))
 
         peaks = None
         for kid in scan.childNodes:
@@ -493,16 +522,16 @@ class Chromatogram():
                 peaks = kid
         assert peaks is not None and len(peaks.childNodes) == 1
 
-        if data.has_key(scanID) and len(data[scanID][0]) > 0:
+        if data.has_key(scanID) and len(data[scanID].mzs) > 0:
             h = data[scanID]
-            assert len(h) == 2 and len(h[0]) == len(h[1])
-            peaks.childNodes[0].nodeValue = base64.encodestring("".join([struct.pack(">f", h[0][i]) + struct.pack(">f", h[1][i]) for i in range(len(h[0]))])).strip().replace("\n", "")
-            scan.setAttribute("peaksCount", str(len(h[0])))
-            scan.setAttribute("lowMz", str(min(h[0])))
-            scan.setAttribute("highMz", str(max(h[0])))
+            assert len(h.mzs) == len(h.ints)
+            peaks.childNodes[0].nodeValue = base64.encodestring("".join([struct.pack(">f", h.mzs[i]) + struct.pack(">f", h.ints[i]) for i in range(len(h.mzs))])).strip().replace("\n", "")
+            scan.setAttribute("peaksCount", str(len(h.mzs)))
+            scan.setAttribute("lowMz", str(min(h.mzs)))
+            scan.setAttribute("highMz", str(max(h.mzs)))
             scan.setAttribute("basePeakMz", "0")
             scan.setAttribute("basePeakIntensity", "0")
-            scan.setAttribute("totIonCurrent", str(sum(h[1])))
+            scan.setAttribute("totIonCurrent", str(sum(h.ints)))
         else:
             peaks.childNodes[0].nodeValue = ""
             scan.setAttribute("peaksCount", "0")

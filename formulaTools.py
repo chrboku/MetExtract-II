@@ -21,7 +21,7 @@ class formulaTools:
             self.elemDetails["44Ca"] = ["Calcium",      "Ca", 44, 43.955485, 0.0208]  #3.992894
 
             self.elemDetails["C"] =    ["Carbon",       "C", 12, 12., .9893]
-            self.elemDetails["13C"] =  ["Carbon",       "C", 13, 13.00335, 0.0107]  #1.00335
+            self.elemDetails["13C"] =  ["Carbon",       "C", 13, 13.00335483507, 0.0107]  #1.00335
 
             self.elemDetails["Ce"] =   ["Cerium",       "Ce", 140, 139.905442, .8848]
             self.elemDetails["Cs"] =   ["Cesium",       "Cs", 133, 132.905433, 1.00]
@@ -424,7 +424,7 @@ if __name__ == '__main__':
 
     fT = formulaTools()
 
-    formulas = ["C32H46O17"]#["H(C2H4O)OH"]
+    formulas = ["C23H32O12"]
 
     res=[]
     for form in formulas:

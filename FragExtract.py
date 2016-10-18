@@ -666,6 +666,8 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
             self.intensityThresoldSpinner.setValue(sett.value("IntensityThreshold").toDouble()[0])
         if sett.contains("MinScaledIntensity"):
             self.minScaledPeakIntensity_Spinner.setValue(sett.value("MinScaledIntensity").toDouble()[0])
+        if sett.contains("scalePrecursorMZ"):
+            self.scalePrecursorMZ.setChecked(sett.value("scalePrecursorMZ").toBool())
         if sett.contains("maxPPMMatchingError"):
             self.maxPPMErrorMatching_Spinner.setValue(sett.value("maxPPMMatchingError").toDouble()[0])
         if sett.contains("useZeroLabelingAtoms"):
@@ -708,6 +710,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
         sett.setValue("EICPPM", self.eicPPMSpinner.value())
         sett.setValue("IntensityThreshold", self.intensityThresoldSpinner.value())
         sett.setValue("MinScaledIntensity", self.minScaledPeakIntensity_Spinner.value())
+        sett.setValue("scalePrecursorMZ", self.scalePrecursorMZ.checkState()==QtCore.Qt.Checked)
         sett.setValue("maxPPMMatchingError", self.maxPPMErrorMatching_Spinner.value())
         sett.setValue("useZeroLabelingAtoms", self.useZeroLabelingAtoms.checkState()==QtCore.Qt.Checked)
         sett.setValue("minXn", self.minXn.value())
@@ -978,6 +981,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                             fullScanEICppm=self.eicPPMSpinner.value(), fullScanThreshold=self.intensityThresoldSpinner.value(),
                             minMSMSPeakIntensityScaled=self.minScaledPeakIntensity_Spinner.value(),
+                            scalePrecursorMZ=self.scalePrecursorMZ.checkState()==QtCore.Qt.Checked,
                             matchingPPM=self.maxPPMErrorMatching_Spinner.value(), maxRelError=self.maxRelIntensityError_spinner.value(),
                             minXn=self.minXn.value(), useZeroLabelingAtoms=self.useZeroLabelingAtoms.checkState()==QtCore.Qt.Checked,
                             useTracExtractAnnotation=self.useTracExtractAnnotation.checkState()==QtCore.Qt.Checked,

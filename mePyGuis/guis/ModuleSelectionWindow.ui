@@ -14,8 +14,8 @@
    <string>MainWindow</string>
   </property>
   <property name="windowIcon">
-   <iconset resource="../../ressources.qrc">
-    <normaloff>:/MEIcon/ressources/MEIcon.ico</normaloff>:/MEIcon/ressources/MEIcon.ico</iconset>
+   <iconset resource="../../resources.qrc">
+    <normaloff>:/MEIcon/resources/MEIcon.ico</normaloff>:/MEIcon/resources/MEIcon.ico</iconset>
   </property>
   <property name="styleSheet">
    <string notr="true">background-color: rgb(255, 255, 255);</string>
@@ -100,7 +100,7 @@
          </size>
         </property>
         <property name="styleSheet">
-         <string notr="true">background-image: url(:/AllExtract/ressources/AllExtract.png);</string>
+         <string notr="true">background-image: url(:/AllExtract/resources/AllExtract.png);</string>
         </property>
         <property name="text">
          <string/>
@@ -125,7 +125,7 @@
          </size>
         </property>
         <property name="styleSheet">
-         <string notr="true">background-image: url(:/TracExtract/ressources/TracExtract.png);</string>
+         <string notr="true">background-image: url(:/TracExtract/resources/TracExtract.png);</string>
         </property>
         <property name="text">
          <string/>
@@ -150,7 +150,7 @@
          </size>
         </property>
         <property name="styleSheet">
-         <string notr="true">background-image: url(:/FragExtract/ressources/FragExtract.png);</string>
+         <string notr="true">background-image: url(:/FragExtract/resources/FragExtract.png);</string>
         </property>
         <property name="text">
          <string/>
@@ -175,7 +175,7 @@
          </size>
         </property>
         <property name="styleSheet">
-         <string notr="true">background-image: url(:/Documentation/ressources/Documentation.png);</string>
+         <string notr="true">background-image: url(:/Documentation/resources/Documentation.png);</string>
         </property>
         <property name="text">
          <string/>
@@ -299,7 +299,7 @@
            </size>
           </property>
           <property name="styleSheet">
-           <string notr="true">image: url(:/MEIcon_Large/ressources/MEIcon_Large.png);</string>
+           <string notr="true">image: url(:/MEIcon_Large/resources/MEIcon_Large.png);</string>
           </property>
           <property name="text">
            <string/>
@@ -340,7 +340,7 @@
   </widget>
  </widget>
  <resources>
-  <include location="../../ressources.qrc"/>
+  <include location="../../resources.qrc"/>
  </resources>
  <connections/>
 </ui>

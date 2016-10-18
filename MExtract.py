@@ -245,6 +245,7 @@ from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt4agg import NavigationToolbar2QTAgg as NavigationToolbar
 from matplotlib.figure import Figure
 from matplotlib.cm import get_cmap
+import matplotlib.patches as patches
 
 matplotlib.rcParams['savefig.dpi'] = 300
 font = {'size': 16}
@@ -560,7 +561,7 @@ def interruptReIntegrateFilesProcessing(pool, selfObj):
 
 def integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colloading, colLmz, colIonMode, colnum,
                           ppm=5., maxRTShift=0.25, scales=[3,19], reintegrateIntensityCutoff=0, snrTH=1, smoothingWindow=None, smoothingWindowSize=0, smoothingWindowPolynom=0,
-                          positiveScanEvent="None", negativeScanEvent="None", pw=None, selfObj=None, cpus=1):
+                          positiveScanEvent="None", negativeScanEvent="None", pw=None, selfObj=None, cpus=1, start=0):
 
     if pw is not None: pw.getCallingFunction()("max")(len(colToProc))
 
@@ -574,7 +575,7 @@ def integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colloadi
             _integrateResultsFile(file, toF, colToProcCur, colmz, colrt, colxcount, colloading, colLmz, colIonMode, colnum,
                                   ppm, maxRTShift, scales, reintegrateIntensityCutoff, snrTH, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom,
                                   positiveScanEvent, negativeScanEvent, pw, selfObj, cpus, pwOffset=pwOffset, totalFilesToProc=len(colToProc),
-                                  writeConfig=writeConfig)
+                                  writeConfig=writeConfig, start=start)
             pwOffset+=len(colToProcCur)
             colToProcCur={}
             writeConfig=False
@@ -583,7 +584,7 @@ def integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colloadi
         _integrateResultsFile(file, toF, colToProcCur, colmz, colrt, colxcount, colloading, colLmz, colIonMode, colnum,
                               ppm, maxRTShift, scales, reintegrateIntensityCutoff, snrTH, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom,
                               positiveScanEvent, negativeScanEvent, pw, selfObj, cpus, pwOffset=pwOffset, totalFilesToProc=len(colToProc),
-                              writeConfig=writeConfig)
+                              writeConfig=writeConfig, start=start)
         colToProcCur={}
         writeConfig=False
 
@@ -602,7 +603,7 @@ def writeReintegrateConfigToDB(curs, maxRTShift, negativeScanEvent, positiveScan
 def _integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colloading, colLmz, colIonMode, colnum,
                          ppm=5.,maxRTShift=0.25, scales=[3, 19], reintegrateIntensityCutoff=0, snrTH=1, smoothingWindow=None, smoothingWindowSize=0, smoothingWindowPolynom=0,
                          positiveScanEvent="None", negativeScanEvent="None",pw=None, selfObj=None, cpus=1, pwOffset=0,totalFilesToProc=1,
-                         writeConfig=True):
+                         writeConfig=True, start=0):
 
     # read results file
     table = TableUtils.readFile(file, delim="\t")
@@ -669,7 +670,6 @@ def _integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colload
     res = p.imap_unordered(integrateFile, toProcFiles)
 
     # wait until all subprocesses have finished re-integrating their respective LC-HRMS data file
-    start = time.time()
     loop = True
     freeSlots = range(min(len(colToProc), cpus))
     assignedThreads = {}
@@ -719,14 +719,12 @@ def _integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colload
             elapsed = (time.time() - start) / 60.
             hours = ""
             if elapsed >= 60.:
-                if elapsed < 120.:
-                    hours = "1 hour "
-                else:
-                    hours = "%d hours " % (elapsed // 60)
+                hours = "%d hours " % (elapsed // 60)
+            mins = "%.2f mins" % (elapsed % 60.)
 
             if pw is not None: pw.getCallingFunction()("value")(completed+pwOffset)
-            if pw is not None: pw.getCallingFunction()("text")("%s%.2f min elapsed %d / %d files done (%d parallel)" % (
-                hours, elapsed % 60, completed+pwOffset, totalFilesToProc, min(cpus, len(colToProc))))
+            if pw is not None: pw.getCallingFunction()("text")("<p align='right' >%s%s elapsed</p>\n\n%d / %d files done (%d parallel)" % (
+                hours, mins, completed+pwOffset, totalFilesToProc, min(cpus, len(colToProc))))
 
             QtGui.QApplication.processEvents();
             time.sleep(.5)
@@ -812,37 +810,59 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         #fhash="%s_%s"%(file, sha256(open(file, 'rb').read()).hexdigest())  #self.ckeckedLCMSFiles[fhash]=Bunch(parsed=parsed, fls=tm.getFilterLinesPerPolarity(), pols=tm.getPolarities(), tics=tics)
         fhash="%s_NOHash"%(file)  ## ignore hash, files are not likely to change
 
+        tconn = connect(get_main_dir() + "/fileImport.sqlite.cache")
+        tcurs = tconn.cursor()
+        tcurs.execute("CREATE TABLE IF NOT EXISTS fileCache(filePath TEXT, parsingInfo TEXT)")
+        tconn.commit()
+
         if fhash not in self.checkedLCMSFiles.keys():
-            f=file.replace("\\","/")
-            f=f[f.rfind("/")+1:f.rfind(".")]
 
-            if not(re.match("^[a-zA-Z0-9_]*$", f)):
-                self.checkedLCMSFiles[fhash]=Bunch(parsed="Invalid characters in file name")
+            fetched=[]
+            for row in tcurs.execute("SELECT parsingInfo FROM fileCache WHERE filePath='%s'"%fhash):
+                fetched.append(str(row[0]))
+
+            if len(fetched)>0:
+                b=loads(base64.b64decode(fetched[0]))
+                self.checkedLCMSFiles[fhash]=b
             else:
-                parsed=False
-                try:
-                    tm = Chromatogram()
-                    tm.parse_file(file, ignoreCharacterData=True)
 
-                    parsed=True
-                    pols=tm.getPolarities()
+                f=file.replace("\\","/")
+                f=f[f.rfind("/")+1:f.rfind(".")]
 
-                    fls=tm.getFilterLinesPerPolarity()
+                if not(re.match("^[a-zA-Z0-9_]*$", f)):
+                    self.checkedLCMSFiles[fhash]=Bunch(parsed="Invalid characters in file name")
+                else:
+                    parsed=False
+                    try:
+                        tm = Chromatogram()
+                        tm.parse_file(file, ignoreCharacterData=True)
 
-                    tics={}
-                    if '+' in pols:
-                        tic, times, scanIDs=tm.getTIC(filterLine=fls['+'].pop())
-                        tics['+']=Bunch(tic=tic, times=times)
-                    if '-' in pols:
-                        tic, times, scanIDs=tm.getTIC(filterLine=fls['-'].pop())
-                        tics['-']=Bunch(tic=tic, times=times)
+                        parsed=True
+                        pols=tm.getPolarities()
 
-                    self.checkedLCMSFiles[fhash]=Bunch(parsed=parsed, fls=tm.getFilterLinesPerPolarity(), pols=tm.getPolarities(), tics=tics)
+                        fls=tm.getFilterLinesPerPolarity()
 
-                except ExpatError as ex:
-                    self.checkedLCMSFiles[fhash]=Bunch(parsed="Parsing error "+ex.message)
-                except Exception as ex:
-                    self.checkedLCMSFiles[fhash]=Bunch(parsed="General error "+ex.message)
+                        tics={}
+                        if '+' in pols:
+                            tic, times, scanIDs=tm.getTIC(filterLine=fls['+'].pop())
+                            tics['+']=Bunch(tic=tic, times=times)
+                        if '-' in pols:
+                            tic, times, scanIDs=tm.getTIC(filterLine=fls['-'].pop())
+                            tics['-']=Bunch(tic=tic, times=times)
+
+                        self.checkedLCMSFiles[fhash]=Bunch(parsed=parsed, fls=tm.getFilterLinesPerPolarity(), pols=tm.getPolarities(), tics=tics)
+                        tcurs.execute("INSERT INTO fileCache(filePath, parsingInfo) VALUES(?, ?)", (fhash, base64.b64encode(dumps(self.checkedLCMSFiles[fhash]))))
+                        tconn.commit()
+
+                    except ExpatError as ex:
+                        self.checkedLCMSFiles[fhash]=Bunch(parsed="Parsing error "+ex.message)
+                    except Exception as ex:
+                        self.checkedLCMSFiles[fhash]=Bunch(parsed="General error "+ex.message)
+
+
+
+        tcurs.close()
+        tconn.close()
 
         return self.checkedLCMSFiles[fhash].parsed
 
@@ -1504,8 +1524,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         if os.path.isabs(str(grps.value(kid).toString()).replace("\\", "/")):
                             kids.append(str(grps.value(kid).toString()).replace("\\", "/"))
                         else:
-                            kids.append(os.path.split(str(groupFile))[0].replace("\\", "/") + "/" + str(
-                                grps.value(kid).toString()).replace("\\", "/"))
+                            kids.append(os.path.split(str(groupFile))[0].replace("\\", "/") + "/" + str(grps.value(kid).toString()).replace("\\", "/"))
 
                 groupsToAdd.append(Bunch(name=grp, files=kids, minGrpFound=minFound, omitFeatures=omitFeatures, useForMetaboliteGrouping=useForMetaboliteGrouping, color=color))
 
@@ -1912,6 +1931,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             if sett.contains("GroupTimeWindow"):
                 self.ui.groupingRT.setValue(sett.value("GroupTimeWindow").toDouble()[0])
 
+            if sett.contains("ConvoluteMetaboliteGroups"):
+                self.ui.convoluteResults.setChecked(sett.value("ConvoluteMetaboliteGroups").toBool())
             if sett.contains("MetaboliteClusterMinConnections"):
                 self.ui.metaboliteClusterMinConnections.setValue(sett.value("MetaboliteClusterMinConnections").toInt()[0])
             if sett.contains("minConnectionRate"):
@@ -2031,6 +2052,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             sett.setValue("GroupNPolynom", self.ui.polynomValue.value())
             sett.setValue("GroupTimeWindow", self.ui.groupingRT.value())
 
+            sett.setValue("ConvoluteMetaboliteGroups", self.ui.convoluteResults.isChecked())
             sett.setValue("MetaboliteClusterMinConnections", self.ui.metaboliteClusterMinConnections.value())
             sett.setValue("minConnectionRate", self.ui.minConnectionRate.value())
 
@@ -2205,6 +2227,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             if self.ui.wm_ib.checkState() == QtCore.Qt.Checked:
                 writeMZXMLOptions |= 8
 
+        start = time.time()
+
         # process individual files
         if self.ui.processIndividualFiles.isChecked():
             logging.info("")
@@ -2241,7 +2265,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                   useRatio=self.ui.useRatio.checkState()==QtCore.Qt.Checked,
                                   minRatio=self.ui.minRatio.value(),
                                   maxRatio=self.ui.maxRatio.value(),
-                                  useCValidation=int(str(self.ui.useCValidation.checkState())),
+                                  useCIsotopePatternValidation=int(str(self.ui.useCValidation.checkState())),
                                   configuredTracers=self.configuredTracers, startTime=self.ui.scanStartTime.value(),
                                   stopTime=self.ui.scanEndTime.value(), maxLoading=self.ui.maxLoading.value(),
                                   xCounts=str(self.ui.xCountSearch.text()),
@@ -2295,7 +2319,6 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             pwMain("value")(0)
 
 
-            start = time.time()
 
             # monitor processing of individual LC-HRMS files and report to the user
             loop = True
@@ -2360,13 +2383,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     elapsed = (time.time() - start) / 60.
                     hours = ""
                     if elapsed >= 60.:
-                        if elapsed < 120.:
-                            hours = "1 hour "
-                        else:
-                            hours = "%d hours " % (elapsed // 60)
-
-                    pwMain("text")("%s %.2f min elapsed %d / %d files done (%d parallel)" % (
-                        hours, elapsed % 60, completed, len(files), min(cpus, len(files))))
+                        hours = "%d hours " % (elapsed // 60)
+                    mins = "%.2f mins" % (elapsed % 60.)
+                    pwMain("text")("<p align='right' >%s%s elapsed</p>\n\n%d / %d files done (%d parallel)" % (
+                        hours, mins, completed, len(files), min(cpus, len(files))))
                     time.sleep(.5)
 
             pw.setSkipCallBack(True)
@@ -2376,11 +2396,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             elapsed = (time.time() - start) / 60.
             hours = ""
             if elapsed >= 60.:
-                if elapsed < 120.:
-                    hours = "1 hour "
-                else:
-                    hours = "%d hours " % (elapsed // 60)
-            mins = "%.2f min(s)" % (elapsed % 60.)
+                hours = "%d hours " % (elapsed // 60)
+            mins = "%.2f mins" % (elapsed % 60.)
 
             if not self.terminateJobs:
                 logging.info("Individual files processed (%s%s).." % (hours, mins))
@@ -2396,17 +2413,15 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         # bracket/group from individual LC-HRMS data / re-integrate missed peaks
         if self.ui.processMultipleFiles.checkState() == QtCore.Qt.Checked:
-            start = time.time()
+
+            pw = ProgressWrapper(1, parent=self)
+            pw.show()
+            pw.getCallingFunction()("text")("Bracketing results")
+            pw.getCallingFunction()("header")("Bracketing..")
 
             # bracket/group results from individual LC-HRMS data
             if self.ui.groupResults.isChecked():
                 logging.info("Bracketing of individual LC-HRMS results..")
-                start = time.time()
-
-                pw = ProgressWrapper(1, parent=self)
-                pw.show()
-                pw.getCallingFunction()("text")("Bracketing results")
-                pw.getCallingFunction()("header")("Bracketing..")
 
                 try:
                     if True:
@@ -2477,7 +2492,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                 align=(self.ui.alignChromatograms.checkState() == QtCore.Qt.Checked),
                                                 nPolynom=self.ui.polynomValue.value(),
                                                 rVersion=getRVersion(), meVersion="MetExtract (%s)" % MetExtractVersion,
-                                                generalProcessingParams=generalProcessingParams)
+                                                generalProcessingParams=generalProcessingParams, start=start)
                         procProc.addKwd("pwMaxSet", procProc.getQueue())
                         procProc.addKwd("pwValSet", procProc.getQueue())
                         procProc.addKwd("pwTextSet", procProc.getQueue())
@@ -2495,8 +2510,11 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                 # No idea why / where there are sometimes other objects than Bunch(mes, val), but they occur
                                 if isinstance(mes, Bunch) and hasattr(mes, "mes") and (hasattr(mes, "val") or hasattr(mes, "text")):
                                     pw.getCallingFunction()(mes.mes)(mes.val)
+                                elif mes==(None, None):
+                                    ## I have no idea where this object comes from
+                                    pass
                                 else:
-                                    logging.critical("UNKNONW OBJECT IN PROCESSING QUEUE:", mes)
+                                    logging.critical("UNKNONW OBJECT IN PROCESSING QUEUE: %s"%str(mes))
 
                             time.sleep(.5)
 
@@ -2504,11 +2522,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         elapsed = (time.time() - start) / 60.
                         hours = ""
                         if elapsed >= 60.:
-                            if elapsed < 120.:
-                                hours = "1 hour "
-                            else:
-                                hours = "%d hours " % (elapsed // 60)
-                        mins = "%.2f min(s)" % (elapsed % 60.)
+                            hours = "%d hours " % (elapsed // 60)
+                        mins = "%.2f mins" % (elapsed % 60.)
 
                         if self.terminateJobs:
                             return
@@ -2561,59 +2576,61 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     errorCount += 1
 
 
-                if self.terminateJobs:
-                    return
+            if self.terminateJobs:
+                pw.hide()
+                return
 
+            # Calculate metabolite groups
+            if self.ui.convoluteResults.isChecked():
                 try:
-                    # Calculate metabolite groups
                     pw.getCallingFunction()("text")("Convoluting feature pairs\n")
 
                     runIdentificationInstance=RunIdentification(files[0],
-                                  exOperator=str(self.ui.exOperator_LineEdit.text()),
-                                  exExperimentID=str(self.ui.exExperimentID_LineEdit.text()),
-                                  exComments=str(self.ui.exComments_TextEdit.toPlainText()),
-                                  exExperimentName=str(self.ui.exExperimentName_LineEdit.text()),
-                                  writePDF=False,
-                                  writeTSV=False,
-                                  writeMZXML=0,
-                                  metabolisationExperiment=self.labellingExperiment==TRACER,
-                                  intensityThreshold=self.ui.intensityThreshold.value(),
-                                  intensityCutoff=self.ui.intensityCutoff.value(),
-                                  labellingisotopeA=str(self.ui.isotopeAText.text()),
-                                  labellingisotopeB=str(self.ui.isotopeBText.text()),
-                                  xOffset=self.isotopeBmass - self.isotopeAmass,
-                                  useRatio=self.ui.useRatio.checkState()==QtCore.Qt.Checked,
-                                  minRatio=self.ui.minRatio.value(),
-                                  maxRatio=self.ui.maxRatio.value(),
-                                  useCValidation=int(str(self.ui.useCValidation.checkState())),
-                                  configuredTracers=self.configuredTracers, startTime=self.ui.scanStartTime.value(),
-                                  stopTime=self.ui.scanEndTime.value(), maxLoading=self.ui.maxLoading.value(),
-                                  xCounts=str(self.ui.xCountSearch.text()),
-                                  isotopicPatternCountLeft=self.ui.isotopePatternCountA.value(),
-                                  isotopicPatternCountRight=self.ui.isotopePatternCountB.value(),
-                                  lowAbundanceIsotopeCutoff=self.ui.isoAbundance.checkState() == QtCore.Qt.Checked,
-                                  purityN=self.ui.isotopicAbundanceA.value(),
-                                  purityL=self.ui.isotopicAbundanceB.value(), intensityErrorN=self.ui.baseRange.value(),
-                                  intensityErrorL=self.ui.isotopeRange.value(),
-                                  minSpectraCount=self.ui.minSpectraCount.value(), clustPPM=self.ui.clustPPM.value(),
-                                  chromPeakPPM=self.ui.wavelet_EICppm.value(),
-                                  eicSmoothingWindow=str(self.ui.eicSmoothingWindow.currentText()),
-                                  eicSmoothingWindowSize=self.ui.eicSmoothingWindowSize.value(),
-                                  eicSmoothingPolynom=self.ui.smoothingPolynom_spinner.value(),
-                                  scales=[self.ui.wavelet_minScale.value(), self.ui.wavelet_maxScale.value()],
-                                  snrTh=self.ui.wavelet_SNRThreshold.value(),
-                                  peakCenterError=self.ui.peak_centerError.value(),
-                                  peakScaleError=self.ui.peak_scaleError.value(),
-                                  minPeakCorr=self.ui.minPeakCorr.value(),
-                                  minCorrelationConnections=self.ui.minCorrelationConnections.value(),
-                                  positiveScanEvent=str(self.ui.positiveScanEvent.currentText()),
-                                  negativeScanEvent=str(self.ui.negativeScanEvent.currentText()),
-                                  correctCCount=self.ui.correctcCount.checkState() == QtCore.Qt.Checked,
-                                  minCorrelation=self.ui.minCorrelation.value(),
-                                  hAIntensityError=self.ui.hAIntensityError.value() / 100.,
-                                  hAMinScans=self.ui.hAMinScans.value(), adducts=self.adducts, elements=self.elementsForNL,
-                                  heteroAtoms=self.heteroElements, lock=None, queue=None, pID=1,
-                                  rVersion=getRVersion(), meVersion="MetExtract (%s)" % MetExtractVersion)
+                                                                exOperator=str(self.ui.exOperator_LineEdit.text()),
+                                                                exExperimentID=str(self.ui.exExperimentID_LineEdit.text()),
+                                                                exComments=str(self.ui.exComments_TextEdit.toPlainText()),
+                                                                exExperimentName=str(self.ui.exExperimentName_LineEdit.text()),
+                                                                writePDF=False,
+                                                                writeTSV=False,
+                                                                writeMZXML=0,
+                                                                metabolisationExperiment=self.labellingExperiment==TRACER,
+                                                                intensityThreshold=self.ui.intensityThreshold.value(),
+                                                                intensityCutoff=self.ui.intensityCutoff.value(),
+                                                                labellingisotopeA=str(self.ui.isotopeAText.text()),
+                                                                labellingisotopeB=str(self.ui.isotopeBText.text()),
+                                                                xOffset=self.isotopeBmass - self.isotopeAmass,
+                                                                useRatio=self.ui.useRatio.checkState()==QtCore.Qt.Checked,
+                                                                minRatio=self.ui.minRatio.value(),
+                                                                maxRatio=self.ui.maxRatio.value(),
+                                                                useCIsotopePatternValidation=int(str(self.ui.useCValidation.checkState())),
+                                                                configuredTracers=self.configuredTracers, startTime=self.ui.scanStartTime.value(),
+                                                                stopTime=self.ui.scanEndTime.value(), maxLoading=self.ui.maxLoading.value(),
+                                                                xCounts=str(self.ui.xCountSearch.text()),
+                                                                isotopicPatternCountLeft=self.ui.isotopePatternCountA.value(),
+                                                                isotopicPatternCountRight=self.ui.isotopePatternCountB.value(),
+                                                                lowAbundanceIsotopeCutoff=self.ui.isoAbundance.checkState() == QtCore.Qt.Checked,
+                                                                purityN=self.ui.isotopicAbundanceA.value(),
+                                                                purityL=self.ui.isotopicAbundanceB.value(), intensityErrorN=self.ui.baseRange.value(),
+                                                                intensityErrorL=self.ui.isotopeRange.value(),
+                                                                minSpectraCount=self.ui.minSpectraCount.value(), clustPPM=self.ui.clustPPM.value(),
+                                                                chromPeakPPM=self.ui.wavelet_EICppm.value(),
+                                                                eicSmoothingWindow=str(self.ui.eicSmoothingWindow.currentText()),
+                                                                eicSmoothingWindowSize=self.ui.eicSmoothingWindowSize.value(),
+                                                                eicSmoothingPolynom=self.ui.smoothingPolynom_spinner.value(),
+                                                                scales=[self.ui.wavelet_minScale.value(), self.ui.wavelet_maxScale.value()],
+                                                                snrTh=self.ui.wavelet_SNRThreshold.value(),
+                                                                peakCenterError=self.ui.peak_centerError.value(),
+                                                                peakScaleError=self.ui.peak_scaleError.value(),
+                                                                minPeakCorr=self.ui.minPeakCorr.value(),
+                                                                minCorrelationConnections=self.ui.minCorrelationConnections.value(),
+                                                                positiveScanEvent=str(self.ui.positiveScanEvent.currentText()),
+                                                                negativeScanEvent=str(self.ui.negativeScanEvent.currentText()),
+                                                                correctCCount=self.ui.correctcCount.checkState() == QtCore.Qt.Checked,
+                                                                minCorrelation=self.ui.minCorrelation.value(),
+                                                                hAIntensityError=self.ui.hAIntensityError.value() / 100.,
+                                                                hAMinScans=self.ui.hAMinScans.value(), adducts=self.adducts, elements=self.elementsForNL,
+                                                                heteroAtoms=self.heteroElements, lock=None, queue=None, pID=1,
+                                                                rVersion=getRVersion(), meVersion="MetExtract (%s)" % MetExtractVersion)
 
                     calculateMetaboliteGroups(str(self.ui.groupsSave.text()), definedGroups,
                                               minConnectionsInFiles=self.ui.metaboliteClusterMinConnections.value(), minConnectionRate=self.ui.minConnectionRate.value(),
@@ -2631,13 +2648,14 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     pw.setSkipCallBack(True)
                     pw.hide()
 
+            pw.hide()
+
             if self.terminateJobs:
                 return
 
             # re-integrate missed peaks
             if self.ui.integratedMissedPeaks.isChecked():
                 logging.info("Re-integrating of individual LC-HRMS results..")
-                start = time.time()
 
                 pw = ProgressWrapper(min(len(files), cpus) + 1, showLog=False, parent=self)
                 pw.show()
@@ -2665,16 +2683,13 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                          smoothingWindowPolynom=self.ui.smoothingPolynom_spinner.value(),
                                          positiveScanEvent=str(self.ui.positiveScanEvent.currentText()),
                                          negativeScanEvent=str(self.ui.negativeScanEvent.currentText()),
-                                         pw=pw, selfObj=self, cpus=min(len(files), cpus))
+                                         pw=pw, selfObj=self, cpus=min(len(files), cpus), start=start)
                     # Log time used for bracketing
                     elapsed = (time.time() - start) / 60.
                     hours = ""
                     if elapsed >= 60.:
-                        if elapsed < 120.:
-                            hours = "1 hour "
-                        else:
-                            hours = "%d hours " % (elapsed // 60)
-                    mins = "%.2f min(s)" % (elapsed % 60.)
+                        hours = "%d hours " % (elapsed // 60)
+                    mins = "%.2f mins" % (elapsed % 60.)
                     logging.info("Re-integrating finished (%s%s).." % (hours, mins))
 
                 except Exception as e:
@@ -2690,6 +2705,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     pw.hide()
 
             if self.terminateJobs:
+                pw.hide()
                 return
 
 
@@ -2701,11 +2717,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         elapsed = (time.time() - overallStart) / 60.
         hours = ""
         if elapsed >= 60.:
-            if elapsed < 120.:
-                hours = "1 hour "
-            else:
-                hours = "%d hours " % (elapsed // 60)
-        mins = "%.2f min(s)" % (elapsed % 60.)
+            hours = "%d hours " % (elapsed // 60)
+        mins = "%.2f mins" % (elapsed % 60.)
 
         if errorCount == 0:
             logging.info("Processing successfully finished (%s%s)..\n"%(hours, mins))
@@ -2934,6 +2947,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         heteroAtoms.append("%s%d"%(hetAtom, hetAtomCount))
                 heteroAtoms=", ".join(heteroAtoms)
 
+                assignedMZs=loads(base64.b64decode(row.assignedMZs))
+
                 d = QtGui.QTreeWidgetItem([str(row.mz) + " (/" + str(row.ionMode) + str(row.Loading) + ") ",
                                            "%.2f / %.2f" % (float(row.NPeakCenterMin) / 60., float(row.LPeakCenterMin) / 60.),
                                            str(row.xcount),
@@ -2942,7 +2957,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                            "%.3f"%(row.peaksCorr),
                                            "%.3f / %.3f"%(row.peaksRatio, row.NPeakArea/row.LPeakArea),
                                            "%.1f / %.1f"%(row.NPeakArea, row.LPeakArea),
-                                           "%d"%row.assignedMZs,
+                                           "%d"%len(assignedMZs),
                                            str(row.tracerName)])
 
                 xp = ChromPeakPair(NPeakCenter=int(row.NPeakCenter), LPeakScale=float(row.LPeakScale), LPeakCenter=int(row.LPeakCenter),
@@ -2951,7 +2966,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                LBorderLeft=float(row.LBorderLeft), LBorderRight=float(row.LBorderRight),
                                NPeakCenterMin=float(row.NPeakCenterMin), LPeakCenterMin=float(row.LPeakCenterMin), eicID=int(row.eicID), massSpectrumID=int(row.massSpectrumID),
                                assignedName=str(row.assignedName), id=int(row.cpID), loading=int(row.Loading), peaksCorr=float(row.peaksCorr), peaksRatio=float(row.peaksRatio),
-                               tracer=str(row.tracerName), ionMode=str(row.ionMode), heteroAtoms=heteroAtoms, adducts=adducts)
+                               tracer=str(row.tracerName), ionMode=str(row.ionMode), heteroAtoms=heteroAtoms, adducts=adducts, assignedMZs=assignedMZs)
 
                 d.myType = "feature"
                 d.myID = int(row.cpID)
@@ -3037,6 +3052,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             heteroAtoms.append("%s%d"%(hetAtom, hetAtomCount))
                     heteroAtoms=", ".join(heteroAtoms)
 
+                    assignedMZs=loads(base64.b64decode(row.assignedMZs))
+
                     xp = ChromPeakPair(NPeakCenter=int(row.NPeakCenter), loading=int(row.Loading), LPeakScale=float(row.LPeakScale),
                                    LPeakCenter=int(row.LPeakCenter), NPeakScale=float(row.NPeakScale), NSNR=0, NPeakArea=-1,
                                    mz=float(row.mz), xCount=int(row.xcount), NPeakCenterMin=float(row.NPeakCenterMin),
@@ -3044,7 +3061,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                    LBorderLeft=float(row.LBorderLeft), LBorderRight=float(row.LBorderRight),
                                    LPeakCenterMin=float(row.LPeakCenterMin), eicID=int(row.eicID), massSpectrumID=int(row.massSpectrumID),
                                    assignedName=str(row.assignedName), id=int(row.cpID),
-                                   tracer=str(row.tracerName), ionMode=str(row.ionMode), adducts=adducts, heteroAtoms=heteroAtoms)
+                                   tracer=str(row.tracerName), ionMode=str(row.ionMode), adducts=adducts, heteroAtoms=heteroAtoms, assignedMZs=assignedMZs)
                     xp.fDesc = str(row.fDesc)
                     xp.peaksCorr = float(row.peaksCorr)
                     xp.peaksRatio = float(row.peaksRatio)
@@ -3057,7 +3074,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                "%.3f"%(row.peaksCorr),
                                                "%.3f / %.3f"%(row.peaksRatio, row.NPeakArea/row.LPeakArea),
                                                "%.1f / %.1f"%(row.NPeakArea, row.LPeakArea),
-                                               "%d"%row.assignedMZs,
+                                               "%d"%len(assignedMZs),
                                                str(row.tracerName)])
 
                     g.myType = "feature"
@@ -3481,6 +3498,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
     def selectedResChanged(self):
 
+        annotationPPM = self.ui.doubleSpinBox_isotopologAnnotationPPM.value()
+
         for i in range(self.ui.res_ExtractedData.topLevelItemCount()):
             self.deColorQTreeWidgetItem(self.ui.res_ExtractedData.topLevelItem(i))
 
@@ -3512,7 +3531,6 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         mzs = []
         peaks = []
         plotTypes = set()
-        selIndex = 0
         selFeatureGroups = []
 
         featuresPosSelected = False
@@ -3545,7 +3563,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             self.clearPlot(self.ui.pl1)
             return
 
-        for item in selectedItems:
+        for selIndex, item in enumerate(selectedItems):
             if not (hasattr(item, "myType")):
                 continue
 
@@ -3717,14 +3735,6 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     else:
                         ps=0
                         pe=len(times)
-                        #times=times[ps:pe]
-                        #xic=xic[ps:pe]
-                        #xic_smoothed=xic_smoothed[ps:pe]
-                        #xicfirstiso=xicfirstiso[ps:pe]
-                        #xicL=xicL[ps:pe]
-                        #xicL_smoothed=xicL_smoothed[ps:pe]
-                        #xicLfirstiso=xicLfirstiso[ps:pe]
-                        #xicLfirstisoconjugate=xicLfirstisoconjugate[ps:pe]
                     try:
                         minTime = min(minTime, min(
                             times[int(cp.NPeakCenter - cp.NPeakScale * 1): int(cp.NPeakCenter + cp.NPeakScale * 1)]))
@@ -3757,6 +3767,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                             int(cp.NPeakCenter + cp.NBorderRight)], rearrange=len(selectedItems) == 1,
                                       label=None, useCol=useColi, linestyle="--")
 
+                    self.drawPoints(self.ui.pl1, x=[times[a.scanIndex] for a in cp.assignedMZs], y=[xic[a.scanIndex] for a in cp.assignedMZs])
 
                     if self.ui.showIsotopologues.isChecked():
                         self.drawPlot(self.ui.pl1, plotIndex=0, x=times[ps:pe], y=xicfirstiso[ps:pe],
@@ -3811,7 +3822,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
 
                         for row in self.currentOpenResultsFile.curs.execute(
-                                    "SELECT c.id, c.eicID, c.NPeakCenterMin, c.NPeakCenter, c.mz, c.xcount, c.loading, (SELECT fg.featureName FROM FeatureGroupFeatures fgf INNER JOIN FeatureGroups fg ON fgf.fGroupID=fg.id WHERE fgf.fID=c.id) AS FGroupID FROM chromPeaks c WHERE c.eicID IN (%d)" % cp.eicID):
+                                    "SELECT c.id, c.eicID, c.NPeakCenterMin, c.NPeakCenter, c.mz, c.xcount, c.loading, (SELECT fg.featureName "
+                                    "FROM FeatureGroupFeatures fgf INNER JOIN FeatureGroups fg ON fgf.fGroupID=fg.id WHERE fgf.fID=c.id) AS FGroupID FROM chromPeaks c WHERE %f<=c.mz AND c.mz<=%f AND c.loading==%d and c.xcount==%d" % (cp.mz*(1-15/1000000.), cp.mz*(1+15/1000000.), cp.loading, cp.xCount)):
 
                             if cp.NPeakCenter!=row[3]:
                                 self.addAnnotation(self.ui.pl1, "%s\n%.5f\n%.2f min"%(str(row[7]), row[4], row[2]/60.) ,
@@ -3844,125 +3856,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                 toDrawInts.append(intensity)
                             toDrawInts.append(0)
 
-                    self.drawPlot(self.ui.pl3, plotIndex=0, x=toDrawMzs, y=toDrawInts, useCol=useColi, multipleLocator=None,
-                                  alpha=0.1, title="", xlab="MZ")
+                    self.drawPlot(self.ui.pl3, plotIndex=0, x=toDrawMzs, y=toDrawInts, useCol="lightgrey", multipleLocator=None,  alpha=0.1, title="", xlab="MZ")
 
-                    bm = min(range(len(toDrawMzs)), key=lambda i: abs(toDrawMzs[i] - cp.mz)) + 1
-                    bml = min(range(len(toDrawMzs)),
-                              key=lambda i: abs(toDrawMzs[i] - (cp.mz + mzD * cp.xCount / cp.loading))) + 1
-
-                    intLeft = toDrawInts[bm]
-                    intRight = toDrawInts[bml]
-
-                    h = 0
-                    if cp.ionMode == "-" and featuresPosSelected:
-                        h = min(intLeft, intRight)
-                    else:
-                        h = max(intLeft, intRight)
-
-                    if self.ui.MSLabels.checkState() == QtCore.Qt.Checked:
-                        self.addAnnotation(self.ui.pl3, "mz: %.5f\nl-mz: %.5f\nd-mz: %.5f\nXn: %d Z: %s%d" % (
-                            cp.mz, cp.mz + mzD * cp.xCount / cp.loading, mzD * cp.xCount, cp.xCount, cp.ionMode,
-                            cp.loading), (cp.mz + mzD * cp.xCount / cp.loading / 2., h), (10, 120), rotation=0,
-                                           up=not (cp.ionMode == "-" and featuresPosSelected))
-
-                    self.addArrow(self.ui.pl3, (cp.mz, toDrawInts[bm]), (cp.mz, h), drawArrowHead=True)
-                    self.addArrow(self.ui.pl3, (cp.mz, h), (cp.mz + mzD * cp.xCount / cp.loading, h),
-                                  ecColor="slategrey")
-                    self.addArrow(self.ui.pl3, (cp.mz + mzD * cp.xCount / cp.loading, toDrawInts[bml]),(cp.mz + mzD * cp.xCount / cp.loading, h), drawArrowHead=True)
-
-                    annotationHeight=h
-
-                    if self.ui.MSIsos.checkState() == QtCore.Qt.Checked:
-                        bml = min(range(len(toDrawMzs)),
-                                  key=lambda w: abs(toDrawMzs[w] - (cp.mz + 1.00335 / cp.loading))) + 1
-
-                        if cp.ionMode == "-" and featuresPosSelected:
-                            h = min(toDrawInts[bm], toDrawInts[bml])
-                        else:
-                            h = max(toDrawInts[bm], toDrawInts[bml])
-
-                        self.addArrow(self.ui.pl3, (cp.mz + 1.00335 / cp.loading, toDrawInts[bml]),
-                                      (cp.mz + 1.00335 / cp.loading, annotationHeight), drawArrowHead=True)
-
-                        bm = min(range(len(toDrawMzs)),
-                                 key=lambda w: abs(toDrawMzs[w] - (cp.mz + 1.00335 * (cp.xCount - 1) / cp.loading))) + 1
-                        bml = min(range(len(toDrawMzs)),
-                                  key=lambda w: abs(toDrawMzs[w] - (cp.mz + 1.00335 * cp.xCount / cp.loading))) + 1
-
-                        if cp.ionMode == "-" and featuresPosSelected:
-                            h = min(toDrawInts[bm], toDrawInts[bml])
-                        else:
-                            h = max(toDrawInts[bm], toDrawInts[bml])
-
-                        self.addArrow(self.ui.pl3,
-                                      (cp.mz + 1.00335 * (cp.xCount - 1) / cp.loading, toDrawInts[bm]),
-                                      (cp.mz + 1.00335 * (cp.xCount - 1) / cp.loading, annotationHeight), drawArrowHead=True)
-
-
-                        self.addArrow(self.ui.pl3, (cp.mz, 0), (cp.mz, intLeft), linewidth=5, ecColor="orange")
-                        self.addArrow(self.ui.pl3, (cp.mz + 1.00335 * cp.xCount / cp.loading, 0),
-                                      (cp.mz + 1.00335 * cp.xCount / cp.loading, intRight), linewidth=5,
-                                      ecColor="orange")
-
-                        intErrN, intErrL = self.getAllowedIsotopeRatioErrorsForResult()
-
-
-                        for iso in [1, 2, 3]:
-                            ratioN = getNormRatio(purN, cp.xCount, iso)
-                            ratioL = getNormRatio(purL, cp.xCount, iso)
-                            self.addArrow(self.ui.pl3, (cp.mz + (1.00335 * iso) / cp.loading, 0), (
-                            cp.mz + (1.00335 * iso) / cp.loading, intLeft * max(0, (ratioN - intErrN))),
-                                          linewidth=5, alpha=.1, ecColor="orange")
-                            self.addArrow(self.ui.pl3, (
-                            cp.mz + (1.00335 * iso) / cp.loading, intLeft * max(0, (ratioN - intErrN))),
-                                          (cp.mz + (1.00335 * iso) / cp.loading,
-                                          intLeft * (ratioN + intErrN)), linewidth=5, alpha=.1,
-                                          ecColor="DarkSeaGreen")
-                            self.addArrow(self.ui.pl3, (
-                            cp.mz + (1.00335 * iso) / cp.loading, intLeft * max(0, (ratioN - .005))), (
-                                          cp.mz + (1.00335 * iso) / cp.loading,
-                                          intLeft * max(0, (ratioN + .005))), linewidth=5, alpha=.1,
-                                          ecColor="yellow")
-
-                            self.addArrow(self.ui.pl3, (cp.mz + 1.00335 * (cp.xCount - iso) / cp.loading, 0), (
-                                cp.mz + 1.00335 * (cp.xCount - iso) / cp.loading,
-                                intRight * max(0, (ratioL - intErrL))), linewidth=5, alpha=.1,
-                                          ecColor="orange")
-                            self.addArrow(self.ui.pl3, (cp.mz + 1.00335 * (cp.xCount - iso) / cp.loading,
-                                                        intRight * max(0, (ratioL - intErrL))), (
-                                              cp.mz + 1.00335 * (cp.xCount - iso) / cp.loading,
-                                              intRight * (ratioL + intErrL)), linewidth=5, alpha=.1,
-                                          ecColor="DarkSeaGreen")
-                            self.addArrow(self.ui.pl3, (cp.mz + 1.00335 * (cp.xCount - iso) / cp.loading,
-                                                        intRight * max(0, (ratioL - .005))), (
-                                              cp.mz + 1.00335 * (cp.xCount - iso) / cp.loading,
-                                              intRight * max(0, (ratioL + .005))), linewidth=5,
-                                          alpha=.1, ecColor="yellow")
-
-                        if self.ui.drawFPIsotopologues.checkState() == QtCore.Qt.Checked:
-                            for iso in [1, 2, 3]:
-                                self.addArrow(self.ui.pl3, (cp.mz - (1.00335 * iso) / cp.loading, 0),
-                                              (cp.mz - (1.00335 * iso) / cp.loading, intLeft * .1), linewidth=5,
-                                              ecColor="yellow")
-                                self.addArrow(self.ui.pl3, (cp.mz + 1.00335 * (cp.xCount + iso) / cp.loading, 0),
-                                              (cp.mz + 1.00335 * (cp.xCount + iso) / cp.loading, intRight * .1),
-                                              linewidth=5, ecColor="yellow")
-
-                            self.addArrow(self.ui.pl3, (cp.mz - 1.00335 / (cp.loading * 2), 0),
-                                          (cp.mz - 1.00335 / (cp.loading * 2), intLeft * .05), linewidth=5,
-                                          ecColor="yellow")
-                            self.addArrow(self.ui.pl3, (cp.mz + 1.00335 / (cp.loading * 2), 0),
-                                          (cp.mz + 1.00335 / (cp.loading * 2), intLeft * .05), linewidth=5,
-                                          ecColor="yellow")
-                            self.addArrow(self.ui.pl3, (
-                                cp.mz + 1.00335 * cp.xCount / cp.loading + 1.00335 / (cp.loading * 2), 0), (
-                                              cp.mz + 1.00335 * cp.xCount / cp.loading + 1.00335 / (cp.loading * 2),
-                                              intRight * .05), linewidth=5, ecColor="yellow")
-                            self.addArrow(self.ui.pl3, (
-                                cp.mz + 1.00335 * cp.xCount / cp.loading - 1.00335 / (cp.loading * 2), 0), (
-                                              cp.mz + 1.00335 * cp.xCount / cp.loading - 1.00335 / (cp.loading * 2),
-                                              intRight * .05), linewidth=5, ecColor="yellow")
                 useColi += 1
             #</editor-fold>
 
@@ -4067,149 +3962,211 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     mzs=[]
                     childIDs = []
                     maxInt = 0
+
+
+                    for childi in range(item.childCount()):
+                        if not (item.child(childi).isHidden()):
+                            cp = item.child(childi).myData
+
+                            if cp.ionMode == "-" and hasPos:
+                                mInt = -min(toDrawIntsNeg)
+                                toDrawInts = [-f for f in toDrawIntsNeg]
+                                toDrawMzs = toDrawMZsNeg
+                                intMul = -1.
+                            elif cp.ionMode == "-":
+                                mInt = max(toDrawIntsNeg)
+                                toDrawInts = toDrawIntsNeg
+                                toDrawMzs = toDrawMZsNeg
+                            else:
+                                mInt = max(toDrawIntsPos)
+                                toDrawInts = toDrawIntsPos
+                                toDrawMzs = toDrawMZsPos
+
+                            isMetabolisationExperiment = self.isTracerMetabolisationExperiment()
+                            mzD, purN, purL = self.getLabellingParametersForResult(cp.id)
+
+                            if massSpectraAvailable:
+
+                                self.drawPlot(self.ui.pl3, plotIndex=0, x=toDrawMzs, y=toDrawInts, useCol="lightgrey",
+                                              multipleLocator=None, alpha=0.1, title="", xlab="MZ")
+
+                    for childi in range(item.childCount()):
+                        if not (item.child(childi).isHidden()):
+                            cp = item.child(childi).myData
+                            if massSpectraAvailable:
+
+                                isMetabolisationExperiment = self.isTracerMetabolisationExperiment()
+                                mzD, purN, purL = self.getLabellingParametersForResult(cp.id)
+
+
+
+                                bm = min(range(len(toDrawMzs)), key=lambda i: abs(toDrawMzs[i] - cp.mz)) + 1
+                                bml = min(range(len(toDrawMzs)),
+                                          key=lambda i: abs(toDrawMzs[i] - (cp.mz + mzD * cp.xCount / cp.loading))) + 1
+
+                                intLeft = toDrawInts[bm]
+                                intRight = toDrawInts[bml]
+
+                                h = 0
+                                if cp.ionMode == "-" and featuresPosSelected:
+                                    h = min(intLeft, intRight)
+                                else:
+                                    h = max(intLeft, intRight)
+
+                                if self.ui.MSLabels.checkState() == QtCore.Qt.Checked:
+                                    self.addAnnotation(self.ui.pl3,
+                                                       "mz: %.5f\nl-mz: %.5f\nd-mz: %.5f\nXn: %d Z: %s%d" % (
+                                                           cp.mz, cp.mz + mzD * cp.xCount / cp.loading, mzD * cp.xCount,
+                                                           cp.xCount, cp.ionMode,
+                                                           cp.loading),
+                                                       (cp.mz + mzD * cp.xCount / cp.loading / 2., h * 1.1), (10, 120),
+                                                       rotation=0,
+                                                       up=not (cp.ionMode == "-" and featuresPosSelected))
+
+                                self.addArrow(self.ui.pl3, (cp.mz, toDrawInts[bm]), (cp.mz, h * 1.1),
+                                              drawArrowHead=True)
+                                self.addArrow(self.ui.pl3, (cp.mz, h * 1.1),
+                                              (cp.mz + mzD * cp.xCount / cp.loading, h * 1.1), ecColor="slategrey")
+                                self.addArrow(self.ui.pl3, (cp.mz + mzD * cp.xCount / cp.loading, toDrawInts[bml]),
+                                              (cp.mz + mzD * cp.xCount / cp.loading, h * 1.1), drawArrowHead=True)
+
+                                annotationHeight = h
+
+                                if self.ui.MSIsos.checkState() == QtCore.Qt.Checked:
+                                    bml = min(range(len(toDrawMzs)),
+                                              key=lambda w: abs(toDrawMzs[w] - (cp.mz + 1.00335 / cp.loading))) + 1
+
+                                    if cp.ionMode == "-" and featuresPosSelected:
+                                        h = min(toDrawInts[bm], toDrawInts[bml])
+                                    else:
+                                        h = max(toDrawInts[bm], toDrawInts[bml])
+
+
+                                    bm = min(range(len(toDrawMzs)),
+                                             key=lambda w: abs(
+                                                 toDrawMzs[w] - (cp.mz + 1.00335 * (cp.xCount - 1) / cp.loading))) + 1
+                                    bml = min(range(len(toDrawMzs)),
+                                              key=lambda w: abs(
+                                                  toDrawMzs[w] - (cp.mz + 1.00335 * cp.xCount / cp.loading))) + 1
+
+                                    if cp.ionMode == "-" and featuresPosSelected:
+                                        h = min(toDrawInts[bm], toDrawInts[bml])
+                                    else:
+                                        h = max(toDrawInts[bm], toDrawInts[bml])
+
+                                    intErrN, intErrL = self.getAllowedIsotopeRatioErrorsForResult()
+                                    self.ui.pl3.twinxs[0].add_patch(patches.Rectangle((cp.mz * (1. - annotationPPM / 1000000.),intLeft * 0),cp.mz * (2 * annotationPPM / 1000000.),0.01 * intLeft, edgecolor='none', facecolor='purple', alpha=0.2))
+                                    self.ui.pl3.twinxs[0].add_patch(patches.Rectangle(((cp.mz + (1.00335 * cp.xCount) / cp.loading) * (1. - annotationPPM / 1000000.),intLeft * 0), (cp.mz + (1.00335 * cp.xCount) / cp.loading) * (2 * annotationPPM / 1000000.), 0.01 * intLeft, edgecolor='none', facecolor='purple', alpha=0.2))
+
+                                    for iso in [1, 2, 3]:
+                                        self.ui.pl3.twinxs[0].add_patch(patches.Rectangle(((cp.mz + (1.00335 * iso) / cp.loading) * (1. - annotationPPM / 1000000.),intLeft * 0),(cp.mz + (1.00335 * iso) / cp.loading) * (2 * annotationPPM / 1000000.),0.01 * intLeft, edgecolor='none', facecolor='purple', alpha=0.2) )
+                                        self.ui.pl3.twinxs[0].add_patch(patches.Rectangle(((cp.mz + (1.00335 * (cp.xCount - iso)) / cp.loading) * (1. - annotationPPM / 1000000.),intLeft * 0),(cp.mz + (1.00335 * (cp.xCount - iso)) / cp.loading) * (2 * annotationPPM / 1000000.), 0.01 * intLeft,edgecolor='none', facecolor='purple', alpha=0.2) )
+                                        self.ui.pl3.twinxs[0].add_patch(patches.Rectangle(((cp.mz + (1.00335 * (cp.xCount + iso)) / cp.loading) * (1. - annotationPPM / 1000000.),intLeft * 0),(cp.mz + (1.00335 * (cp.xCount + iso)) / cp.loading) * (2 * annotationPPM / 1000000.), 0.01 * intLeft, edgecolor='none', facecolor='purple', alpha=0.2 ))
+
+                                        ratioN = getNormRatio(purN, cp.xCount, iso)
+                                        ratioL = getNormRatio(purL, cp.xCount, iso)
+                                        self.addArrow(self.ui.pl3, (
+                                            cp.mz + (1.00335 * iso) / cp.loading,
+                                            intLeft * max(0, (ratioN - intErrN) - .005)),
+                                                      (cp.mz + (1.00335 * iso) / cp.loading,
+                                                       intLeft * max(0, (ratioN - intErrN) + .005)), linewidth=5,
+                                                      alpha=2,
+                                                      ecColor="DarkSeaGreen")
+                                        self.addArrow(self.ui.pl3, (
+                                            cp.mz + (1.00335 * iso) / cp.loading,
+                                            intLeft * max(0, (ratioN + intErrN) - .005)),
+                                                      (cp.mz + (1.00335 * iso) / cp.loading,
+                                                       intLeft * (ratioN + intErrN) + .005), linewidth=5, alpha=2,
+                                                      ecColor="DarkSeaGreen")
+                                        self.addArrow(self.ui.pl3, (
+                                            cp.mz + (1.00335 * iso) / cp.loading, intLeft * max(0, (ratioN - .005))), (
+                                                          cp.mz + (1.00335 * iso) / cp.loading,
+                                                          intLeft * max(0, (ratioN + .005))), linewidth=5, alpha=.02,
+                                                      ecColor="Orange")
+
+                                        self.addArrow(self.ui.pl3, (cp.mz + 1.00335 * (cp.xCount - iso) / cp.loading,
+                                                                    intRight * max(0,
+                                                                                   max(0, (ratioL - intErrL) - .005))),
+                                                      (
+                                                          cp.mz + 1.00335 * (cp.xCount - iso) / cp.loading,
+                                                          intRight * max(0, (ratioL - intErrL) + .005)), linewidth=5,
+                                                      alpha=.02,
+                                                      ecColor="DarkSeaGreen")
+                                        self.addArrow(self.ui.pl3, (cp.mz + 1.00335 * (cp.xCount - iso) / cp.loading,
+                                                                    intRight * max(0, (ratioL + intErrL) - .005)), (
+                                                          cp.mz + 1.00335 * (cp.xCount - iso) / cp.loading,
+                                                          intRight * (ratioL + intErrL) + .005), linewidth=5, alpha=.02,
+                                                      ecColor="DarkSeaGreen")
+                                        self.addArrow(self.ui.pl3, (cp.mz + 1.00335 * (cp.xCount - iso) / cp.loading,
+                                                                    intRight * max(0, (ratioL - .005))), (
+                                                          cp.mz + 1.00335 * (cp.xCount - iso) / cp.loading,
+                                                          intRight * max(0, (ratioL + .005))), linewidth=5,
+                                                      alpha=.1, ecColor="Orange")
+
+                                    if self.ui.drawFPIsotopologues.checkState() == QtCore.Qt.Checked:
+                                        for iso in [1, 2, 3]:
+                                            self.addArrow(self.ui.pl3, (cp.mz - (1.00335 * iso) / cp.loading, 0),
+                                                          (cp.mz - (1.00335 * iso) / cp.loading, intLeft * .1),
+                                                          linewidth=5,
+                                                          ecColor="yellow")
+                                            self.addArrow(self.ui.pl3,
+                                                          (cp.mz + 1.00335 * (cp.xCount + iso) / cp.loading, 0),
+                                                          (cp.mz + 1.00335 * (cp.xCount + iso) / cp.loading,
+                                                           intRight * .1),
+                                                          linewidth=5, ecColor="yellow")
+
+                                        self.addArrow(self.ui.pl3, (cp.mz - 1.00335 / (cp.loading * 2), 0),
+                                                      (cp.mz - 1.00335 / (cp.loading * 2), intLeft * .05), linewidth=5,
+                                                      ecColor="yellow")
+                                        self.addArrow(self.ui.pl3, (cp.mz + 1.00335 / (cp.loading * 2), 0),
+                                                      (cp.mz + 1.00335 / (cp.loading * 2), intLeft * .05), linewidth=5,
+                                                      ecColor="yellow")
+                                        self.addArrow(self.ui.pl3, (
+                                            cp.mz + 1.00335 * cp.xCount / cp.loading + 1.00335 / (cp.loading * 2), 0), (
+                                                          cp.mz + 1.00335 * cp.xCount / cp.loading + 1.00335 / (
+                                                              cp.loading * 2),
+                                                          intRight * .05), linewidth=5, ecColor="yellow")
+                                        self.addArrow(self.ui.pl3, (
+                                            cp.mz + 1.00335 * cp.xCount / cp.loading - 1.00335 / (cp.loading * 2), 0), (
+                                                          cp.mz + 1.00335 * cp.xCount / cp.loading - 1.00335 / (
+                                                              cp.loading * 2),
+                                                          intRight * .05), linewidth=5, ecColor="yellow")
+
+
+                                for i, mz in enumerate(toDrawMzs):
+                                    for inc in range(0, cp.xCount+1):
+                                        if abs(mz - (cp.mz + mzD * inc / cp.loading)) * 1000000. / (
+                                                    cp.mz + mzD * inc / cp.loading) <= annotationPPM or abs(mz - (
+                                                    cp.mz + mzD * (cp.xCount - inc) / cp.loading)) * 1000000. / (
+                                                    cp.mz + mzD * (cp.xCount - inc) / cp.loading) <= annotationPPM or abs(
+                                                    mz - (
+                                                        cp.mz + mzD * (
+                                                        cp.xCount + inc) / cp.loading)) * 1000000. / (
+                                                    cp.mz + mzD * (cp.xCount + inc) / cp.loading) <= annotationPPM:
+                                            ttoDrawMzs = []
+                                            ttoDrawInts = []
+
+                                            ttoDrawMzs.append(toDrawMzs[i])
+                                            ttoDrawMzs.append(toDrawMzs[i])
+                                            ttoDrawMzs.append(toDrawMzs[i])
+
+                                            ttoDrawInts.append(0)
+                                            if cp.ionMode == "-" and featuresPosSelected:
+                                                ttoDrawInts.append(-toDrawInts[i])
+                                            else:
+                                                ttoDrawInts.append(toDrawInts[i])
+                                            ttoDrawInts.append(0)
+
+                                            self.drawPlot(self.ui.pl3, plotIndex=0, x=ttoDrawMzs, y=ttoDrawInts,
+                                                          useCol="black", multipleLocator=None, alpha=0.1, title="",
+                                                          xlab="MZ")
+
+
                     for childi in range(item.childCount()):
                         if not (item.child(childi).isHidden()):
 
                             child = item.child(childi).myData
 
-                            if massSpectraAvailable:
-
-                                intMul = 1.
-                                toDrawInts = []
-                                toDrawMzs = []
-
-                                if child.ionMode == "-" and hasPos:
-                                    mInt = -min(toDrawIntsNeg)
-                                    toDrawInts = [-f for f in toDrawIntsNeg]
-                                    toDrawMzs = toDrawMZsNeg
-                                    intMul = -1.
-                                elif child.ionMode == "-":
-                                    mInt = max(toDrawIntsNeg)
-                                    toDrawInts = toDrawIntsNeg
-                                    toDrawMzs = toDrawMZsNeg
-                                else:
-                                    mInt = max(toDrawIntsPos)
-                                    toDrawInts = toDrawIntsPos
-                                    toDrawMzs = toDrawMZsPos
-
-
-                                mzD, purN, purL = self.getLabellingParametersForResult(child.id)
-
-                                bm = min(range(len(toDrawMzs)), key=lambda i: abs(toDrawMzs[i] - child.mz)) + 1
-                                bml = min(range(len(toDrawMzs)), key=lambda i: abs(
-                                    toDrawMzs[i] - (child.mz + mzD * child.xCount / child.loading))) + 1
-
-                                intLeft = toDrawInts[bm]
-                                intRight = toDrawInts[bml]
-
-                                h = max(toDrawInts[bm], toDrawInts[bml])
-
-                                h = h
-                                if self.ui.MSLabels.checkState() == QtCore.Qt.Checked:
-                                    self.addAnnotation(self.ui.pl3,
-                                                       "mz: %.5f\nl-mz: %.5f\nd-mz: %.5f\nXn: %d Z: %s%d" % (
-                                                           child.mz, child.mz + mzD * child.xCount / child.loading,
-                                                           mzD * child.xCount, child.xCount, child.ionMode,
-                                                           child.loading),
-                                                       (child.mz + mzD * child.xCount / child.loading / 2., h * intMul),
-                                                       (10, 120), rotation=0, offset=(-10, 20), up=intMul > 0)
-
-                                self.addArrow(self.ui.pl3, (child.mz, (toDrawInts[bm]) * intMul),
-                                              (child.mz, h * intMul), drawArrowHead=True)
-                                self.addArrow(self.ui.pl3, (child.mz, h * intMul),
-                                              (child.mz + mzD * child.xCount / child.loading, h * intMul),
-                                              ecColor="slategrey")
-                                self.addArrow(self.ui.pl3, (
-                                child.mz + mzD * child.xCount / child.loading, (toDrawInts[bml]) * intMul),
-                                              (child.mz + mzD * child.xCount / child.loading, h * intMul),
-                                              drawArrowHead=True)
-
-                                if self.ui.MSIsos.checkState() == QtCore.Qt.Checked:
-                                    bml = min(range(len(toDrawMzs)), key=lambda i: abs(
-                                        toDrawMzs[i] - (child.mz + 1.00335 / child.loading))) + 1
-                                    h = max(toDrawInts[bm], toDrawInts[bml])
-                                    self.addArrow(self.ui.pl3, (child.mz, h * intMul),
-                                                  (child.mz + 1.00335 / child.loading, h * intMul), ecColor="slategrey")
-                                    self.addArrow(self.ui.pl3,
-                                                  (child.mz + 1.00335 / child.loading, (toDrawInts[bml]) * intMul),
-                                                  (child.mz + 1.00335 / child.loading, h * intMul), drawArrowHead=True)
-
-                                    bm = min(range(len(toDrawMzs)), key=lambda i: abs(
-                                        toDrawMzs[i] - (child.mz + 1.00335 * (child.xCount - 1) / child.loading))) + 1
-                                    bml = min(range(len(toDrawMzs)), key=lambda i: abs(
-                                        toDrawMzs[i] - (child.mz + 1.00335 * child.xCount / child.loading))) + 1
-                                    h = max(toDrawInts[bm], toDrawInts[bml])
-                                    self.addArrow(self.ui.pl3, (
-                                        child.mz + 1.00335 * (child.xCount - 1) / child.loading,
-                                        (toDrawInts[bm]) * intMul),
-                                                  (child.mz + 1.00335 * (child.xCount - 1) / child.loading, h * intMul),
-                                                  drawArrowHead=True)
-                                    self.addArrow(self.ui.pl3,
-                                                  (child.mz + 1.00335 * (child.xCount - 1) / child.loading, h * intMul),
-                                                  (child.mz + 1.00335 * child.xCount / child.loading, h * intMul),
-                                                  ecColor="slategrey")
-
-                                    self.addArrow(self.ui.pl3, (child.mz, 0), (child.mz, intLeft * intMul), linewidth=5,
-                                                  ecColor="orange")
-                                    self.addArrow(self.ui.pl3, (child.mz + 1.00335 * child.xCount / child.loading, 0), (
-                                    child.mz + 1.00335 * child.xCount / child.loading, intRight * intMul), linewidth=5,
-                                                  ecColor="orange")
-
-                                    intErrN, intErrL = self.getAllowedIsotopeRatioErrorsForResult()
-
-                                    for iso in [1, 2, 3]:
-                                        ratioN = getNormRatio(purN, child.xCount, iso)
-                                        ratioL = getNormRatio(purL, child.xCount, iso)
-
-                                        self.addArrow(self.ui.pl3, (child.mz + (1.00335 * iso) / child.loading, 0), (
-                                        child.mz + (1.00335 * iso) / child.loading,
-                                        intMul * intLeft * max(0., (ratioN - intErrN))), linewidth=5, alpha=.1, ecColor="orange")
-                                        self.addArrow(self.ui.pl3, (child.mz + (1.00335 * iso) / child.loading,
-                                                                    intMul * intLeft * max(0., (ratioN - intErrN))), (
-                                                      child.mz + (1.00335 * iso) / child.loading,
-                                                      intMul * intLeft * (ratioN + intErrN)), linewidth=5, alpha=.1,
-                                                      ecColor="DarkSeaGreen")
-
-                                        self.addArrow(self.ui.pl3,
-                                                      (child.mz + 1.00335 * (child.xCount - iso) / child.loading, 0), (
-                                                child.mz + 1.00335 * (child.xCount - iso) / child.loading,
-                                                intMul * intRight * max(0., (ratioL - intErrL))), linewidth=5, alpha=.1,
-                                                      ecColor="orange")
-                                        self.addArrow(self.ui.pl3, (
-                                        child.mz + 1.00335 * (child.xCount - iso) / child.loading,
-                                        intMul * intRight * max(0., (ratioL - intErrL))), (
-                                                          child.mz + 1.00335 * (child.xCount - iso) / child.loading,
-                                                          intMul * intRight * (ratioL + intErrL)), linewidth=5, alpha=.1,
-                                                      ecColor="DarkSeaGreen")
-
-                                    if self.ui.drawFPIsotopologues.checkState() == QtCore.Qt.Checked:
-                                        for iso in [1, 2, 3]:
-                                            self.addArrow(self.ui.pl3, (child.mz - (1.00335 * iso) / child.loading, 0),
-                                                          (child.mz - (1.00335 * iso) / child.loading,
-                                                           intLeft * .1 * intMul), linewidth=5, ecColor="yellow")
-                                            self.addArrow(self.ui.pl3, (
-                                            child.mz + 1.00335 * (child.xCount + iso) / child.loading, 0), (
-                                                              child.mz + 1.00335 * (child.xCount + iso) / child.loading,
-                                                              intRight * .1 * intMul), linewidth=5, ecColor="yellow")
-
-                                        self.addArrow(self.ui.pl3, (child.mz - 1.00335 / (child.loading * 2), 0), (
-                                        child.mz - 1.00335 / (child.loading * 2), intLeft * .05 * intMul), linewidth=5,
-                                                      ecColor="yellow")
-                                        self.addArrow(self.ui.pl3, (child.mz + 1.00335 / (child.loading * 2), 0), (
-                                        child.mz + 1.00335 / (child.loading * 2), intLeft * .05 * intMul), linewidth=5,
-                                                      ecColor="yellow")
-                                        self.addArrow(self.ui.pl3, (
-                                            child.mz + 1.00335 * child.xCount / child.loading + 1.00335 / (
-                                                child.loading * 2), 0), (
-                                                          child.mz + 1.00335 * child.xCount / child.loading + 1.00335 / (
-                                                              child.loading * 2), intRight * .05 * intMul), linewidth=5,
-                                                      ecColor="yellow")
-                                        self.addArrow(self.ui.pl3, (
-                                            child.mz + 1.00335 * child.xCount / child.loading - 1.00335 / (
-                                                child.loading * 2), 0), (
-                                                          child.mz + 1.00335 * child.xCount / child.loading - 1.00335 / (
-                                                              child.loading * 2), intRight * .05 * intMul), linewidth=5,
-                                                      ecColor="yellow")
 
                             childIDs.append(child.id)
 
@@ -4465,9 +4422,201 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
             #</editor-fold>
 
+        for selIndex, item in enumerate(selectedItems):
+            if not (hasattr(item, "myType")):
+                continue
+
+            #<editor-fold desc="#feature results">
+            if item.myType == "Features" or item.myType == "feature":
+                self.ui.chromPeakName.setText("")
+
+                self.ui.res_ExtractedData.setHeaderLabels(QtCore.QStringList(
+                    ["MZ (/Ionmode Z)", "Rt min", "Xn", "Adducts, hetero atoms", "Scale M / M'", "Peak cor", "M:M' peaks ratio / area ratio", "Area M / M'", "Scans", "Tracer"]))
+
+                if item.myType == "feature":
+                    cp = item.myData
+                    plotTypes.add("feature")
+                    mzs.append(cp.mz)
+                    peaks.append(cp.NPeakCenterMin / 60.)
+                    xic = []
+                    xicL = []
+                    times = []
+                    maxE=1
+
+                    invert=1
+                    if self.ui.negEIC.isChecked():
+                        invert=-1
 
 
-            selIndex += 1
+                    isMetabolisationExperiment = self.isTracerMetabolisationExperiment()
+                    mzD, purN, purL = self.getLabellingParametersForResult(cp.id)
+
+                    toDrawMzs = []
+                    toDrawInts = []
+                    for row in self.currentOpenResultsFile.curs.execute("SELECT mzs, intensities, ionmode FROM massspectrum WHERE mID=%d"%cp.massSpectrumID):
+
+                        mzs = [float(t) for t in row[0].split(";")]
+                        intensities = [float(t) for t in row[1].split(";")]
+
+                        for mz in mzs:
+                            toDrawMzs.append(mz)
+                            toDrawMzs.append(mz)
+                            toDrawMzs.append(mz)
+
+                        for intensity in intensities:
+                            toDrawInts.append(0)
+                            if cp.ionMode == "-" and featuresPosSelected:
+                                toDrawInts.append(-intensity)
+                            else:
+                                toDrawInts.append(intensity)
+                            toDrawInts.append(0)
+
+                    #self.drawPlot(self.ui.pl3, plotIndex=0, x=toDrawMzs, y=toDrawInts, useCol="lightgrey", multipleLocator=None,  alpha=0.1, title="", xlab="MZ")
+
+                    bm = min(range(len(toDrawMzs)), key=lambda i: abs(toDrawMzs[i] - cp.mz)) + 1
+                    bml = min(range(len(toDrawMzs)),
+                              key=lambda i: abs(toDrawMzs[i] - (cp.mz + mzD * cp.xCount / cp.loading))) + 1
+
+                    intLeft = toDrawInts[bm]
+                    intRight = toDrawInts[bml]
+
+                    h = 0
+                    if cp.ionMode == "-" and featuresPosSelected:
+                        h = min(intLeft, intRight)
+                    else:
+                        h = max(intLeft, intRight)
+
+                    if self.ui.MSLabels.checkState() == QtCore.Qt.Checked:
+                        self.addAnnotation(self.ui.pl3, "mz: %.5f\nl-mz: %.5f\nd-mz: %.5f\nXn: %d Z: %s%d" % (
+                            cp.mz, cp.mz + mzD * cp.xCount / cp.loading, mzD * cp.xCount, cp.xCount, cp.ionMode,
+                            cp.loading), (cp.mz + mzD * cp.xCount / cp.loading / 2., h*1.1), (10, 120), rotation=0,
+                                           up=not (cp.ionMode == "-" and featuresPosSelected))
+
+                    self.addArrow(self.ui.pl3, (cp.mz, toDrawInts[bm]), (cp.mz, h*1.1), drawArrowHead=True)
+                    self.addArrow(self.ui.pl3, (cp.mz, h*1.1), (cp.mz + mzD * cp.xCount / cp.loading, h*1.1),ecColor="slategrey")
+                    self.addArrow(self.ui.pl3, (cp.mz + mzD * cp.xCount / cp.loading, toDrawInts[bml]),(cp.mz + mzD * cp.xCount / cp.loading, h*1.1), drawArrowHead=True)
+
+                    annotationHeight=h
+
+                    if self.ui.MSIsos.checkState() == QtCore.Qt.Checked:
+                        bml = min(range(len(toDrawMzs)),
+                                  key=lambda w: abs(toDrawMzs[w] - (cp.mz + 1.00335 / cp.loading))) + 1
+
+                        if cp.ionMode == "-" and featuresPosSelected:
+                            h = min(toDrawInts[bm], toDrawInts[bml])
+                        else:
+                            h = max(toDrawInts[bm], toDrawInts[bml])
+
+
+                        bm = min(range(len(toDrawMzs)),
+                                 key=lambda w: abs(toDrawMzs[w] - (cp.mz + 1.00335 * (cp.xCount - 1) / cp.loading))) + 1
+                        bml = min(range(len(toDrawMzs)),
+                                  key=lambda w: abs(toDrawMzs[w] - (cp.mz + 1.00335 * cp.xCount / cp.loading))) + 1
+
+                        if cp.ionMode == "-" and featuresPosSelected:
+                            h = min(toDrawInts[bm], toDrawInts[bml])
+                        else:
+                            h = max(toDrawInts[bm], toDrawInts[bml])
+
+
+                        intErrN, intErrL = self.getAllowedIsotopeRatioErrorsForResult()
+
+                        self.ui.pl3.twinxs[0].add_patch(patches.Rectangle((cp.mz  * (1. - annotationPPM / 1000000.),intLeft * 0), cp.mz  * (2 * annotationPPM / 1000000.), 0.01 * intLeft, edgecolor='none', facecolor='purple', alpha=0.2))
+                        self.ui.pl3.twinxs[0].add_patch(patches.Rectangle(((cp.mz+ (1.00335 * cp.xCount) / cp.loading)  * (1. - annotationPPM / 1000000.),intLeft * 0), (cp.mz + (1.00335 * cp.xCount) / cp.loading)  * (2 * annotationPPM / 1000000.), 0.01 * intLeft, edgecolor='none', facecolor='purple', alpha=0.2))
+
+                        for iso in [1, 2, 3]:
+                            self.ui.pl3.twinxs[0].add_patch(patches.Rectangle(((cp.mz+ (1.00335 * iso) / cp.loading) * (1. - annotationPPM / 1000000.),intLeft * 0), (cp.mz+ (1.00335 * iso) / cp.loading) * (2 * annotationPPM / 1000000.), 0.01 * intLeft, edgecolor='none', facecolor='purple', alpha=0.2))
+                            self.ui.pl3.twinxs[0].add_patch(patches.Rectangle(((cp.mz+ (1.00335 * (cp.xCount - iso)) / cp.loading) * (1. - annotationPPM / 1000000.),intLeft * 0), (cp.mz+ (1.00335 * (cp.xCount - iso)) / cp.loading) * (2 * annotationPPM / 1000000.), 0.01 * intLeft, edgecolor='none', facecolor='purple', alpha=0.2))
+                            self.ui.pl3.twinxs[0].add_patch(patches.Rectangle(((cp.mz+ (1.00335 * (cp.xCount + iso)) / cp.loading) * (1. - annotationPPM / 1000000.), intLeft * 0), (cp.mz+ (1.00335 * (cp.xCount + iso)) / cp.loading) * (2 * annotationPPM / 1000000.), 0.01 * intLeft, edgecolor='none', facecolor='purple', alpha=0.2))
+
+                            ratioN = getNormRatio(purN, cp.xCount, iso)
+                            ratioL = getNormRatio(purL, cp.xCount, iso)
+                            self.addArrow(self.ui.pl3, (
+                                cp.mz + (1.00335 * iso) / cp.loading, intLeft * max(0, (ratioN - intErrN)-.005)),
+                                          (cp.mz + (1.00335 * iso) / cp.loading,
+                                          intLeft * max(0, (ratioN - intErrN)+.005)), linewidth=5, alpha=2,
+                                          ecColor="DarkSeaGreen")
+
+                            self.addArrow(self.ui.pl3, (
+                                cp.mz + (1.00335 * iso) / cp.loading, intLeft * max(0, (ratioN + intErrN)-.005)),
+                                          (cp.mz + (1.00335 * iso) / cp.loading,
+                                          intLeft * (ratioN + intErrN)+.005), linewidth=5, alpha=2,
+                                          ecColor="DarkSeaGreen")
+                            self.addArrow(self.ui.pl3, (
+                                cp.mz + (1.00335 * iso) / cp.loading, intLeft * max(0, (ratioN - .005))), (
+                                          cp.mz + (1.00335 * iso) / cp.loading,
+                                          intLeft * max(0, (ratioN + .005))), linewidth=5, alpha=.02,
+                                          ecColor="Orange")
+
+                            self.addArrow(self.ui.pl3, (cp.mz + 1.00335 * (cp.xCount - iso) / cp.loading,
+                                                        intRight * max(0, max(0, (ratioL - intErrL)-.005))), (
+                                              cp.mz + 1.00335 * (cp.xCount - iso) / cp.loading,
+                                              intRight * max(0, (ratioL - intErrL)+.005)), linewidth=5, alpha=.02,
+                                          ecColor="DarkSeaGreen")
+                            self.addArrow(self.ui.pl3, (cp.mz + 1.00335 * (cp.xCount - iso) / cp.loading,
+                                                        intRight * max(0, (ratioL + intErrL)-.005)), (
+                                              cp.mz + 1.00335 * (cp.xCount - iso) / cp.loading,
+                                              intRight * (ratioL + intErrL)+.005), linewidth=5, alpha=.02,
+                                          ecColor="DarkSeaGreen")
+                            self.addArrow(self.ui.pl3, (cp.mz + 1.00335 * (cp.xCount - iso) / cp.loading,
+                                                        intRight * max(0, (ratioL - .005))), (
+                                              cp.mz + 1.00335 * (cp.xCount - iso) / cp.loading,
+                                              intRight * max(0, (ratioL + .005))), linewidth=5,
+                                          alpha=.1, ecColor="Orange")
+
+                        if self.ui.drawFPIsotopologues.checkState() == QtCore.Qt.Checked:
+                            for iso in [1, 2, 3]:
+                                self.addArrow(self.ui.pl3, (cp.mz - (1.00335 * iso) / cp.loading, 0),
+                                              (cp.mz - (1.00335 * iso) / cp.loading, intLeft * .1), linewidth=5,
+                                              ecColor="yellow")
+                                self.addArrow(self.ui.pl3, (cp.mz + 1.00335 * (cp.xCount + iso) / cp.loading, 0),
+                                              (cp.mz + 1.00335 * (cp.xCount + iso) / cp.loading, intRight * .1),
+                                              linewidth=5, ecColor="yellow")
+
+                            self.addArrow(self.ui.pl3, (cp.mz - 1.00335 / (cp.loading * 2), 0),
+                                          (cp.mz - 1.00335 / (cp.loading * 2), intLeft * .05), linewidth=5,
+                                          ecColor="yellow")
+                            self.addArrow(self.ui.pl3, (cp.mz + 1.00335 / (cp.loading * 2), 0),
+                                          (cp.mz + 1.00335 / (cp.loading * 2), intLeft * .05), linewidth=5,
+                                          ecColor="yellow")
+                            self.addArrow(self.ui.pl3, (
+                                cp.mz + 1.00335 * cp.xCount / cp.loading + 1.00335 / (cp.loading * 2), 0), (
+                                              cp.mz + 1.00335 * cp.xCount / cp.loading + 1.00335 / (cp.loading * 2),
+                                              intRight * .05), linewidth=5, ecColor="yellow")
+                            self.addArrow(self.ui.pl3, (
+                                cp.mz + 1.00335 * cp.xCount / cp.loading - 1.00335 / (cp.loading * 2), 0), (
+                                              cp.mz + 1.00335 * cp.xCount / cp.loading - 1.00335 / (cp.loading * 2),
+                                              intRight * .05), linewidth=5, ecColor="yellow")
+
+
+                    for row in self.currentOpenResultsFile.curs.execute("SELECT mzs, intensities, ionmode FROM massspectrum WHERE mID=%d"%cp.massSpectrumID):
+
+                        mzs = [float(t) for t in row[0].split(";")]
+                        intensities = [float(t) for t in row[1].split(";")]
+
+
+                        for i, mz in enumerate(mzs):
+                            for inc in range(0, cp.xCount+1):
+                                if abs(mz - (cp.mz + mzD * inc / cp.loading)) * 1000000. / (cp.mz + mzD * inc / cp.loading) <= annotationPPM or abs(mz - (cp.mz + mzD * (cp.xCount - inc) / cp.loading)) * 1000000. / (cp.mz + mzD * (cp.xCount - inc) / cp.loading) <= annotationPPM or abs(mz - (cp.mz + mzD * (cp.xCount + inc) / cp.loading)) * 1000000. / (cp.mz + mzD * (cp.xCount + inc) / cp.loading) <= annotationPPM:
+                                    toDrawMzs = []
+                                    toDrawInts = []
+
+                                    toDrawMzs.append(mzs[i])
+                                    toDrawMzs.append(mzs[i])
+                                    toDrawMzs.append(mzs[i])
+
+                                    toDrawInts.append(0)
+                                    if cp.ionMode == "-" and featuresPosSelected:
+                                        toDrawInts.append(-intensities[i])
+                                    else:
+                                        toDrawInts.append(intensities[i])
+                                    toDrawInts.append(0)
+
+                                    self.drawPlot(self.ui.pl3, plotIndex=0, x=toDrawMzs, y=toDrawInts, useCol="black", multipleLocator=None,  alpha=0.1, title="", xlab="MZ")
+                useColi += 1
+            #</editor-fold>
+
+
 
         #<editor-fold desc="#featureGroup results">
 
@@ -4750,8 +4899,6 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 sf.set_scientific(True)
                 sf.set_powerlimits((10, 0))
                 ax.yaxis.set_major_formatter(sf)
-                #ax.xaxis.set_major_locator(MultipleLocator(multipleLocator))
-                #ax.xaxis.set_minor_locator(MultipleLocator(0.25))
 
             ax.set_title(title)
             ax.set_xlabel(xlab)
@@ -4768,12 +4915,12 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             if len(fill) > 0 and self.ui.plotMarkArea.checkState() == QtCore.Qt.Checked:
                 ax.fill_between(x[fill[0]:fill[1]], y[fill[0]:fill[1]], color=plotCol, alpha=alpha)
 
-            #if ylim is not None:
-            #    for ax in plt.twinxs:
-            #        ax.set_ylim(ylim)
-            #        ax.set_xlim(xlim)
         except Exception as ex:
             logging.warning("Exception caught", ex)
+
+    def drawPoints(self, plt, x, y, plotIndex=0):
+        ax = plt.twinxs[plotIndex]
+        ax.scatter(x,y)
 
     def setLimts(self, plt, ylim, xlim):
         for ax in plt.twinxs:
@@ -5355,7 +5502,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         if self.isotopeAmass == -1:
             self.ui.isotopeAMassLabel.setText("Unknown Isotope %s" % text)
         else:
-            self.ui.isotopeAMassLabel.setText("%s mass is %.5f" % (text, self.isotopeAmass))
+            self.ui.isotopeAMassLabel.setText("%s mass is %.8f" % (text, self.isotopeAmass))
 
     def isotopeBTextChanged(self, text):
         text = str(text)
@@ -5363,7 +5510,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         if self.isotopeBmass == -1:
             self.ui.isotopeBMassLabel.setText("Unknown Isotope %s" % text)
         else:
-            self.ui.isotopeBMassLabel.setText("%s mass is %.5f" % (text, self.isotopeBmass))
+            self.ui.isotopeBMassLabel.setText("%s mass is %.8f" % (text, self.isotopeBmass))
 
     def useRatioValueStateChanged(self):
         self.ui.ratioGroupBox.setEnabled(self.ui.useRatio.checkState()==QtCore.Qt.Checked)
@@ -5398,7 +5545,17 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                       QtGui.QMessageBox.Yes | QtGui.QMessageBox.No) == QtGui.QMessageBox.Yes:
                     self.loadSettingsFile(link)
             else:
-                self.showAddGroupDialog(initWithFiles=links)
+                incorrectFiles=[]
+
+                for file in links:
+                    print file
+                    if not(file.lower().endswith(".mzxml") or file.lower().endswith(".mzml")):
+                        incorrectFiles.append(file)
+
+                if len(incorrectFiles)>0:
+                    QtGui.QMessageBox.warning(self, "MetExtract", "You are trying to load unknown file types that are not supported: \n\n  * "+"\n  * ".join(incorrectFiles)+"\n\nPlease only load mzXML or mzML files.")
+                else:
+                    self.showAddGroupDialog(initWithFiles=links)
         else:
             event.ignore()
 

@@ -206,7 +206,7 @@ class AnnotatedMSMSSpectra:
 
 class ProcessTarget:
     def __init__(self, targets, chromatogramFile,
-                 fullScanEICppm, fullScanThreshold, minMSMSPeakIntensityScaled,
+                 fullScanEICppm, fullScanThreshold, minMSMSPeakIntensityScaled, scalePrecursorMZ,
                  minXn, useZeroLabelingAtoms, useTracExtractAnnotation,
                  labellingOffset, matchingPPM, maxRelError, annotationElements, annotationPPM, useParentFragmentConsistencyRule,
                  saveAsTSV, saveAsPDF,
@@ -220,6 +220,7 @@ class ProcessTarget:
         self.fullScanEICppm=fullScanEICppm
         self.fullScanThreshold=fullScanThreshold
         self.minMSMSPeakIntensityScaled=minMSMSPeakIntensityScaled
+        self.scalePrecursorMZ=scalePrecursorMZ
 
         self.matchingPPM=matchingPPM
         self.maxRelError=maxRelError
@@ -284,7 +285,7 @@ class ProcessTarget:
             msScan.intensity_list[0]=100.
             return msScan
 
-        if precursorMZ==-1:
+        if precursorMZ==-1 or not self.scalePrecursorMZ:
             minInt=minVal
             maxInt=max([msScan.intensity_list[index] for index in range(len(msScan.intensity_list)) if minMZ<=msScan.mz_list[index]<=maxMZ])
         else:

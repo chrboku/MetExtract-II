@@ -110,8 +110,8 @@ SectionEnd
 
 Function installR
     MessageBox MB_YESNO "Install R? (2.15.2; This will not affect other installation/versions of R currently installed and no registry or environment variables will be created)" /SD IDYES IDNO endinstallR
-        File "ressources\R-2.15.2-win.exe"
-        File "ressources\setupR_minimal.inf"
+        File "resources\R-2.15.2-win.exe"
+        File "resources\setupR_minimal.inf"
         ExecWait "R-2.15.2-win.exe /SILENT /DIR=$\"$INSTDIR\R$\" /LOADINF=$\"$INSTDIR\setupR_minimal.inf$\""
         
     endinstallR:

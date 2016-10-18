@@ -23,6 +23,8 @@ from MZHCA import HierarchicalClustering, cutTreeSized
 import base64
 from pickle import dumps, loads
 
+import time
+
 import HCA_general
 
 
@@ -74,7 +76,7 @@ def writeConfigToDB(curs, align, file, groupSizePPM, maxLoading, maxTimeDeviatio
 # bracket results
 def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, negativeScanEvent=None,
                  maxTimeDeviation=0.36 * 60, maxLoading=1, file="./results.tsv", align=True, nPolynom=1,
-                 pwMaxSet=None, pwValSet=None, pwTextSet=None, rVersion="", meVersion="", generalProcessingParams=Bunch()):
+                 pwMaxSet=None, pwValSet=None, pwTextSet=None, rVersion="", meVersion="", generalProcessingParams=Bunch(), start=0):
 
 
     # create results SQLite tables
@@ -85,7 +87,8 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
     resDB.curs=resDB.conn.cursor()
 
     try:
-        writePDF = False            # used for debug purposes
+        writePDF = False
+        # used for debug purposes
         colos = [colors.red]
 
         cpf = get_main_dir() + "./XICAlignment.r"       # initialise chromatographic alignment script
@@ -135,7 +138,6 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
 
             i+=1
 
-
         with open(file, "wb") as f:
             # initialise TSV results file
 
@@ -161,52 +163,40 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
             assert len(ionModes) > 0
 
             totalChromPeaks = 0
+            totalChromPeaksProc = 0
             tracersDeltaMZ = {}
 
-            # check each processed LC-HRMS file if the used data processing parameters match
-            for res in results:
-                for row in res.curs.execute(
-                        "SELECT c.id, c.tracer, c.NPeakCenter, c.NPeakCenterMin, c.NPeakScale, c.NSNR, c.NPeakArea, c.mz, c.xcount, c.LPeakCenter, c.LPeakCenterMin, c.LPeakScale, c.LSNR, c.LPeakArea, c.Loading, f.fGroupId, t.name, c.ionMode, c.correlationsToOthers "
-                        "FROM chromPeaks c INNER JOIN featureGroupFeatures f ON c.id=f.fID INNER JOIN tracerConfiguration t ON c.tracer=t.id"):
-                    cp = ChromPeakPair(id=row[0], tracer=row[1], NPeakCenter=row[2], NPeakCenterMin=row[3],
-                                   NPeakScale=row[4], NSNR=row[5], NPeakArea=row[6], mz=row[7], xCount=row[8],
-                                   LPeakCenter=row[9], LPeakCenterMin=row[10], LPeakScale=row[11], LSNR=row[12],
-                                   LPeakArea=row[13], loading=row[14], fGroupID=row[15], tracerName=row[16],
-                                   ionMode=str(row[17]), correlationsToOthers=loads(base64.b64decode(str(row[18]))))
 
-                    assert cp.ionMode in ionModes.keys()
-                    res.featurePairs.append(cp)
+            ## TODO this used the last open file. May be invalid. improve
+            rows = []
+            for row in res.curs.execute("SELECT key, value FROM config WHERE key='metabolisationExperiment'"):
+                rows.append(str(row[1]))
+            assert len(rows) == 1
+            isMetabolisationExperiment = rows[0].lower() == "true"
 
+            ## TODO this used the last open file. May be invalid. improve
+            if isMetabolisationExperiment:
+                for row in res.curs.execute("SELECT id, name, deltaMZ FROM tracerConfiguration"):
+                    tracerName = str(row[1])
+                    dmz = float(row[2])
+                    if tracerName not in tracersDeltaMZ:
+                        tracersDeltaMZ[tracerName] = dmz
+
+                    if tracersDeltaMZ[tracerName] != dmz:
+                        logging.warning("Warning: Tracers have not been configured identical in all measurement files")
+            else:
                 rows = []
-                for row in res.curs.execute("SELECT key, value FROM config WHERE key='metabolisationExperiment'"):
+                ## TODO this used the last open file. May be invalid. improve
+                for row in res.curs.execute("SELECT key, value FROM config WHERE key='xOffset'"):
                     rows.append(str(row[1]))
                 assert len(rows) == 1
-                isMetabolisationExperiment = rows[0].lower() == "true"
 
-                if isMetabolisationExperiment:
-                    for row in res.curs.execute("SELECT id, name, deltaMZ FROM tracerConfiguration"):
-                        tracerName = str(row[1])
-                        dmz = float(row[2])
-                        if tracerName not in tracersDeltaMZ:
-                            tracersDeltaMZ[tracerName] = dmz
+                dmz = float(rows[0])
+                if "FLE" not in tracersDeltaMZ:
+                    tracersDeltaMZ["FLE"] = dmz
 
-                        if tracersDeltaMZ[tracerName] != dmz:
-                            logging.warning("Warning: Tracers have not been configured identical in all measurement files")
-                else:
-                    rows = []
-                    for row in res.curs.execute("SELECT key, value FROM config WHERE key='xOffset'"):
-                        rows.append(str(row[1]))
-                    assert len(rows) == 1
-
-                    dmz = float(rows[0])
-                    if "FLE" not in tracersDeltaMZ:
-                        tracersDeltaMZ["FLE"] = dmz
-
-                    if tracersDeltaMZ["FLE"] != dmz:
-                        logging.warning("Warning: Tracers have not been configured identical in all measurement files")
-
-                totalChromPeaks = totalChromPeaks + len(res.featurePairs)
-            totalChromPeaksProc = 0
+                if tracersDeltaMZ["FLE"] != dmz:
+                    logging.warning("Warning: Tracers have not been configured identical in all measurement files")
 
             if pwMaxSet is not None: pwMaxSet.put(Bunch(mes="max", val=totalChromPeaks))
 
@@ -229,7 +219,6 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
             # prefetch number of bracketing steps for the progress bar
             totalThingsToDo=0
             for ionMode in ionModes:
-                scanEvent = ionModes[ionMode]
                 for tracer in tracersDeltaMZ:
                     for xCount in xCounts:
                         for cLoading in range(maxLoading, 0, -1):
@@ -238,13 +227,65 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
             doneSoFar=0
             doneSoFarPercent=0
 
+
             # bracket data
             # process ionModes, tracers, xCount and loading separately
             for ionMode in ionModes:
                 scanEvent = ionModes[ionMode]
-                for tracer in tracersDeltaMZ:
-                    for xCount in xCounts:
-                        for cLoading in range(maxLoading, 0, -1):
+                for xCount in xCounts:
+                    for cLoading in range(maxLoading, 0, -1):
+
+                        # check each processed LC-HRMS file if the used data processing parameters match
+                        for res in results:
+                            res.featurePairs=[]
+
+                            if pwTextSet is not None:
+                                # Log time used for bracketing
+                                elapsed = (time.time() - start) / 60.
+                                hours = ""
+                                if elapsed >= 60.:
+                                    hours = "%d hours " % (elapsed // 60)
+                                mins = "%.2f mins" % (elapsed % 60.)
+                                pwTextSet.put(Bunch(mes="text", val="<p align='right' >%s%s elapsed</p>\n\n\n\nProcessing \n  (Ionmode: %s, XCount: %d, Charge: %d) \n  File: %s" % (
+                                                    hours, mins, ionMode, xCount, cLoading, res.fileName)))
+
+                            for row in res.curs.execute(
+                                    "SELECT c.id, c.tracer, c.NPeakCenter, c.NPeakCenterMin, c.NPeakScale, c.NSNR, c.NPeakArea, c.mz, c.xcount, c.LPeakCenter, c.LPeakCenterMin, c.LPeakScale, c.LSNR, c.LPeakArea, c.Loading, (SELECT f.fGroupId FROM featureGroupFeatures f WHERE f.fID=c.id) AS fGroupId, (SELECT t.name FROM tracerConfiguration t WHERE t.id=c.tracer) AS tracerName, c.ionMode, c.correlationsToOthers "
+                                    "FROM chromPeaks c WHERE c.ionMode='%s' AND c.xcount=%d and c.Loading=%d"%(ionMode, xCount, cLoading)):
+                                try:
+                                    cp = ChromPeakPair(id=row[0], tracer=row[1], NPeakCenter=row[2], NPeakCenterMin=row[3],
+                                                   NPeakScale=row[4], NSNR=row[5], NPeakArea=row[6], mz=row[7], xCount=row[8],
+                                                   LPeakCenter=row[9], LPeakCenterMin=row[10], LPeakScale=row[11], LSNR=row[12],
+                                                   LPeakArea=row[13], loading=row[14], fGroupID=row[15], tracerName=row[16],
+                                                   ionMode=str(row[17]), correlationsToOthers=loads(base64.b64decode(str(row[18]))))
+
+                                    assert cp.ionMode in ionModes.keys()
+                                    res.featurePairs.append(cp)
+                                except TypeError as err:
+                                    print "  TypeError in file %s, id %s, (Ionmode: %s, XCount: %d, Charge: %d)"%(str(res.fileName), str(row[0]), ionMode, xCount, cLoading), err.message
+                                except:
+                                    print "  some general error in file %s, id %s, (Ionmode: %s, XCount: %d, Charge: %d)"%(str(res.fileName), str(row[0]), ionMode, xCount, cLoading)
+
+                            totalChromPeaks = totalChromPeaks + len(res.featurePairs)
+
+
+
+                        if pwTextSet is not None:
+                            # Log time used for bracketing
+                            elapsed = (time.time() - start) / 60.
+                            hours = ""
+                            if elapsed >= 60.:
+                                hours = "%d hours " % (elapsed // 60)
+                            mins = "%.2f mins" % (elapsed % 60.)
+                            pwTextSet.put(Bunch(mes="text", val="<p align='right' >%s%s elapsed</p>\n\n\n\nClustering \n  (Ionmode: %s, XCount: %d, Charge: %d)" % (
+                                                hours, mins, ionMode, xCount, cLoading)))
+
+
+                            totalChromPeaks = totalChromPeaks + len(res.featurePairs)
+
+
+                        for tracer in tracersDeltaMZ:
+                            ## TODO this does not work correctly. improve
                             doneSoFar+=1
                             if floor(doneSoFar/totalThingsToDo*100)>doneSoFarPercent:
                                 doneSoFarPercent=floor(doneSoFar/totalThingsToDo*100)
@@ -583,7 +624,15 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                                 totalChromPeaksProc = totalChromPeaksProc + 1
 
                                     if pwValSet is not None: pwValSet.put(Bunch(mes="value",val=totalChromPeaksProc))
-                                    if pwTextSet is not None: pwTextSet.put(Bunch(mes="text",val="Bracketing results\n%d feature pairs (%d individual pairs processed).."%(curNum, totalChromPeaksProc)))
+                                    if pwTextSet is not None:
+
+                                        # Log time used for bracketing
+                                        elapsed = (time.time() - start) / 60.
+                                        hours = ""
+                                        if elapsed >= 60.:
+                                            hours = "%d hours " % (elapsed // 60)
+                                        mins = "%.2f mins" % (elapsed % 60.)
+                                        pwTextSet.put(Bunch(mes="text",val="<p align='right' >%s%s elapsed</p>\n\n\n\nBracketing results\n%d feature pairs (%d individual pairs processed).."%(hours, mins, curNum, totalChromPeaksProc)))
 
             if writePDF: pdf.save()
 

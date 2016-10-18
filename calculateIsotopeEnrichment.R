@@ -21,8 +21,8 @@ getIsotopicEnrichment<-function(a,s,r){
 ################################################################################
 ################################################################################
 ######################## Calculate isotopic enrichment
-Cn=50
-ratioOfMpOneToM=.23
+Cn=10
+ratioOfMpOneToM=.5
 substitutions=1
 enrichment=getIsotopicEnrichment(Cn, substitutions, ratioOfMpOneToM)
 print(sprintf("Enrichment is %.2f%% at a ratio of %.4f with Cn %d at M+%d/M (or M'-%d/M')", enrichment*100, ratioOfMpOneToM, Cn, substitutions, substitutions))
@@ -39,6 +39,9 @@ getNormalisedIsotopePatternRatio(50, 1, 0.986)-getNormalisedIsotopePatternRatio(
 ################################################################################
 ######################## Show results as a theoretical mass spectra
 if(FALSE){
+  Cn=3
+  enrichment=0.5
+  
   CnPos=0:Cn
   natRatios=getAbsoluteIsotopePatternRatio(Cn, CnPos, 0.9893)     ## 98.93% is the natural enrichment with 13C
   labRatios=getAbsoluteIsotopePatternRatio(Cn, CnPos, enrichment)

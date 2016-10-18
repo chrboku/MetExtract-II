@@ -7,6 +7,8 @@ import random
 
 import time
 
+from math import floor
+
 from copy import deepcopy
 
 from utils import Bunch
@@ -15,7 +17,7 @@ from utils import Bunch
 # methods to insert / alter / delete data are provided (including bulk-update)
 
 # class for storing metadata of one column
-class colDef:
+class ColDef:
     def __init__(self, name, format):
         self.name = name
         self.format = format
@@ -89,11 +91,19 @@ class Table:
         self.curs.execute(self.__updateTableName("CREATE TABLE :table: (__internalID INTEGER PRIMARY KEY,  %s)" % (", ".join(["%s %s" % h for h in cols]))))
         self.curs.execute(self.__updateTableName("CREATE TABLE :table:_COMMENTS (__internalID INTEGER PRIMARY KEY, comment TEXT)"))
 
-        for row in rows:
+        for rowi, row in enumerate(rows):
             while len(cols) > len(row):
                 row.append("")
-            self.curs.execute(self.__updateTableName("INSERT INTO :table: (%s) VALUES(%s)" % (
-                ", ".join([h[0] for h in cols]), ", ".join(["?" for c in row]))), [str(c) for c in row])
+
+            self.curs.execute(self.__updateTableName("INSERT INTO :table: (__internalID) VALUES (%d)"%rowi))
+
+            last=0
+            for i in range(0, int(floor(len(cols)/250)+1)*250+1, 250)[1:]:
+                i=min(i, len(cols))
+                self.curs.execute(self.__updateTableName("UPDATE :table: SET %s WHERE __internalID=%d"%(",".join(["%s=?"%t[0] for t in cols[last:i]]), rowi)), [str(c) for c in row[last:i]])
+                last=i
+
+            #self.curs.execute(self.__updateTableName("INSERT INTO :table: (%s) VALUES(%s)" % (", ".join([h[0] for h in cols]), ", ".join(["?" for c in row]))), [str(c) for c in row])
 
         for comment in comments:
             self.curs.execute(self.__updateTableName("INSERT INTO :table:_COMMENTS(comment) VALUES(?)"), [comment])
@@ -142,7 +152,7 @@ class Table:
         cols = []
         for row in self.curs.execute(self.__updateTableName("PRAGMA table_info(:table:)")):
             if row[1] != "__internalID":
-                cols.append(colDef(row[1], row[2]))
+                cols.append(ColDef(row[1], row[2]))
         return cols
 
     # test if a specific column is present in the table
@@ -191,11 +201,11 @@ class Table:
                 if elapsed > printAfter:
                     doneP=(1.*done/numOfCols)
                     s=(elapsed*(1-doneP)/doneP)/60.
-                    print "\rApplying %s.. |%-30s| %.1f%% (approximately %.1f minutes remaining, running for %.1f minutes, total %.1f minutes)"%(funcName, "*"*int(doneP*30), doneP*100, s, elapsed/60., s+elapsed/60.),
+                    print "\rApplying (function: %s).. |%-30s| %.1f%% (approximately %.1f minutes remaining, running for %.1f minutes, total %.1f minutes)"%(funcName, "*"*int(doneP*30), doneP*100, s, elapsed/60., s+elapsed/60.),
         if showProgress:
             s=(time.time()-started)/60.
-            if s > printAfter:
-                print "Applying function took %.1f minutes\n"%s
+            print "\rApplying (function: %s) took %.1f minutes                                                                                                                                                              "%(funcName,
+                                                                                                                                                                                                                               s)
 
         if pwMaxSet!=None: pwMaxSet(len(updates))
         if pwValSet!=None: pwValSet(0)
@@ -216,10 +226,7 @@ class Table:
                     print "\rUpdating.. |%-30s| %.1f%% (approximately %.1f minutes remaining)"%("*"*int(doneP*30), doneP*100, s),
         if showProgress:
             s=(time.time()-started)/60.
-            if s > printAfter:
-                print "Updating took %.1f minutes"%s
-            else:
-                print ""
+            print "\rUpdating took %.1f minutes                                                                                                        "%s
         self.conn.commit()
 
     # return the entire table
@@ -284,6 +291,25 @@ class Table:
         self.conn.commit()
         self.saved = False
 
+    # duplicate a new column to the table (in-memory only)
+    def duplicateColumn(self, col, newColName):
+        if self.hasColumn(newColName):
+            raise Exception("Column %s already exists" % newColName)
+
+        oldCol=None
+        for t in self.getColumns():
+            if t.name==col:
+                oldCol=t
+
+        if oldCol is None:
+            raise Exception("Column %s does not exists" % col)
+
+        self.curs.execute(self.__updateTableName("ALTER TABLE :table: ADD COLUMN %s %s" % (newColName, oldCol.format)))
+        self.curs.execute(self.__updateTableName("UPDATE :table: SET %s=%s"%(newColName, col)))
+
+        self.conn.commit()
+        self.saved = False
+
     # append a new row at the end of the table
     def addRow(self, data):
         for dCol in data.keys():
@@ -344,6 +370,9 @@ class Table:
                 ret.append(row)
 
         return ret
+
+    def deleteComments(self):
+        self.curs.execute(self.__updateTableName("DELETE FROM :table:_COMMENTS"))
 
     def addComment(self, comment):
         self.curs.execute(self.__updateTableName("INSERT INTO :table:_COMMENTS (comment) VALUES(?)"), [comment])

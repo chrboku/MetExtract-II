@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '.\mePyGuis\guis\heteroAtomEditor.ui'
 #
-# Created: Tue Aug 16 17:25:57 2016
+# Created: Fri Oct 14 17:38:07 2016
 #      by: PyQt4 UI code generator 4.10
 #
 # WARNING! All changes made in this file will be lost!

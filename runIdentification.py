@@ -116,7 +116,7 @@ class RunIdentification:
     def __init__(self, file, exOperator="", exExperimentID="", exComments="", exExperimentName="",
                  writePDF=False, writeTSV=False, writeMZXML=9,
                  metabolisationExperiment=False,
-                 labellingisotopeA='12C', labellingisotopeB='13C', useCValidation=False, xOffset=1.00335,
+                 labellingisotopeA='12C', labellingisotopeB='13C', useCIsotopePatternValidation=False, xOffset=1.00335,
                  minRatio=0, maxRatio=9999999, useRatio=False,
                  configuredTracers=[], intensityThreshold=0, intensityCutoff=0, maxLoading=1, xCounts="", ppm=2.,
                  isotopicPatternCountLeft=2, isotopicPatternCountRight=2, lowAbundanceIsotopeCutoff=True, intensityThresholdIsotopologs=1000,
@@ -167,14 +167,14 @@ class RunIdentification:
         self.labellingElement = getShortName(ea)
         self.isotopeA = ma
         self.isotopeB = mb
-        self.useCValidation = useCValidation
+        self.useCIsotopePatternValidation = useCIsotopePatternValidation
         self.minRatio = minRatio
         self.maxRatio = maxRatio
         self.useRatio = useRatio
 
         self.configuredTracers = configuredTracers
         if not self.metabolisationExperiment:
-            self.configuredTracers = [ConfiguredTracer(name="Full metabolome labelling experiment", id=0)]
+            self.configuredTracers = [ConfiguredTracer(name="FML", id=0)]
 
         #1. Mass picking
         self.intensityThreshold = intensityThreshold
@@ -306,39 +306,60 @@ class RunIdentification:
     # store configuration used for processing the LC-HRMS file into the database
     def writeConfigurationToDB(self, conn, curs):
         curs.execute("DROP TABLE IF EXISTS config")
-        curs.execute("CREATE TABLE config (id INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT, value TEXT)")
+        curs.execute(
+            "CREATE TABLE config (id INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT, value TEXT)")
+
         curs.execute("DROP TABLE IF EXISTS tracerConfiguration")
         curs.execute(
             "create table tracerConfiguration(id INTEGER PRIMARY KEY, name TEXT, elementCount INTEGER, natural TEXT, labelling TEXT, deltaMZ REAL, purityN REAL, purityL REAL, amountN REAL, amountL REAL, monoisotopicRatio REAL, lowerError REAL, higherError REAL, tracertype TEXT)")
+
         curs.execute("DROP TABLE IF EXISTS MZs")
         curs.execute(
             "create table MZs(id INTEGER PRIMARY KEY, tracer INTEGER, mz REAL, lmz REAL, tmz REAL, xcount INTEGER, scanid INTEGER, scantime REAL, loading INTEGER, intensity FLOAT, intensityL FLOAT, ionMode TEXT)")
+
         curs.execute("DROP TABLE IF EXISTS MZBins")
-        curs.execute("CREATE TABLE MZBins(id INTEGER PRIMARY KEY, mz REAL, ionMode TEXT)")
+        curs.execute(
+            "CREATE TABLE MZBins(id INTEGER PRIMARY KEY, mz REAL, ionMode TEXT)")
+
         curs.execute("DROP TABLE IF EXISTS MZBinsKids")
-        curs.execute("CREATE TABLE MZBinsKids(mzbinID INTEGER, mzID INTEGER)")
+        curs.execute(
+            "CREATE TABLE MZBinsKids(mzbinID INTEGER, mzID INTEGER)")
+
         curs.execute("DROP TABLE IF EXISTS XICs")
         curs.execute(
             "CREATE TABLE XICs(id INTEGER PRIMARY KEY, avgmz REAL, xcount INTEGER, loading INTEGER, polarity TEXT, xic TEXT, xic_smoothed TEXT, xicL TEXT, xicL_smoothed TEXT, xicfirstiso TEXT, xicLfirstiso TEXT, xicLfirstisoconjugate TEXT, times TEXT, scanCount INTEGER, allPeaks TEXT)")
+
         curs.execute("DROP TABLE IF EXISTS tics")
-        curs.execute("CREATE TABLE tics(id INTEGER PRIMARY KEY, loading INTEGER, scanevent TEXT, times TEXT, intensities TEXT)")
+        curs.execute(
+            "CREATE TABLE tics(id INTEGER PRIMARY KEY, loading INTEGER, scanevent TEXT, times TEXT, intensities TEXT)")
+
         curs.execute("DROP TABLE IF EXISTS chromPeaks")
         curs.execute(
             "CREATE TABLE chromPeaks(id INTEGER PRIMARY KEY, tracer INTEGER, eicID INTEGER, NPeakCenter INTEGER, NPeakCenterMin REAL, NPeakScale FLOAT, NSNR REAL, NPeakArea REAL, mz REAL, lmz REAL, xcount INTEGER, xcountId INTEGER, LPeakCenter INTEGER, LPeakCenterMin REAL, LPeakScale FLOAT, LSNR REAL, LPeakArea REAL, Loading INTEGER, peaksCorr FLOAT, heteroAtoms TEXT, NBorderLeft INTEGER, NBorderRight INTEGER, LBorderLeft INTEGER, LBorderRight INTEGER, adducts TEXT, heteroAtomsFeaturePairs TEXT, massSpectrumID INTEGER, ionMode TEXT, assignedMZs INTEGER, fDesc TEXT, peaksRatio FLOAT, peaksRatioMp1 FLOAT, peaksRatioMPm1 FLOAT, isotopesRatios TEXT, mzDiffErrors TEXT, peakType TEXT, assignedName TEXT, correlationsToOthers TEXT)")
+
         curs.execute("drop table if exists allChromPeaks")
         curs.execute(
             "CREATE TABLE allChromPeaks(id INTEGER PRIMARY KEY, tracer INTEGER, eicID INTEGER, NPeakCenter INTEGER, NPeakCenterMin REAL, NPeakScale FLOAT, NSNR REAL, NPeakArea REAL, mz REAL, lmz REAL, xcount INTEGER, xcountId INTEGER, LPeakCenter INTEGER, LPeakCenterMin REAL, LPeakScale FLOAT, LSNR REAL, LPeakArea REAL, Loading INTEGER, peaksCorr FLOAT, heteroAtoms TEXT, NBorderLeft INTEGER, NBorderRight INTEGER, LBorderLeft INTEGER, LBorderRight INTEGER, adducts TEXT, heteroAtomsFeaturePairs TEXT, ionMode TEXT, assignedMZs INTEGER, fDesc TEXT, peaksRatio FLOAT, peaksRatioMp1 FLOAT, peaksRatioMPm1 FLOAT, isotopesRatios TEXT, mzDiffErrors TEXT, peakType TEXT, assignedName TEXT, comment TEXT)")
+
         curs.execute("DROP TABLE IF EXISTS featureGroups")
-        curs.execute("CREATE TABLE featureGroups (id INTEGER PRIMARY KEY, featureName TEXT, tracer INTEGER)")
+        curs.execute(
+            "CREATE TABLE featureGroups (id INTEGER PRIMARY KEY, featureName TEXT, tracer INTEGER)")
+
         curs.execute("DROP TABLE IF EXISTS featureGroupFeatures")
         curs.execute(
             "CREATE TABLE featureGroupFeatures (id INTEGER PRIMARY KEY, fID INTEGER, fDesc TEXT, fGroupID INTEGER)")
+
         curs.execute("DROP TABLE IF EXISTS featurefeatures")
         curs.execute(
             "CREATE TABLE featurefeatures (fID1 INTEGER, fID2 INTEGER, corr FLOAT, desc1 TEXT, desc2 TEXT, add1 TEXT, add2 TEXT)")
+
         curs.execute("DROP TABLE IF EXISTS massspectrum")
         curs.execute(
             "CREATE TABLE massspectrum (mID INTEGER, fgID INTEGER, time FLOAT, mzs TEXT, intensities TEXT, ionMode TEXT)")
+
+        curs.execute("DROP TABLE IF EXISTS stats")
+        curs.execute(
+            "CREATE TABLE stats (key TEXT, value TEXT)")
 
         SQLInsert(curs, "config", key="MetExtractVersion", value=self.meVersion)
         SQLInsert(curs, "config", key="RVersion", value=self.rVersion)
@@ -351,7 +372,7 @@ class RunIdentification:
         SQLInsert(curs, "config", key="labellingElement", value=self.labellingElement)
         SQLInsert(curs, "config", key="isotopeA", value=self.isotopeA)
         SQLInsert(curs, "config", key="isotopeB", value=self.isotopeB)
-        SQLInsert(curs, "config", key="useCValidation", value=self.useCValidation)
+        SQLInsert(curs, "config", key="useCValidation", value=self.useCIsotopePatternValidation)
         SQLInsert(curs, "config", key="minRatio", value=self.minRatio)
         SQLInsert(curs, "config", key="maxRatio", value=self.maxRatio)
         SQLInsert(curs, "config", key="useRatio", value=str(self.useRatio))
@@ -419,7 +440,7 @@ class RunIdentification:
 
                 i += 1
         else:
-            #ConfiguredTracer(name="Full metabolome labelling experiment", id=0)
+            #ConfiguredTracer(name="Full metabolome labeling experiment", id=0)
             SQLInsert(curs, "tracerConfiguration", id=0, name="FLE")
         conn.commit()
 
@@ -719,7 +740,7 @@ class RunIdentification:
 
             p = matchPartners(mzXMLData=mzxml, forFile=self.file,
                               labellingElement=self.labellingElement,
-                              useCValidation=self.useCValidation,
+                              useCIsotopePatternValidation=self.useCIsotopePatternValidation,
                               intensityThres=self.intensityThreshold,
                               isotopologIntensityThres=self.intensityThresholdIsotopologs,
                               maxLoading=self.maxLoading,
@@ -750,7 +771,7 @@ class RunIdentification:
 
             n = matchPartners(mzXMLData=mzxml, forFile=self.file,
                               labellingElement=self.labellingElement,
-                              useCValidation=self.useCValidation,
+                              useCIsotopePatternValidation=self.useCIsotopePatternValidation,
                               intensityThres=self.intensityThreshold,
                               isotopologIntensityThres=self.intensityThresholdIsotopologs,
                               maxLoading=self.maxLoading,
@@ -1149,7 +1170,7 @@ class RunIdentification:
                                       peaksCorr=peak.peaksCorr,
                                       heteroAtoms='',adducts='', heteroAtomsFeaturePairs='',
                                       massSpectrumID=0,
-                                      assignedMZs=len(peak.assignedMZs), fDesc=base64.b64encode(dumps([])),
+                                      assignedMZs=base64.b64encode(dumps(peak.assignedMZs)), fDesc=base64.b64encode(dumps([])),
                                       peaksRatio=peak.peaksRatio, peaksRatioMp1=peak.peaksRatioMp1, peaksRatioMPm1=peak.peaksRatioMPm1,
                                       peakType="patternFound")
 
@@ -1226,6 +1247,12 @@ class RunIdentification:
                                     todel[a]=[]
                                 todel[a].append("singly charged mismatch with half the number of carbon atoms with "+str(peakB.mz)+" "+str(peakB.xCount))
 
+                            if 0<=(peakB.xCount-peakA.xCount*3)<=2 and peakA.loading == 1 and peakB.loading == 3:
+                                #a is intermediate pairing of polymer
+                                if a not in todel.keys():
+                                    todel[a]=[]
+                                todel[a].append("singly charged mismatch with third the number of carbon atoms with "+str(peakB.mz)+" "+str(peakB.xCount))
+
                         elif abs(peakB.mz-peakA.mz-1.00335/peakA.loading) <= (peakA.mz * 2.5 * self.ppm / 1000000.) and peakB.xCount==peakA.xCount and peakB.NPeakArea < 2*peakA.NPeakArea:
                             ## increased m/z value by one carbon atom, but the same number of labeling atoms ## happens quite often with 15N-labeled metabolites e.g. 415.21374 and 415.7154 or 414.6978 and 415.19966
                             if b not in todel.keys():
@@ -1275,8 +1302,8 @@ class RunIdentification:
         curs.close()
         conn.close()
 
-    # data processing step 5: in full metabolome labelling experiments hetero atoms (e.g. S, Cl) may
-    # show characterisitc isotope patterns on the labelled metabolite ion side. There, these peaks may not be
+    # data processing step 5: in full metabolome labeling experiments hetero atoms (e.g. S, Cl) may
+    # show characterisitc isotope patterns on the labeled metabolite ion side. There, these peaks may not be
     # dominated by the usually much more abundant carbon isotopes and can thus be easier seen. However, for
     # low abundant metabolite ions these isotope peaks may not be present at all. The search is performed
     # on a MS scan level and does not directly use the chromatographic information (no chromatographic
@@ -1871,14 +1898,18 @@ class RunIdentification:
                 peak.correlationsToOthers=[]
 
             # compare all detected feature pairs at approximately the same retention time
-            cpeakA = 0
             for piA in range(len(chromPeaks)):
                 peakA = chromPeaks[piA]
                 if reportFunction is not None:
-                    reportFunction(.7 * piA / len(chromPeaks),
-                                   "Matching features (%d remaining)" % (len(chromPeaks) - piA))
-                cpeakA += 1
+                    reportFunction(.7 * piA / len(chromPeaks), "Matching features (%d remaining)" % (len(chromPeaks) - piA))
+
+                if peakA.id not in correlations.keys():
+                    correlations[peakA.id]={}
+
                 for peakB in chromPeaks:
+                    if peakB.id not in correlations.keys():
+                        correlations[peakB.id]={}
+
                     if peakA.mz < peakB.mz:
                         if abs(peakA.NPeakCenter - peakB.NPeakCenter) < self.peakCenterError:
                             bmin = int(max(0, mean([peakA.NPeakCenter - 1 * peakA.NBorderLeft,
@@ -1889,12 +1920,11 @@ class RunIdentification:
                                                                       peakA.NPeakCenter + 1 * peakA.NBorderRight,
                                                                       peakB.LPeakCenter + 1 * peakB.LBorderRight,
                                                                       peakA.LPeakCenter + 1 * peakA.LBorderRight])))
-                            pb = corr(peakA.NXIC[bmin:bmax], peakB.NXIC[bmin:bmax])
 
-                            if peakA.id not in correlations.keys():
-                                correlations[peakA.id]={}
-                            if peakB.id not in correlations.keys():
-                                correlations[peakB.id]={}
+                            pb = corr(peakA.NXIC[bmin:bmax], peakB.NXIC[bmin:bmax])
+                            if str(pb)=="nan":
+                                pb=-1
+
                             correlations[peakA.id][peakB.id]=pb
                             correlations[peakB.id][peakA.id]=pb
 
@@ -1908,8 +1938,8 @@ class RunIdentification:
 
                             try:
                                 SQLInsert(curs, "featurefeatures", fID1=peakA.id, fID2=peakB.id, corr=pb)
-                            except:
-                                logging.error("Error while convoluting two feature pairs, skipping..")
+                            except Exception as e:
+                                logging.error("Error while convoluting two feature pairs, skipping.. (%s)"%str(e))
                                 SQLInsert(curs, "featurefeatures", fID1=peakA.id, fID2=peakB.id, corr=0)
 
             self.postMessageToProgressWrapper("text", "%s: Convoluting feature groups" % tracer.name)
@@ -2832,10 +2862,10 @@ class RunIdentification:
                     curScan = scans[w]
                     scanid = scanIds[w]
                     if not (newMZXMLData.has_key(scanid)):
-                        newMZXMLData[scanid] = [[], []]
+                        newMZXMLData[scanid] = Bunch(mzs=[], ints=[], rt=mzxml.getScanByID(scanid).retention_time)
                     for mz, inte in curScan:
-                        newMZXMLData[scanid][0].append(mz)
-                        newMZXMLData[scanid][1].append(inte)
+                        newMZXMLData[scanid].mzs.append(mz)
+                        newMZXMLData[scanid].ints.append(inte)
             if self.writeMZXML & 2:
                 scans, times, scanIds = mzxml.getArea(peak.NPeakCenter - peak.NBorderLeft,
                                                       peak.NPeakCenter + peak.NBorderRight,
@@ -2846,10 +2876,10 @@ class RunIdentification:
                     curScan = scans[w]
                     scanid = scanIds[w]
                     if not (newMZXMLData.has_key(scanid)):
-                        newMZXMLData[scanid] = [[], []]
+                        newMZXMLData[scanid] = Bunch(mzs=[], ints=[], rt=mzxml.getScanByID(scanid).retention_time)
                     for mz, inte in curScan:
-                        newMZXMLData[scanid][0].append(mz)
-                        newMZXMLData[scanid][1].append(inte)
+                        newMZXMLData[scanid].mzs.append(mz)
+                        newMZXMLData[scanid].ints.append(inte)
             if self.writeMZXML & 4:
                 scans, times, scanIds = mzxml.getArea(peak.NPeakCenter - peak.NBorderLeft,
                                                       peak.NPeakCenter + peak.NBorderRight,
@@ -2860,10 +2890,10 @@ class RunIdentification:
                     curScan = scans[w]
                     scanid = scanIds[w]
                     if not (newMZXMLData.has_key(scanid)):
-                        newMZXMLData[scanid] = [[], []]
+                        newMZXMLData[scanid] = Bunch(mzs=[], ints=[], rt=mzxml.getScanByID(scanid).retention_time)
                     for mz, inte in curScan:
-                        newMZXMLData[scanid][0].append(mz)
-                        newMZXMLData[scanid][1].append(inte)
+                        newMZXMLData[scanid].mzs.append(mz)
+                        newMZXMLData[scanid].ints.append(inte)
             if self.writeMZXML & 8:
                 scans, times, scanIds = mzxml.getArea(peak.NPeakCenter - peak.NBorderLeft,
                                                       peak.NPeakCenter + peak.NBorderRight,
@@ -2874,10 +2904,10 @@ class RunIdentification:
                     curScan = scans[w]
                     scanid = scanIds[w]
                     if not (newMZXMLData.has_key(scanid)):
-                        newMZXMLData[scanid] = [[], []]
+                        newMZXMLData[scanid] = Bunch(mzs=[], ints=[], rt=mzxml.getScanByID(scanid).retention_time)
                     for mz, inte in curScan:
-                        newMZXMLData[scanid][0].append(mz)
-                        newMZXMLData[scanid][1].append(inte)
+                        newMZXMLData[scanid].mzs.append(mz)
+                        newMZXMLData[scanid].ints.append(inte)
 
     # helper method if more than one tracer substance is used
     def writeIntermediateMZXMLDataToNewMZXMLFile(self, mzxml, newMZXMLData):
@@ -2900,12 +2930,25 @@ class RunIdentification:
         conn = connect(self.file + getDBSuffix())
         curs = conn.cursor()
 
+        ## save TICs
+        ## save mean, sd scan time
         i=1
         for pol, scanEvent in scanEvents.items():
             if scanEvent != "None":
                 TIC, times, scanIds=mzxml.getTIC(filterLine=scanEvent)
                 curs.execute("INSERT INTO tics(id, loading, scanevent, times, intensities) VALUES(%d, '%s', '%s', '%s', '%s')"%(i, pol, scanEvent, ";".join([str(t) for t in times]), ";".join(["%.0f"%t for t in TIC])))
                 i=i+1
+
+                scanTimes=[times[i+1]-times[i] for i in range(len(times)-1)]
+                curs.execute("INSERT INTO stats(key, value) VALUES('%s', '%s')"%("MeanScanTime_%s"%pol, str(mean(scanTimes))))
+                curs.execute("INSERT INTO stats(key, value) VALUES('%s', '%s')"%("SDScanTime_%s"%pol, str(sd(scanTimes))))
+                curs.execute("INSERT INTO stats(key, value) VALUES('%s', '%s')"%("NumberOfScans_%s"%pol, len(times)))
+                curs.execute("INSERT INTO stats(key, value) VALUES('%s', '%s')"%("TotalNumberOfSignals_%s"%pol, mzxml.getSignalCount(filterLine=scanEvent)))
+
+                minInt, maxInt, avgInt=mzxml.getMinMaxAvgSignalIntensities(filterLine=scanEvent)
+                curs.execute("INSERT INTO stats(key, value) VALUES('%s', '%s')"%("MinSignalInt_%s"%pol, minInt))
+                curs.execute("INSERT INTO stats(key, value) VALUES('%s', '%s')"%("MaxSignalInt_%s"%pol, maxInt))
+                curs.execute("INSERT INTO stats(key, value) VALUES('%s', '%s')"%("AvgSignalInt_%s"%pol, avgInt))
 
         conn.commit()
         curs.close()
@@ -2974,6 +3017,8 @@ class RunIdentification:
 
             self.writeTICsToDB(mzxml, {'+': self.positiveScanEvent, '-':self.negativeScanEvent})
 
+
+
             # endregion
 
             # Start calculation
@@ -3006,6 +3051,9 @@ class RunIdentification:
                     # Full metabolome labelling experiment
                     pass
                 # endregion
+
+
+
 
 
                 # region 1. Find 12C 13C partners in the mz dimension (0-25%)

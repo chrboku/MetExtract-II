@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '.\mePyGuis\guis\calcIsotopeEnrichmentDialog.ui'
 #
-# Created: Tue Aug 16 17:25:58 2016
+# Created: Fri Oct 14 17:38:07 2016
 #      by: PyQt4 UI code generator 4.10
 #
 # WARNING! All changes made in this file will be lost!
@@ -40,7 +40,7 @@ class Ui_Dialog(object):
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.label.sizePolicy().hasHeightForWidth())
         self.label.setSizePolicy(sizePolicy)
-        self.label.setStyleSheet(_fromUtf8("background-image: url(:/EnrichmentDialog/ressources/EnrichmentDialog.png)"))
+        self.label.setStyleSheet(_fromUtf8("background-image: url(:/EnrichmentDialog/resources/EnrichmentDialog.png)"))
         self.label.setText(_fromUtf8(""))
         self.label.setObjectName(_fromUtf8("label"))
         self.label_3 = QtGui.QLabel(Dialog)
@@ -320,7 +320,7 @@ class Ui_Dialog(object):
         item = self.tableWidget.horizontalHeaderItem(6)
         item.setText(_translate("Dialog", "13C-enrichment", None))
 
-import ressources_rc
+import resources_rc
 
 if __name__ == "__main__":
     import sys

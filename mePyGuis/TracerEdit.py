@@ -155,16 +155,16 @@ class TracerTableModel(QtCore.QAbstractTableModel):
 
             if index.column() == 9:
                 if self.arraydata[index.row()].maxRelNegBias == 0:
-                    return QtCore.QString("")
+                    return QtCore.QString("0 %")
                 if role == QtCore.Qt.DisplayRole:
-                    return QtCore.QString("%.2f %%" % (self.arraydata[index.row()].maxRelNegBias * 100.))
+                    return QtCore.QString("%.3f %%" % (self.arraydata[index.row()].maxRelNegBias * 100.))
                 elif role == QtCore.Qt.EditRole:
-                    return QtCore.QVariant(self.arraydata[index.row()].maxRelNegBias * 100.)
+                    return QtCore.QVariant(self.arraydata[index.row()].maxRelNegBias * 100., )
             if index.column() == 10:
                 if self.arraydata[index.row()].maxRelPosBias == 0:
                     return QtCore.QString("")
                 if role == QtCore.Qt.DisplayRole:
-                    return QtCore.QString("%.2f %%" % (self.arraydata[index.row()].maxRelPosBias * 100.))
+                    return QtCore.QString("%.3f %%" % (self.arraydata[index.row()].maxRelPosBias * 100.))
                 elif role == QtCore.Qt.EditRole:
                     return QtCore.QVariant(self.arraydata[index.row()].maxRelPosBias * 100.)
 
