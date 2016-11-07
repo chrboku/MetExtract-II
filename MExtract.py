@@ -773,6 +773,27 @@ def _integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colload
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 def interruptIndividualFilesProcessing(selfObj, pool):
     if QtGui.QMessageBox.question(selfObj, "MetExtract", "Are you sure you want to cancel?", QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)==QtGui.QMessageBox.Yes:
         pool.close()
@@ -795,6 +816,38 @@ def interruptBracketingOfFeaturePairs(selfObj, funcProc):
         logging.info("Processing stopped by user")
     else:
         return False # don't close progresswrapper and continue processing files
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
@@ -1647,6 +1700,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             for foundFP in SQLSelectAsObject(self.experimentResults.curs, "SELECT file AS fil, featurePairID, featureGroupID, areaN, areaL, featureType FROM FoundFeaturePairs WHERE resID=%d"%item.bunchData.id):
                 foundIn[foundFP.fil]=foundFP
 
+            definedGroups = dict([(str(t.data(QListWidgetItem.UserType).toPyObject().name), t.data(QListWidgetItem.UserType).toPyObject()) for t in
+                             natSort(self.ui.groupsList.findItems('*', QtCore.Qt.MatchWildcard),
+                                     key=lambda x: str(x.data(QListWidgetItem.UserType).toPyObject().name))])
+
             offsetCount=0
             for groupID, groupName in groups.items():
                 for file in filesInGroups[groupID]:
@@ -1676,12 +1733,13 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                 if abs(t-item.bunchData.rt)<bestCenterDiff:
                                     bestCenterDiff=abs(t-item.bunchData.rt)
                                     bestCenter=i
+
                             centerInt=1
                             if self.ui.resultsExperimentNormaliseXICs_checkBox.checkState()==QtCore.Qt.Checked:
                                 centerInt=XICObj.xicL[bestCenter]
 
-                            self.ui.resultsExperiment_plot.axes.plot([t/60. for t in XICObj.times], [f/centerInt for f in XICObj.xic],   color=predefinedColors[itemNum%len(predefinedColors)])
-                            self.ui.resultsExperiment_plot.axes.plot([t/60. for t in XICObj.times], [-f/centerInt for f in XICObj.xicL], color=predefinedColors[itemNum%len(predefinedColors)])
+                            self.ui.resultsExperiment_plot.axes.plot([t/60. for t in XICObj.times], [f/centerInt for f in XICObj.xic],   color=definedGroups[groupName].color)
+                            self.ui.resultsExperiment_plot.axes.plot([t/60. for t in XICObj.times], [-f/centerInt for f in XICObj.xicL], color=definedGroups[groupName].color)
                             axlimMin=min(axlimMin, rt-.5)
                             axlimMax=max(axlimMax, rt+.5)
 
@@ -1689,8 +1747,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             minInd=min(useInds)
                             maxInd=max(useInds)
 
-                            self.ui.resultsExperimentSeparatedPeaks_plot.axes.plot([t/60. +offsetCount*0.33 for t in XICObj.times[minInd:maxInd]], [f/centerInt for f in XICObj.xic[minInd:maxInd]],   color=predefinedColors[groupID%len(predefinedColors)])
-                            self.ui.resultsExperimentSeparatedPeaks_plot.axes.plot([t/60. +offsetCount*0.33 for t in XICObj.times[minInd:maxInd]], [-f/centerInt for f in XICObj.xicL[minInd:maxInd]], color=predefinedColors[groupID%len(predefinedColors)])
+                            self.ui.resultsExperimentSeparatedPeaks_plot.axes.plot([t/60. +offsetCount*0.33 for t in XICObj.times[minInd:maxInd]], [f/centerInt for f in XICObj.xic[minInd:maxInd]],   color=definedGroups[groupName].color)
+                            self.ui.resultsExperimentSeparatedPeaks_plot.axes.plot([t/60. +offsetCount*0.33 for t in XICObj.times[minInd:maxInd]], [-f/centerInt for f in XICObj.xicL[minInd:maxInd]], color=definedGroups[groupName].color)
 
                         if False:
                             if msSpectrumID is not None:

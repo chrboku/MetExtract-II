@@ -25,7 +25,7 @@ RequestExecutionLevel user
 # name the installer
 OutFile "Setup.exe" 
 #InstallDir "$PROGRAMFILES32\MetExtractII\"
-InstallDir "$LOCALAPPDATA\MetExtractII"
+InstallDir "$LOCALAPPDATA\MetExtractII_$$METEXTRACTVERSION$$"
 ShowInstDetails show
 ShowUnInstDetails show 
 
@@ -56,16 +56,16 @@ Section "instfiles"
 
     CreateDirectory "$INSTDIR\R"
     
-    CreateDirectory "$SMPROGRAMS\MetExtractII"
-    CreateShortCut "$SMPROGRAMS\MetExtractII\MetExtract II.lnk" "$INSTDIR\MetExtractII_Main.exe"
+    CreateDirectory "$SMPROGRAMS\MetExtractII $$METEXTRACTVERSION$$"
+    CreateShortCut "$SMPROGRAMS\MetExtractII $$METEXTRACTVERSION$$\MetExtract II $$METEXTRACTVERSION$$.lnk" "$INSTDIR\MetExtractII_Main.exe"
     # CreateShortCut "$SMPROGRAMS\MetExtractII\Sample data.lnk" "$INSTDIR\sampleData"
-    CreateShortCut "$SMPROGRAMS\MetExtractII\Documentation.lnk" "$INSTDIR\documentation\index.html"
+    CreateShortCut "$SMPROGRAMS\MetExtractII $$METEXTRACTVERSION$$\Documentation.lnk" "$INSTDIR\documentation\index.html"
     
-    CreateShortCut "$SMPROGRAMS\MetExtractII\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
+    CreateShortCut "$SMPROGRAMS\MetExtractII $$METEXTRACTVERSION$$\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
     
     MessageBox MB_YESNO "Do you want to create a shortcut on the desktop?" /SD IDYES IDNO endDesktopIcon
                 
-        CreateShortCut "$DESKTOP\MetExtract II.lnk" "$INSTDIR\MetExtractII_Main.exe"
+        CreateShortCut "$DESKTOP\MetExtract II $$METEXTRACTVERSION$$.lnk" "$INSTDIR\MetExtractII_Main.exe"
             
     endDesktopIcon:
     
@@ -102,7 +102,9 @@ Section "uninstall"
     DeleteRegKey /ifempty ${INSTDIR_REG_ROOT} "${INSTDIR_REG_KEY}"
   
     # second, remove the links from the start menu
-    RmDir /r "$SMPROGRAMS\MetExtractII"
+    RmDir /r "$SMPROGRAMS\MetExtractII $$METEXTRACTVERSION$$"
+
+    delete "$DESKTOP\MetExtract II $$METEXTRACTVERSION$$.lnk"
  
 # uninstaller section end
 SectionEnd
