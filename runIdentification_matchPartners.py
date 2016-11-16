@@ -141,6 +141,16 @@ def matchPartners(mzXMLData, forFile,
                                         #               was available)
                                         # region
                                         if useCIsotopePatternValidation != 0:
+                                            # (0.) verify that peak is M and not something else (e.g. M+1, M+1...)
+                                            ## TODO improve me. Use seven golden rules or the number of carbon atoms
+                                            isoM_m1 = curScan.findMZ(curPeakmz - cValidationOffset, ppm*2)
+                                            isoM_m1 = curScan.getMostIntensePeak(isoM_m1[0], isoM_m1[1])
+                                            if isoM_m1 != -1:
+                                               obRatio=curScan.intensity_list[isoM_m1] / curPeakIntensity
+                                               if obRatio>=0.5:
+                                                   continue
+
+
                                             # find M+1 peak
                                             isoM_p1 = curScan.findMZ(curPeakmz + cValidationOffset, ppm, start=currentPeakIndex)
                                             isoM_p1 = curScan.getMostIntensePeak(isoM_p1[0], isoM_p1[1])
@@ -155,6 +165,16 @@ def matchPartners(mzXMLData, forFile,
 
                                                         labPeakmz=curScan.mz_list[isoM_pX]
                                                         labPeakIntensity=curScan.intensity_list[isoM_pX]
+
+                                                        # find M'-1 peak
+                                                        isoM_pXm1 = curScan.findMZ(curPeakmz + xCount * xOffset - cValidationOffset, ppm*2, start=currentPeakIndex)
+                                                        isoM_pXm1 = curScan.getMostIntensePeak(isoM_pXm1[0], isoM_pXm1[1])
+                                                        if isoM_pXm1 != -1:
+                                                           obRatio=curScan.intensity_list[isoM_pXm1] / curScan.intensity_list[isoM_pX]
+                                                           if obRatio>=0.5:
+                                                               continue
+
+
 
                                                         # (1.) check if M' and M ratio are as expected
                                                         if checkRatio:

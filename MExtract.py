@@ -3033,7 +3033,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 count += 1
 
                 pw.setValueu(count, i=2)
-            pw.setTextu("%d feature pairs fetched", i=2)
+            pw.setTextu("%d feature pairs fetched"%numberOfFeaturePairs, i=2)
 
             it.addChildren(children)
             it.setExpanded(False)
