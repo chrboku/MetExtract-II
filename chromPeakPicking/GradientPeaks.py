@@ -262,8 +262,8 @@ if __name__=="__main__":
 
     sw.start()
     for i in range(100):
-        eicN_raw, times, scanIds = t.getEIC(mz, ppm, filterLine=filterLine)
-        eicL_raw, times, scanIds = t.getEIC(mz+cn*dmz/z, ppm, filterLine=filterLine)
+        eicN_raw, times, scanIds, mzs = t.getEIC(mz, ppm, filterLine=filterLine)
+        eicL_raw, times, scanIds, mzs = t.getEIC(mz+cn*dmz/z, ppm, filterLine=filterLine)
     sw.stop()
     durationMessages.append("Calculating the EICs took %.1f seconds (100 times)"%sw.getDurationInSeconds())
 

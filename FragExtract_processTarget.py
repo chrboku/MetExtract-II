@@ -303,8 +303,8 @@ class ProcessTarget:
         return msScan
 
     def selectMSMSScansForProcessing(self, mzxml, Cn, minRT, maxRT, nativeMZ, metaboliteCharge, fullScanEvent, nativeMS2ScanEvent, labelledMS2ScanEvent):
-        eic, timesFS, scanIDsFS=mzxml.getEIC(nativeMZ, ppm=self.fullScanEICppm, filterLine=fullScanEvent)
-        eicL, timesFS, scanIDsFS=mzxml.getEIC(nativeMZ+self.labellingOffset*Cn/metaboliteCharge, ppm=self.fullScanEICppm, filterLine=fullScanEvent)
+        eic, timesFS, scanIDsFS, mzs=mzxml.getEIC(nativeMZ, ppm=self.fullScanEICppm, filterLine=fullScanEvent)
+        eicL, timesFS, scanIDsFS, mzs=mzxml.getEIC(nativeMZ+self.labellingOffset*Cn/metaboliteCharge, ppm=self.fullScanEICppm, filterLine=fullScanEvent)
 
         TIC, timesMS2Native, scanIdsMS2Native=mzxml.getTIC(filterLine=nativeMS2ScanEvent, useMS2=True)
         TICL, timesMS2Labelled, scanIdsMS2Labelled=mzxml.getTIC(filterLine=labelledMS2ScanEvent, useMS2=True)
@@ -1127,8 +1127,8 @@ class ProcessTarget:
             mz=scanMS2Annotated.nativeMz_list[i]
             mzL=scanMS2Annotated.labelledMz_list[i]
 
-            eicN, timesN, scanIdsN=chromatogram.getEIC(mz=mz,  ppm=self.matchingPPM, filterLine=nativeScanEventString, removeSingles=False, useMS1=False, useMS2=True)
-            eicL, timesL, scanIdsL=chromatogram.getEIC(mz=mzL, ppm=self.matchingPPM, filterLine=labelledScanEventString, removeSingles=False, useMS1=False, useMS2=True)
+            eicN, timesN, scanIdsN, mzs=chromatogram.getEIC(mz=mz,  ppm=self.matchingPPM, filterLine=nativeScanEventString, removeSingles=False, useMS1=False, useMS2=True)
+            eicL, timesL, scanIdsL, mzs=chromatogram.getEIC(mz=mzL, ppm=self.matchingPPM, filterLine=labelledScanEventString, removeSingles=False, useMS1=False, useMS2=True)
 
 
 

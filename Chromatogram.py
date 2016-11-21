@@ -193,6 +193,7 @@ class Chromatogram():
         eic = []
         times = []
         scanIds = []
+        mzs = []
 
         eicAppend = eic.append
         timesAppend = times.append
@@ -203,9 +204,13 @@ class Chromatogram():
                 if (scan.filter_line == filterLine or filterLine == "") and startTime <= scan.retention_time <= endTime:
                     bounds = scan.findMZ(mz, ppm)
                     if bounds[0] != -1:
-                        eicAppend(max(scan.intensity_list[bounds[0]:(bounds[1] + 1)]))
+                        df=scan.intensity_list[bounds[0]:(bounds[1] + 1)]
+                        uIndex=df.index(max(scan.intensity_list[bounds[0]:(bounds[1] + 1)]))
+                        eicAppend(scan.intensity_list[bounds[0]+uIndex])
+                        mzs.append(scan.mz_list[bounds[0]+uIndex])
                     else:
                         eicAppend(0)
+                        mzs.append(-1)
                     timesAppend(scan.retention_time)
                     scanIdsAppend(scan.id)
 
@@ -214,22 +219,28 @@ class Chromatogram():
                 if (scan.filter_line == filterLine or filterLine == "") and startTime <= scan.retention_time <= endTime:
                     bounds = scan.findMZ(mz, ppm)
                     if bounds[0] != -1:
-                        eicAppend(max(scan.intensity_list[bounds[0]:(bounds[1] + 1)]))
+                        df=scan.intensity_list[bounds[0]:(bounds[1] + 1)]
+                        uIndex=df.index(max(scan.intensity_list[bounds[0]:(bounds[1] + 1)]))
+                        eicAppend(scan.intensity_list[bounds[0]+uIndex])
+                        mzs.append(scan.mz_list[bounds[0]+uIndex])
                     else:
                         eicAppend(0)
+                        mzs.append(-1)
                     timesAppend(scan.retention_time)
                     scanIdsAppend(scan.id)
 
         for i in range(1, len(eic)):
             if eic[i] < intThreshold:
                 eic[i] = 0
+                mzs[i] = -1
 
         if removeSingles:
             for i in range(1, len(eic) - 1):
                 if eic[i - 1] == 0 and eic[i + 1] == 0:
                     eic[i] = 0
+                    mzs[i] = -1
 
-        return eic, times, scanIds
+        return eic, times, scanIds, mzs
 
 
     def getSignalCount(self, filterLine="", removeSingles=True, intThreshold=0, useMS1=True, useMS2=False, startTime=0, endTime=1000000):
@@ -443,6 +454,11 @@ class Chromatogram():
                 assert len(scan.mz_list) == len(scan.intensity_list) == scan.peak_count
                 if intensityCutoff<0:
                     assert scan.peak_count == scan.peak_count_tag
+
+        signals=0
+        for msscan in self.MS1_list:
+            signals+=len(msscan.mz_list)
+
 
     def parseMzMLFile(self, filename_xml, intensityCutoff, ignoreCharacterData):
 

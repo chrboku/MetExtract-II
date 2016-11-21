@@ -316,7 +316,8 @@ from mePyGuis.TracerEdit import tracerEdit
 from formulaTools import getIsotopeMass
 #</editor-fold>
 #<editor-fold desc="### Various Imports">
-from utils import natSort, ChromPeakPair, getNormRatio, mean, SampleGroup, Bunch, SQLInsert, SQLSelectAsObject, get_main_dir, smoothDataSeries
+from utils import natSort, ChromPeakPair, getNormRatio, mean, SampleGroup
+from utils import Bunch, SQLInsert, SQLSelectAsObject, get_main_dir, smoothDataSeries, sd
 from utils import FuncProcess, CallBackMethod
 import HCA_general
 
@@ -356,7 +357,7 @@ class procAreaInFile:
 
         if colToProc == "":
 
-            eic, times, scanids = self.t.getEIC(mz, ppm, filterLine=scanEvent)
+            eic, times, scanids, mzs = self.t.getEIC(mz, ppm, filterLine=scanEvent)
             eicSmoothed = smoothDataSeries(times, eic, windowLen=smoothingWindowSize, window=smoothingWindow, polynom=smoothingWindowPolynom)
             ret = self.CP.getPeaksFor(times, eicSmoothed, scales=scales, snrTh=snrTH)
 
@@ -2799,6 +2800,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.ui.label_18.setEnabled(sta)
         self.ui.groupingRT.setEnabled(sta)
         self.ui.integratedMissedPeaks.setEnabled(sta)
+        self.ui.convoluteResults.setEnabled(sta)
         self.ui.label_20.setEnabled(sta)
         self.ui.groupsSave.setEnabled(sta)
         self.ui.groupsSelectFile.setEnabled(sta)
@@ -2964,6 +2966,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             children=[]
             for row in SQLSelectAsObject(self.currentOpenResultsFile.curs, "SELECT chromPeaks.id AS cpID, "
                                                                            "mz, "
+                                                                           "lmz, "
                                                                            "xcount, "
                                                                            "NPeakCenterMin, "
                                                                            "LPeakCenterMin, "
@@ -3007,7 +3010,15 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                 assignedMZs=loads(base64.b64decode(row.assignedMZs))
 
-                d = QtGui.QTreeWidgetItem([str(row.mz) + " (/" + str(row.ionMode) + str(row.Loading) + ") ",
+                xp = ChromPeakPair(NPeakCenter=int(row.NPeakCenter), LPeakScale=float(row.LPeakScale), LPeakCenter=int(row.LPeakCenter),
+                               NPeakScale=float(row.NPeakScale), NSNR=0, NPeakArea=-1, mz=float(row.mz), lmz=float(row.lmz), xCount=int(row.xcount),
+                               NBorderLeft=float(row.NBorderLeft), NBorderRight=float(row.NBorderRight),
+                               LBorderLeft=float(row.LBorderLeft), LBorderRight=float(row.LBorderRight),
+                               NPeakCenterMin=float(row.NPeakCenterMin), LPeakCenterMin=float(row.LPeakCenterMin), eicID=int(row.eicID), massSpectrumID=int(row.massSpectrumID),
+                               assignedName=str(row.assignedName), id=int(row.cpID), loading=int(row.Loading), peaksCorr=float(row.peaksCorr), peaksRatio=float(row.peaksRatio),
+                               tracer=str(row.tracerName), ionMode=str(row.ionMode), heteroAtoms=heteroAtoms, adducts=adducts, assignedMZs=assignedMZs)
+
+                d = QtGui.QTreeWidgetItem(["%.5f"%xp.mz + " (/" + str(row.ionMode) + str(row.Loading) + ") ",
                                            "%.2f / %.2f" % (float(row.NPeakCenterMin) / 60., float(row.LPeakCenterMin) / 60.),
                                            str(row.xcount),
                                            "%s / %s "%(adducts, heteroAtoms),
@@ -3016,15 +3027,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                            "%.3f / %.3f"%(row.peaksRatio, row.NPeakArea/row.LPeakArea),
                                            "%.1f / %.1f"%(row.NPeakArea, row.LPeakArea),
                                            "%d"%len(assignedMZs),
+                                           "%.5f"%(xp.lmz),
                                            str(row.tracerName)])
-
-                xp = ChromPeakPair(NPeakCenter=int(row.NPeakCenter), LPeakScale=float(row.LPeakScale), LPeakCenter=int(row.LPeakCenter),
-                               NPeakScale=float(row.NPeakScale), NSNR=0, NPeakArea=-1, mz=float(row.mz), xCount=int(row.xcount),
-                               NBorderLeft=float(row.NBorderLeft), NBorderRight=float(row.NBorderRight),
-                               LBorderLeft=float(row.LBorderLeft), LBorderRight=float(row.LBorderRight),
-                               NPeakCenterMin=float(row.NPeakCenterMin), LPeakCenterMin=float(row.LPeakCenterMin), eicID=int(row.eicID), massSpectrumID=int(row.massSpectrumID),
-                               assignedName=str(row.assignedName), id=int(row.cpID), loading=int(row.Loading), peaksCorr=float(row.peaksCorr), peaksRatio=float(row.peaksRatio),
-                               tracer=str(row.tracerName), ionMode=str(row.ionMode), heteroAtoms=heteroAtoms, adducts=adducts, assignedMZs=assignedMZs)
 
                 d.myType = "feature"
                 d.myID = int(row.cpID)
@@ -3069,6 +3073,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 sumRt = 0.
                 for row in SQLSelectAsObject(self.currentOpenResultsFile.curs, "SELECT c.id AS cpID, "
                                                                                "c.mz AS mz, "
+                                                                               "c.lmz AS lmz, "
                                                                                "c.xcount AS xcount, "
                                                                                "c.NPeakCenterMin AS NPeakCenterMin, "
                                                                                "c.LPeakCenterMin AS LPeakCenterMin, "
@@ -3093,7 +3098,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                                                "c.assignedName AS assignedName, "
                                                                                "c.ionMode AS ionMode, "
                                                                                "c.massSpectrumID AS massSpectrumID, "
-                                                                               "c.assignedMZs AS assignedMZs "
+                                                                               "c.assignedMZs AS assignedMZs, "
+                                                                               "c.mzdifferrors AS mzdifferrors "
                                                                                "FROM chromPeaks c JOIN featureGroupFeatures f ON c.id==f.fID INNER JOIN tracerConfiguration t ON t.id=c.tracer "
                                                                                "WHERE f.fGroupID=%d ORDER BY %s, c.mz, c.xcount" % (fG.fgID, {"M/Z":"c.mz", "RT":"c.mz", "Intensity":"c.NPeakArea DESC", "Peaks correlation":"peaksCorr DESC"}[sortOrder])):
 
@@ -3114,7 +3120,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                     xp = ChromPeakPair(NPeakCenter=int(row.NPeakCenter), loading=int(row.Loading), LPeakScale=float(row.LPeakScale),
                                    LPeakCenter=int(row.LPeakCenter), NPeakScale=float(row.NPeakScale), NSNR=0, NPeakArea=-1,
-                                   mz=float(row.mz), xCount=int(row.xcount), NPeakCenterMin=float(row.NPeakCenterMin),
+                                   mz=float(row.mz), lmz=float(row.lmz), xCount=int(row.xcount), NPeakCenterMin=float(row.NPeakCenterMin),
                                    NBorderLeft=float(row.NBorderLeft), NBorderRight=float(row.NBorderRight),
                                    LBorderLeft=float(row.LBorderLeft), LBorderRight=float(row.LBorderRight),
                                    LPeakCenterMin=float(row.LPeakCenterMin), eicID=int(row.eicID), massSpectrumID=int(row.massSpectrumID),
@@ -3124,7 +3130,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     xp.peaksCorr = float(row.peaksCorr)
                     xp.peaksRatio = float(row.peaksRatio)
 
-                    g = QtGui.QTreeWidgetItem([str(row.mz) + " (/" + str(row.ionMode) + str(row.Loading) + ") ",
+                    g = QtGui.QTreeWidgetItem(["%.5f"%xp.mz + " (/" + str(row.ionMode) + str(row.Loading) + ") ",
                                                "%.2f / %.2f" % (float(row.NPeakCenterMin) / 60., float(row.LPeakCenterMin) / 60.),
                                                str(row.xcount),
                                                "%s / %s "%(adducts, heteroAtoms),
@@ -3133,6 +3139,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                "%.3f / %.3f"%(row.peaksRatio, row.NPeakArea/row.LPeakArea),
                                                "%.1f / %.1f"%(row.NPeakArea, row.LPeakArea),
                                                "%d"%len(assignedMZs),
+                                               "%.5f"%(xp.lmz),
                                                str(row.tracerName)])
 
                     g.myType = "feature"
@@ -3143,7 +3150,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     sumRt = sumRt + xp.NPeakCenterMin
                     cpCount += 1
                 d.setText(2, str(cpCount))
-                d.setText(1, "%.2f" % (sumRt / cpCount / 60.))
+                if cpCount>0:
+                    d.setText(1, "%.2f" % (sumRt / cpCount / 60.))
+                else:
+                    d.setText(1, "")
                 children.append(d)
                 count += 1
                 pw.setValueu(count, i=3)
@@ -3385,53 +3395,57 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
 
             ## Setup diagnostics
-            it = QtGui.QTreeWidgetItem(["Diagnostics"]);
+            it = QtGui.QTreeWidgetItem(["Diagnostics"])
             it.myType = "diagnostic"
             self.ui.res_ExtractedData.addTopLevelItem(it)
 
-            itl = QtGui.QTreeWidgetItem(["Observed intensities"]);
-            it.addChild(itl);
+            itl = QtGui.QTreeWidgetItem(["Observed intensities"])
+            it.addChild(itl)
             itl.myType = "diagnostic - observed intensities"
 
-            itl = QtGui.QTreeWidgetItem(["Native vs. labeled signal intensity"]);
-            it.addChild(itl);
+            itl = QtGui.QTreeWidgetItem(["Native vs. labeled signal intensity"])
+            it.addChild(itl)
             itl.myType = "diagnostic - observed intensities comparison"
 
-            itl = QtGui.QTreeWidgetItem(["Relative mz error"]);
-            it.addChild(itl);
+            itl = QtGui.QTreeWidgetItem(["Relative mz error"])
+            it.addChild(itl)
             itl.myType = "diagnostic - relative mz error"
 
-            itl = QtGui.QTreeWidgetItem(["Relative mz error vs. signal intensity"]);
-            it.addChild(itl);
+            itl = QtGui.QTreeWidgetItem(["Relative mz error vs. signal intensity"])
+            it.addChild(itl)
             itl.myType = "diagnostic - relative mz error vs intensity"
 
-            itl = QtGui.QTreeWidgetItem(["Relative mzbin deviation"]);
-            it.addChild(itl);
+            itl = QtGui.QTreeWidgetItem(["Relative mzbin deviation"])
+            it.addChild(itl)
             itl.myType = "diagnostic - relative mzbin deviation"
 
-            itl = QtGui.QTreeWidgetItem(["Feature pair correlations"]);
-            it.addChild(itl);
+            itl = QtGui.QTreeWidgetItem(["Feature pair correlations"])
+            it.addChild(itl)
             itl.myType = "diagnostic - feature pair correlations"
 
-            itl = QtGui.QTreeWidgetItem(["Feature pair M+1/M ratio"]);
-            it.addChild(itl);
+            itl = QtGui.QTreeWidgetItem(["Feature pair M+1/M ratio"])
+            it.addChild(itl)
             itl.myType = "diagnostic - feature pair mp1 to m ratio"
 
-            itl = QtGui.QTreeWidgetItem(["Feature pair M'-1/M' ratio"]);
-            it.addChild(itl);
+            itl = QtGui.QTreeWidgetItem(["Feature pair M'-1/M' ratio"])
+            it.addChild(itl)
             itl.myType = "diagnostic - feature pair mPp1 to mP ratio"
 
-            itl = QtGui.QTreeWidgetItem(["Feature pair assigned MZs"]);
-            it.addChild(itl);
+            itl = QtGui.QTreeWidgetItem(["Feature pair assigned MZs"])
+            it.addChild(itl)
             itl.myType = "diagnostic - feature pair assigned mzs"
 
-            itl = QtGui.QTreeWidgetItem(["Mean feature pair MZ deviation"]);
-            it.addChild(itl);
+            itl = QtGui.QTreeWidgetItem(["Mean feature pair MZ deviation"])
+            it.addChild(itl)
             itl.myType = "diagnostic - feature pair mz deviation mean"
 
-            itl = QtGui.QTreeWidgetItem(["Feature pair MZ deviation"]);
-            it.addChild(itl);
+            itl = QtGui.QTreeWidgetItem(["Feature pair MZ deviation"])
+            it.addChild(itl)
             itl.myType = "diagnostic - feature pair mz deviation"
+
+            itl = QtGui.QTreeWidgetItem(["Peak MZ deviation"])
+            it.addChild(itl)
+            itl.myType = "diagnostic - EIC mz deviation"
 
 
 
@@ -3719,7 +3733,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 self.ui.chromPeakName.setText("")
 
                 self.ui.res_ExtractedData.setHeaderLabels(QtCore.QStringList(
-                    ["MZ (/Ionmode Z)", "Rt min", "Xn", "Adducts, hetero atoms", "Scale M / M'", "Peak cor", "M:M' peaks ratio / area ratio", "Area M / M'", "Scans", "Tracer"]))
+                    ["MZ (/Ionmode Z)", "Rt min", "Xn", "Adducts, hetero atoms", "Scale M / M'", "Peak cor", "M:M' peaks ratio / area ratio", "Area M / M'", "Scans", "LMZ", "Tracer"]))
 
                 if item.myType == "Features":
                     mzs = []
@@ -4074,7 +4088,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                 if self.ui.MSLabels.checkState() == QtCore.Qt.Checked:
                                     self.addAnnotation(self.ui.pl3,
                                                        "mz: %.5f\nl-mz: %.5f\nd-mz: %.5f\nXn: %d Z: %s%d" % (
-                                                           cp.mz, cp.mz + mzD * cp.xCount / cp.loading, mzD * cp.xCount,
+                                                           cp.mz, cp.lmz, mzD * cp.xCount,
                                                            cp.xCount, cp.ionMode,
                                                            cp.loading),
                                                        (cp.mz + mzD * cp.xCount / cp.loading / 2., h * 1.1), (10, 120),
@@ -4489,7 +4503,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 self.ui.chromPeakName.setText("")
 
                 self.ui.res_ExtractedData.setHeaderLabels(QtCore.QStringList(
-                    ["MZ (/Ionmode Z)", "Rt min", "Xn", "Adducts, hetero atoms", "Scale M / M'", "Peak cor", "M:M' peaks ratio / area ratio", "Area M / M'", "Scans", "Tracer"]))
+                    ["MZ (/Ionmode Z)", "Rt min", "Xn", "Adducts, hetero atoms", "Scale M / M'", "Peak cor", "M:M' peaks ratio / area ratio", "Area M / M'", "Scans", "LMZ", "Tracer"]))
 
                 if item.myType == "feature":
                     cp = item.myData
@@ -4546,7 +4560,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                     if self.ui.MSLabels.checkState() == QtCore.Qt.Checked:
                         self.addAnnotation(self.ui.pl3, "mz: %.5f\nl-mz: %.5f\nd-mz: %.5f\nXn: %d Z: %s%d" % (
-                            cp.mz, cp.mz + mzD * cp.xCount / cp.loading, mzD * cp.xCount, cp.xCount, cp.ionMode,
+                            cp.mz, cp.lmz, mzD * cp.xCount, cp.xCount, cp.ionMode,
                             cp.loading), (cp.mz + mzD * cp.xCount / cp.loading / 2., h*1.1), (10, 120), rotation=0,
                                            up=not (cp.ionMode == "-" and featuresPosSelected))
 
@@ -4794,7 +4808,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             assignedmzs=[]
             for row in self.currentOpenResultsFile.curs.execute("SELECT assignedMZs FROM chromPeaks"):
                 n,=row
-                assignedmzs.append(n)
+                assignedmzs.append(len(loads(base64.b64decode(n))))
             self.ui.pl1.twinxs[0].hist(assignedmzs, 30, normed=False, facecolor='green', alpha=0.5)
             self.ui.pl1.axes.set_title("Histogram of signal pairs assigned to feature pairs")
             self.ui.pl1.axes.set_xlabel("Number of signal pairs for a feature pair")
@@ -4810,10 +4824,28 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 devMeans.append(mzdifferrors.mean if mzdifferrors.mean is not None else -1)
             self.ui.pl1.twinxs[0].hist(devMeans, 30, normed=False, facecolor='green', alpha=0.5, label="Means")
             self.ui.pl1.twinxs[0].legend(loc='upper right')
-            self.ui.pl1.axes.set_title("Histogram of feature pairs - mean relative m/z error (ppm)")
+            self.ui.pl1.axes.set_title("Histogram of feature pairs (mean m/z) - mean relative m/z error (ppm)")
             self.ui.pl1.axes.set_xlabel("Mean, relative m/z error (ppm)")
             self.ui.pl1.axes.set_ylabel("Frequency")
             self.drawCanvas(self.ui.pl1)
+
+            removeids=[]
+            for row in self.currentOpenResultsFile.curs.execute("SELECT id, mzdifferrors, mz, nPeakCenterMin/60. FROM chromPeaks ORDER BY nPeakCenterMin"):
+                id, mzdifferrors, mz, rt, = row
+                mzdifferrors = loads(base64.b64decode(mzdifferrors))
+                print id, mz, rt, mzdifferrors.mean
+                if mzdifferrors.mean==None or mzdifferrors.mean<1:
+                    removeids.append(id)
+
+
+            if QtGui.QMessageBox.question(self, "MetExtract",
+                                          "Are you sure you want to delete the some results?\nThis action cannot be undone",
+                                          QtGui.QMessageBox.Yes | QtGui.QMessageBox.No) == QtGui.QMessageBox.Yes:
+                print "ids to remove", removeids
+                self.currentOpenResultsFile.curs.execute("DELETE FROM chromPeaks WHERE id in (%s)"%(",".join(str(s) for s in removeids)))
+                self.currentOpenResultsFile.curs.execute("DELETE FROM featureGroupFeatures WHERE fID in (%s)"%(",".join(str(s) for s in removeids)))
+                self.currentOpenResultsFile.conn.commit()
+                print "ids successfully removed"
 
         elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - feature pair mz deviation":
             devMeans=[]
@@ -4824,10 +4856,33 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 devVals.extend([v for v in mzdifferrors.vals if v is not None])
             self.ui.pl1.twinxs[0].hist(devVals, 30, normed=False, facecolor='blue', alpha=0.5, label="Scan-level")
             self.ui.pl1.twinxs[0].legend(loc='upper right')
-            self.ui.pl1.axes.set_title("Histogram of feature pairs - mean relative m/z error (ppm)")
+            self.ui.pl1.axes.set_title("Histogram of feature pairs (all scans) - mean relative m/z error (ppm)")
             self.ui.pl1.axes.set_xlabel("Mean, relative m/z error (ppm)")
             self.ui.pl1.axes.set_ylabel("Frequency")
             self.drawCanvas(self.ui.pl1)
+
+        elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - EIC mz deviation":
+            devVals=[]
+            for row in self.currentOpenResultsFile.curs.execute("SELECT c.id, c.mz, c.NPeakCenter, c.NPeakScale, c.NPeakCenterMin/60., x.mzs, x.mzsL FROM chromPeaks c INNER JOIN XICs x ON c.eicID=x.id"):
+                id, mz, center, scale, peakRT, mzs, mzsL, = row
+                mzs = [float(t) for t in mzs.split(";")]
+                #mzsL = [float(t) for t in mzsL.split(";")]
+                mzsPeak = mzs[max(0, center-int(1.5*scale)):min(len(mzs)-1, center+int(1.5*scale))]
+                #mzsLPeak = mzsL[max(0, center - int(1.5 * scale)):min(len(mzs) - 1, center + int(1.5 * scale))]
+
+                mzsPeak=[t for t in mzsPeak if t>=0]
+                m=mean(mzsPeak)
+                mzsPeak=[t-m for t in mzsPeak]
+                devVals.append(sd(mzsPeak)*1000000/m)
+
+            self.ui.pl1.twinxs[0].hist(devVals, 30, normed=False, facecolor='blue', alpha=0.5, label="Peak-level")
+            self.ui.pl1.twinxs[0].legend(loc='upper right')
+            self.ui.pl1.axes.set_title("Histogram of standard deviations of peak mz deviations")
+            self.ui.pl1.axes.set_xlabel("SD(mz deviation of peak) (ppm)")
+            self.ui.pl1.axes.set_ylabel("Frequency")
+            self.drawCanvas(self.ui.pl1)
+
+
         #</editor-fold>
 
         #<editor-fold desc="#feature pair plotting">
@@ -5803,6 +5858,32 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         self.ui.isoAbundance.stateChanged.connect(self.isoSearchChanged)
         self.isoSearchChanged()
+
+
+
+        self.ui.autoZoomPlot.stateChanged.connect(self.selectedResChanged)
+        self.ui.negEIC.stateChanged.connect(self.selectedResChanged)
+        self.ui.plotAddLabels.stateChanged.connect(self.selectedResChanged)
+        self.ui.plotMarkArea.stateChanged.connect(self.selectedResChanged)
+        self.ui.scaleFeatures.stateChanged.connect(self.selectedResChanged)
+        self.ui.scaleLabelledFeatures.stateChanged.connect(self.selectedResChanged)
+        self.ui.showIsotopologues.stateChanged.connect(self.selectedResChanged)
+        self.ui.showSmoothedEIC_checkBox.stateChanged.connect(self.selectedResChanged)
+        self.ui.flattenXIC.stateChanged.connect(self.selectedResChanged)
+        self.ui.showLegend.stateChanged.connect(self.selectedResChanged)
+        self.ui.showDiagnostics.stateChanged.connect(self.selectedResChanged)
+        self.ui.setPeakCentersToZero.stateChanged.connect(self.selectedResChanged)
+        self.ui.MSLabels.stateChanged.connect(self.selectedResChanged)
+        self.ui.MSIsos.stateChanged.connect(self.selectedResChanged)
+        self.ui.drawFPIsotopologues.stateChanged.connect(self.selectedResChanged)
+        self.ui.doubleSpinBox_isotopologAnnotationPPM.valueChanged.connect(self.selectedResChanged)
+
+
+
+
+
+
+
 
         # setup result plots
         #Setup first plot

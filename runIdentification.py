@@ -327,7 +327,7 @@ class RunIdentification:
 
         curs.execute("DROP TABLE IF EXISTS XICs")
         curs.execute(
-            "CREATE TABLE XICs(id INTEGER PRIMARY KEY, avgmz REAL, xcount INTEGER, loading INTEGER, polarity TEXT, xic TEXT, xic_smoothed TEXT, xicL TEXT, xicL_smoothed TEXT, xicfirstiso TEXT, xicLfirstiso TEXT, xicLfirstisoconjugate TEXT, times TEXT, scanCount INTEGER, allPeaks TEXT)")
+            "CREATE TABLE XICs(id INTEGER PRIMARY KEY, avgmz REAL, xcount INTEGER, loading INTEGER, polarity TEXT, xic TEXT, xic_smoothed TEXT, xicL TEXT, xicL_smoothed TEXT, xicfirstiso TEXT, xicLfirstiso TEXT, xicLfirstisoconjugate TEXT, mzs TEXT, mzsL TEXT, mzsfirstiso TEXT, mzsLfirstiso TEXT, mzsLfirstisoconjugate TEXT, times TEXT, scanCount INTEGER, allPeaks TEXT)")
 
         curs.execute("DROP TABLE IF EXISTS tics")
         curs.execute(
@@ -1003,11 +1003,11 @@ class RunIdentification:
 
                     # extract the EIC of the native ion and detect its chromatographic peaks
                     # optionally: smoothing
-                    eic, times, scanIds = mzxml.getEIC(meanmz, self.chromPeakPPM, filterLine=scanEvent)
+                    eic, times, scanIds, mzs = mzxml.getEIC(meanmz, self.chromPeakPPM, filterLine=scanEvent)
                     eicSmoothed = smoothDataSeries(times, eic, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
                     # extract the EIC of the labelled ion and detect its chromatographic peaks
                     # optionally: smoothing
-                    eicL, times, scanIds = mzxml.getEIC(meanmzLabelled,self.chromPeakPPM, filterLine=scanEvent)
+                    eicL, times, scanIds, mzsL = mzxml.getEIC(meanmzLabelled,self.chromPeakPPM, filterLine=scanEvent)
                     eicLSmoothed = smoothDataSeries(times, eicL, windowLen=self.eicSmoothingWindowSize,window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
 
                     # determine boundaries for chromatographic peak picking
@@ -1038,17 +1038,17 @@ class RunIdentification:
 
 
                     # get EICs of M+1, M'-1 and M'+1 for the database
-                    eicfirstiso, timesL, scanIdsL = mzxml.getEIC(
+                    eicfirstiso, timesL, scanIdsL, mzsfirstiso = mzxml.getEIC(
                         meanmz + 1 * self.xOffset / loading, self.chromPeakPPM,
                         filterLine=scanEvent)
                     #eicfirstisoSmoothed = smoothDataSeries(times, eicfirstiso, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
 
-                    eicLfirstiso, timesL, scanIdsL = mzxml.getEIC(
+                    eicLfirstiso, timesL, scanIdsL, mzsLfirstiso = mzxml.getEIC(
                         meanmz + (xcount - 1) * self.xOffset / loading, self.chromPeakPPM,
                         filterLine=scanEvent)
                     #eicLfirstisoSmoothed = smoothDataSeries(times, eicLfirstiso, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
 
-                    eicLfirstisoconjugate, timesL, scanIdsL = mzxml.getEIC(
+                    eicLfirstisoconjugate, timesL, scanIdsL, mzsLfirstisoconjugate = mzxml.getEIC(
                         meanmz + (xcount + 1) * self.xOffset / loading, self.chromPeakPPM,
                         filterLine=scanEvent)
                     #eicLfirstisoconjugateSmoothed = smoothDataSeries(times, eicLfirstisoconjugate, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
@@ -1137,13 +1137,19 @@ class RunIdentification:
                         # save the native and labelled EICs to the database
                         SQLInsert(curs, "XICs", id=self.curEICId, avgmz=meanmz, xcount=xcount,
                                   loading=kids[0].getObject().loading, polarity=ionMode,
-                                  xic                  =";".join(["%f" % (eic[i]) for i in range(0, len(eic))]),
-                                  xicL                 =";".join(["%f" % (eicL[i]) for i in range(0, len(eic))]),
-                                  xicfirstiso          =";".join(["%f" % (eicfirstiso[i]) for i in range(0, len(eic))]),
-                                  xicLfirstiso         =";".join(["%f" % (eicLfirstiso[i]) for i in range(0, len(eic))]),
-                                  xicLfirstisoconjugate=";".join(["%f" % (eicLfirstisoconjugate[i]) for i in range(0, len(eic))]),
-                                  xic_smoothed                  =";".join(["%f" % (eicSmoothed[i]) for i in range(0, len(eic))]),
-                                  xicL_smoothed                 =";".join(["%f" % (eicLSmoothed[i]) for i in range(0, len(eic))]),
+                                  xic                   =";".join(["%f" % (eic[i]) for i in range(0, len(eic))]),
+                                  xicL                  =";".join(["%f" % (eicL[i]) for i in range(0, len(eic))]),
+                                  xicfirstiso           =";".join(["%f" % (eicfirstiso[i]) for i in range(0, len(eic))]),
+                                  xicLfirstiso          =";".join(["%f" % (eicLfirstiso[i]) for i in range(0, len(eic))]),
+                                  xicLfirstisoconjugate =";".join(["%f" % (eicLfirstisoconjugate[i]) for i in range(0, len(eic))]),
+                                  xic_smoothed          =";".join(["%f" % (eicSmoothed[i]) for i in range(0, len(eic))]),
+                                  xicL_smoothed         =";".join(["%f" % (eicLSmoothed[i]) for i in range(0, len(eic))]),
+
+                                  mzs                   =";".join(["%f" % (mzs[i]) for i in range(0, len(eic))]),
+                                  mzsL                  =";".join(["%f" % (mzsL[i]) for i in range(0, len(eic))]),
+                                  mzsfirstiso           =";".join(["%f" % (mzsfirstiso[i]) for i in range(0, len(eic))]),
+                                  mzsLfirstiso          =";".join(["%f" % (mzsLfirstiso[i]) for i in range(0, len(eic))]),
+                                  mzsLfirstisoconjugate =";".join(["%f" % (mzsLfirstisoconjugate[i]) for i in range(0, len(eic))]),
 
                                   times=";".join(["%f" % (times[i]) for i in range(0, len(times))]),
                                   scanCount=len(eic),
@@ -2754,17 +2760,17 @@ class RunIdentification:
                         lGroupID = peak.fGroupID
                         gPeaks = []
 
-                    eicN, times, scanIds = mzxml.getEIC(peak.mz, self.chromPeakPPM, filterLine=scanEvent)
+                    eicN, times, scanIds, mzsN = mzxml.getEIC(peak.mz, self.chromPeakPPM, filterLine=scanEvent)
                     eicN = smoothDataSeries(times, eicN, windowLen=self.eicSmoothingWindowSize,window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
                     eicN_cropped = copy(eicN)
 
-                    eicL, times, scanIds = mzxml.getEIC(peak.mz + peak.xCount * tracer.mzDelta / peak.loading,self.chromPeakPPM, filterLine=scanEvent)
+                    eicL, times, scanIds, mzsL = mzxml.getEIC(peak.mz + peak.xCount * tracer.mzDelta / peak.loading,self.chromPeakPPM, filterLine=scanEvent)
                     eicL = smoothDataSeries(times, eicL, windowLen=self.eicSmoothingWindowSize,window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
 
-                    eicNP1, times, scanIds = mzxml.getEIC(peak.mz + 1 * tracer.mzDelta / peak.loading,self.chromPeakPPM, filterLine=scanEvent)
+                    eicNP1, times, scanIds, mzsNP1 = mzxml.getEIC(peak.mz + 1 * tracer.mzDelta / peak.loading,self.chromPeakPPM, filterLine=scanEvent)
                     eicNP1 = smoothDataSeries(times, eicNP1, windowLen=self.eicSmoothingWindowSize,window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
 
-                    eicLm1, times, scanIds = mzxml.getEIC(peak.mz + (peak.xCount - 1) * tracer.mzDelta / peak.loading,self.chromPeakPPM, filterLine=scanEvent)
+                    eicLm1, times, scanIds, mzsLm1 = mzxml.getEIC(peak.mz + (peak.xCount - 1) * tracer.mzDelta / peak.loading,self.chromPeakPPM, filterLine=scanEvent)
                     eicLm1 = smoothDataSeries(times, eicLm1, windowLen=self.eicSmoothingWindowSize,window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
 
                     gPeaks.append([peak, eicN, eicN_cropped, times, scanIds])
