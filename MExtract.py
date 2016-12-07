@@ -3423,13 +3423,29 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             it.addChild(itl)
             itl.myType = "diagnostic - feature pair correlations"
 
-            itl = QtGui.QTreeWidgetItem(["Feature pair M+1/M ratio"])
+            itl = QtGui.QTreeWidgetItem(["Feature pair M+1/M ratio absolute"])
             it.addChild(itl)
-            itl.myType = "diagnostic - feature pair mp1 to m ratio"
+            itl.myType = "diagnostic - feature pair mp1 to m ratio abs"
 
-            itl = QtGui.QTreeWidgetItem(["Feature pair M'-1/M' ratio"])
+            itl = QtGui.QTreeWidgetItem(["Feature pair M+1/M RIA"])
             it.addChild(itl)
-            itl.myType = "diagnostic - feature pair mPp1 to mP ratio"
+            itl.myType = "diagnostic - feature pair mp1 to m ratio rel"
+
+            itl = QtGui.QTreeWidgetItem(["Feature pair M+1/M RIA vs intensity"])
+            it.addChild(itl)
+            itl.myType = "diagnostic - feature pair mp1 to m IRA vs intensity"
+
+            itl = QtGui.QTreeWidgetItem(["Feature pair M'-1/M' ratio absolute"])
+            it.addChild(itl)
+            itl.myType = "diagnostic - feature pair mPp1 to mP ratio abs"
+
+            itl = QtGui.QTreeWidgetItem(["Feature pair M'-1/M' RIA"])
+            it.addChild(itl)
+            itl.myType = "diagnostic - feature pair mPp1 to mP ratio rel"
+
+            itl = QtGui.QTreeWidgetItem(["Feature pair M'-1/M' RIA vs intensity"])
+            it.addChild(itl)
+            itl.myType = "diagnostic - feature pair mPp1 to mP IRA vs intensity"
 
             itl = QtGui.QTreeWidgetItem(["Feature pair assigned MZs"])
             it.addChild(itl)
@@ -4772,7 +4788,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             self.ui.pl1.axes.set_ylabel("Frequency")
             self.drawCanvas(self.ui.pl1)
 
-        elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - feature pair mp1 to m ratio":
+        elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - feature pair mp1 to m ratio abs":
             peaksRatio=[]
             for row in self.currentOpenResultsFile.curs.execute("SELECT peaksRatioMp1, xcount FROM chromPeaks"):
                 peakRatio,xcount=row
@@ -4780,13 +4796,46 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     peaksRatio.append(-100.)
                 else:
                     peaksRatio.append(100.*max(-100, min(100, peakRatio-getNormRatio(0.9893, xcount, 1))))
-            self.ui.pl1.twinxs[0].hist(peaksRatio, [i for i in range(-100, 100, 5)], normed=False, facecolor='green', alpha=0.5)
+            self.ui.pl1.twinxs[0].hist(peaksRatio, [i for i in range(-100, 100, 2.5)], normed=False, facecolor='green', alpha=0.5)
             self.ui.pl1.axes.set_title("Histogram of isotopolog ratio error - observed minus theoretical ratio for M+1 to M")
             self.ui.pl1.axes.set_xlabel("Ratio error (%)")
             self.ui.pl1.axes.set_ylabel("Frequency")
             self.drawCanvas(self.ui.pl1)
 
-        elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - feature pair mPp1 to mP ratio":
+
+        elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - feature pair mp1 to m ratio rel":
+            peaksRatio=[]
+            for row in self.currentOpenResultsFile.curs.execute("SELECT peaksRatioMp1, xcount FROM chromPeaks"):
+                peakRatio,xcount=row
+                if peakRatio==-1:
+                    peaksRatio.append(-100.)
+                else:
+                    peaksRatio.append(max(-100, min(100, 100*(peakRatio/getNormRatio(0.9893, xcount, 1)-1))))
+            self.ui.pl1.twinxs[0].hist(peaksRatio, [i for i in range(-100, 100, 2.5)], normed=False, facecolor='green', alpha=0.5)
+            self.ui.pl1.axes.set_title("Histogram of RIA  for M+1 to M")
+            self.ui.pl1.axes.set_xlabel("RIA (%)")
+            self.ui.pl1.axes.set_ylabel("Frequency")
+            self.drawCanvas(self.ui.pl1)
+
+        elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - feature pair mp1 to m IRA vs intensity":
+            peaksRatio=[]
+            areas=[]
+            for row in self.currentOpenResultsFile.curs.execute("SELECT peaksRatioMp1, xcount, LPeakArea FROM chromPeaks"):
+                peakRatio,xcount,area=row
+                area=log10(area)
+                if peakRatio==-1:
+                    peaksRatio.append(-100.)
+                    areas.append(area)
+                else:
+                    peaksRatio.append(max(-100, min(100, 100*(peakRatio/getNormRatio(0.9893, xcount, 1)-1))))
+                    areas.append(area)
+            self.ui.pl1.twinxs[0].plot(peaksRatio, areas, 'ro')
+            self.ui.pl1.axes.set_title("RIA for M+1 to M vs peak intensity")
+            self.ui.pl1.axes.set_xlabel("RIA (%)")
+            self.ui.pl1.axes.set_ylabel("Peak Intensity")
+            self.drawCanvas(self.ui.pl1)
+
+        elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - feature pair mPp1 to mP ratio abs":
             peaksRatio=[]
             text, ok = QtGui.QInputDialog.getText(self.parentWidget(), "Isotopic enrichment", "Please enter the isotopic enrichment to be used for the diagnostics plot (e.g. 0.986)")
             isoEnr=0.986
@@ -4798,10 +4847,50 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     peaksRatio.append(-100.)
                 else:
                     peaksRatio.append(100.*max(-100, min(100, peakRatio-getNormRatio(isoEnr, xcount, 1))))
-            self.ui.pl1.twinxs[0].hist(peaksRatio, [i for i in range(-100, 100, 5)], normed=False, facecolor='green', alpha=0.5)
+            self.ui.pl1.twinxs[0].hist(peaksRatio, [i for i in range(-100, 100, 2.5)], normed=False, facecolor='green', alpha=0.5)
             self.ui.pl1.axes.set_title("Histogram of isotopolog ratio error - observed minus theoretical ratio for M'-1 to M'")
             self.ui.pl1.axes.set_xlabel("Ratio error (%)")
             self.ui.pl1.axes.set_ylabel("Frequency")
+            self.drawCanvas(self.ui.pl1)
+
+        elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - feature pair mPp1 to mP ratio rel":
+            peaksRatio=[]
+            text, ok = QtGui.QInputDialog.getText(self.parentWidget(), "Isotopic enrichment", "Please enter the isotopic enrichment to be used for the diagnostics plot (e.g. 0.986)")
+            isoEnr=0.986
+            if ok:
+                isoEnr=float(text)
+            for row in self.currentOpenResultsFile.curs.execute("SELECT peaksRatioMPm1, xcount FROM chromPeaks"):
+                peakRatio,xcount=row
+                if peakRatio==-1:
+                    peaksRatio.append(-100.)
+                else:
+                    peaksRatio.append(max(-100, min(100, 100*(peakRatio/getNormRatio(isoEnr, xcount, 1)-1))))
+            self.ui.pl1.twinxs[0].hist(peaksRatio, [i for i in range(-100, 100, 2.5)], normed=False, facecolor='green', alpha=0.5)
+            self.ui.pl1.axes.set_title("Histogram of RIA for M'-1 to M'")
+            self.ui.pl1.axes.set_xlabel("RIA (%)")
+            self.ui.pl1.axes.set_ylabel("Frequency")
+            self.drawCanvas(self.ui.pl1)
+
+        elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - feature pair mPp1 to mP IRA vs intensity":
+            peaksRatio=[]
+            areas=[]
+            text, ok = QtGui.QInputDialog.getText(self.parentWidget(), "Isotopic enrichment", "Please enter the isotopic enrichment to be used for the diagnostics plot (e.g. 0.986)")
+            isoEnr=0.986
+            if ok:
+                isoEnr=float(text)
+            for row in self.currentOpenResultsFile.curs.execute("SELECT peaksRatioMPm1, xcount, LPeakArea FROM chromPeaks"):
+                peakRatio,xcount,area=row
+                area=log10(area)
+                if peakRatio==-1:
+                    peaksRatio.append(-100.)
+                    areas.append(area)
+                else:
+                    peaksRatio.append(max(-100, min(100, 100*(peakRatio/getNormRatio(isoEnr, xcount, 1)-1))))
+                    areas.append(area)
+            self.ui.pl1.twinxs[0].plot(peaksRatio, areas, 'ro')
+            self.ui.pl1.axes.set_title("RIA for M'-1 to M' vs peak intensity")
+            self.ui.pl1.axes.set_xlabel("RIA (%)")
+            self.ui.pl1.axes.set_ylabel("Peak Intensity")
             self.drawCanvas(self.ui.pl1)
 
         elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - feature pair assigned mzs":
@@ -4833,19 +4922,18 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             for row in self.currentOpenResultsFile.curs.execute("SELECT id, mzdifferrors, mz, nPeakCenterMin/60. FROM chromPeaks ORDER BY nPeakCenterMin"):
                 id, mzdifferrors, mz, rt, = row
                 mzdifferrors = loads(base64.b64decode(mzdifferrors))
-                print id, mz, rt, mzdifferrors.mean
                 if mzdifferrors.mean==None or mzdifferrors.mean<1:
                     removeids.append(id)
 
-
-            if QtGui.QMessageBox.question(self, "MetExtract",
-                                          "Are you sure you want to delete the some results?\nThis action cannot be undone",
-                                          QtGui.QMessageBox.Yes | QtGui.QMessageBox.No) == QtGui.QMessageBox.Yes:
-                print "ids to remove", removeids
-                self.currentOpenResultsFile.curs.execute("DELETE FROM chromPeaks WHERE id in (%s)"%(",".join(str(s) for s in removeids)))
-                self.currentOpenResultsFile.curs.execute("DELETE FROM featureGroupFeatures WHERE fID in (%s)"%(",".join(str(s) for s in removeids)))
-                self.currentOpenResultsFile.conn.commit()
-                print "ids successfully removed"
+            if False:
+                if QtGui.QMessageBox.question(self, "MetExtract",
+                                              "Are you sure you want to delete the some results?\nThis action cannot be undone",
+                                              QtGui.QMessageBox.Yes | QtGui.QMessageBox.No) == QtGui.QMessageBox.Yes:
+                    print "ids to remove", removeids
+                    self.currentOpenResultsFile.curs.execute("DELETE FROM chromPeaks WHERE id in (%s)"%(",".join(str(s) for s in removeids)))
+                    self.currentOpenResultsFile.curs.execute("DELETE FROM featureGroupFeatures WHERE fID in (%s)"%(",".join(str(s) for s in removeids)))
+                    self.currentOpenResultsFile.conn.commit()
+                    print "ids successfully removed"
 
         elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - feature pair mz deviation":
             devMeans=[]
