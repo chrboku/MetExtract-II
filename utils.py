@@ -440,8 +440,8 @@ class Bunch:
 class ChromPeakPair:
     def __init__(self, id=-1, fGroupID=-1, eicID=-1, massSpectrumID=-1, assignedName=-1, tracer=-1, tracerName="",
                  mz=-1, lmz=-1, xCount=-1, loading=-1, ionMode="", NPeakCenter=-1, NPeakCenterMin=-1, NPeakScale=-1,
-                 NSNR=-1, NPeakArea=-1, LPeakCenter=-1, LPeakCenterMin=-1, LPeakScale=-1, LSNR=-1,
-                 LPeakArea=-1, heteroIsotoplogues={}, assignedMZs=[], **args):
+                 NSNR=-1, NPeakArea=-1, NPeakAbundance=-1, LPeakCenter=-1, LPeakCenterMin=-1, LPeakScale=-1, LSNR=-1,
+                 LPeakArea=-1, LPeakAbundance=-1, heteroIsotoplogues={}, assignedMZs=[], **args):
         argsUsed = 0
 
         self.id = id
@@ -463,12 +463,14 @@ class ChromPeakPair:
         self.NPeakScale = NPeakScale
         self.NSNR = NSNR
         self.NPeakArea = NPeakArea
+        self.NPeakAbundance = NPeakAbundance
 
         self.LPeakCenter = LPeakCenter
         self.LPeakCenterMin = LPeakCenterMin
         self.LPeakScale = LPeakScale
         self.LSNR = LSNR
         self.LPeakArea = LPeakArea
+        self.LPeakAbundance = LPeakAbundance
 
         self.heteroIsotopologues = heteroIsotoplogues or {}
         self.assignedMZs = assignedMZs or []

@@ -337,6 +337,8 @@ def runFile(rI):
     rI.identify()
 
 
+peakAbundanceUseSignals = 5
+peakAbundanceUseSignalsSides = int((peakAbundanceUseSignals - 1) / 2)
 #<editor-fold desc="Re-Integrate Function definitions">
 class procAreaInFile:
     # initialise re-integration for one LC-HRMS file
@@ -371,7 +373,14 @@ class procAreaInFile:
                 ri += 1
 
             if best is not None:
-                return ret[best].peakArea
+                peakArea = ret[best].peakArea
+
+                lb = int(min(ret[best].peakIndex - peakAbundanceUseSignalsSides, ret[best].peakIndex - peakAbundanceUseSignalsSides))
+                rb = int(max(ret[best].peakIndex + peakAbundanceUseSignalsSides, ret[best].peakIndex + peakAbundanceUseSignalsSides)) + 1
+                peak = eic[lb:rb]
+
+                peakAbundance = mean(peak)
+                return ret[best].peakArea, peakAbundance
 
         return None
 
@@ -394,7 +403,10 @@ class procAreaInFile:
 
         nFound = False
         if r is not None:
-            oldData[self.colInd[colToProc + "_Area_N"]] = r
+            area, abundance = r
+            oldData[self.colInd[colToProc + "_Area_N"]] = area
+            oldData[self.colInd[colToProc + "_Abundance_N"]] = abundance
+
             nFound = True
 
         r = self.processAreaFor(oldData[self.colInd[colToProc + "_Area_L"]], oldData[self.colInd[colLmz]],
@@ -402,7 +414,10 @@ class procAreaInFile:
 
         lFound = False
         if r is not None:
-            oldData[self.colInd[colToProc + "_Area_L"]] = r
+            area, abundance = r
+            oldData[self.colInd[colToProc + "_Area_L"]] = area
+            oldData[self.colInd[colToProc + "_Abundance_L"]] = abundance
+
             lFound = True
 
         if nFound and lFound:
@@ -535,6 +550,16 @@ class procAreaInFile:
             for r in self.newData:
                 if r[self.colInd[self.colnum]] == oldData[self.colnum]:
                     newData[self.colToProc + "_Area_L"] = r[self.colInd[self.colToProc + "_Area_L"]]
+
+        if oldData[self.colToProc + "_Abundance_N"] == "":
+            for r in self.newData:
+                if r[self.colInd[self.colnum]] == oldData[self.colnum]:
+                    newData[self.colToProc + "_Abundance_N"] = r[self.colInd[self.colToProc + "_Abundance_N"]]
+
+        if oldData[self.colToProc + "_Abundance_L"] == "":
+            for r in self.newData:
+                if r[self.colInd[self.colnum]] == oldData[self.colnum]:
+                    newData[self.colToProc + "_Abundance_L"] = r[self.colInd[self.colToProc + "_Abundance_L"]]
 
         if oldData[self.colToProc + "_fold"] == "":
             for r in self.newData:
@@ -981,6 +1006,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         # try to import each LC-HRMS file and get its polarities and filter lines (MS only)
         # draw the TICs of the individual filter lines
         for group in [t.data(QListWidgetItem.UserType).toPyObject() for t in natSort(self.ui.groupsList.findItems('*', QtCore.Qt.MatchWildcard), key=lambda x: str(x.data(QListWidgetItem.UserType).toPyObject().name))]:
+
+            self.ui.processedFilesComboBox.addItem("%s"%group.name, userData=Bunch(file=None))
+
             for file in natSort(group.files):
                 if file not in done:
 
@@ -1033,7 +1061,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             # if file has been processed successfully (FileName.identified.sqlite DB exists) add it to the successfully processed list
                             if os.path.exists(file + ".identified.sqlite") and os.path.isfile(file + ".identified.sqlite"):
                                 fname=fname=file[(file.rfind("/") + 1):]
-                                self.ui.processedFilesComboBox.addItem(fname, userData=Bunch(file=file))
+                                qpixmap=QtGui.QPixmap(10, 10)
+                                qpixmap.fill(QtGui.QColor(group.color))
+                                icon = QtGui.QIcon(qpixmap)
+                                self.ui.processedFilesComboBox.addItem(icon, "%s - %s"%(group.name, fname.replace(".mzXML", "")), userData=Bunch(file=file))
 
                             done.append(file)
 
@@ -1058,6 +1089,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     i += 1
                     pw.getCallingFunction()("value")(i)
             color = not color
+
+            self.ui.processedFilesComboBox.addItem(" ", userData=Bunch(file=None))
 
         # update the TIC graph
         pw.hide()
@@ -1252,8 +1285,13 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         if len(failed)==0:
             if atPos is None:
                 atPos=self.ui.groupsList.count()
-            qlwi=QListWidgetItem("%s (%d%s%s)"%(str(name), len(files), ", Annotate" if useForMetaboliteGrouping else "", ", Omit/%d"%minGrpFound if omitFeatures else ""))
-            qlwi.setBackgroundColor(QColor(color))
+
+            qpixmap = QtGui.QPixmap(10, 10)
+            qpixmap.fill(QtGui.QColor(color))
+            icon = QtGui.QIcon(qpixmap)
+
+            qlwi=QListWidgetItem(icon, "%s (%d%s%s)"%(str(name), len(files), ", Annotate" if useForMetaboliteGrouping else "", ", Omit/%d"%minGrpFound if omitFeatures else ""))
+            #qlwi.setBackgroundColor(QColor(color))
             qlwi.setData(QListWidgetItem.UserType, SampleGroup(name, files, minGrpFound, omitFeatures, useForMetaboliteGrouping, color))
 
             self.ui.groupsList.insertItem(atPos, qlwi)
@@ -4796,7 +4834,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     peaksRatio.append(-100.)
                 else:
                     peaksRatio.append(100.*max(-100, min(100, peakRatio-getNormRatio(0.9893, xcount, 1))))
-            self.ui.pl1.twinxs[0].hist(peaksRatio, [i for i in range(-100, 100, 2.5)], normed=False, facecolor='green', alpha=0.5)
+            self.ui.pl1.twinxs[0].hist(peaksRatio, [i for i in [i/10. for i in range(-1000, 1000, 25)]], normed=False, facecolor='green', alpha=0.5)
             self.ui.pl1.axes.set_title("Histogram of isotopolog ratio error - observed minus theoretical ratio for M+1 to M")
             self.ui.pl1.axes.set_xlabel("Ratio error (%)")
             self.ui.pl1.axes.set_ylabel("Frequency")
@@ -4811,7 +4849,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     peaksRatio.append(-100.)
                 else:
                     peaksRatio.append(max(-100, min(100, 100*(peakRatio/getNormRatio(0.9893, xcount, 1)-1))))
-            self.ui.pl1.twinxs[0].hist(peaksRatio, [i for i in range(-100, 100, 2.5)], normed=False, facecolor='green', alpha=0.5)
+            self.ui.pl1.twinxs[0].hist(peaksRatio, [i for i in [i/10. for i in range(-1000, 1000, 25)]], normed=False, facecolor='green', alpha=0.5)
             self.ui.pl1.axes.set_title("Histogram of RIA  for M+1 to M")
             self.ui.pl1.axes.set_xlabel("RIA (%)")
             self.ui.pl1.axes.set_ylabel("Frequency")
@@ -4847,7 +4885,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     peaksRatio.append(-100.)
                 else:
                     peaksRatio.append(100.*max(-100, min(100, peakRatio-getNormRatio(isoEnr, xcount, 1))))
-            self.ui.pl1.twinxs[0].hist(peaksRatio, [i for i in range(-100, 100, 2.5)], normed=False, facecolor='green', alpha=0.5)
+            self.ui.pl1.twinxs[0].hist(peaksRatio, [i for i in [i/10. for i in range(-1000, 1000, 25)]], normed=False, facecolor='green', alpha=0.5)
             self.ui.pl1.axes.set_title("Histogram of isotopolog ratio error - observed minus theoretical ratio for M'-1 to M'")
             self.ui.pl1.axes.set_xlabel("Ratio error (%)")
             self.ui.pl1.axes.set_ylabel("Frequency")
@@ -4865,7 +4903,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     peaksRatio.append(-100.)
                 else:
                     peaksRatio.append(max(-100, min(100, 100*(peakRatio/getNormRatio(isoEnr, xcount, 1)-1))))
-            self.ui.pl1.twinxs[0].hist(peaksRatio, [i for i in range(-100, 100, 2.5)], normed=False, facecolor='green', alpha=0.5)
+            self.ui.pl1.twinxs[0].hist(peaksRatio, [i for i in [i/10. for i in range(-1000, 1000, 25)]], normed=False, facecolor='green', alpha=0.5)
             self.ui.pl1.axes.set_title("Histogram of RIA for M'-1 to M'")
             self.ui.pl1.axes.set_xlabel("RIA (%)")
             self.ui.pl1.axes.set_ylabel("Frequency")

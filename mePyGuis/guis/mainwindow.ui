@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>2255</width>
-    <height>1230</height>
+    <height>1279</height>
    </rect>
   </property>
   <property name="acceptDrops">
@@ -61,7 +61,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>2</number>
+       <number>0</number>
       </property>
       <widget class="QWidget" name="inputTab">
        <attribute name="title">
@@ -80,7 +80,7 @@
            <enum>Qt::Vertical</enum>
           </property>
           <property name="sizeType">
-           <enum>QSizePolicy::Expanding</enum>
+           <enum>QSizePolicy::Ignored</enum>
           </property>
           <property name="sizeHint" stdset="0">
            <size>
@@ -100,6 +100,16 @@
           </property>
           <property name="alignment">
            <set>Qt::AlignBottom|Qt::AlignRight|Qt::AlignTrailing</set>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1" rowspan="2">
+         <widget class="QWidget" name="ticVisualisationWidget" native="true">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
           </property>
          </widget>
         </item>
@@ -237,22 +247,6 @@ font: 7pt;</string>
                <bool>true</bool>
               </property>
              </widget>
-            </item>
-            <item>
-             <spacer name="verticalSpacer_15">
-              <property name="orientation">
-               <enum>Qt::Vertical</enum>
-              </property>
-              <property name="sizeType">
-               <enum>QSizePolicy::Minimum</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>0</width>
-                <height>0</height>
-               </size>
-              </property>
-             </spacer>
             </item>
            </layout>
           </item>
@@ -454,6 +448,9 @@ font: 7pt;</string>
               <property name="orientation">
                <enum>Qt::Vertical</enum>
               </property>
+              <property name="sizeType">
+               <enum>QSizePolicy::Minimum</enum>
+              </property>
               <property name="sizeHint" stdset="0">
                <size>
                 <width>0</width>
@@ -594,6 +591,9 @@ font: 7pt;</string>
               <property name="orientation">
                <enum>Qt::Vertical</enum>
               </property>
+              <property name="sizeType">
+               <enum>QSizePolicy::Minimum</enum>
+              </property>
               <property name="sizeHint" stdset="0">
                <size>
                 <width>20</width>
@@ -653,7 +653,7 @@ font: 7pt;</string>
           <item row="9" column="4">
            <widget class="QListWidget" name="groupsList">
             <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="MinimumExpanding">
+             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
               <horstretch>0</horstretch>
               <verstretch>0</verstretch>
              </sizepolicy>
@@ -756,17 +756,23 @@ font: 7pt;</string>
             </item>
            </layout>
           </item>
+          <item row="14" column="2">
+           <spacer name="verticalSpacer_14">
+            <property name="orientation">
+             <enum>Qt::Vertical</enum>
+            </property>
+            <property name="sizeType">
+             <enum>QSizePolicy::Expanding</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>1</width>
+              <height>40</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
          </layout>
-        </item>
-        <item row="0" column="1" rowspan="2">
-         <widget class="QWidget" name="ticVisualisationWidget" native="true">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-         </widget>
         </item>
        </layout>
       </widget>
@@ -885,7 +891,7 @@ font: 7pt;</string>
              <x>0</x>
              <y>0</y>
              <width>1209</width>
-             <height>1168</height>
+             <height>980</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -3274,8 +3280,8 @@ p, li { white-space: pre-wrap; }
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>2225</width>
-             <height>1186</height>
+             <width>1552</width>
+             <height>609</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_15">

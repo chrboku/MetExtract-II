@@ -107,6 +107,8 @@ def countEntries(x):
     return ret
 
 
+peakAbundanceUseSignals = 5
+peakAbundanceUseSignalsSides = int((peakAbundanceUseSignals - 1) / 2)
 # This class is used as a Command for each LC-HRMS file and is called by the multiprocessing module in MExtract.py
 # during the processing of each individual LC-HRMS data files
 class RunIdentification:
@@ -335,11 +337,11 @@ class RunIdentification:
 
         curs.execute("DROP TABLE IF EXISTS chromPeaks")
         curs.execute(
-            "CREATE TABLE chromPeaks(id INTEGER PRIMARY KEY, tracer INTEGER, eicID INTEGER, NPeakCenter INTEGER, NPeakCenterMin REAL, NPeakScale FLOAT, NSNR REAL, NPeakArea REAL, mz REAL, lmz REAL, xcount INTEGER, xcountId INTEGER, LPeakCenter INTEGER, LPeakCenterMin REAL, LPeakScale FLOAT, LSNR REAL, LPeakArea REAL, Loading INTEGER, peaksCorr FLOAT, heteroAtoms TEXT, NBorderLeft INTEGER, NBorderRight INTEGER, LBorderLeft INTEGER, LBorderRight INTEGER, adducts TEXT, heteroAtomsFeaturePairs TEXT, massSpectrumID INTEGER, ionMode TEXT, assignedMZs INTEGER, fDesc TEXT, peaksRatio FLOAT, peaksRatioMp1 FLOAT, peaksRatioMPm1 FLOAT, isotopesRatios TEXT, mzDiffErrors TEXT, peakType TEXT, assignedName TEXT, correlationsToOthers TEXT)")
+            "CREATE TABLE chromPeaks(id INTEGER PRIMARY KEY, tracer INTEGER, eicID INTEGER, NPeakCenter INTEGER, NPeakCenterMin REAL, NPeakScale FLOAT, NSNR REAL, NPeakArea REAL, NPeakAbundance REAL, mz REAL, lmz REAL, xcount INTEGER, xcountId INTEGER, LPeakCenter INTEGER, LPeakCenterMin REAL, LPeakScale FLOAT, LSNR REAL, LPeakArea REAL, LPeakAbundance REAL, Loading INTEGER, peaksCorr FLOAT, heteroAtoms TEXT, NBorderLeft INTEGER, NBorderRight INTEGER, LBorderLeft INTEGER, LBorderRight INTEGER, adducts TEXT, heteroAtomsFeaturePairs TEXT, massSpectrumID INTEGER, ionMode TEXT, assignedMZs INTEGER, fDesc TEXT, peaksRatio FLOAT, peaksRatioMp1 FLOAT, peaksRatioMPm1 FLOAT, isotopesRatios TEXT, mzDiffErrors TEXT, peakType TEXT, assignedName TEXT, correlationsToOthers TEXT)")
 
         curs.execute("drop table if exists allChromPeaks")
         curs.execute(
-            "CREATE TABLE allChromPeaks(id INTEGER PRIMARY KEY, tracer INTEGER, eicID INTEGER, NPeakCenter INTEGER, NPeakCenterMin REAL, NPeakScale FLOAT, NSNR REAL, NPeakArea REAL, mz REAL, lmz REAL, xcount INTEGER, xcountId INTEGER, LPeakCenter INTEGER, LPeakCenterMin REAL, LPeakScale FLOAT, LSNR REAL, LPeakArea REAL, Loading INTEGER, peaksCorr FLOAT, heteroAtoms TEXT, NBorderLeft INTEGER, NBorderRight INTEGER, LBorderLeft INTEGER, LBorderRight INTEGER, adducts TEXT, heteroAtomsFeaturePairs TEXT, ionMode TEXT, assignedMZs INTEGER, fDesc TEXT, peaksRatio FLOAT, peaksRatioMp1 FLOAT, peaksRatioMPm1 FLOAT, isotopesRatios TEXT, mzDiffErrors TEXT, peakType TEXT, assignedName TEXT, comment TEXT)")
+            "CREATE TABLE allChromPeaks(id INTEGER PRIMARY KEY, tracer INTEGER, eicID INTEGER, NPeakCenter INTEGER, NPeakCenterMin REAL, NPeakScale FLOAT, NSNR REAL, NPeakArea REAL, NPeakAbundance REAL, mz REAL, lmz REAL, xcount INTEGER, xcountId INTEGER, LPeakCenter INTEGER, LPeakCenterMin REAL, LPeakScale FLOAT, LSNR REAL, LPeakArea REAL, LPeakAbundance REAL, Loading INTEGER, peaksCorr FLOAT, heteroAtoms TEXT, NBorderLeft INTEGER, NBorderRight INTEGER, LBorderLeft INTEGER, LBorderRight INTEGER, adducts TEXT, heteroAtomsFeaturePairs TEXT, ionMode TEXT, assignedMZs INTEGER, fDesc TEXT, peaksRatio FLOAT, peaksRatioMp1 FLOAT, peaksRatioMPm1 FLOAT, isotopesRatios TEXT, mzDiffErrors TEXT, peakType TEXT, assignedName TEXT, comment TEXT)")
 
         curs.execute("DROP TABLE IF EXISTS featureGroups")
         curs.execute(
@@ -403,6 +405,7 @@ class RunIdentification:
         SQLInsert(curs, "config", key="eicSmoothingPolynom", value=self.eicSmoothingPolynom)
         SQLInsert(curs, "config", key="snrTh", value=self.snrTh)
         SQLInsert(curs, "config", key="scales", value=base64.b64encode(dumps(self.scales)))
+        SQLInsert(curs, "config", key="peakAbundanceCriteria", value="Center +- %d signals (%d total)"%(peakAbundanceUseSignalsSides, peakAbundanceUseSignals))
         SQLInsert(curs, "config", key="peakCenterError", value=self.peakCenterError)
         SQLInsert(curs, "config", key="peakScaleError", value=self.peakScaleError)
         SQLInsert(curs, "config", key="minPeakCorr", value=self.minPeakCorr)
@@ -1083,9 +1086,9 @@ class RunIdentification:
 
                             lb = int(min(peak.NPeakCenter - peak.NBorderLeft, peak.LPeakCenter - peak.LBorderLeft))
                             rb = int(max(peak.NPeakCenter + peak.NBorderRight, peak.LPeakCenter + peak.LBorderRight)) + 1
-                            peak1 = eic[lb:rb]
-                            peak2 = eicL[lb:rb]
-                            co = corr(peak1, peak2)
+                            peakN = eic[lb:rb]
+                            peakL = eicL[lb:rb]
+                            co = corr(peakN, peakL)
 
                             # check peak shape (Pearson correlation)
 
@@ -1121,6 +1124,15 @@ class RunIdentification:
                         if len(peak.assignedMZs) >= self.minSpectraCount:
                             curChromPeaks.append(peak)
 
+
+                    for peak in curChromPeaks:
+                        lb = int(min(peak.NPeakCenter - peakAbundanceUseSignalsSides, peak.LPeakCenter - peakAbundanceUseSignalsSides))
+                        rb = int(max(peak.NPeakCenter + peakAbundanceUseSignalsSides, peak.LPeakCenter + peakAbundanceUseSignalsSides)) + 1
+                        peakN = eic[lb:rb]
+                        peakL = eicL[lb:rb]
+
+                        peak.NPeakAbundance=mean(peakN)
+                        peak.LPeakAbundance=mean(peakL)
 
                     # write detected feature pair to the database
                     if len(curChromPeaks) > 0:
@@ -1165,14 +1177,13 @@ class RunIdentification:
                             peak.correctedXCount = peak.xCount
 
                             if self.performCorrectCCount and False:
-                                adjcCount = adjcCount + getAtomAdd(self.purityL, peak.xCount) + getAtomAdd(self.purityN,
-                                                                                                           peak.xCount)
+                                adjcCount = adjcCount + getAtomAdd(self.purityL, peak.xCount) + getAtomAdd(self.purityN, peak.xCount)
                                 peak.correctedXCount = adjcCount
 
                             SQLInsert(curs, "chromPeaks", id=peak.id, tracer=tracerID, eicID=peak.eicID,
                                       mz=peak.mz, lmz=peak.lmz, xcount=peak.correctedXCount, xcountId=peak.xCount,Loading=peak.loading,ionMode=ionMode,
-                                      NPeakCenter=peak.NPeakCenter,NPeakCenterMin=peak.NPeakCenterMin, NPeakScale=peak.NPeakScale,NSNR=peak.NSNR, NPeakArea=peak.NPeakArea, NBorderLeft=peak.NBorderLeft, NBorderRight=peak.NBorderRight,
-                                      LPeakCenter=peak.LPeakCenter,LPeakCenterMin=peak.LPeakCenterMin, LPeakScale=peak.LPeakScale, LSNR=peak.LSNR, LPeakArea=peak.LPeakArea, LBorderLeft=peak.LBorderLeft, LBorderRight=peak.LBorderRight,
+                                      NPeakCenter=peak.NPeakCenter,NPeakCenterMin=peak.NPeakCenterMin, NPeakScale=peak.NPeakScale,NSNR=peak.NSNR, NPeakArea=peak.NPeakArea, NPeakAbundance=peak.NPeakAbundance, NBorderLeft=peak.NBorderLeft, NBorderRight=peak.NBorderRight,
+                                      LPeakCenter=peak.LPeakCenter,LPeakCenterMin=peak.LPeakCenterMin, LPeakScale=peak.LPeakScale, LSNR=peak.LSNR, LPeakArea=peak.LPeakArea, LPeakAbundance=peak.LPeakAbundance, LBorderLeft=peak.LBorderLeft, LBorderRight=peak.LBorderRight,
                                       peaksCorr=peak.peaksCorr,
                                       heteroAtoms='',adducts='', heteroAtomsFeaturePairs='',
                                       massSpectrumID=0,
@@ -1182,8 +1193,8 @@ class RunIdentification:
 
                             SQLInsert(curs, "allChromPeaks", id=peak.id, tracer=tracerID, eicID=peak.eicID,
                                       mz=peak.mz, lmz=peak.lmz, xcount=peak.correctedXCount, xcountId=peak.xCount,Loading=peak.loading,ionMode=ionMode,
-                                      NPeakCenter=peak.NPeakCenter,NPeakCenterMin=peak.NPeakCenterMin, NPeakScale=peak.NPeakScale,NSNR=peak.NSNR, NPeakArea=peak.NPeakArea, NBorderLeft=peak.NBorderLeft, NBorderRight=peak.NBorderRight,
-                                      LPeakCenter=peak.LPeakCenter,LPeakCenterMin=peak.LPeakCenterMin, LPeakScale=peak.LPeakScale, LSNR=peak.LSNR, LPeakArea=peak.LPeakArea, LBorderLeft=peak.LBorderLeft, LBorderRight=peak.LBorderRight,
+                                      NPeakCenter=peak.NPeakCenter,NPeakCenterMin=peak.NPeakCenterMin, NPeakScale=peak.NPeakScale,NSNR=peak.NSNR, NPeakArea=peak.NPeakArea, NPeakAbundance=peak.NPeakAbundance, NBorderLeft=peak.NBorderLeft, NBorderRight=peak.NBorderRight,
+                                      LPeakCenter=peak.LPeakCenter,LPeakCenterMin=peak.LPeakCenterMin, LPeakScale=peak.LPeakScale, LSNR=peak.LSNR, LPeakArea=peak.LPeakArea, LPeakAbundance=peak.LPeakAbundance, LBorderLeft=peak.LBorderLeft, LBorderRight=peak.LBorderRight,
                                       peaksCorr=peak.peaksCorr,
                                       heteroAtoms='',adducts='', heteroAtomsFeaturePairs='',
                                       assignedMZs=len(peak.assignedMZs), fDesc=base64.b64encode(dumps([])),
@@ -2179,8 +2190,8 @@ class RunIdentification:
 
         for chromPeak in SQLSelectAsObject(curs, "SELECT c.id AS id, g.fGroupID AS fGroupID, c.mz AS mz, c.lmz AS lmz, c.xcount AS xCount, c.Loading AS loading, "
                                                  "c.ionMode AS ionMode, c.NPeakCenter AS NPeakCenter, c.NPeakCenterMin AS NPeakCenterMin, "
-                                                 "c.NPeakScale AS NPeakScale, c.NPeakArea AS NPeakArea, c.LPeakCenter AS LPeakCenter, "
-                                                 "c.LPeakCenterMin AS LPeakCenterMin, c.LPeakScale AS LPeakScale, c.LPeakArea AS LPeakArea, "
+                                                 "c.NPeakScale AS NPeakScale, c.NPeakArea AS NPeakArea, c.NPeakAbundance AS NPeakAbundance, c.LPeakCenter AS LPeakCenter, "
+                                                 "c.LPeakCenterMin AS LPeakCenterMin, c.LPeakScale AS LPeakScale, c.LPeakArea AS LPeakArea, c.LPeakAbundance AS LPeakAbundance, "
                                                  "c.NBorderLeft as NBorderLeft, c.NBorderRight as NBorderRight, c.LBorderLeft as LBorderLeft, c.LBorderRight as LBorderRight, "
                                                  "c.peaksCorr AS peaksCorr, c.assignedMZs AS assignedMZs, c.heteroAtoms AS HAs, c.adducts AS ADs, "
                                                  "c.fDesc AS DSc, t.id AS tracer, t.name AS tracerName, "
@@ -2209,7 +2220,7 @@ class RunIdentification:
 
         csvFile = open(forFile + ".tsv", "w")
         csvFile.write(
-            "Num\tMZ\tL_MZ\tD_MZ_Error_ppm\tFoundInScans\tD_MZ_Peak_Error_mean_ppm\tD_MZ_Peak_Error_sd_ppm\tD_MZ_Min_ppm\tD_MZ_Max_ppm\tQuant20_MZ_Diff_ppm\tQuant80_MZ_Diff_ppm\tRT\tXn\tCharge\tScanEvent\tIonisation_Mode\tTracer\tArea_N\tArea_L\tFold\tPeakRatio\tLeftBorder_N\tRightBorder_N\tLeftBorder_L\tRightBorder_L\tGroup_ID\tCorr\tAdducts\tHetero_Elements")
+            "Num\tMZ\tL_MZ\tD_MZ_Error_ppm\tFoundInScans\tD_MZ_Peak_Error_mean_ppm\tD_MZ_Peak_Error_sd_ppm\tD_MZ_Min_ppm\tD_MZ_Max_ppm\tQuant20_MZ_Diff_ppm\tQuant80_MZ_Diff_ppm\tRT\tXn\tCharge\tScanEvent\tIonisation_Mode\tTracer\tArea_N\tArea_L\tAbundance_N\tAbundance_L\tFold\tPeakRatio\tLeftBorder_N\tRightBorder_N\tLeftBorder_L\tRightBorder_L\tGroup_ID\tCorr\tAdducts\tHetero_Elements")
         if len(chromPeaks)>1:
             i=1
             for isoRatio in chromPeaks[0].isotopeRatios:
@@ -2278,6 +2289,8 @@ class RunIdentification:
                                                       chromPeak.tracerName,
                                                       chromPeak.NPeakArea,
                                                       chromPeak.LPeakArea,
+                                                      chromPeak.NPeakAbundance,
+                                                      chromPeak.LPeakAbundance,
                                                       chromPeak.NPeakArea / chromPeak.LPeakArea,
                                                       chromPeak.peaksRatio,
                                                       chromPeak.NBorderLeft,
