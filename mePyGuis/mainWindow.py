@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '.\mePyGuis\guis\mainwindow.ui'
 #
-# Created: Wed Dec 21 15:58:27 2016
+# Created: Tue Jan 03 12:31:00 2017
 #      by: PyQt4 UI code generator 4.10
 #
 # WARNING! All changes made in this file will be lost!
@@ -1751,7 +1751,7 @@ class Ui_MainWindow(object):
         self.scrollArea.setWidgetResizable(True)
         self.scrollArea.setObjectName(_fromUtf8("scrollArea"))
         self.scrollAreaWidgetContents = QtGui.QWidget()
-        self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 1248, 603))
+        self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 2207, 1217))
         self.scrollAreaWidgetContents.setObjectName(_fromUtf8("scrollAreaWidgetContents"))
         self.gridLayout_40 = QtGui.QGridLayout(self.scrollAreaWidgetContents)
         self.gridLayout_40.setObjectName(_fromUtf8("gridLayout_40"))
@@ -1782,15 +1782,6 @@ class Ui_MainWindow(object):
         self.resultsExperiment_widget.setMinimumSize(QtCore.QSize(700, 500))
         self.resultsExperiment_widget.setObjectName(_fromUtf8("resultsExperiment_widget"))
         self.gridLayout_42.addWidget(self.resultsExperiment_widget, 1, 0, 1, 1)
-        self.horizontalLayout_12 = QtGui.QHBoxLayout()
-        self.horizontalLayout_12.setObjectName(_fromUtf8("horizontalLayout_12"))
-        self.resultsExperimentNormaliseXICs_checkBox = QtGui.QCheckBox(self.tab_5)
-        self.resultsExperimentNormaliseXICs_checkBox.setChecked(True)
-        self.resultsExperimentNormaliseXICs_checkBox.setObjectName(_fromUtf8("resultsExperimentNormaliseXICs_checkBox"))
-        self.horizontalLayout_12.addWidget(self.resultsExperimentNormaliseXICs_checkBox)
-        spacerItem44 = QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
-        self.horizontalLayout_12.addItem(spacerItem44)
-        self.gridLayout_42.addLayout(self.horizontalLayout_12, 0, 0, 1, 1)
         self.tabWidget_3.addTab(self.tab_5, _fromUtf8(""))
         self.tab_6 = QtGui.QWidget()
         self.tab_6.setObjectName(_fromUtf8("tab_6"))
@@ -1809,6 +1800,15 @@ class Ui_MainWindow(object):
         self.gridLayout_48.addWidget(self.resultsExperimentMSScan_widget, 0, 0, 1, 1)
         self.tabWidget_3.addTab(self.tab_4, _fromUtf8(""))
         self.gridLayout_40.addWidget(self.tabWidget_3, 1, 1, 1, 1)
+        self.horizontalLayout_12 = QtGui.QHBoxLayout()
+        self.horizontalLayout_12.setObjectName(_fromUtf8("horizontalLayout_12"))
+        self.resultsExperimentNormaliseXICs_checkBox = QtGui.QCheckBox(self.scrollAreaWidgetContents)
+        self.resultsExperimentNormaliseXICs_checkBox.setChecked(True)
+        self.resultsExperimentNormaliseXICs_checkBox.setObjectName(_fromUtf8("resultsExperimentNormaliseXICs_checkBox"))
+        self.horizontalLayout_12.addWidget(self.resultsExperimentNormaliseXICs_checkBox)
+        spacerItem44 = QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
+        self.horizontalLayout_12.addItem(spacerItem44)
+        self.gridLayout_40.addLayout(self.horizontalLayout_12, 0, 1, 1, 1)
         self.scrollArea.setWidget(self.scrollAreaWidgetContents)
         self.gridLayout_2.addWidget(self.scrollArea, 0, 0, 1, 1)
         self.tabWidget.addTab(self.bracketedResultsTab, _fromUtf8(""))
@@ -1848,6 +1848,8 @@ class Ui_MainWindow(object):
         self.helpMenue.setObjectName(_fromUtf8("helpMenue"))
         self.actionIsotopic_enrichment = QtGui.QAction(MainWindow)
         self.actionIsotopic_enrichment.setObjectName(_fromUtf8("actionIsotopic_enrichment"))
+        self.actionSet_working_directory = QtGui.QAction(MainWindow)
+        self.actionSet_working_directory.setObjectName(_fromUtf8("actionSet_working_directory"))
         self.menuHelp.addAction(self.helpMenue)
         self.menuHelp.addSeparator()
         self.menuHelp.addAction(self.aboutMenue)
@@ -1858,14 +1860,16 @@ class Ui_MainWindow(object):
         self.menuFile.addSeparator()
         self.menuFile.addAction(self.exitMenue)
         self.menuTools.addAction(self.actionIsotopic_enrichment)
+        self.menuTools.addSeparator()
+        self.menuTools.addAction(self.actionSet_working_directory)
         self.menuBar.addAction(self.menuFile.menuAction())
         self.menuBar.addAction(self.menuTools.menuAction())
         self.menuBar.addAction(self.menuHelp.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.tabWidget.setCurrentIndex(0)
+        self.tabWidget.setCurrentIndex(3)
         self.tabWidget_2.setCurrentIndex(0)
-        self.tabWidget_3.setCurrentIndex(2)
+        self.tabWidget_3.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
         MainWindow.setTabOrder(self.exExperimentName_LineEdit, self.exOperator_LineEdit)
         MainWindow.setTabOrder(self.exOperator_LineEdit, self.exExperimentID_LineEdit)
@@ -2164,10 +2168,10 @@ class Ui_MainWindow(object):
         self.resultsExperiment_TreeWidget.headerItem().setText(3, _translate("MainWindow", "4", None))
         self.resultsExperiment_TreeWidget.headerItem().setText(4, _translate("MainWindow", "5", None))
         self.resultsExperiment_TreeWidget.headerItem().setText(5, _translate("MainWindow", "6", None))
-        self.resultsExperimentNormaliseXICs_checkBox.setText(_translate("MainWindow", "Normalise to labeled features", None))
         self.tabWidget_3.setTabText(self.tabWidget_3.indexOf(self.tab_5), _translate("MainWindow", "XICs", None))
         self.tabWidget_3.setTabText(self.tabWidget_3.indexOf(self.tab_6), _translate("MainWindow", "Separated peaks", None))
         self.tabWidget_3.setTabText(self.tabWidget_3.indexOf(self.tab_4), _translate("MainWindow", "MS scans", None))
+        self.resultsExperimentNormaliseXICs_checkBox.setText(_translate("MainWindow", "Normalise to labeled features", None))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.bracketedResultsTab), _translate("MainWindow", "Experiment results", None))
         self.menuHelp.setTitle(_translate("MainWindow", "Help", None))
         self.menuFile.setTitle(_translate("MainWindow", "File", None))
@@ -2179,6 +2183,7 @@ class Ui_MainWindow(object):
         self.actionSave_Settings.setText(_translate("MainWindow", "Save Settings", None))
         self.helpMenue.setText(_translate("MainWindow", "Help", None))
         self.actionIsotopic_enrichment.setText(_translate("MainWindow", "Isotopic enrichment", None))
+        self.actionSet_working_directory.setText(_translate("MainWindow", "Set working directory", None))
 
 import resources_rc
 

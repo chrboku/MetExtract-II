@@ -61,7 +61,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>0</number>
+       <number>3</number>
       </property>
       <widget class="QWidget" name="inputTab">
        <attribute name="title">
@@ -3904,8 +3904,8 @@ p, li { white-space: pre-wrap; }
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1248</width>
-             <height>603</height>
+             <width>2207</width>
+             <height>1217</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_40">
@@ -3967,7 +3967,7 @@ p, li { white-space: pre-wrap; }
             <item row="1" column="1">
              <widget class="QTabWidget" name="tabWidget_3">
               <property name="currentIndex">
-               <number>2</number>
+               <number>0</number>
               </property>
               <widget class="QWidget" name="tab_5">
                <attribute name="title">
@@ -3989,33 +3989,6 @@ p, li { white-space: pre-wrap; }
                    </size>
                   </property>
                  </widget>
-                </item>
-                <item row="0" column="0">
-                 <layout class="QHBoxLayout" name="horizontalLayout_12">
-                  <item>
-                   <widget class="QCheckBox" name="resultsExperimentNormaliseXICs_checkBox">
-                    <property name="text">
-                     <string>Normalise to labeled features</string>
-                    </property>
-                    <property name="checked">
-                     <bool>true</bool>
-                    </property>
-                   </widget>
-                  </item>
-                  <item>
-                   <spacer name="horizontalSpacer_22">
-                    <property name="orientation">
-                     <enum>Qt::Horizontal</enum>
-                    </property>
-                    <property name="sizeHint" stdset="0">
-                     <size>
-                      <width>40</width>
-                      <height>20</height>
-                     </size>
-                    </property>
-                   </spacer>
-                  </item>
-                 </layout>
                 </item>
                </layout>
               </widget>
@@ -4040,6 +4013,33 @@ p, li { white-space: pre-wrap; }
                </layout>
               </widget>
              </widget>
+            </item>
+            <item row="0" column="1">
+             <layout class="QHBoxLayout" name="horizontalLayout_12">
+              <item>
+               <widget class="QCheckBox" name="resultsExperimentNormaliseXICs_checkBox">
+                <property name="text">
+                 <string>Normalise to labeled features</string>
+                </property>
+                <property name="checked">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="horizontalSpacer_22">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
             </item>
            </layout>
           </widget>
@@ -4105,6 +4105,8 @@ p, li { white-space: pre-wrap; }
      <string>Tools</string>
     </property>
     <addaction name="actionIsotopic_enrichment"/>
+    <addaction name="separator"/>
+    <addaction name="actionSet_working_directory"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuTools"/>
@@ -4138,6 +4140,11 @@ p, li { white-space: pre-wrap; }
   <action name="actionIsotopic_enrichment">
    <property name="text">
     <string>Isotopic enrichment</string>
+   </property>
+  </action>
+  <action name="actionSet_working_directory">
+   <property name="text">
+    <string>Set working directory</string>
    </property>
   </action>
  </widget>

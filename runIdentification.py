@@ -77,7 +77,7 @@ from utils import getAtomAdd, mean, weightedMean, sd, weightedSd, smoothDataSeri
 from MZHCA import HierarchicalClustering, cutTreeSized
 from chromPeakPicking.MassSpecWavelet import MassSpecWavelet
 from utils import corr, getSubGraphs, ChromPeakPair, Bunch
-from sumFormula import sumFormulaGenerator
+from SGR import SGRGenerator
 from mePyGuis.TracerEdit import ConfiguredTracer
 
 
@@ -1840,7 +1840,7 @@ class RunIdentification:
                             elemDictReq = {}
                             for elem in self.elements:
                                 elemDictReq[elem] = [self.elements[elem].weight, self.elements[elem].numberValenzElectrons]
-                            t = sumFormulaGenerator(atoms=elemDictReq)
+                            t = SGRGenerator(atoms=elemDictReq)
 
                             useAtoms = []
                             if self.labellingElement in self.elements.keys():
@@ -2716,6 +2716,7 @@ class RunIdentification:
                 setattr(chromPeak, "heteroIsotopologues", loads(base64.b64decode(chromPeak.HAs)))
                 setattr(chromPeak, "adducts", loads(base64.b64decode(chromPeak.ADs)))
                 setattr(chromPeak, "fDesc", loads(base64.b64decode(chromPeak.DSc)))
+                chromPeak.assignedMZs=loads(base64.b64decode(chromPeak.assignedMZs))
 
                 allChromPeaks.append(chromPeak)
 
@@ -2815,13 +2816,13 @@ class RunIdentification:
                     lines.append('<u>%s</u> Ion Mode: <u>%s</u>' % (scanEvent, peak.ionMode))
                     lines.append('Native: m/z: <u>%.6f</u> RT: <u>%.2f</u> Area: <u>%.2f</u> LeftBorder: <u>%.1f</u> RightBorder: <u>%.1f</u>' % (
                         peak.mz, peak.NPeakCenterMin, peak.NPeakArea, peak.NBorderLeft, peak.NBorderRight))
-                    lines.append('Labelled: m/z: <u>%.6f</u> (Error [ppm]: %.2f) RT: <u>%.2f</u> Area: <u>%.2f</u> LeftBorder: <u>%.1f</u> RightBorder: <u>%.1f</u>' % (
+                    lines.append('Labelled: m/z: <u>%.6f</u> (Error [ppm]: <u>%.2f</u>) RT: <u>%.2f</u> Area: <u>%.2f</u> LeftBorder: <u>%.1f</u> RightBorder: <u>%.1f</u>' % (
                         peak.lmz,  (peak.lmz-peak.mz - peak.xCount * tracer.mzDelta / peak.loading)*1000000./peak.mz, peak.LPeakCenterMin, peak.LPeakArea, peak.LBorderLeft, peak.LBorderRight))
                     lines.append('Scanratios M/M\': <u>%.4f</u> (Area Ratio <u>%.4f</u>) M+1/M: <u>%.4f</u> M\'-1/M\': <u>%.4f</u>'%(peak.peaksRatio, peak.NPeakArea/peak.LPeakArea, peak.peaksRatioMp1, peak.peaksRatioMPm1))
                     lines.append(
                         "ID: <u>%d</u> %s<sub>n</sub>: <u>%d</u> Z: <u>%d</u> Correlation: <u>%.4f</u> (<u>%d</u> scans) valid SIL patterns: <u>%d</u> scans Feature group: <u>%d</u>" % (
                             peak.id, self.labellingElement, peak.xCount, peak.loading, peak.peaksCorr, h - l + 1,
-                            peak.assignedMZs, peak.fGroupID))
+                            len(peak.assignedMZs), peak.fGroupID))
 
                     lines.append("<br/>Putative hetero atoms: ")
                     if len(peak.heteroIsotopologues) > 0:

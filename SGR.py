@@ -2,7 +2,7 @@ from formulaTools import formulaTools
 
 
 # class and functionality for calculating sum formulas for a given molecular mass
-class sumFormulaGenerator:
+class SGRGenerator:
     def __init__(self, atoms=None):
         if atoms is None:
             self.atoms = {"C": [12.0, 4], "H": [1.007825, 1], "O": [15.994915, 6], "N": [14.003074, 5],
@@ -199,7 +199,7 @@ class sumFormulaGenerator:
 
 
 if __name__=="__main__":
-    sfg=sumFormulaGenerator()
+    sfg=SGRGenerator()
 
     from formulaTools import formulaTools
     ft=formulaTools()
@@ -207,22 +207,26 @@ if __name__=="__main__":
 
 
 
-    m=720.3923+0.00055#702.27351+18.033823+0.00055
+    mz=47.008713
+    adducts=[0]
 
-    formsCRes=sfg.findFormulas(m, useAtoms=["C", "N", "H", "O"], atomsRange=[(32,32), (0,500), (0,10000), (0,400)],
-                               fixed=["C"],
-                               useSevenGoldenRules=False, useSecondRule=False, ppm=5.)
+    for add in adducts:
+        print add
+        m=mz-add
 
-    from utils import Bunch, printObjectsAsTable
-    from formulaTools import formulaTools
-    fT=formulaTools()
+        formsCRes=sfg.findFormulas(m, useAtoms=["C", "N", "H", "O", "P", "S"], atomsRange=[(1,1), (0,500), (0,10000), (0,400), [0, 10], [0, 20]],
+                                   useSevenGoldenRules=False, useSecondRule=False, ppm=250.)
 
-    bs=[]
-    for f in formsCRes:
-        elems=fT.parseFormula(f)
-        bs.append(Bunch(formula=f, mass=fT.calcMolWeight(elems), diffPPM=(fT.calcMolWeight(elems)-m)*1000000./m, diffPPMAt300=(fT.calcMolWeight(elems)-m)*1000000./300))
+        from utils import Bunch, printObjectsAsTable
+        from formulaTools import formulaTools
+        fT=formulaTools()
 
-    printObjectsAsTable(bs, attrs=["formula", "mass", "diffPPM", "diffPPMAt300"])
+        bs=[]
+        for f in formsCRes:
+            elems=fT.parseFormula(f)
+            bs.append(Bunch(formula=f, mass=fT.calcMolWeight(elems), diffPPM=(fT.calcMolWeight(elems)-m)*1000000./m, diffPPMAt300=(fT.calcMolWeight(elems)-m)*1000000./300))
+
+        printObjectsAsTable(bs, attrs=["formula", "mass", "diffPPM", "diffPPMAt300"])
 
 
 

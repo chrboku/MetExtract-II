@@ -246,6 +246,7 @@ from matplotlib.backends.backend_qt4agg import NavigationToolbar2QTAgg as Naviga
 from matplotlib.figure import Figure
 from matplotlib.cm import get_cmap
 import matplotlib.patches as patches
+#from mpldatacursor import datacursor, HighlightingDataCursor
 
 matplotlib.rcParams['savefig.dpi'] = 300
 font = {'size': 16}
@@ -874,9 +875,9 @@ def interruptBracketingOfFeaturePairs(selfObj, funcProc):
 
 
 
-
-
 class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
+
+
 
     #<editor-fold desc="### check group functions">
     def forceUpdateFL(self):
@@ -1041,12 +1042,12 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             fls=b.fls
 
                             if '+' in pols:
-                                self.drawPlot(self.ui.pl_tic, 0, [t/60. for t in b.tics['+'].times], b.tics['+'].tic, useCol=group.color)
+                                self.drawPlot(self.ui.pl_tic, 0, [t/60. for t in b.tics['+'].times], b.tics['+'].tic, useCol=group.color, label=file, gid=file, addDC=True)
                             if '-' in pols:
                                 mult=1
                                 if '+' in pols and '-' in pols:
                                     mult=-1
-                                self.drawPlot(self.ui.pl_tic, 0, [t/60. for t in b.tics['-'].times], [e*mult for e in b.tics['-'].tic], useCol=group.color)
+                                self.drawPlot(self.ui.pl_tic, 0, [t/60. for t in b.tics['-'].times], [e*mult for e in b.tics['-'].tic], useCol=group.color, label=file, gid=file, addDC=True)
 
                             for pol in pols:
                                 if len(fls[pol])>0:
@@ -1094,7 +1095,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         # update the TIC graph
         pw.hide()
-        self.drawCanvas(self.ui.pl_tic)
+        self.drawCanvas(self.ui.pl_tic, showLegendOverwrite=False)
+
 
         if len(failed) > 0:
             t=[]
@@ -1591,7 +1593,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
             procGrps=[]
             for grp in grps.childGroups():
-                if str(grp) != "Settings" and str(grp) != "ExperimentDescription" and str(grp) != "ExperimentResults" and str(grp) != "MetExtract":
+                if str(grp) != "Settings" and str(grp) != "ExperimentDescription" and str(grp) != "ExperimentResults" and str(grp) != "MetExtract" and str(grp)!="WorkingDirectory":
                     procGrps.append(grp)
 
             grpi=0
@@ -1671,8 +1673,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     self.ui.resultsExperiment_TreeWidget.addTopLevelItem(metaboliteGroupTreeItem)
                     metaboliteGroupTreeItems[metaboliteGroup.metaboliteGroupID]=metaboliteGroupTreeItem
 
-                for fp in SQLSelectAsObject(self.experimentResults.curs, "SELECT 'featurePair' AS type, id, OGroup AS metaboliteGroupID, mz, lmz, dmz, rt, xn, charge, scanEvent, ionisationMode, tracer FROM GroupResults ORDER BY mz"):
-                    featurePair=QtGui.QTreeWidgetItem([str(fp.id), "%.4f"%fp.mz, "%.2f"%(fp.rt/60.), str(fp.xn), str(fp.charge), str(fp.ionisationMode)])
+                for fp in SQLSelectAsObject(self.experimentResults.curs, "SELECT 'featurePair' AS type, id, OGroup AS metaboliteGroupID, mz, lmz, dmz, rt, xn, charge, scanEvent, ionisationMode, tracer, (SELECT COUNT(*) FROM FoundFeaturePairs WHERE resID=id) AS FOUNDINCOUNT FROM GroupResults ORDER BY mz"):
+                    featurePair=QtGui.QTreeWidgetItem(["%s (/%d)"%(str(fp.id), int(fp.FOUNDINCOUNT)), "%.4f"%fp.mz, "%.2f"%(fp.rt/60.), str(fp.xn), str(fp.charge), str(fp.ionisationMode)])
                     featurePair.bunchData=fp
                     metaboliteGroupTreeItems[fp.metaboliteGroupID].addChild(featurePair)
 
@@ -1806,6 +1808,18 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             itemNum += 1
 
         self.ui.resultsExperiment_plot.axes.set_xlim([axlimMin, axlimMax])
+
+        if self.ui.resultsExperimentNormaliseXICs_checkBox.checkState()==QtCore.Qt.Checked:
+            self.ui.resultsExperiment_plot.axes.set_ylabel("Intensity [counts] (normalised to labeled peaks)")
+            self.ui.resultsExperiment_plot.axes.set_xlabel("Retention time [min]")
+            self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_ylabel("Intensity [counts] (normalised to labeled peaks)")
+            self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_xlabel("Retention time [min] (artificially modified)")
+        else:
+            self.ui.resultsExperiment_plot.axes.set_ylabel("Intensity [counts]")
+            self.ui.resultsExperiment_plot.axes.set_xlabel("Retention time [min]")
+            self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_ylabel("Intensity [counts]")
+            self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_xlabel("Retention time [min] (artificially modified)")
+
         self.drawCanvas(self.ui.resultsExperiment_plot)
         self.drawCanvas(self.ui.resultsExperimentSeparatedPeaks_plot)
         self.drawCanvas(self.ui.resultsExperimentMSScanPeaks_plot)
@@ -1839,6 +1853,19 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     return
 
             sett.endGroup()
+
+
+
+            sett.beginGroup("WorkingDirectory")
+
+            if sett.contains("workingDirectory"):
+                os.chdir(str(sett.value("workingDirectory").toString()))
+                logging.info("Working directory changed to '%s'"%str(sett.value("workingDirectory").toString()))
+                if not(silent):
+                    QtGui.QMessageBox.information(self, "MetExtract", "The current working directory was changed to\n'%s'"%str(sett.value("workingDirectory").toString()), QtGui.QMessageBox.Ok)
+
+            sett.endGroup()
+
 
             sett.beginGroup("Settings")
 
@@ -2063,6 +2090,12 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             sett = QtCore.QSettings(settingsFile, QtCore.QSettings.IniFormat)
             if clear:
                 sett.clear()
+
+            sett.beginGroup("WorkingDirectory")
+            sett.setValue("workingDirectory", os.getcwd())
+            sett.endGroup()
+
+
             sett.beginGroup("Settings")
 
             sett.setValue("processIndividualFiles", self.ui.processIndividualFiles.checkState() == QtCore.Qt.Checked)
@@ -2198,6 +2231,13 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
     def showCalcIsoEnrichmentDialog(self):
         diag = calcIsoEnrichmentDialog()
         diag.executeDialog()
+
+    def setWorkingDirectoryDialog(self):
+
+        file = str(QtGui.QFileDialog.getExistingDirectory(self, "Select new working directory. The current one is '%s'"%os.getcwd()))
+        if file!="":
+            os.chdir(file)
+            logging.info("CWD set to '%s'"%file)
 
 
     def aboutMe(self):
@@ -3885,7 +3925,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     self.drawPlot(self.ui.pl1, plotIndex=0, x=times[ps:pe], y=xic[ps:pe],
                                   fill=[int(cp.NPeakCenter - cp.NBorderLeft),
                                         int(cp.NPeakCenter + cp.NBorderRight)], rearrange=len(selectedItems) == 1,
-                                  label="%.4f (%d)"%(cp.mz, cp.xCount), useCol=useColi)
+                                  label="%.4f (%d, %s)"%(cp.mz, cp.xCount, cp.ionMode), useCol=useColi)
 
                     if self.ui.showSmoothedEIC_checkBox.isChecked():
                         self.drawPlot(self.ui.pl1, plotIndex=0, x=times[ps:pe], y=xic_smoothed[ps:pe],
@@ -4378,7 +4418,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                     int(child.NPeakCenter - child.NBorderLeft)),
                                 min(int(child.NPeakCenter + child.NBorderRight),
                                     int(child.LPeakCenter + child.LBorderRight))], rearrange=len(selectedItems) == 1,
-                                          label="%.4f (%d)"%(child.mz, child.xCount), useCol=useColi)  #useCol=selIndex*2)
+                                          label="%.4f (%d, %s)"%(child.mz, child.xCount, child.ionMode), useCol=useColi)  #useCol=selIndex*2)
 
                             if self.ui.showSmoothedEIC_checkBox.isChecked():
                                 self.drawPlot(self.ui.pl1, plotIndex=0, x=times[ps:pe], y=xic_smoothed[ps:pe], fill=[
@@ -5112,7 +5152,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
     def drawPlot(self, plt, plotIndex=0, x=range(10), y=range(1, 11), fill=[], label="", b=None, rearrange=True,
                  useCol=None, multipleLocator=5, alpha=globAlpha, title="", xlab="Retention time [minutes]",
-                 ylab="Intensity [counts]", plot=True, scatter=False, linestyle="-"):
+                 ylab="Intensity [counts]", plot=True, scatter=False, linestyle="-", gid=None, addDC=False):
         try:
             if b is None:
                 b = predefinedColors
@@ -5148,11 +5188,15 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 plotCol=b[useCol % len(b)]
 
             if plot:
-                ax.plot(x, y, color=plotCol, label=label, linestyle=linestyle)
+                line=ax.plot(x, y, color=plotCol, label=label, linestyle=linestyle, gid=gid)
+                if addDC:
+                    pass
+                    #datacursor(line, formatter='{label}'.format)
+                    #HighlightingDataCursor(line, formatter="".format)
             if scatter:
-                ax.scatter(x, y, color=plotCol)
+                ax.scatter(x, y, color=plotCol, gid=gid)
             if len(fill) > 0 and self.ui.plotMarkArea.checkState() == QtCore.Qt.Checked:
-                ax.fill_between(x[fill[0]:fill[1]], y[fill[0]:fill[1]], color=plotCol, alpha=alpha)
+                ax.fill_between(x[fill[0]:fill[1]], y[fill[0]:fill[1]], color=plotCol, alpha=alpha, gid=gid)
 
         except Exception as ex:
             logging.warning("Exception caught", ex)
@@ -5166,7 +5210,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             ax.set_ylim(ylim[0], ylim[1])
             ax.set_xlim(xlim[0], xlim[1])
 
-    def drawCanvas(self, plt, ylim=None, xlim=None):
+    def drawCanvas(self, plt, ylim=None, xlim=None, showLegendOverwrite=True):
         #if ylim is None:
         #    ylim = plt.twinxs[0].get_ylim()
         #if xlim is None:
@@ -5183,7 +5227,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     ax.set_xlim(xlim[0])
                 else:
                     ax.set_xlim(xlim[0], xlim[1])
-            if self.ui.showLegend.isChecked():
+            if self.ui.showLegend.isChecked() and showLegendOverwrite:
                 ax.legend()
 
         plt.canvas.draw()
@@ -5818,7 +5862,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.silent=silent
 
 
-        logging.info("MetExtract II started (module %s)"%module)
+        logging.info("MetExtract II started")
 
 
         self.preConfigured_adducts = [
@@ -5965,6 +6009,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.ui.groupsSelectFile.clicked.connect(self.selectGroupsFile)
 
         self.ui.actionIsotopic_enrichment.triggered.connect(self.showCalcIsoEnrichmentDialog)
+        self.ui.actionSet_working_directory.triggered.connect(self.setWorkingDirectoryDialog)
 
         self.ui.aboutMenue.triggered.connect(self.aboutMe)
         self.ui.helpMenue.triggered.connect(self.helpMe)
@@ -6029,6 +6074,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         vbox.addWidget(self.ui.pl_tic.canvas)
         vbox.addWidget(self.ui.pl_tic.mpl_toolbar)
         self.ui.ticVisualisationWidget.setLayout(vbox)
+
+
+
+
 
         #Setup first plot
         #http://eli.thegreenplace.net/2009/01/20/matplotlib-with-pyqt-guis/

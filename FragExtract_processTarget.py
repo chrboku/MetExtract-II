@@ -15,7 +15,7 @@ import os
 import os.path
 import pickle
 import base64
-from sumFormula import sumFormulaGenerator
+from SGR import SGRGenerator
 from formulaTools import formulaTools
 
 from MSScan import MS2Scan
@@ -464,7 +464,7 @@ class ProcessTarget:
         return scanAnnotated
 
     def annotatePeaksWithSumFormulas(self, adductObj, scanAnnotated, useAtoms, atomsRange, fixed, ppm, useSevenGoldenRules=True):
-        sfg=sumFormulaGenerator()
+        sfg=SGRGenerator()
         ft=formulaTools()
 
         for annotation in scanAnnotated.peakAnnotations:
@@ -523,7 +523,7 @@ class ProcessTarget:
 
 
     def calcParentSumFormulas(self, nativeMZ, Cn, adductObj, useAtoms, atomsRange, fixed, ppm, useSevenGoldenRules=True):
-        sfg=sumFormulaGenerator()
+        sfg=SGRGenerator()
 
         mParent=nativeMZ-adductObj.mzoffset/adductObj.charge
 
