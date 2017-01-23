@@ -4105,7 +4105,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             toDrawIntsPos.append(intensity)
                             toDrawIntsPos.append(0)
 
-                        self.drawPlot(self.ui.pl3, plotIndex=0, x=toDrawMZsPos, y=toDrawIntsPos, useCol=useColi,
+                        self.drawPlot(self.ui.pl3, plotIndex=0, x=toDrawMZsPos, y=toDrawIntsPos, useCol="lightgrey",
                                       multipleLocator=None, alpha=0.1, title="", xlab="MZ")
 
                     if hasNeg:
@@ -4123,23 +4123,17 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             toDrawIntsNeg.append(intensity * negInt)
                             toDrawIntsNeg.append(0)
 
-                        self.drawPlot(self.ui.pl3, plotIndex=0, x=toDrawMZsNeg, y=toDrawIntsNeg, useCol=useColi,
+                        self.drawPlot(self.ui.pl3, plotIndex=0, x=toDrawMZsNeg, y=toDrawIntsNeg, useCol="lightgrey",
                                       multipleLocator=None, alpha=0.1, title="", xlab="MZ")
                     mzs=[]
                     childIDs = []
                     maxInt = 0
 
-
                     for childi in range(item.childCount()):
                         if not (item.child(childi).isHidden()):
                             cp = item.child(childi).myData
 
-                            if cp.ionMode == "-" and hasPos:
-                                mInt = -min(toDrawIntsNeg)
-                                toDrawInts = [-f for f in toDrawIntsNeg]
-                                toDrawMzs = toDrawMZsNeg
-                                intMul = -1.
-                            elif cp.ionMode == "-":
+                            if cp.ionMode == "-":
                                 mInt = max(toDrawIntsNeg)
                                 toDrawInts = toDrawIntsNeg
                                 toDrawMzs = toDrawMZsNeg
@@ -4148,23 +4142,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                 toDrawInts = toDrawIntsPos
                                 toDrawMzs = toDrawMZsPos
 
-                            isMetabolisationExperiment = self.isTracerMetabolisationExperiment()
-                            mzD, purN, purL = self.getLabellingParametersForResult(cp.id)
-
-                            if massSpectraAvailable:
-
-                                self.drawPlot(self.ui.pl3, plotIndex=0, x=toDrawMzs, y=toDrawInts, useCol="lightgrey",
-                                              multipleLocator=None, alpha=0.1, title="", xlab="MZ")
-
-                    for childi in range(item.childCount()):
-                        if not (item.child(childi).isHidden()):
-                            cp = item.child(childi).myData
                             if massSpectraAvailable:
 
                                 isMetabolisationExperiment = self.isTracerMetabolisationExperiment()
                                 mzD, purN, purL = self.getLabellingParametersForResult(cp.id)
-
-
 
                                 bm = min(range(len(toDrawMzs)), key=lambda i: abs(toDrawMzs[i] - cp.mz)) + 1
                                 bml = min(range(len(toDrawMzs)),
@@ -4174,11 +4155,11 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                 intRight = toDrawInts[bml]
 
                                 h = 0
-                                if cp.ionMode == "-" and featuresPosSelected:
+                                if cp.ionMode == "-" and hasPos:
                                     h = min(intLeft, intRight)
                                 else:
                                     h = max(intLeft, intRight)
-
+                                    
                                 if self.ui.MSLabels.checkState() == QtCore.Qt.Checked:
                                     self.addAnnotation(self.ui.pl3,
                                                        "mz: %.5f\nl-mz: %.5f\nd-mz: %.5f\nXn: %d Z: %s%d" % (
@@ -4187,7 +4168,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                            cp.loading),
                                                        (cp.mz + mzD * cp.xCount / cp.loading / 2., h * 1.1), (10, 120),
                                                        rotation=0,
-                                                       up=not (cp.ionMode == "-" and featuresPosSelected))
+                                                       up=not(cp.ionMode == "-" and hasPos))
 
                                 self.addArrow(self.ui.pl3, (cp.mz, toDrawInts[bm]), (cp.mz, h * 1.1),
                                               drawArrowHead=True)
@@ -4202,7 +4183,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                     bml = min(range(len(toDrawMzs)),
                                               key=lambda w: abs(toDrawMzs[w] - (cp.mz + 1.00335 / cp.loading))) + 1
 
-                                    if cp.ionMode == "-" and featuresPosSelected:
+                                    if cp.ionMode == "-" and hasPos:
                                         h = min(toDrawInts[bm], toDrawInts[bml])
                                     else:
                                         h = max(toDrawInts[bm], toDrawInts[bml])
@@ -4215,7 +4196,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                               key=lambda w: abs(
                                                   toDrawMzs[w] - (cp.mz + 1.00335 * cp.xCount / cp.loading))) + 1
 
-                                    if cp.ionMode == "-" and featuresPosSelected:
+                                    if cp.ionMode == "-" and hasPos:
                                         h = min(toDrawInts[bm], toDrawInts[bml])
                                     else:
                                         h = max(toDrawInts[bm], toDrawInts[bml])
@@ -4317,10 +4298,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                             ttoDrawMzs.append(toDrawMzs[i])
 
                                             ttoDrawInts.append(0)
-                                            if cp.ionMode == "-" and featuresPosSelected:
-                                                ttoDrawInts.append(-toDrawInts[i])
-                                            else:
-                                                ttoDrawInts.append(toDrawInts[i])
+                                            ttoDrawInts.append(toDrawInts[i])
                                             ttoDrawInts.append(0)
 
                                             self.drawPlot(self.ui.pl3, plotIndex=0, x=ttoDrawMzs, y=ttoDrawInts,
