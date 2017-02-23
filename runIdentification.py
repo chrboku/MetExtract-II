@@ -448,7 +448,7 @@ class RunIdentification:
         conn.commit()
 
     def parseMzXMLFile(self):
-        mzxml = Chromatogram();
+        mzxml = Chromatogram()
         mzxml.parse_file(self.file, intensityCutoff=self.intensityCutoff)
         return mzxml
 
@@ -1080,14 +1080,15 @@ class RunIdentification:
                                              LPeakCenter=peakL.peakIndex, LPeakCenterMin=times[peakL.peakIndex],
                                              LPeakScale=peakL.peakScale, LSNR=peakL.peakSNR, LPeakArea=peakL.peakArea,
                                              NXIC=eic, LXIC=eicL, times=times, fDesc=[], adducts=[], heteroAtomsFeaturePairs=[],
+                                             NXICSmoothed=eicSmoothed, LXICSmoothed=eicLSmoothed,
                                              NBorderLeft=peakN.peakLeftFlank, NBorderRight=peakN.peakRightFlank,
                                              LBorderLeft=peakL.peakLeftFlank, LBorderRight=peakL.peakRightFlank,
                                              isotopeRatios=[], mzDiffErrors=Bunch())
 
                             lb = int(min(peak.NPeakCenter - peak.NBorderLeft, peak.LPeakCenter - peak.LBorderLeft))
                             rb = int(max(peak.NPeakCenter + peak.NBorderRight, peak.LPeakCenter + peak.LBorderRight)) + 1
-                            peakN = eic[lb:rb]
-                            peakL = eicL[lb:rb]
+                            peakN = eicSmoothed[lb:rb]
+                            peakL = eicLSmoothed[lb:rb]
                             co = corr(peakN, peakL)
 
                             # check peak shape (Pearson correlation)
@@ -1933,12 +1934,12 @@ class RunIdentification:
                                                     peakB.NPeakCenter - 1 * peakB.NBorderLeft,
                                                     peakA.LPeakCenter - 1 * peakA.LBorderLeft,
                                                     peakB.LPeakCenter - 1 * peakB.LBorderLeft])))
-                            bmax = int(min(len(peakB.NXIC) - 1, mean([peakB.NPeakCenter + 1 * peakB.NBorderRight,
+                            bmax = int(min(len(peakB.NXICSmoothed) - 1, mean([peakB.NPeakCenter + 1 * peakB.NBorderRight,
                                                                       peakA.NPeakCenter + 1 * peakA.NBorderRight,
                                                                       peakB.LPeakCenter + 1 * peakB.LBorderRight,
                                                                       peakA.LPeakCenter + 1 * peakA.LBorderRight])))
 
-                            pb = corr(peakA.NXIC[bmin:bmax], peakB.NXIC[bmin:bmax])
+                            pb = corr(peakA.NXICSmoothed[bmin:bmax], peakB.NXICSmoothed[bmin:bmax])
                             if str(pb)=="nan":
                                 pb=-1
 

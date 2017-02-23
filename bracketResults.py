@@ -210,7 +210,7 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
             curNum = 1
 
             xCountshelp = []
-            a=xCounts.replace(" ", "").split(",")
+            a=xCounts.replace(" ", "").replace(";", ",").split(",")
             for j in a:
                 if "-" in j:
                     xCountshelp.extend(range(int(j[0:j.find("-")]), int(j[j.find("-")+1:len(j)])+1))

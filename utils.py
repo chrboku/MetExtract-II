@@ -488,6 +488,12 @@ class ChromPeakPair:
         if args.has_key("LXIC"):
             self.LXIC = args["LXIC"]
             argsUsed += 1
+        if args.has_key("NXICSmoothed"):
+            self.NXICSmoothed = args["NXICSmoothed"]
+            argsUsed += 1
+        if args.has_key("LXICSmoothed"):
+            self.LXICSmoothed = args["LXICSmoothed"]
+            argsUsed += 1
         if args.has_key("times"):
             self.times = args["times"]
             argsUsed += 1

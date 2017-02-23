@@ -341,36 +341,46 @@ def matchPartners(mzXMLData, forFile,
 
 
                                                         # 2. check if the observed M'-1/M' ratio fits the theoretical one
-                                                        if peakCountRight > 1 or (lowAbundanceIsotopeCutoff and labPeakIntensity*normRatioL <= isotopologIntensityThres):
-                                                            if isoM_pXm1 != -1:
-                                                                observedRatioMp=curScan.intensity_list[isoM_pXm1] / labPeakIntensity
-                                                                if abs(normRatioL-observedRatioMp) <= intensityErrorL:
-                                                                    pass     ## accept peak
-                                                                else:
-                                                                    continue ## discard current peak
-                                                            elif lowAbundanceIsotopeCutoff:
-                                                                if labPeakIntensity*normRatioL <= isotopologIntensityThres:
-                                                                    pass     ## accept peak
-                                                                else:
-                                                                    continue ## discard current peak
+                                                        if peakCountRight == 1:
+                                                            pass
+                                                        elif isoM_pXm1 == -1:
+                                                            if lowAbundanceIsotopeCutoff and labPeakIntensity*normRatioL <= isotopologIntensityThres:
+                                                                pass
                                                             else:
-                                                                continue     ## discard current peak
+                                                                continue
+                                                        elif isoM_pXm1 != -1:
+                                                            isoM_pXm1_Intensity = curScan.intensity_list[isoM_pXm1]
+                                                            observedRatioMp = isoM_pXm1_Intensity / labPeakIntensity
+                                                            if abs(normRatioL - observedRatioMp) <= intensityErrorL:
+                                                                pass
+                                                            elif lowAbundanceIsotopeCutoff and isoM_pXm1_Intensity <= isotopologIntensityThres:
+                                                                pass
+                                                            else:
+                                                                continue
                                                         else:
-                                                            pass ## accept peak
+                                                            continue
 
                                                         # 3. check if the observed M+1/M ratio fits the theoretical one
-                                                        if peakCountLeft > 1 or (lowAbundanceIsotopeCutoff and curPeakIntensity*normRatioN <= isotopologIntensityThres):
-                                                            observedRatioM = curScan.intensity_list[isoM_p1] / curPeakIntensity
-
-                                                            if abs(abs(observedRatioM-adjRatio)-normRatioN) <= intensityErrorN:
-                                                                pass         ## acceptPeak
-                                                            elif lowAbundanceIsotopeCutoff:
-                                                                if curPeakIntensity*normRatioN <= isotopologIntensityThres:
-                                                                    pass     ## accept peak
-                                                                else:
-                                                                    continue ## discard peak
+                                                        if peakCountLeft == 1:
+                                                            pass
+                                                        elif isoM_p1 == -1:
+                                                            if lowAbundanceIsotopeCutoff and curPeakIntensity*(normRatioN+adjRatio) <= isotopologIntensityThres:
+                                                                pass
                                                             else:
-                                                                continue     ## discard current peak
+                                                                continue
+                                                        elif isoM_p1 != -1:
+                                                            isoM_p1_Intensity = curScan.intensity_list[isoM_p1]
+                                                            observedRatioM = isoM_p1_Intensity / curPeakIntensity
+                                                            if abs((normRatioN+adjRatio) - observedRatioM) <= intensityErrorN:
+                                                                pass
+                                                            elif lowAbundanceIsotopeCutoff and isoM_p1_Intensity <= isotopologIntensityThres:
+                                                                pass
+                                                            else:
+                                                                continue
+                                                        else:
+                                                            continue
+
+
 
                                                         # All verification criteria are passed, store the ion signal pair
                                                         # for further processing

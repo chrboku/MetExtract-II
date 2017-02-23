@@ -92,7 +92,7 @@ if not loadRConfFile(path=get_main_dir()) or not checkR():
 
             app = QtGui.QApplication(sys.argv)
 
-            QtGui.QMessageBox.information(None, "MetExtract",
+            QtGui.QMessageBox.information(self, "MetExtract",
                       "R successfully configured\nUsing MetExtract R-Installation\nPlease restart",
                       QtGui.QMessageBox.Ok)
             sys.exit(0)
@@ -110,7 +110,7 @@ if not loadRConfFile(path=get_main_dir()) or not checkR():
 
             app = QtGui.QApplication(sys.argv)
 
-            if QtGui.QMessageBox.warning(None, "MetExtract",
+            if QtGui.QMessageBox.warning(self, "MetExtract",
                                       "Error: R could not be loaded\nPlease make sure it is installed and accessible\n"
                                       "The default installation path is C:\\Program Files\\R\n"
                                       "Do you want to specify the folder?",
@@ -119,7 +119,7 @@ if not loadRConfFile(path=get_main_dir()) or not checkR():
                 from utils import get_main_dir
                 lastDir=get_main_dir()
                 while tryLoad:
-                    folder = str(QtGui.QFileDialog.getExistingDirectory(None, "Select R-directory (not bin folder)", directory=lastDir))
+                    folder = str(QtGui.QFileDialog.getExistingDirectory(self, "Select R-directory (not bin folder)", directory=lastDir))
                     if folder=="":
                         sys.exit(1)
                     else:
@@ -130,12 +130,12 @@ if not loadRConfFile(path=get_main_dir()) or not checkR():
                                 rconf.write(folder)
                                 tryLoad=False
 
-                                QtGui.QMessageBox.information(None, "MetExtract",
+                                QtGui.QMessageBox.information(self, "MetExtract",
                                           "R successfully configured\nPlease restart",
                                           QtGui.QMessageBox.Ok)
                                 sys.exit(0)
                         else:
-                            if QtGui.QMessageBox.warning(None, "MetExtract",
+                            if QtGui.QMessageBox.warning(self, "MetExtract",
                                           "Error: R could not be loaded from the specified location\n"
                                           "%s\n\n"
                                           "Please make sure it is installed and accessible\n"
@@ -1418,12 +1418,12 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         while doAsk:
 
-            text, ok = QtGui.QInputDialog.getText(self.parentWidget(), "Custom evaluation name", "%sDo you want to specify a custom evaluation name for this experiment?<br>"
-                                                                                                 "This lets you test different parameter settings without overwriting the results of other processings using the same input files<br>"
-                                                                                                 "For each evaluation with a provided name, a subfolder will be created where all results will be saved (input files will be duplicated and specified groups will be changed)<br>"
-                                                                                                 "If you want to create or use a custom evaluation name enter its name in the text box below<br>"
-                                                                                                 "If you don't want to use a custom evaluation name leave the line empty or cancel this dialog<br>"
-                                                                                                 "Attention: Existing files will be overwritten and the results groups and data matrix files will be changed to this directory!"%(
+            text, ok = QtGui.QInputDialog.getText(self, "Custom evaluation name", "%sDo you want to specify a custom evaluation name for this experiment?<br>"
+                                                                                  "This lets you test different parameter settings without overwriting the results of other processings using the same input files<br>"
+                                                                                  "For each evaluation with a provided name, a subfolder will be created where all results will be saved (input files will be duplicated and specified groups will be changed)<br>"
+                                                                                  "If you want to create or use a custom evaluation name enter its name in the text box below<br>"
+                                                                                  "If you don't want to use a custom evaluation name leave the line empty or cancel this dialog<br>"
+                                                                                  "Attention: Existing files will be overwritten and the results groups and data matrix files will be changed to this directory!"%(
                                 "<b>Error: Specified experiment evaluation (%s) may already be in use. Verify or use a different evaluation name<br><br></b>"%(text) if addWarning else ""
             ))
             if ok and text != "":
@@ -1722,7 +1722,11 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         itemNum=0
         for item in plotItems:
             assert item.bunchData.type=="featurePair"
+
             rt=item.bunchData.rt/60.
+            mz=item.bunchData.mz
+            xn=item.bunchData.xn
+
 
             groups={}
             for group in SQLSelectAsObject(self.experimentResults.curs, "SELECT groupName, id FROM FileGroups"):
@@ -1746,6 +1750,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                      key=lambda x: str(x.data(QListWidgetItem.UserType).toPyObject().name))])
 
             offsetCount=0
+
+            toDrawMzsCor = []
+            toDrawIntsCor = []
+
             for groupID, groupName in groups.items():
                 for file in filesInGroups[groupID]:
                     if file.fileName in foundIn.keys():
@@ -1779,6 +1787,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             if self.ui.resultsExperimentNormaliseXICs_checkBox.checkState()==QtCore.Qt.Checked:
                                 centerInt=XICObj.xicL[bestCenter]
 
+                            if centerInt==0:
+                                centerInt=1
+
                             self.ui.resultsExperiment_plot.axes.plot([t/60. for t in XICObj.times], [f/centerInt for f in XICObj.xic],   color=definedGroups[groupName].color)
                             self.ui.resultsExperiment_plot.axes.plot([t/60. for t in XICObj.times], [-f/centerInt for f in XICObj.xicL], color=definedGroups[groupName].color)
                             axlimMin=min(axlimMin, rt-.5)
@@ -1791,13 +1802,28 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             self.ui.resultsExperimentSeparatedPeaks_plot.axes.plot([t/60. +offsetCount*0.33 for t in XICObj.times[minInd:maxInd]], [f/centerInt for f in XICObj.xic[minInd:maxInd]],   color=definedGroups[groupName].color)
                             self.ui.resultsExperimentSeparatedPeaks_plot.axes.plot([t/60. +offsetCount*0.33 for t in XICObj.times[minInd:maxInd]], [-f/centerInt for f in XICObj.xicL[minInd:maxInd]], color=definedGroups[groupName].color)
 
-                        if False:
+                        if True:
                             if msSpectrumID is not None:
                                 for msSpectrum in SQLSelectAsObject(curs, "SELECT mzs, intensities, ionMode FROM massspectrum WHERE mID=%d"%msSpectrumID):
                                     mzs=[float(f) for f in msSpectrum.mzs.split(";")]
                                     intensities=[float(f) for f in msSpectrum.intensities.split(";")]
 
-                                    self.ui.resultsExperimentMSScanPeaks_plot.axes.stem(mzs, intensities, lineEdgeColor=predefinedColors[groupID%len(predefinedColors)],color=predefinedColors[groupID%len(predefinedColors)])
+                                    toDrawMzs=[]
+                                    toDrawInts=[]
+
+                                    for j in range(len(mzs)):
+                                        toDrawMzs.extend([mzs[j], mzs[j], mzs[j]])
+                                        toDrawInts.extend([0, intensities[j], 0])
+
+                                        for i in range(-5, xn+6):
+                                            if mz>0 and abs(mzs[j]-(mz+i*1.00335484))*1000000/mz <= 5.:
+                                                toDrawMzsCor.extend([mzs[j], mzs[j], mzs[j]])
+                                                toDrawIntsCor.extend([0, intensities[j], 0])
+
+
+                                    self.drawPlot(self.ui.resultsExperimentMSScanPeaks_plot, plotIndex=0, x=toDrawMzs, y=toDrawInts,
+                                                  useCol="lightgrey", multipleLocator=None, alpha=0.1, title="", ylab="Signal abundance", xlab="MZ")
+
 
 
                         curs.close()
@@ -1806,6 +1832,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 offsetCount += 1
 
             itemNum += 1
+
+            self.drawPlot(self.ui.resultsExperimentMSScanPeaks_plot, plotIndex=0, x=toDrawMzsCor, y=toDrawIntsCor,
+                          useCol="black", multipleLocator=None, alpha=0.1, title="", ylab="Signal abundance",
+                          xlab="MZ")
 
         self.ui.resultsExperiment_plot.axes.set_xlim([axlimMin, axlimMax])
 
@@ -1859,10 +1889,15 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             sett.beginGroup("WorkingDirectory")
 
             if sett.contains("workingDirectory"):
-                os.chdir(str(sett.value("workingDirectory").toString()))
-                logging.info("Working directory changed to '%s'"%str(sett.value("workingDirectory").toString()))
-                if not(silent):
-                    QtGui.QMessageBox.information(self, "MetExtract", "The current working directory was changed to\n'%s'"%str(sett.value("workingDirectory").toString()), QtGui.QMessageBox.Ok)
+                try:
+                    os.chdir(str(sett.value("workingDirectory").toString()))
+                    logging.info("Working directory changed to '%s'"%str(sett.value("workingDirectory").toString()))
+                    if not(silent):
+                        QtGui.QMessageBox.information(self, "MetExtract", "The current working directory was changed to\n'%s'"%str(sett.value("workingDirectory").toString()), QtGui.QMessageBox.Ok)
+                except WindowsError:
+                    QtGui.QMessageBox.information(self, "MetExtract",
+                                                  "The working directory cannot be changed. The specified path does not exists.\nPlease set the directory manually", QtGui.QMessageBox.Ok)
+
 
             sett.endGroup()
 
@@ -2455,6 +2490,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             pwMain("max")(len(files))
             pwMain("value")(0)
 
+            failedFiles=[]
 
 
             # monitor processing of individual LC-HRMS files and report to the user
@@ -2482,6 +2518,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                 mes = v["end"]
                             elif "failed" in v.keys():
                                 mes = v["failed"]
+                                failedFiles.append(pIds[mes.pid])
                             freeS = assignedThreads[mes.pid]
                             pw.getCallingFunction(assignedThreads[mes.pid] + 1)("text")("")
                             pw.getCallingFunction(assignedThreads[mes.pid] + 1)("value")(0)
@@ -2526,9 +2563,6 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         hours, mins, completed, len(files), min(cpus, len(files))))
                     time.sleep(.5)
 
-            pw.setSkipCallBack(True)
-            pw.hide()
-
             # Log time used for processing of individual files
             elapsed = (time.time() - start) / 60.
             hours = ""
@@ -2538,6 +2572,12 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
             if not self.terminateJobs:
                 logging.info("Individual files processed (%s%s).." % (hours, mins))
+
+            if len(failedFiles)>0:
+                logging.info("Some files failed to process correctly (%s)"%(", ".join(failedFiles)))
+
+            pw.setSkipCallBack(True)
+            pw.hide()
 
             p.close()
             p.terminate()
@@ -2899,6 +2939,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             self.currentOpenResultsFile.conn.close()
             self.currentOpenResultsFile.file = None
             self.currentOpenResultsFile=None
+        if hasattr(self, "currentOpenRawFile") and self.currentOpenRawFile is not None:
+            self.currentOpenRawFile.freeMe()
+            self.currentOpenRawFile=None
 
     def openFileAsCurrentOpenResultsFile(self, file):
         if os.path.exists(file + ".identified.sqlite") and os.path.isfile(file + ".identified.sqlite"):
@@ -2925,31 +2968,45 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.closeCurrentOpenResultsFile()
         if self.openFileAsCurrentOpenResultsFile(b.file):
 
+
+
+
             it = QtGui.QTreeWidgetItem(["MZs"])
             self.ui.res_ExtractedData.addTopLevelItem(it)
             it.myType = "MZs"
             count = 0
             children=[]
-            pw=ProgressWrapper(pwCount=4)
+            pw=ProgressWrapper(pwCount=5)
 
 
-            ## Load mz pairs
-            pw.setText("Fetching mzs", i=0)
+            pw.setText("Reading raw data", i=0)
             pw.setText("", i=1)
             pw.setText("", i=2)
             pw.setTextu("", i=3)
+            pw.setTextu("", i=4)
             pw.show()
 
+
+            ## Parse raw data
+            pw.setMaxu(1, i=0)
+            self.currentOpenRawFile = Chromatogram()
+            # TODO include when implemented self.currentOpenRawFile.parse_file(b.file)
+            pw.setText("Raw data imported", i=0)
+            pw.setValueu(1, i=0)
+
+
+            ## Fetched matched MZ signal pairs
+            pw.setText("Fetching mzs", i=1)
             numberOfMZs=0
             for row in SQLSelectAsObject(self.currentOpenResultsFile.curs, "SELECT count(id) AS co FROM MZs"):
                 numberOfMZs=row.co
-            pw.setMax(numberOfMZs)
+            pw.setMaxu(numberOfMZs, i=1)
 
             maxMZsFetch=50000
 
             if numberOfMZs<maxMZsFetch:
 
-                pw.setText("Fetching mzs (%d)"%numberOfMZs, i=0)
+                pw.setText("Fetching mzs (%d)"%numberOfMZs, i=1)
 
                 for mzRes in SQLSelectAsObject(self.currentOpenResultsFile.curs, "SELECT id, mz, xcount, scanid, loading, scantime, intensity FROM MZs ORDER BY scanid"):
                     d = QtGui.QTreeWidgetItem(it, [str(s) for s in [mzRes.mz, mzRes.xcount, mzRes.scanid, "%.2f min / %.2f sec"%(mzRes.scantime/60., mzRes.scantime), mzRes.loading, "%.1f"%mzRes.intensity]])
@@ -2959,8 +3016,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     children.append(d)
                     count += 1
 
-                    pw.setValueu(count, i=0)
-                pw.setText("%d MZs fetched"%numberOfMZs, i=0)
+                    pw.setValueu(count, i=1)
+                pw.setText("%d MZs fetched"%numberOfMZs, i=1)
             else:
                 pw.setTextu("Mzs not fetched (too many; %d)"%numberOfMZs)
             it.addChildren(children)
@@ -2979,8 +3036,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
 
             ## Load mz bins
-            pw.setText("Fetching MZBins (%d)"%len(mzbins), i=1)
-            pw.setMax(len(mzbins), i=1)
+            pw.setText("Fetching MZBins (%d)"%len(mzbins), i=2)
+            pw.setMax(len(mzbins), i=2)
             if numberOfMZs<maxMZsFetch:
                 for mzbin in mzbins:
                     d = QtGui.QTreeWidgetItem([str(mzbin.mz)])
@@ -3017,10 +3074,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     d.setText(1, "%.4f" % ((maxInner - minInner) * 1000000. / minInner))
                     d.setText(2, "%d" % xcount)
                     count += 1
-                    pw.setValueu(count, i=1)
-                pw.setText("%d MZBins fetched"%count, i=1)
+                    pw.setValueu(count, i=2)
+                pw.setText("%d MZBins fetched"%count, i=2)
             else:
-                pw.setTextu("MZBins not fetched (too many; %d)"%len(mzbins), i=1)
+                pw.setTextu("MZBins not fetched (too many; %d)"%len(mzbins), i=2)
 
 
             it.addChildren(children)
@@ -3037,8 +3094,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             for row in SQLSelectAsObject(self.currentOpenResultsFile.curs, "SELECT count(chromPeaks.id) AS co FROM chromPeaks"):
                 numberOfFeaturePairs=row.co
 
-            pw.setTextu("Fetching feature pairs (%d)"%numberOfFeaturePairs, i=2)
-            pw.setMaxu(numberOfFeaturePairs, i=2)
+            pw.setTextu("Fetching feature pairs (%d)"%numberOfFeaturePairs, i=3)
+            pw.setMaxu(numberOfFeaturePairs, i=3)
 
             count = 0
             children=[]
@@ -3114,8 +3171,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 children.append(d)
                 count += 1
 
-                pw.setValueu(count, i=2)
-            pw.setTextu("%d feature pairs fetched"%numberOfFeaturePairs, i=2)
+                pw.setValueu(count, i=3)
+            pw.setTextu("%d feature pairs fetched"%numberOfFeaturePairs, i=3)
 
             it.addChildren(children)
             it.setExpanded(False)
@@ -3138,8 +3195,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
 
             ## Load Feature groups
-            pw.setText("Fetching feature groups (%d)"%len(fGs), i=3)
-            pw.setMax(len(fGs), i=3)
+            pw.setText("Fetching feature groups (%d)"%len(fGs), i=4)
+            pw.setMax(len(fGs), i=4)
             for fG in fGs:
 
                 d = QtGui.QTreeWidgetItem([str(fG.featureName), "", str(fG.fgID), "", "", "", "", "", "", str(fG.tracerName), ""])
@@ -3234,7 +3291,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     d.setText(1, "")
                 children.append(d)
                 count += 1
-                pw.setValueu(count, i=3)
+                pw.setValueu(count, i=4)
             it.addChildren(children)
             it.setText(1, "%d" % count)
 
@@ -3690,6 +3747,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         maxIntY = 0
         minIntX = 0
         minIntY = 0
+        minMZ = 1000000
+        maxMZ = 0
+        minMZH = 0
+        maxMZH = 0
         minTime = 1000
         maxTime = 1
         x_vals = []
@@ -4301,6 +4362,11 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                             ttoDrawInts.append(toDrawInts[i])
                                             ttoDrawInts.append(0)
 
+                                            minMZ = min(minMZ, toDrawMzs[i])
+                                            maxMZ = max(maxMZ, toDrawMzs[i])
+                                            minMZH = min(minMZH, toDrawInts[i])
+                                            maxMZH = max(maxMZH, toDrawInts[i])
+
                                             self.drawPlot(self.ui.pl3, plotIndex=0, x=ttoDrawMzs, y=ttoDrawInts,
                                                           useCol="black", multipleLocator=None, alpha=0.1, title="",
                                                           xlab="MZ")
@@ -4752,9 +4818,14 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                     toDrawInts.append(0)
                                     if cp.ionMode == "-" and featuresPosSelected:
                                         toDrawInts.append(-intensities[i])
+                                        minMZH = min(minMZH, -intensities[i])
                                     else:
                                         toDrawInts.append(intensities[i])
+                                        maxMZH = max(maxMZH, intensities[i])
                                     toDrawInts.append(0)
+
+                                    minMZ = min(minMZ, mzs[i])
+                                    maxMZ = max(maxMZ, mzs[i])
 
                                     self.drawPlot(self.ui.pl3, plotIndex=0, x=toDrawMzs, y=toDrawInts, useCol="black", multipleLocator=None,  alpha=0.1, title="", xlab="MZ")
                 useColi += 1
@@ -4789,7 +4860,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             minInt=min(min(intensities), min(intensitiesL))
             maxInt=max(max(intensities), max(intensitiesL))
 
-            self.ui.pl1.twinxs[0].plot([log10(10**minInt), log10((10**maxInt)*2)], [log10((10**minInt)*expRatio), log10((10**maxInt)*2*expRatio)])
+            self.ui.pl1.twinxs[0].plot([log10(10**minInt), log10((10**maxInt)*2)], [log10((10**minInt)*(1/expRatio)), log10((10**maxInt)*2*(1/expRatio))])
             self.ui.pl1.twinxs[0].plot(intensities, intensitiesL, 'ro')
             self.ui.pl1.axes.set_title("Histogram of matched signal pairs - intensity of native and labeled signals")
             self.ui.pl1.axes.set_xlabel("Log10(Native signal intensity)")
@@ -4904,7 +4975,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 else:
                     peaksRatio.append(100.*max(-100, min(100, peakRatio-getNormRatio(isoEnr, xcount, 1))))
             self.ui.pl1.twinxs[0].hist(peaksRatio, [i for i in [i/10. for i in range(-1000, 1000, 25)]], normed=False, facecolor='green', alpha=0.5)
-            self.ui.pl1.axes.set_title("Histogram of isotopolog ratio error - observed minus theoretical ratio for M'-1 to M'")
+            self.ui.pl1.axes.set_title("Histogram of isotopolog ratio error - observed minus theoretical ratio for M'-1 to M'\nAssumend enrichment: %.2f%%"%(isoEnr*100))
             self.ui.pl1.axes.set_xlabel("Ratio error (%)")
             self.ui.pl1.axes.set_ylabel("Frequency")
             self.drawCanvas(self.ui.pl1)
@@ -4922,7 +4993,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 else:
                     peaksRatio.append(max(-100, min(100, 100*(peakRatio/getNormRatio(isoEnr, xcount, 1)-1))))
             self.ui.pl1.twinxs[0].hist(peaksRatio, [i for i in [i/10. for i in range(-1000, 1000, 25)]], normed=False, facecolor='green', alpha=0.5)
-            self.ui.pl1.axes.set_title("Histogram of RIA for M'-1 to M'")
+            self.ui.pl1.axes.set_title("Histogram of RIA for M'-1 to M'\nAssumend enrichment: %.2f%%"%(isoEnr*100))
             self.ui.pl1.axes.set_xlabel("RIA (%)")
             self.ui.pl1.axes.set_ylabel("Frequency")
             self.drawCanvas(self.ui.pl1)
@@ -4944,7 +5015,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     peaksRatio.append(max(-100, min(100, 100*(peakRatio/getNormRatio(isoEnr, xcount, 1)-1))))
                     areas.append(area)
             self.ui.pl1.twinxs[0].plot(peaksRatio, areas, 'ro')
-            self.ui.pl1.axes.set_title("RIA for M'-1 to M' vs peak intensity")
+            self.ui.pl1.axes.set_title("RIA for M'-1 to M' vs peak intensity\nAssumend enrichment: %.2f%%"%(isoEnr*100))
             self.ui.pl1.axes.set_xlabel("RIA (%)")
             self.ui.pl1.axes.set_ylabel("Peak Intensity")
             self.drawCanvas(self.ui.pl1)
@@ -5084,7 +5155,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         else:
             self.drawCanvas(self.ui.pl1)
 
-        self.ui.pl3.fig.canvas.draw()
+        self.drawCanvas(self.ui.pl3, xlim=(minMZ-max((maxMZ-minMZ)*0.1, 4), maxMZ+max((maxMZ-minMZ)*0.1, 4)), ylim=(minMZH*1.35, maxMZH*1.35))
     #</editor-fold>
 
     #<editor-fold desc="### general plotting functions">
@@ -5924,9 +5995,11 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         try:
             v = r("R.Version()$version.string")
             module="AllExtract" if self.labellingExperiment==METABOLOME else ("TracExtract" if self.labellingExperiment==TRACER else "")
-            self.ui.version.setText("%s II %s [%s]" % (module, MetExtractVersion, str(v)[5:(len(str(v)) - 1)]))
+            self.ui.version.versionText="%s II %s [%s]" % (module, MetExtractVersion, str(v)[5:(len(str(v)) - 1)])
+            self.ui.version.setText(self.ui.version.versionText)
         except:
-            self.ui.version.setText("%s [Error: R not available]" % version)
+            self.ui.version.versionText="%s [Error: R not available]" % version
+            self.ui.version.setText(self.ui.version.versionText)
 
         # limit CPU usage to #cores-1 per default
         cpus = cpu_count()
@@ -6071,8 +6144,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.ui.pl1.mpl_toolbar = NavigationToolbar(self.ui.pl1.canvas, self.ui.visualizationWidget)
 
         vbox = QtGui.QVBoxLayout()
-        vbox.addWidget(self.ui.pl1.canvas)
         vbox.addWidget(self.ui.pl1.mpl_toolbar)
+        vbox.addWidget(self.ui.pl1.canvas)
         self.ui.visualizationWidget.setLayout(vbox)
 
         #setup second plot
@@ -6242,6 +6315,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             QtGui.QMessageBox.information(self, "MetExtract", "Cannot load settings", QtGui.QMessageBox.Ok)
 
 
+    def closeEvent(self, event):
+        mainWin._contMemoryWatcher = False
 
 
 
@@ -6422,10 +6497,25 @@ if __name__ == '__main__':
 
 
 
+            import threading
+            def memory_usage_psutil():
+                # return the memory usage in MB
+                import psutil
+                process = psutil.Process(os.getpid())
+                mem = process.memory_info()[0] / float(2 ** 20)
+                return mem
+            mainWin._contMemoryWatcher=True
+            def updateMemoryInfo():
+                mainWin.ui.version.setText("%.0f MB memory used, %s"%(memory_usage_psutil(), mainWin.ui.version.versionText))
+                if mainWin._contMemoryWatcher:
+                    threading.Timer(1, updateMemoryInfo).start()
+            updateMemoryInfo()
+
 
 
             if opts.exit:
                 QtGui.QApplication.exit()
+                mainWin._contMemoryWatcher=False
             else:
                 sys.exit(app.exec_())
 
