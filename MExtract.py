@@ -5880,7 +5880,6 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 incorrectFiles=[]
 
                 for file in links:
-                    print file
                     if not(file.lower().endswith(".mzxml") or file.lower().endswith(".mzml")):
                         incorrectFiles.append(file)
 
