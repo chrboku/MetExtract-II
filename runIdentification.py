@@ -127,7 +127,7 @@ class RunIdentification:
                  checkPeaksRatio=False, minPeaksRatio=0, maxPeaksRatio=99999999,
                  calcIsoRatioNative=1, calcIsoRatioLabelled=-1, calcIsoRatioMoiety=1,
                  startTime=2, stopTime=37, positiveScanEvent="None", negativeScanEvent="None",
-                 eicSmoothingWindow="None", eicSmoothingWindowSize=0, eicSmoothingPolynom=0,
+                 eicSmoothingWindow="None", eicSmoothingWindowSize=0, eicSmoothingPolynom=0, artificialMPshift=0,
                  correctCCount=True, minCorrelation=0.85, minCorrelationConnections=0.4, hAIntensityError=5., hAMinScans=3, adducts=[],
                  elements=[], heteroAtoms=[], chromPeakFile=None, lock=None, queue=None, pID=-1, rVersion="NA",
                  meVersion="NA"):
@@ -216,6 +216,7 @@ class RunIdentification:
         self.eicSmoothingWindow = eicSmoothingWindow
         self.eicSmoothingWindowSize = eicSmoothingWindowSize
         self.eicSmoothingPolynom = eicSmoothingPolynom
+        self.artificialMPshift = artificialMPshift
         self.snrTh = snrTh
         self.scales = scales
         self.peakCenterError = peakCenterError
@@ -403,6 +404,7 @@ class RunIdentification:
         SQLInsert(curs, "config", key="eicSmoothing", value=self.eicSmoothingWindow)
         SQLInsert(curs, "config", key="eicSmoothingWindowSize", value=self.eicSmoothingWindowSize)
         SQLInsert(curs, "config", key="eicSmoothingPolynom", value=self.eicSmoothingPolynom)
+        SQLInsert(curs, "config", key="artificialMPshift", value=self.artificialMPshift)
         SQLInsert(curs, "config", key="snrTh", value=self.snrTh)
         SQLInsert(curs, "config", key="scales", value=base64.b64encode(dumps(self.scales)))
         SQLInsert(curs, "config", key="peakAbundanceCriteria", value="Center +- %d signals (%d total)"%(peakAbundanceUseSignalsSides, peakAbundanceUseSignals))
@@ -569,6 +571,10 @@ class RunIdentification:
         pdf.drawString(70, currentHeight, "EIC Smoothing Window")
         pdf.drawString(240, currentHeight, self.eicSmoothingWindow)
         currentHeight -= 15
+
+        pdf.drawString(70, currentHeight, "M' artificial shift")
+        pdf.drawString(240, currentHeight, self.artificialMPshift)
+        currentHeight -=15
 
         if self.eicSmoothingWindow.lower() != "none":
             pdf.drawString(70, currentHeight, "EIC Smoothing Window Size")
@@ -1011,6 +1017,15 @@ class RunIdentification:
                     # extract the EIC of the labelled ion and detect its chromatographic peaks
                     # optionally: smoothing
                     eicL, times, scanIds, mzsL = mzxml.getEIC(meanmzLabelled,self.chromPeakPPM, filterLine=scanEvent)
+                    if self.artificialMPshift>0:
+                        for i in range(self.artificialMPshift):
+                            eicL.insert(0,0)
+                            eicL.pop(len(eicL)-1)
+                    elif self.artificialMPshift<0:
+                        for i in range(abs(self.artificialMPshift)):
+                            eicL.insert(len(eicL)-1, 0)
+                            eicL.pop(0)
+
                     eicLSmoothed = smoothDataSeries(times, eicL, windowLen=self.eicSmoothingWindowSize,window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
 
                     # determine boundaries for chromatographic peak picking
@@ -1049,11 +1064,27 @@ class RunIdentification:
                     eicLfirstiso, timesL, scanIdsL, mzsLfirstiso = mzxml.getEIC(
                         meanmz + (xcount - 1) * self.xOffset / loading, self.chromPeakPPM,
                         filterLine=scanEvent)
+                    if self.artificialMPshift>0:
+                        for i in range(self.artificialMPshift):
+                            eicLfirstiso.insert(0,0)
+                            eicLfirstiso.pop(len(eicL)-1)
+                    elif self.artificialMPshift<0:
+                        for i in range(abs(self.artificialMPshift)):
+                            eicLfirstiso.insert(len(eicL)-1, 0)
+                            eicLfirstiso.pop(0)
                     #eicLfirstisoSmoothed = smoothDataSeries(times, eicLfirstiso, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
 
                     eicLfirstisoconjugate, timesL, scanIdsL, mzsLfirstisoconjugate = mzxml.getEIC(
                         meanmz + (xcount + 1) * self.xOffset / loading, self.chromPeakPPM,
                         filterLine=scanEvent)
+                    if self.artificialMPshift>0:
+                        for i in range(self.artificialMPshift):
+                            eicLfirstisoconjugate.insert(0,0)
+                            eicLfirstisoconjugate.pop(len(eicL)-1)
+                    elif self.artificialMPshift<0:
+                        for i in range(abs(self.artificialMPshift)):
+                            eicLfirstisoconjugate.insert(len(eicL)-1, 0)
+                            eicLfirstisoconjugate.pop(0)
                     #eicLfirstisoconjugateSmoothed = smoothDataSeries(times, eicLfirstisoconjugate, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
 
                     peaksBoth = []
@@ -2780,12 +2811,28 @@ class RunIdentification:
                     eicN_cropped = copy(eicN)
 
                     eicL, times, scanIds, mzsL = mzxml.getEIC(peak.mz + peak.xCount * tracer.mzDelta / peak.loading,self.chromPeakPPM, filterLine=scanEvent)
+                    if self.artificialMPshift>0:
+                        for i in range(self.artificialMPshift):
+                            eicL.insert(0,0)
+                            eicL.pop(len(eicL)-1)
+                    elif self.artificialMPshift<0:
+                        for i in range(abs(self.artificialMPshift)):
+                            eicL.insert(len(eicL)-1, 0)
+                            eicL.pop(0)
                     eicL = smoothDataSeries(times, eicL, windowLen=self.eicSmoothingWindowSize,window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
 
                     eicNP1, times, scanIds, mzsNP1 = mzxml.getEIC(peak.mz + 1 * tracer.mzDelta / peak.loading,self.chromPeakPPM, filterLine=scanEvent)
                     eicNP1 = smoothDataSeries(times, eicNP1, windowLen=self.eicSmoothingWindowSize,window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
 
                     eicLm1, times, scanIds, mzsLm1 = mzxml.getEIC(peak.mz + (peak.xCount - 1) * tracer.mzDelta / peak.loading,self.chromPeakPPM, filterLine=scanEvent)
+                    if self.artificialMPshift>0:
+                        for i in range(self.artificialMPshift):
+                            eicLm1.insert(0,0)
+                            eicLm1.pop(len(eicL)-1)
+                    elif self.artificialMPshift<0:
+                        for i in range(abs(self.artificialMPshift)):
+                            eicLm1.insert(len(eicL)-1, 0)
+                            eicLm1.pop(0)
                     eicLm1 = smoothDataSeries(times, eicLm1, windowLen=self.eicSmoothingWindowSize,window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
 
                     gPeaks.append([peak, eicN, eicN_cropped, times, scanIds])

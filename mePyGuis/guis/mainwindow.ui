@@ -61,7 +61,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>0</number>
+       <number>1</number>
       </property>
       <widget class="QWidget" name="inputTab">
        <attribute name="title">
@@ -877,8 +877,8 @@ font: 7pt;</string>
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1209</width>
-             <height>1175</height>
+             <width>1232</width>
+             <height>1162</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -2159,6 +2159,23 @@ font: 7pt;</string>
                             <item row="3" column="1">
                              <widget class="QSpinBox" name="smoothingPolynom_spinner"/>
                             </item>
+                            <item row="4" column="0">
+                             <widget class="QLabel" name="label_13">
+                              <property name="text">
+                               <string>M' artificial shift (scans)</string>
+                              </property>
+                             </widget>
+                            </item>
+                            <item row="4" column="1">
+                             <widget class="QSpinBox" name="spinBox_artificialMPshift">
+                              <property name="minimum">
+                               <number>-100</number>
+                              </property>
+                              <property name="maximum">
+                               <number>100</number>
+                              </property>
+                             </widget>
+                            </item>
                            </layout>
                           </widget>
                          </item>
@@ -3267,8 +3284,8 @@ p, li { white-space: pre-wrap; }
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>2047</width>
-             <height>1193</height>
+             <width>1570</width>
+             <height>878</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_15">

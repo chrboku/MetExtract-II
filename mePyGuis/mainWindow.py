@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '.\mePyGuis\guis\mainwindow.ui'
 #
-# Created: Fri Feb 10 09:42:12 2017
+# Created: Tue Mar 07 09:31:56 2017
 #      by: PyQt4 UI code generator 4.10
 #
 # WARNING! All changes made in this file will be lost!
@@ -405,7 +405,7 @@ class Ui_MainWindow(object):
         self.scrollArea_2.setWidgetResizable(True)
         self.scrollArea_2.setObjectName(_fromUtf8("scrollArea_2"))
         self.scrollAreaWidgetContents_5 = QtGui.QWidget()
-        self.scrollAreaWidgetContents_5.setGeometry(QtCore.QRect(0, 0, 1209, 1175))
+        self.scrollAreaWidgetContents_5.setGeometry(QtCore.QRect(0, 0, 1232, 1162))
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Preferred)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -951,6 +951,14 @@ class Ui_MainWindow(object):
         self.smoothingPolynom_spinner = QtGui.QSpinBox(self.groupBox_7)
         self.smoothingPolynom_spinner.setObjectName(_fromUtf8("smoothingPolynom_spinner"))
         self.gridLayout_36.addWidget(self.smoothingPolynom_spinner, 3, 1, 1, 1)
+        self.label_13 = QtGui.QLabel(self.groupBox_7)
+        self.label_13.setObjectName(_fromUtf8("label_13"))
+        self.gridLayout_36.addWidget(self.label_13, 4, 0, 1, 1)
+        self.spinBox_artificialMPshift = QtGui.QSpinBox(self.groupBox_7)
+        self.spinBox_artificialMPshift.setMinimum(-100)
+        self.spinBox_artificialMPshift.setMaximum(100)
+        self.spinBox_artificialMPshift.setObjectName(_fromUtf8("spinBox_artificialMPshift"))
+        self.gridLayout_36.addWidget(self.spinBox_artificialMPshift, 4, 1, 1, 1)
         self.verticalLayout_4.addWidget(self.groupBox_7)
         self.groupBox_10 = QtGui.QGroupBox(self.procIndFiles)
         self.groupBox_10.setObjectName(_fromUtf8("groupBox_10"))
@@ -1460,7 +1468,7 @@ class Ui_MainWindow(object):
         self.scrollArea_3.setWidgetResizable(True)
         self.scrollArea_3.setObjectName(_fromUtf8("scrollArea_3"))
         self.scrollAreaWidgetContents_6 = QtGui.QWidget()
-        self.scrollAreaWidgetContents_6.setGeometry(QtCore.QRect(0, 0, 2047, 1193))
+        self.scrollAreaWidgetContents_6.setGeometry(QtCore.QRect(0, 0, 1570, 878))
         self.scrollAreaWidgetContents_6.setObjectName(_fromUtf8("scrollAreaWidgetContents_6"))
         self.gridLayout_15 = QtGui.QGridLayout(self.scrollAreaWidgetContents_6)
         self.gridLayout_15.setObjectName(_fromUtf8("gridLayout_15"))
@@ -1885,7 +1893,7 @@ class Ui_MainWindow(object):
         self.menuBar.addAction(self.menuHelp.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.tabWidget.setCurrentIndex(0)
+        self.tabWidget.setCurrentIndex(1)
         self.tabWidget_2.setCurrentIndex(0)
         self.tabWidget_3.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
@@ -2084,6 +2092,7 @@ class Ui_MainWindow(object):
         self.label_30.setText(_translate("MainWindow", "Smoothing window", None))
         self.smoothingWindowSizeLabel.setText(_translate("MainWindow", "Window size", None))
         self.smoothingWindowPolynomLabel.setText(_translate("MainWindow", "Polynom", None))
+        self.label_13.setText(_translate("MainWindow", "M\' artificial shift (scans)", None))
         self.groupBox_10.setTitle(_translate("MainWindow", "Chromatographic separation", None))
         self.label_32.setText(_translate("MainWindow", "Min. scale", None))
         self.label_33.setText(_translate("MainWindow", "Max. scale", None))

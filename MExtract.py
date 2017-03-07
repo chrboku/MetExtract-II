@@ -2000,6 +2000,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 self.ui.eicSmoothingWindowSize.setValue(sett.value("EICSmoothingWindowSize").toInt()[0])
             if sett.contains("smoothingPolynom_spinner"):
                 self.ui.smoothingPolynom_spinner.setValue(sett.value("smoothingPolynom_spinner").toInt()[0])
+            if sett.contains("artificialMPshift"):
+                self.ui.spinBox_artificialMPshift.setValue(sett.value("artificialMPshift").toInt()[0])
 
 
             if sett.contains("Wavelet_MinScale"):
@@ -2170,6 +2172,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             sett.setValue("EICSmoothingWindow", str(self.ui.eicSmoothingWindow.currentText()))
             sett.setValue("EICSmoothingWindowSize", self.ui.eicSmoothingWindowSize.value())
             sett.setValue("smoothingPolynom_spinner", self.ui.smoothingPolynom_spinner.value())
+            sett.setValue("artificialMPshift", self.ui.spinBox_artificialMPshift.value())
 
             sett.setValue("Wavelet_MinScale", self.ui.wavelet_minScale.value())
             sett.setValue("Wavelet_MaxScale", self.ui.wavelet_maxScale.value())
@@ -2454,6 +2457,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                   eicSmoothingWindow=str(self.ui.eicSmoothingWindow.currentText()),
                                   eicSmoothingWindowSize=self.ui.eicSmoothingWindowSize.value(),
                                   eicSmoothingPolynom=self.ui.smoothingPolynom_spinner.value(),
+                                  artificialMPshift=self.ui.spinBox_artificialMPshift.value(),
                                   scales=[self.ui.wavelet_minScale.value(), self.ui.wavelet_maxScale.value()],
                                   snrTh=self.ui.wavelet_SNRThreshold.value(),
                                   peakCenterError=self.ui.peak_centerError.value(),
@@ -2636,6 +2640,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                       eicSmoothingWindow=str(self.ui.eicSmoothingWindow.currentText()),
                                                       eicSmoothingWindowSize=self.ui.eicSmoothingWindowSize.value(),
                                                       eicSmoothingPolynom=self.ui.smoothingPolynom_spinner.value(),
+                                                      artificialMPshift=self.ui.spinBox_artificialMPshift.value(),
                                                       scales=[self.ui.wavelet_minScale.value(), self.ui.wavelet_maxScale.value()],
                                                       snrTh=self.ui.wavelet_SNRThreshold.value(),
                                                       peakCenterError=self.ui.peak_centerError.value(),
@@ -2794,6 +2799,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                                 eicSmoothingWindow=str(self.ui.eicSmoothingWindow.currentText()),
                                                                 eicSmoothingWindowSize=self.ui.eicSmoothingWindowSize.value(),
                                                                 eicSmoothingPolynom=self.ui.smoothingPolynom_spinner.value(),
+                                                                artificialMPshift=self.ui.spinBox_artificialMPshift.value(),
                                                                 scales=[self.ui.wavelet_minScale.value(), self.ui.wavelet_maxScale.value()],
                                                                 snrTh=self.ui.wavelet_SNRThreshold.value(),
                                                                 peakCenterError=self.ui.peak_centerError.value(),
