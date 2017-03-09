@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '.\mePyGuis\guis\mainwindow.ui'
 #
-# Created: Tue Mar 07 09:31:56 2017
+# Created: Thu Mar 09 11:06:48 2017
 #      by: PyQt4 UI code generator 4.10
 #
 # WARNING! All changes made in this file will be lost!
@@ -405,7 +405,7 @@ class Ui_MainWindow(object):
         self.scrollArea_2.setWidgetResizable(True)
         self.scrollArea_2.setObjectName(_fromUtf8("scrollArea_2"))
         self.scrollAreaWidgetContents_5 = QtGui.QWidget()
-        self.scrollAreaWidgetContents_5.setGeometry(QtCore.QRect(0, 0, 1232, 1162))
+        self.scrollAreaWidgetContents_5.setGeometry(QtCore.QRect(0, 0, 1252, 1162))
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Preferred)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -2092,7 +2092,7 @@ class Ui_MainWindow(object):
         self.label_30.setText(_translate("MainWindow", "Smoothing window", None))
         self.smoothingWindowSizeLabel.setText(_translate("MainWindow", "Window size", None))
         self.smoothingWindowPolynomLabel.setText(_translate("MainWindow", "Polynom", None))
-        self.label_13.setText(_translate("MainWindow", "M\' artificial shift (scans)", None))
+        self.label_13.setText(_translate("MainWindow", "EIC M\' artificial shift (scans)", None))
         self.groupBox_10.setTitle(_translate("MainWindow", "Chromatographic separation", None))
         self.label_32.setText(_translate("MainWindow", "Min. scale", None))
         self.label_33.setText(_translate("MainWindow", "Max. scale", None))

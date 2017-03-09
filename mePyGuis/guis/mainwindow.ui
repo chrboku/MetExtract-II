@@ -877,7 +877,7 @@ font: 7pt;</string>
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1232</width>
+             <width>1252</width>
              <height>1162</height>
             </rect>
            </property>
@@ -2162,7 +2162,7 @@ font: 7pt;</string>
                             <item row="4" column="0">
                              <widget class="QLabel" name="label_13">
                               <property name="text">
-                               <string>M' artificial shift (scans)</string>
+                               <string>EIC M' artificial shift (scans)</string>
                               </property>
                              </widget>
                             </item>
