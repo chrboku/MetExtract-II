@@ -141,7 +141,7 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
         with open(file, "wb") as f:
             # initialise TSV results file
 
-            f.write("Num\tMZ\tL_MZ\tD_MZ\tMZ_Range\tRT\tRT_Range\tXn\tCharge\tScanEvent\tIonisation_Mode\tTracer\tOGroup\tIon\tLoss\tM")
+            f.write("Num\tComment\tMZ\tL_MZ\tD_MZ\tMZ_Range\tRT\tRT_Range\tXn\tCharge\tScanEvent\tIonisation_Mode\tTracer\tOGroup\tIon\tLoss\tM")
             for res in results:
                 f.write("\t" + res.fileName + "_Area_N")
                 f.write("\t" + res.fileName + "_Area_L")
@@ -492,6 +492,8 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                                 avgtime = sum(groupedChromPeaksAVGTimes[i]) / len(groupedChromPeaksAVGTimes[i])
 
                                                 f.write(str(curNum))
+                                                f.write("\t")
+                                                f.write("")
                                                 f.write("\t")
                                                 f.write(str(avgmz))
                                                 f.write("\t")

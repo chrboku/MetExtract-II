@@ -2000,8 +2000,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 self.ui.eicSmoothingWindowSize.setValue(sett.value("EICSmoothingWindowSize").toInt()[0])
             if sett.contains("smoothingPolynom_spinner"):
                 self.ui.smoothingPolynom_spinner.setValue(sett.value("smoothingPolynom_spinner").toInt()[0])
-            if sett.contains("artificialMPshift"):
-                self.ui.spinBox_artificialMPshift.setValue(sett.value("artificialMPshift").toInt()[0])
+            if sett.contains("artificialMPshift_start"):
+                self.ui.spinBox_artificialMPshift_start.setValue(sett.value("artificialMPshift_start").toInt()[0])
+            if sett.contains("artificialMPshift_stop"):
+                self.ui.spinBox_artificialMPshift_stop.setValue(sett.value("artificialMPshift_stop").toInt()[0])
 
 
             if sett.contains("Wavelet_MinScale"):
@@ -2172,7 +2174,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             sett.setValue("EICSmoothingWindow", str(self.ui.eicSmoothingWindow.currentText()))
             sett.setValue("EICSmoothingWindowSize", self.ui.eicSmoothingWindowSize.value())
             sett.setValue("smoothingPolynom_spinner", self.ui.smoothingPolynom_spinner.value())
-            sett.setValue("artificialMPshift", self.ui.spinBox_artificialMPshift.value())
+            sett.setValue("artificialMPshift_start", self.ui.spinBox_artificialMPshift_start.value())
+            sett.setValue("artificialMPshift_stop", self.ui.spinBox_artificialMPshift_stop.value())
 
             sett.setValue("Wavelet_MinScale", self.ui.wavelet_minScale.value())
             sett.setValue("Wavelet_MaxScale", self.ui.wavelet_maxScale.value())
@@ -2457,7 +2460,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                   eicSmoothingWindow=str(self.ui.eicSmoothingWindow.currentText()),
                                   eicSmoothingWindowSize=self.ui.eicSmoothingWindowSize.value(),
                                   eicSmoothingPolynom=self.ui.smoothingPolynom_spinner.value(),
-                                  artificialMPshift=self.ui.spinBox_artificialMPshift.value(),
+                                  artificialMPshift_start=self.ui.spinBox_artificialMPshift_start.value(),
+                                  artificialMPshift_stop=self.ui.spinBox_artificialMPshift_stop.value(),
                                   scales=[self.ui.wavelet_minScale.value(), self.ui.wavelet_maxScale.value()],
                                   snrTh=self.ui.wavelet_SNRThreshold.value(),
                                   peakCenterError=self.ui.peak_centerError.value(),
@@ -2640,7 +2644,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                       eicSmoothingWindow=str(self.ui.eicSmoothingWindow.currentText()),
                                                       eicSmoothingWindowSize=self.ui.eicSmoothingWindowSize.value(),
                                                       eicSmoothingPolynom=self.ui.smoothingPolynom_spinner.value(),
-                                                      artificialMPshift=self.ui.spinBox_artificialMPshift.value(),
+                                                      artificialMPshift_start=self.ui.spinBox_artificialMPshift_start.value(),
+                                                      artificialMPshift_stop=self.ui.spinBox_artificialMPshift_stop.value(),
                                                       scales=[self.ui.wavelet_minScale.value(), self.ui.wavelet_maxScale.value()],
                                                       snrTh=self.ui.wavelet_SNRThreshold.value(),
                                                       peakCenterError=self.ui.peak_centerError.value(),
@@ -2799,7 +2804,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                                 eicSmoothingWindow=str(self.ui.eicSmoothingWindow.currentText()),
                                                                 eicSmoothingWindowSize=self.ui.eicSmoothingWindowSize.value(),
                                                                 eicSmoothingPolynom=self.ui.smoothingPolynom_spinner.value(),
-                                                                artificialMPshift=self.ui.spinBox_artificialMPshift.value(),
+                                                                artificialMPshift_start=self.ui.spinBox_artificialMPshift_start.value(),
+                                                                artificialMPshift_stop=self.ui.spinBox_artificialMPshift_stop.value(),
                                                                 scales=[self.ui.wavelet_minScale.value(), self.ui.wavelet_maxScale.value()],
                                                                 snrTh=self.ui.wavelet_SNRThreshold.value(),
                                                                 peakCenterError=self.ui.peak_centerError.value(),
@@ -3133,7 +3139,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                                            "NPeakArea, "
                                                                            "LPeakArea, "
                                                                            "chromPeaks.massSpectrumID AS massSpectrumID, "
-                                                                           "assignedMZs "
+                                                                           "assignedMZs, "
+                                                                           "artificialEICLShift "
                                                                            "FROM chromPeaks LEFT JOIN tracerConfiguration ON tracerConfiguration.id=chromPeaks.tracer "
                                                                            "ORDER BY tracerConfiguration.id, %s, NPeakCenter, mz, xcount"%({"M/Z":"mz", "RT":"NPeakCenter", "Intensity":"NPeakArea DESC", "Peaks correlation":"peaksCorr DESC"}[sortOrder])):
                 adducts = ""
@@ -3164,7 +3171,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                            str(row.xcount),
                                            "%s / %s "%(adducts, heteroAtoms),
                                            "%.0f / %.0f" % (float(row.NPeakScale), float(row.LPeakScale)),
-                                           "%.3f"%(row.peaksCorr),
+                                           "%.3f%s"%(row.peaksCorr, "" if xp.artificialEICLShift==0 else " (%d)"%(xp.artificialEICLShift)),
                                            "%.3f / %.3f"%(row.peaksRatio, row.NPeakArea/row.LPeakArea),
                                            "%.1f / %.1f"%(row.NPeakArea, row.LPeakArea),
                                            "%d"%len(assignedMZs),
@@ -3240,7 +3247,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                                                "c.ionMode AS ionMode, "
                                                                                "c.massSpectrumID AS massSpectrumID, "
                                                                                "c.assignedMZs AS assignedMZs, "
-                                                                               "c.mzdifferrors AS mzdifferrors "
+                                                                               "c.mzdifferrors AS mzdifferrors, "
+                                                                               "c.artificialEICLShift AS artificialEICLShift "
                                                                                "FROM chromPeaks c JOIN featureGroupFeatures f ON c.id==f.fID INNER JOIN tracerConfiguration t ON t.id=c.tracer "
                                                                                "WHERE f.fGroupID=%d ORDER BY %s, c.mz, c.xcount" % (fG.fgID, {"M/Z":"c.mz", "RT":"c.mz", "Intensity":"c.NPeakArea DESC", "Peaks correlation":"peaksCorr DESC"}[sortOrder])):
 
@@ -3266,7 +3274,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                    LBorderLeft=float(row.LBorderLeft), LBorderRight=float(row.LBorderRight),
                                    LPeakCenterMin=float(row.LPeakCenterMin), eicID=int(row.eicID), massSpectrumID=int(row.massSpectrumID),
                                    assignedName=str(row.assignedName), id=int(row.cpID),
-                                   tracer=str(row.tracerName), ionMode=str(row.ionMode), adducts=adducts, heteroAtoms=heteroAtoms, assignedMZs=assignedMZs)
+                                   tracer=str(row.tracerName), ionMode=str(row.ionMode), adducts=adducts, heteroAtoms=heteroAtoms, assignedMZs=assignedMZs,
+                                   artificialEICLShift=int(row.artificialEICLShift))
                     xp.fDesc = str(row.fDesc)
                     xp.peaksCorr = float(row.peaksCorr)
                     xp.peaksRatio = float(row.peaksRatio)
@@ -3276,7 +3285,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                str(row.xcount),
                                                "%s / %s "%(adducts, heteroAtoms),
                                                "%.0f / %.0f" % (float(row.NPeakScale), float(row.LPeakScale)),
-                                               "%.3f"%(row.peaksCorr),
+                                               "%.3f%s"%(row.peaksCorr, "" if xp.artificialEICLShift==0 else " (%d)"%(xp.artificialEICLShift)),
                                                "%.3f / %.3f"%(row.peaksRatio, row.NPeakArea/row.LPeakArea),
                                                "%.1f / %.1f"%(row.NPeakArea, row.LPeakArea),
                                                "%d"%len(assignedMZs),

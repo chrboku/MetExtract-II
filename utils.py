@@ -441,7 +441,7 @@ class ChromPeakPair:
     def __init__(self, id=-1, fGroupID=-1, eicID=-1, massSpectrumID=-1, assignedName=-1, tracer=-1, tracerName="",
                  mz=-1, lmz=-1, xCount=-1, loading=-1, ionMode="", NPeakCenter=-1, NPeakCenterMin=-1, NPeakScale=-1,
                  NSNR=-1, NPeakArea=-1, NPeakAbundance=-1, LPeakCenter=-1, LPeakCenterMin=-1, LPeakScale=-1, LSNR=-1,
-                 LPeakArea=-1, LPeakAbundance=-1, heteroIsotoplogues={}, assignedMZs=[], **args):
+                 LPeakArea=-1, LPeakAbundance=-1, heteroIsotoplogues={}, assignedMZs=[], comments=[], artificialEICLShift=0, **args):
         argsUsed = 0
 
         self.id = id
@@ -474,6 +474,10 @@ class ChromPeakPair:
 
         self.heteroIsotopologues = heteroIsotoplogues or {}
         self.assignedMZs = assignedMZs or []
+
+        self.comments = comments
+
+        self.artificialEICLShift = artificialEICLShift
 
         if args.has_key("peaksCorr"):
             self.peaksCorr = args["peaksCorr"]

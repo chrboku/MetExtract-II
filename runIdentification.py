@@ -127,7 +127,7 @@ class RunIdentification:
                  checkPeaksRatio=False, minPeaksRatio=0, maxPeaksRatio=99999999,
                  calcIsoRatioNative=1, calcIsoRatioLabelled=-1, calcIsoRatioMoiety=1,
                  startTime=2, stopTime=37, positiveScanEvent="None", negativeScanEvent="None",
-                 eicSmoothingWindow="None", eicSmoothingWindowSize=0, eicSmoothingPolynom=0, artificialMPshift=0,
+                 eicSmoothingWindow="None", eicSmoothingWindowSize=0, eicSmoothingPolynom=0, artificialMPshift_start=0, artificialMPshift_stop=0,
                  correctCCount=True, minCorrelation=0.85, minCorrelationConnections=0.4, hAIntensityError=5., hAMinScans=3, adducts=[],
                  elements=[], heteroAtoms=[], chromPeakFile=None, lock=None, queue=None, pID=-1, rVersion="NA",
                  meVersion="NA"):
@@ -216,7 +216,8 @@ class RunIdentification:
         self.eicSmoothingWindow = eicSmoothingWindow
         self.eicSmoothingWindowSize = eicSmoothingWindowSize
         self.eicSmoothingPolynom = eicSmoothingPolynom
-        self.artificialMPshift = artificialMPshift
+        self.artificialMPshift_start = artificialMPshift_start
+        self.artificialMPshift_stop  = artificialMPshift_stop
         self.snrTh = snrTh
         self.scales = scales
         self.peakCenterError = peakCenterError
@@ -338,11 +339,11 @@ class RunIdentification:
 
         curs.execute("DROP TABLE IF EXISTS chromPeaks")
         curs.execute(
-            "CREATE TABLE chromPeaks(id INTEGER PRIMARY KEY, tracer INTEGER, eicID INTEGER, NPeakCenter INTEGER, NPeakCenterMin REAL, NPeakScale FLOAT, NSNR REAL, NPeakArea REAL, NPeakAbundance REAL, mz REAL, lmz REAL, xcount INTEGER, xcountId INTEGER, LPeakCenter INTEGER, LPeakCenterMin REAL, LPeakScale FLOAT, LSNR REAL, LPeakArea REAL, LPeakAbundance REAL, Loading INTEGER, peaksCorr FLOAT, heteroAtoms TEXT, NBorderLeft INTEGER, NBorderRight INTEGER, LBorderLeft INTEGER, LBorderRight INTEGER, adducts TEXT, heteroAtomsFeaturePairs TEXT, massSpectrumID INTEGER, ionMode TEXT, assignedMZs INTEGER, fDesc TEXT, peaksRatio FLOAT, peaksRatioMp1 FLOAT, peaksRatioMPm1 FLOAT, isotopesRatios TEXT, mzDiffErrors TEXT, peakType TEXT, assignedName TEXT, correlationsToOthers TEXT)")
+            "CREATE TABLE chromPeaks(id INTEGER PRIMARY KEY, tracer INTEGER, eicID INTEGER, NPeakCenter INTEGER, NPeakCenterMin REAL, NPeakScale FLOAT, NSNR REAL, NPeakArea REAL, NPeakAbundance REAL, mz REAL, lmz REAL, xcount INTEGER, xcountId INTEGER, LPeakCenter INTEGER, LPeakCenterMin REAL, LPeakScale FLOAT, LSNR REAL, LPeakArea REAL, LPeakAbundance REAL, Loading INTEGER, peaksCorr FLOAT, heteroAtoms TEXT, NBorderLeft INTEGER, NBorderRight INTEGER, LBorderLeft INTEGER, LBorderRight INTEGER, adducts TEXT, heteroAtomsFeaturePairs TEXT, massSpectrumID INTEGER, ionMode TEXT, assignedMZs INTEGER, fDesc TEXT, peaksRatio FLOAT, peaksRatioMp1 FLOAT, peaksRatioMPm1 FLOAT, isotopesRatios TEXT, mzDiffErrors TEXT, peakType TEXT, assignedName TEXT, correlationsToOthers TEXT, comments TEXT, artificialEICLShift INTEGER)")
 
         curs.execute("drop table if exists allChromPeaks")
         curs.execute(
-            "CREATE TABLE allChromPeaks(id INTEGER PRIMARY KEY, tracer INTEGER, eicID INTEGER, NPeakCenter INTEGER, NPeakCenterMin REAL, NPeakScale FLOAT, NSNR REAL, NPeakArea REAL, NPeakAbundance REAL, mz REAL, lmz REAL, xcount INTEGER, xcountId INTEGER, LPeakCenter INTEGER, LPeakCenterMin REAL, LPeakScale FLOAT, LSNR REAL, LPeakArea REAL, LPeakAbundance REAL, Loading INTEGER, peaksCorr FLOAT, heteroAtoms TEXT, NBorderLeft INTEGER, NBorderRight INTEGER, LBorderLeft INTEGER, LBorderRight INTEGER, adducts TEXT, heteroAtomsFeaturePairs TEXT, ionMode TEXT, assignedMZs INTEGER, fDesc TEXT, peaksRatio FLOAT, peaksRatioMp1 FLOAT, peaksRatioMPm1 FLOAT, isotopesRatios TEXT, mzDiffErrors TEXT, peakType TEXT, assignedName TEXT, comment TEXT)")
+            "CREATE TABLE allChromPeaks(id INTEGER PRIMARY KEY, tracer INTEGER, eicID INTEGER, NPeakCenter INTEGER, NPeakCenterMin REAL, NPeakScale FLOAT, NSNR REAL, NPeakArea REAL, NPeakAbundance REAL, mz REAL, lmz REAL, xcount INTEGER, xcountId INTEGER, LPeakCenter INTEGER, LPeakCenterMin REAL, LPeakScale FLOAT, LSNR REAL, LPeakArea REAL, LPeakAbundance REAL, Loading INTEGER, peaksCorr FLOAT, heteroAtoms TEXT, NBorderLeft INTEGER, NBorderRight INTEGER, LBorderLeft INTEGER, LBorderRight INTEGER, adducts TEXT, heteroAtomsFeaturePairs TEXT, ionMode TEXT, assignedMZs INTEGER, fDesc TEXT, peaksRatio FLOAT, peaksRatioMp1 FLOAT, peaksRatioMPm1 FLOAT, isotopesRatios TEXT, mzDiffErrors TEXT, peakType TEXT, assignedName TEXT, comment TEXT, comments TEXT, artificialEICLShift INTEGER)")
 
         curs.execute("DROP TABLE IF EXISTS featureGroups")
         curs.execute(
@@ -404,7 +405,8 @@ class RunIdentification:
         SQLInsert(curs, "config", key="eicSmoothing", value=self.eicSmoothingWindow)
         SQLInsert(curs, "config", key="eicSmoothingWindowSize", value=self.eicSmoothingWindowSize)
         SQLInsert(curs, "config", key="eicSmoothingPolynom", value=self.eicSmoothingPolynom)
-        SQLInsert(curs, "config", key="artificialMPshift", value=self.artificialMPshift)
+        SQLInsert(curs, "config", key="artificialMPshift_start", value=self.artificialMPshift_start)
+        SQLInsert(curs, "config", key="artificialMPshift_stop", value=self.artificialMPshift_stop)
         SQLInsert(curs, "config", key="snrTh", value=self.snrTh)
         SQLInsert(curs, "config", key="scales", value=base64.b64encode(dumps(self.scales)))
         SQLInsert(curs, "config", key="peakAbundanceCriteria", value="Center +- %d signals (%d total)"%(peakAbundanceUseSignalsSides, peakAbundanceUseSignals))
@@ -573,7 +575,7 @@ class RunIdentification:
         currentHeight -= 15
 
         pdf.drawString(70, currentHeight, "M' artificial shift")
-        pdf.drawString(240, currentHeight, self.artificialMPshift)
+        pdf.drawString(240, currentHeight, "%d - %d"%(self.artificialMPshift_start, self.artificialMPshift_stop))
         currentHeight -=15
 
         if self.eicSmoothingWindow.lower() != "none":
@@ -1017,15 +1019,6 @@ class RunIdentification:
                     # extract the EIC of the labelled ion and detect its chromatographic peaks
                     # optionally: smoothing
                     eicL, times, scanIds, mzsL = mzxml.getEIC(meanmzLabelled,self.chromPeakPPM, filterLine=scanEvent)
-                    if self.artificialMPshift>0:
-                        for i in range(self.artificialMPshift):
-                            eicL.insert(0,0)
-                            eicL.pop(len(eicL)-1)
-                    elif self.artificialMPshift<0:
-                        for i in range(abs(self.artificialMPshift)):
-                            eicL.insert(len(eicL)-1, 0)
-                            eicL.pop(0)
-
                     eicLSmoothed = smoothDataSeries(times, eicL, windowLen=self.eicSmoothingWindowSize,window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
 
                     # determine boundaries for chromatographic peak picking
@@ -1064,27 +1057,11 @@ class RunIdentification:
                     eicLfirstiso, timesL, scanIdsL, mzsLfirstiso = mzxml.getEIC(
                         meanmz + (xcount - 1) * self.xOffset / loading, self.chromPeakPPM,
                         filterLine=scanEvent)
-                    if self.artificialMPshift>0:
-                        for i in range(self.artificialMPshift):
-                            eicLfirstiso.insert(0,0)
-                            eicLfirstiso.pop(len(eicL)-1)
-                    elif self.artificialMPshift<0:
-                        for i in range(abs(self.artificialMPshift)):
-                            eicLfirstiso.insert(len(eicL)-1, 0)
-                            eicLfirstiso.pop(0)
                     #eicLfirstisoSmoothed = smoothDataSeries(times, eicLfirstiso, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
 
                     eicLfirstisoconjugate, timesL, scanIdsL, mzsLfirstisoconjugate = mzxml.getEIC(
                         meanmz + (xcount + 1) * self.xOffset / loading, self.chromPeakPPM,
                         filterLine=scanEvent)
-                    if self.artificialMPshift>0:
-                        for i in range(self.artificialMPshift):
-                            eicLfirstisoconjugate.insert(0,0)
-                            eicLfirstisoconjugate.pop(len(eicL)-1)
-                    elif self.artificialMPshift<0:
-                        for i in range(abs(self.artificialMPshift)):
-                            eicLfirstisoconjugate.insert(len(eicL)-1, 0)
-                            eicLfirstisoconjugate.pop(0)
                     #eicLfirstisoconjugateSmoothed = smoothDataSeries(times, eicLfirstisoconjugate, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
 
                     peaksBoth = []
@@ -1114,18 +1091,51 @@ class RunIdentification:
                                              NXICSmoothed=eicSmoothed, LXICSmoothed=eicLSmoothed,
                                              NBorderLeft=peakN.peakLeftFlank, NBorderRight=peakN.peakRightFlank,
                                              LBorderLeft=peakL.peakLeftFlank, LBorderRight=peakL.peakRightFlank,
-                                             isotopeRatios=[], mzDiffErrors=Bunch())
+                                             isotopeRatios=[], mzDiffErrors=Bunch(), comments=[], artificialEICLShift=0)
 
                             lb = int(min(peak.NPeakCenter - peak.NBorderLeft, peak.LPeakCenter - peak.LBorderLeft))
                             rb = int(max(peak.NPeakCenter + peak.NBorderRight, peak.LPeakCenter + peak.LBorderRight)) + 1
                             peakN = eicSmoothed[lb:rb]
                             peakL = eicLSmoothed[lb:rb]
-                            co = corr(peakN, peakL)
+
+                            def findBestArtificialShift(eicN, eicL, lb, rb, shiftFrom=0, shiftTo=0):
+                                correlations=[]
+                                for artShift in range(shiftFrom, shiftTo+1):
+                                    peakN=eicN[lb:rb]
+                                    peakL=eicL[(lb-artShift):(rb-artShift)]
+                                    correlations.append(Bunch(correlation=corr(peakN, peakL), artificialShift=artShift))
+                                bestFit=max(correlations, key=lambda x: x.correlation)
+
+                                return bestFit
+
+                            co=findBestArtificialShift(eicSmoothed, eicLSmoothed, lb, rb, self.artificialMPshift_start, self.artificialMPshift_stop)
 
                             # check peak shape (Pearson correlation)
 
-                            if co >= self.minPeakCorr and ((not self.checkPeaksRatio) or self.minPeaksRatio<=(peak.NPeakArea/peak.LPeakArea)<=self.maxPeaksRatio):
-                                peak.peaksCorr = co
+                            if co.correlation >= self.minPeakCorr and ((not self.checkPeaksRatio) or self.minPeaksRatio<=(peak.NPeakArea/peak.LPeakArea)<=self.maxPeaksRatio):
+                                peak.peaksCorr = co.correlation
+                                if co.artificialShift!=0:
+                                    peak.artificialEICLShift=co.artificialShift
+                                    if co.artificialShift>0:
+                                        eicL.insert(0,0)
+                                        eicL.pop(len(eicL)-1)
+                                        eicLSmoothed.insert(0,0)
+                                        eicLSmoothed.pop(len(eicLSmoothed)-1)
+                                        eicLfirstiso.insert(0,0)
+                                        eicLfirstiso.pop(len(eicLfirstiso)-1)
+                                        eicLfirstisoconjugate.insert(0,0)
+                                        eicLfirstisoconjugate.pop(len(eicLfirstisoconjugate)-1)
+                                    else:
+                                        eicL.insert(len(eicL)-1, 0)
+                                        eicL.pop(0)
+                                        eicLSmoothed.insert(len(eicLSmoothed)-1, 0)
+                                        eicLSmoothed.pop(0)
+                                        eicLfirstiso.insert(len(eicLfirstiso)-1, 0)
+                                        eicLfirstiso.pop(0)
+                                        eicLfirstisoconjugate.insert(len(eicLfirstisoconjugate)-1, 0)
+                                        eicLfirstisoconjugate.pop(0)
+
+
                                 peaksBoth.append(peak)
 
                                 libs = int(max(peak.NPeakCenter - floor(peak.NBorderLeft*.33), peak.LPeakCenter - floor(peak.LBorderLeft*.33)))
@@ -1221,7 +1231,7 @@ class RunIdentification:
                                       massSpectrumID=0,
                                       assignedMZs=base64.b64encode(dumps(peak.assignedMZs)), fDesc=base64.b64encode(dumps([])),
                                       peaksRatio=peak.peaksRatio, peaksRatioMp1=peak.peaksRatioMp1, peaksRatioMPm1=peak.peaksRatioMPm1,
-                                      peakType="patternFound")
+                                      peakType="patternFound", comments=base64.b64encode(dumps(peak.comments)), artificialEICLShift=peak.artificialEICLShift)
 
                             SQLInsert(curs, "allChromPeaks", id=peak.id, tracer=tracerID, eicID=peak.eicID,
                                       mz=peak.mz, lmz=peak.lmz, xcount=peak.correctedXCount, xcountId=peak.xCount,Loading=peak.loading,ionMode=ionMode,
@@ -1231,7 +1241,7 @@ class RunIdentification:
                                       heteroAtoms='',adducts='', heteroAtomsFeaturePairs='',
                                       assignedMZs=len(peak.assignedMZs), fDesc=base64.b64encode(dumps([])),
                                       peaksRatio=peak.peaksRatio, peaksRatioMp1=peak.peaksRatioMp1, peaksRatioMPm1=peak.peaksRatioMPm1,
-                                      peakType="patternFound")
+                                      peakType="patternFound", comments=base64.b64encode(dumps(peak.comments)), artificialEICLShift=peak.artificialEICLShift)
 
 
                             chromPeaks.append(peak)
@@ -2228,7 +2238,7 @@ class RunIdentification:
                                                  "c.peaksCorr AS peaksCorr, c.assignedMZs AS assignedMZs, c.heteroAtoms AS HAs, c.adducts AS ADs, "
                                                  "c.fDesc AS DSc, t.id AS tracer, t.name AS tracerName, "
                                                  "c.peaksRatio AS peaksRatio, c.peaksRatioMp1 AS peaksRatioMp1, c.peaksRatioMPm1 as peaksRatioMPm1, "
-                                                 "c.isotopesRatios AS isotopeRatios , c.mzDiffErrors as mzDiffErrors FROM "
+                                                 "c.isotopesRatios AS isotopeRatios , c.mzDiffErrors AS mzDiffErrors , c.comments AS comments, c.artificialEICLShift AS artificialEICLShift FROM "
                                                  "chromPeaks c INNER JOIN featureGroupFeatures g ON c.id=g.fID INNER JOIN tracerConfiguration t ON c.tracer=t.id", newObject=ChromPeakPair):
             chromPeak.NPeakCenterMin=chromPeak.NPeakCenterMin/60.
             chromPeak.LPeakCenterMin=chromPeak.LPeakCenterMin/60.
@@ -2237,6 +2247,7 @@ class RunIdentification:
             setattr(chromPeak, "fDesc", loads(base64.b64decode(chromPeak.DSc)))
             setattr(chromPeak, "isotopeRatios", loads(base64.b64decode(chromPeak.isotopeRatios)))
             setattr(chromPeak, "mzDiffErrors", loads(base64.b64decode(chromPeak.mzDiffErrors)))
+            setattr(chromPeak, "comments", "; ".join(loads(base64.b64decode(chromPeak.comments))))
             chromPeaks.append(chromPeak)
 
         if self.metabolisationExperiment:
@@ -2252,7 +2263,8 @@ class RunIdentification:
 
         csvFile = open(forFile + ".tsv", "w")
         csvFile.write(
-            "Num\tMZ\tL_MZ\tD_MZ_Error_ppm\tFoundInScans\tD_MZ_Peak_Error_mean_ppm\tD_MZ_Peak_Error_sd_ppm\tD_MZ_Min_ppm\tD_MZ_Max_ppm\tQuant20_MZ_Diff_ppm\tQuant80_MZ_Diff_ppm\tRT\tXn\tCharge\tScanEvent\tIonisation_Mode\tTracer\tArea_N\tArea_L\tAbundance_N\tAbundance_L\tFold\tPeakRatio\tLeftBorder_N\tRightBorder_N\tLeftBorder_L\tRightBorder_L\tGroup_ID\tCorr\tAdducts\tHetero_Elements")
+            "\t".join(["Num","MZ","L_MZ","D_MZ_Error_ppm","FoundInScans","D_MZ_Peak_Error_mean_ppm","D_MZ_Peak_Error_sd_ppm","D_MZ_Min_ppm","D_MZ_Max_ppm","Quant20_MZ_Diff_ppm","Quant80_MZ_Diff_ppm","RT","Xn","Charge","ScanEvent","Ionisation_Mode","Tracer","Area_N","Area_L","Abundance_N","Abundance_L","Fold","PeakRatio","LeftBorder_N","RightBorder_N","LeftBorder_L","RightBorder_L","Group_ID","Corr", "ArtificialEICLShift","Adducts","Hetero_Elements","Comments"])
+            )
         if len(chromPeaks)>1:
             i=1
             for isoRatio in chromPeaks[0].isotopeRatios:
@@ -2331,8 +2343,10 @@ class RunIdentification:
                                                       chromPeak.LBorderRight,
                                                       chromPeak.fGroupID,
                                                       chromPeak.peaksCorr,
+                                                      chromPeak.artificialEICLShift,
                                                       addsF,
-                                                      hetIso]]))
+                                                      hetIso,
+                                                      chromPeak.comments]]))
             for isoRatio in chromPeak.isotopeRatios:
                 observedMean=isoRatio.observedRatioMean
                 if observedMean is None:
@@ -2741,13 +2755,14 @@ class RunIdentification:
                                                  "c.NBorderLeft as NBorderLeft, c.NBorderRight as NBorderRight, c.LBorderLeft as LBorderLeft, c.LBorderRight as LBorderRight,"
                                                  "c.peaksCorr AS peaksCorr, c.assignedMZs AS assignedMZs, c.heteroAtoms AS HAs, c.adducts AS ADs, "
                                                  "c.fDesc AS DSc, t.id AS tracer, t.name AS tracerName, "
-                                                 "c.peaksRatio AS peaksRatio, c.peaksRatioMp1 AS peaksRatioMp1, c.peaksRatioMPm1 as peaksRatioMPm1 FROM "
+                                                 "c.peaksRatio AS peaksRatio, c.peaksRatioMp1 AS peaksRatioMp1, c.peaksRatioMPm1 AS peaksRatioMPm1, c.comments AS comments FROM "
                                                  "chromPeaks c INNER JOIN featureGroupFeatures g ON c.id=g.fID INNER JOIN tracerConfiguration t ON c.tracer=t.id", newObject=ChromPeakPair):
                 chromPeak.NPeakCenterMin=chromPeak.NPeakCenterMin/60.
                 chromPeak.LPeakCenterMin=chromPeak.LPeakCenterMin/60.
                 setattr(chromPeak, "heteroIsotopologues", loads(base64.b64decode(chromPeak.HAs)))
                 setattr(chromPeak, "adducts", loads(base64.b64decode(chromPeak.ADs)))
                 setattr(chromPeak, "fDesc", loads(base64.b64decode(chromPeak.DSc)))
+                setattr(chromPeak, "comments", loads(base64.b64decode(chromPeak.comments)))
                 chromPeak.assignedMZs=loads(base64.b64decode(chromPeak.assignedMZs))
 
                 allChromPeaks.append(chromPeak)
@@ -2811,28 +2826,12 @@ class RunIdentification:
                     eicN_cropped = copy(eicN)
 
                     eicL, times, scanIds, mzsL = mzxml.getEIC(peak.mz + peak.xCount * tracer.mzDelta / peak.loading,self.chromPeakPPM, filterLine=scanEvent)
-                    if self.artificialMPshift>0:
-                        for i in range(self.artificialMPshift):
-                            eicL.insert(0,0)
-                            eicL.pop(len(eicL)-1)
-                    elif self.artificialMPshift<0:
-                        for i in range(abs(self.artificialMPshift)):
-                            eicL.insert(len(eicL)-1, 0)
-                            eicL.pop(0)
                     eicL = smoothDataSeries(times, eicL, windowLen=self.eicSmoothingWindowSize,window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
 
                     eicNP1, times, scanIds, mzsNP1 = mzxml.getEIC(peak.mz + 1 * tracer.mzDelta / peak.loading,self.chromPeakPPM, filterLine=scanEvent)
                     eicNP1 = smoothDataSeries(times, eicNP1, windowLen=self.eicSmoothingWindowSize,window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
 
                     eicLm1, times, scanIds, mzsLm1 = mzxml.getEIC(peak.mz + (peak.xCount - 1) * tracer.mzDelta / peak.loading,self.chromPeakPPM, filterLine=scanEvent)
-                    if self.artificialMPshift>0:
-                        for i in range(self.artificialMPshift):
-                            eicLm1.insert(0,0)
-                            eicLm1.pop(len(eicL)-1)
-                    elif self.artificialMPshift<0:
-                        for i in range(abs(self.artificialMPshift)):
-                            eicLm1.insert(len(eicL)-1, 0)
-                            eicLm1.pop(0)
                     eicLm1 = smoothDataSeries(times, eicLm1, windowLen=self.eicSmoothingWindowSize,window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
 
                     gPeaks.append([peak, eicN, eicN_cropped, times, scanIds])
@@ -2871,6 +2870,10 @@ class RunIdentification:
                         "ID: <u>%d</u> %s<sub>n</sub>: <u>%d</u> Z: <u>%d</u> Correlation: <u>%.4f</u> (<u>%d</u> scans) valid SIL patterns: <u>%d</u> scans Feature group: <u>%d</u>" % (
                             peak.id, self.labellingElement, peak.xCount, peak.loading, peak.peaksCorr, h - l + 1,
                             len(peak.assignedMZs), peak.fGroupID))
+                    if peak.artificialEICLShift!=0:
+                        lines.append("Artificial EIC (M') shift: <u>%d</u> scans"%peak.artificialEICLShift)
+                    if len(peak.comments)>0:
+                        lines.extend(peak.comments)
 
                     lines.append("<br/>Putative hetero atoms: ")
                     if len(peak.heteroIsotopologues) > 0:

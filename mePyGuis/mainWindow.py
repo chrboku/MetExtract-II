@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '.\mePyGuis\guis\mainwindow.ui'
 #
-# Created: Thu Mar 09 11:06:48 2017
+# Created: Thu Mar 09 13:20:19 2017
 #      by: PyQt4 UI code generator 4.10
 #
 # WARNING! All changes made in this file will be lost!
@@ -954,11 +954,27 @@ class Ui_MainWindow(object):
         self.label_13 = QtGui.QLabel(self.groupBox_7)
         self.label_13.setObjectName(_fromUtf8("label_13"))
         self.gridLayout_36.addWidget(self.label_13, 4, 0, 1, 1)
-        self.spinBox_artificialMPshift = QtGui.QSpinBox(self.groupBox_7)
-        self.spinBox_artificialMPshift.setMinimum(-100)
-        self.spinBox_artificialMPshift.setMaximum(100)
-        self.spinBox_artificialMPshift.setObjectName(_fromUtf8("spinBox_artificialMPshift"))
-        self.gridLayout_36.addWidget(self.spinBox_artificialMPshift, 4, 1, 1, 1)
+        self.horizontalLayout_2 = QtGui.QHBoxLayout()
+        self.horizontalLayout_2.setObjectName(_fromUtf8("horizontalLayout_2"))
+        self.spinBox_artificialMPshift_start = QtGui.QSpinBox(self.groupBox_7)
+        self.spinBox_artificialMPshift_start.setMinimum(-99)
+        self.spinBox_artificialMPshift_start.setMaximum(0)
+        self.spinBox_artificialMPshift_start.setObjectName(_fromUtf8("spinBox_artificialMPshift_start"))
+        self.horizontalLayout_2.addWidget(self.spinBox_artificialMPshift_start)
+        self.label_14 = QtGui.QLabel(self.groupBox_7)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Maximum, QtGui.QSizePolicy.Preferred)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.label_14.sizePolicy().hasHeightForWidth())
+        self.label_14.setSizePolicy(sizePolicy)
+        self.label_14.setObjectName(_fromUtf8("label_14"))
+        self.horizontalLayout_2.addWidget(self.label_14)
+        self.spinBox_artificialMPshift_stop = QtGui.QSpinBox(self.groupBox_7)
+        self.spinBox_artificialMPshift_stop.setMinimum(-100)
+        self.spinBox_artificialMPshift_stop.setMaximum(100)
+        self.spinBox_artificialMPshift_stop.setObjectName(_fromUtf8("spinBox_artificialMPshift_stop"))
+        self.horizontalLayout_2.addWidget(self.spinBox_artificialMPshift_stop)
+        self.gridLayout_36.addLayout(self.horizontalLayout_2, 4, 1, 1, 1)
         self.verticalLayout_4.addWidget(self.groupBox_7)
         self.groupBox_10 = QtGui.QGroupBox(self.procIndFiles)
         self.groupBox_10.setObjectName(_fromUtf8("groupBox_10"))
@@ -2093,6 +2109,7 @@ class Ui_MainWindow(object):
         self.smoothingWindowSizeLabel.setText(_translate("MainWindow", "Window size", None))
         self.smoothingWindowPolynomLabel.setText(_translate("MainWindow", "Polynom", None))
         self.label_13.setText(_translate("MainWindow", "EIC M\' artificial shift (scans)", None))
+        self.label_14.setText(_translate("MainWindow", "-", None))
         self.groupBox_10.setTitle(_translate("MainWindow", "Chromatographic separation", None))
         self.label_32.setText(_translate("MainWindow", "Min. scale", None))
         self.label_33.setText(_translate("MainWindow", "Max. scale", None))
