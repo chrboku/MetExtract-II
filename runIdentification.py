@@ -1015,11 +1015,11 @@ class RunIdentification:
                     # extract the EIC of the native ion and detect its chromatographic peaks
                     # optionally: smoothing
                     eic, times, scanIds, mzs = mzxml.getEIC(meanmz, self.chromPeakPPM, filterLine=scanEvent)
-                    eicSmoothed = smoothDataSeries(times, eic, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
+                    eicSmoothed = smoothDataSeries(times, copy(eic), windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
                     # extract the EIC of the labelled ion and detect its chromatographic peaks
                     # optionally: smoothing
                     eicL, times, scanIds, mzsL = mzxml.getEIC(meanmzLabelled,self.chromPeakPPM, filterLine=scanEvent)
-                    eicLSmoothed = smoothDataSeries(times, eicL, windowLen=self.eicSmoothingWindowSize,window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
+                    eicLSmoothed = smoothDataSeries(times, copy(eicL), windowLen=self.eicSmoothingWindowSize,window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
 
                     # determine boundaries for chromatographic peak picking
                     minInd=min([kid.getObject().scanIndex for kid in kids])
@@ -1116,7 +1116,8 @@ class RunIdentification:
                                 peak.peaksCorr = co.correlation
                                 if co.artificialShift!=0:
                                     peak.artificialEICLShift=co.artificialShift
-                                    if co.artificialShift>0:
+                                    s=co.artificialShift
+                                    while s>0:
                                         eicL.insert(0,0)
                                         eicL.pop(len(eicL)-1)
                                         eicLSmoothed.insert(0,0)
@@ -1125,7 +1126,8 @@ class RunIdentification:
                                         eicLfirstiso.pop(len(eicLfirstiso)-1)
                                         eicLfirstisoconjugate.insert(0,0)
                                         eicLfirstisoconjugate.pop(len(eicLfirstisoconjugate)-1)
-                                    else:
+                                        s=s-1
+                                    while s<0:
                                         eicL.insert(len(eicL)-1, 0)
                                         eicL.pop(0)
                                         eicLSmoothed.insert(len(eicLSmoothed)-1, 0)
@@ -1134,6 +1136,7 @@ class RunIdentification:
                                         eicLfirstiso.pop(0)
                                         eicLfirstisoconjugate.insert(len(eicLfirstisoconjugate)-1, 0)
                                         eicLfirstisoconjugate.pop(0)
+                                        s=s+1
 
 
                                 peaksBoth.append(peak)
