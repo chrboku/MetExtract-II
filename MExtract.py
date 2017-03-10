@@ -4017,19 +4017,36 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                             int(cp.NPeakCenter + cp.NBorderRight)], rearrange=len(selectedItems) == 1,
                                       label=None, useCol=useColi)
 
-                    self.drawPlot(self.ui.pl1, plotIndex=0, x=times[ps:pe], y=xicL[ps:pe],
+                    if self.ui.showArtificialShoft_checkBox.isChecked():
+                        pst=ps
+                        pet=pe
+                        ps=ps-cp.artificialEICLShift
+                        pe=pe-cp.artificialEICLShift
+
+                        if pe>len(times):
+                            pe=pet
+                            pet=pet-cp.artificialEICLShift
+                        if ps<0:
+                            ps=pst
+                            pst=pst+cp.artificialEICLShift
+                    else:
+                        pst=ps
+                        pet=pe
+
+
+                    self.drawPlot(self.ui.pl1, plotIndex=0, x=times[pst:pet], y=xicL[ps:pe],
                                   fill=[int(cp.LPeakCenter - cp.LBorderLeft),
                                         int(cp.LPeakCenter + cp.LBorderRight)], rearrange=len(selectedItems) == 1,
                                   label=None, useCol=useColi)
 
                     if self.ui.showSmoothedEIC_checkBox.isChecked():
-                        self.drawPlot(self.ui.pl1, plotIndex=0, x=times[ps:pe], y=xicL_smoothed[ps:pe],
+                        self.drawPlot(self.ui.pl1, plotIndex=0, x=times[pst:pet], y=xicL_smoothed[ps:pe],
                                       fill=[int(cp.LPeakCenter - cp.LBorderLeft),
                                             int(cp.LPeakCenter + cp.LBorderRight)], rearrange=len(selectedItems) == 1,
                                       label=None, useCol=useColi, linestyle="--")
 
                     if self.ui.showIsotopologues.isChecked():
-                        self.drawPlot(self.ui.pl1, plotIndex=0, x=times[ps:pe], y=xicLfirstiso[ps:pe],
+                        self.drawPlot(self.ui.pl1, plotIndex=0, x=times[pst:pet], y=xicLfirstiso[ps:pe],
                                       fill=[int(cp.LPeakCenter - cp.LBorderLeft),
                                             int(cp.LPeakCenter + cp.LBorderRight)], rearrange=len(selectedItems) == 1,
                                       label=None, useCol=useColi)
@@ -6104,6 +6121,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.ui.scaleFeatures.stateChanged.connect(self.selectedResChanged)
         self.ui.scaleLabelledFeatures.stateChanged.connect(self.selectedResChanged)
         self.ui.showIsotopologues.stateChanged.connect(self.selectedResChanged)
+        self.ui.showArtificialShoft_checkBox.stateChanged.connect(self.selectedResChanged)
         self.ui.showSmoothedEIC_checkBox.stateChanged.connect(self.selectedResChanged)
         self.ui.flattenXIC.stateChanged.connect(self.selectedResChanged)
         self.ui.showLegend.stateChanged.connect(self.selectedResChanged)

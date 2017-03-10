@@ -61,7 +61,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>2</number>
       </property>
       <widget class="QWidget" name="inputTab">
        <attribute name="title">
@@ -3311,8 +3311,8 @@ p, li { white-space: pre-wrap; }
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1570</width>
-             <height>878</height>
+             <width>2047</width>
+             <height>1180</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_15">
@@ -3634,6 +3634,13 @@ p, li { white-space: pre-wrap; }
                             </property>
                             <property name="checked">
                              <bool>false</bool>
+                            </property>
+                           </widget>
+                          </item>
+                          <item>
+                           <widget class="QCheckBox" name="showArtificialShoft_checkBox">
+                            <property name="text">
+                             <string>Show artificial M' EIC shift</string>
                             </property>
                            </widget>
                           </item>

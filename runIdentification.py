@@ -1116,27 +1116,6 @@ class RunIdentification:
                                 peak.peaksCorr = co.correlation
                                 if co.artificialShift!=0:
                                     peak.artificialEICLShift=co.artificialShift
-                                    s=co.artificialShift
-                                    while s>0:
-                                        eicL.insert(0,0)
-                                        eicL.pop(len(eicL)-1)
-                                        eicLSmoothed.insert(0,0)
-                                        eicLSmoothed.pop(len(eicLSmoothed)-1)
-                                        eicLfirstiso.insert(0,0)
-                                        eicLfirstiso.pop(len(eicLfirstiso)-1)
-                                        eicLfirstisoconjugate.insert(0,0)
-                                        eicLfirstisoconjugate.pop(len(eicLfirstisoconjugate)-1)
-                                        s=s-1
-                                    while s<0:
-                                        eicL.insert(len(eicL)-1, 0)
-                                        eicL.pop(0)
-                                        eicLSmoothed.insert(len(eicLSmoothed)-1, 0)
-                                        eicLSmoothed.pop(0)
-                                        eicLfirstiso.insert(len(eicLfirstiso)-1, 0)
-                                        eicLfirstiso.pop(0)
-                                        eicLfirstisoconjugate.insert(len(eicLfirstisoconjugate)-1, 0)
-                                        eicLfirstisoconjugate.pop(0)
-                                        s=s+1
 
 
                                 peaksBoth.append(peak)

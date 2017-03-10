@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '.\mePyGuis\guis\mainwindow.ui'
 #
-# Created: Thu Mar 09 13:20:19 2017
+# Created: Fri Mar 10 11:50:51 2017
 #      by: PyQt4 UI code generator 4.10
 #
 # WARNING! All changes made in this file will be lost!
@@ -1484,7 +1484,7 @@ class Ui_MainWindow(object):
         self.scrollArea_3.setWidgetResizable(True)
         self.scrollArea_3.setObjectName(_fromUtf8("scrollArea_3"))
         self.scrollAreaWidgetContents_6 = QtGui.QWidget()
-        self.scrollAreaWidgetContents_6.setGeometry(QtCore.QRect(0, 0, 1570, 878))
+        self.scrollAreaWidgetContents_6.setGeometry(QtCore.QRect(0, 0, 2047, 1180))
         self.scrollAreaWidgetContents_6.setObjectName(_fromUtf8("scrollAreaWidgetContents_6"))
         self.gridLayout_15 = QtGui.QGridLayout(self.scrollAreaWidgetContents_6)
         self.gridLayout_15.setObjectName(_fromUtf8("gridLayout_15"))
@@ -1641,6 +1641,9 @@ class Ui_MainWindow(object):
         self.plotMarkArea.setChecked(False)
         self.plotMarkArea.setObjectName(_fromUtf8("plotMarkArea"))
         self.horizontalLayout_10.addWidget(self.plotMarkArea)
+        self.showArtificialShoft_checkBox = QtGui.QCheckBox(self.widget2)
+        self.showArtificialShoft_checkBox.setObjectName(_fromUtf8("showArtificialShoft_checkBox"))
+        self.horizontalLayout_10.addWidget(self.showArtificialShoft_checkBox)
         self.scaleFeatures = QtGui.QCheckBox(self.widget2)
         self.scaleFeatures.setChecked(True)
         self.scaleFeatures.setObjectName(_fromUtf8("scaleFeatures"))
@@ -1909,7 +1912,7 @@ class Ui_MainWindow(object):
         self.menuBar.addAction(self.menuHelp.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.tabWidget.setCurrentIndex(1)
+        self.tabWidget.setCurrentIndex(2)
         self.tabWidget_2.setCurrentIndex(0)
         self.tabWidget_3.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
@@ -2189,6 +2192,7 @@ class Ui_MainWindow(object):
         self.negEIC.setText(_translate("MainWindow", "Negative EIC", None))
         self.plotAddLabels.setText(_translate("MainWindow", "Labels", None))
         self.plotMarkArea.setText(_translate("MainWindow", "Area", None))
+        self.showArtificialShoft_checkBox.setText(_translate("MainWindow", "Show artificial M\' EIC shift", None))
         self.scaleFeatures.setText(_translate("MainWindow", "Normalise", None))
         self.scaleLabelledFeatures.setText(_translate("MainWindow", "Normalise separately", None))
         self.showIsotopologues.setText(_translate("MainWindow", "Isotopologues", None))
