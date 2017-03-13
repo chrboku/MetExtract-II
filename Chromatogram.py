@@ -513,6 +513,46 @@ class Chromatogram():
                 tmp_ms.precursor_charge = specturm["precursors"][0]["charge"]
                 self.MS2_list.append(tmp_ms)
 
+        precursors=[]
+        i=0
+        polarities=set()
+        for ms2Scan in self.MS2_list:
+            precursors.append(Bunch(precursormz=ms2Scan.precursor_mz, id=i, polarity=ms2Scan.polarity))
+            polarities.add(ms2Scan.polarity)
+            i=i+1
+
+        from utils import mean
+
+        for polarity in polarities:
+            precursorsTemp=[pc for pc in precursors if pc.polarity==polarity]
+            precursorsTemp=sorted(precursorsTemp, key=lambda x: x.precursormz)
+
+            lastmz=-1000
+            lastmzs=[]
+
+            for i in range(len(precursorsTemp)):
+                if (precursorsTemp[i].precursormz-lastmz)>=25*lastmz/1000000.:
+                    if len(lastmzs)>0:
+                        minMZ=lastmzs[0].precursormz
+                        maxMZ=lastmzs[-1].precursormz
+                        #print polarity, minMZ, maxMZ, (maxMZ-minMZ)*1000000./minMZ, "  \n --> ", (precursorsTemp[i].precursormz-lastmz)*1000000./lastmz, ": ", precursorsTemp[i].precursormz
+
+                        for j in range(len(lastmzs)):
+                            self.MS2_list[lastmzs[j].id].filter_line="MSn %s mean mz precursor: %.5f"%(polarity, mean([pc.precursormz for pc in lastmzs]))
+                            self.MS2_list[lastmzs[j].id].precursor_mz=float(mean([pc.precursormz for pc in lastmzs]))
+                    lastmz=precursorsTemp[i].precursormz
+                    lastmzs=[precursorsTemp[i]]
+                else:
+                    lastmzs.append(precursorsTemp[i])
+            if len(lastmzs)>0:
+                for j in range(len(lastmzs)):
+                    self.MS2_list[lastmzs[j].id].filter_line="MSn %s mean mz precursor: %.5f"%(polarity, mean([pc.precursormz for pc in lastmzs]))
+                    self.MS2_list[lastmzs[j].id].precursor_mz=float(mean([pc.precursormz for pc in lastmzs]))
+
+
+
+
+
 
     def parse_file(self, filename_xml, intensityCutoff=-1, ignoreCharacterData=False):
         if filename_xml.lower().endswith(".mzxml"):

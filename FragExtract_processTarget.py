@@ -15,6 +15,8 @@ import os
 import os.path
 import pickle
 import base64
+from time import sleep
+
 from SGR import SGRGenerator
 from formulaTools import formulaTools
 
@@ -403,7 +405,7 @@ class ProcessTarget:
                 if self.useZeroLabelingAtoms:
                     atoms.insert(0, 0)
 
-                _debug=True
+                _debug=False
 
                 if nMz<(lMz+1):
 
@@ -947,6 +949,7 @@ class ProcessTarget:
                 self._process(chromatogram, target, conn, curs)
 
                 self.postMessageToProgressWrapper("end", forPID=target.pID)
+                sleep(2)
 
         except Exception as ex:
             import traceback
@@ -1034,7 +1037,7 @@ class ProcessTarget:
                                                         scanTime=scanMS2Labelled.retention_time, scanID=str(maxIntMS2LabelledID), type="labelled_raw"),
                                writeFields=["forTarget", "mzs", "ints", "scanTime", "type"])
 
-        curs.execute("UPDATE Targets SET scanIDNativeRaw='%s', scanIDLabelledRaw='%s' WHERE id=%d"%(str(maxIntMS2NativeID), str(maxIntMS2LabelledID), target.id))
+        curs.execute("UPDATE Targets SET scanIDNativeRaw='%s', scanIDLabelledRaw='%s' WHERE id=%d"%(str(scanMS2Native.retention_time/60.), str(scanMS2Labelled.retention_time/60.), target.id))
         target.scanIDNativeRaw=str(maxIntMS2NativeID)
         target.scanIDLabelledRaw=str(maxIntMS2LabelledID)
 
