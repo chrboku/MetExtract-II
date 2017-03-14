@@ -424,7 +424,7 @@ if __name__ == '__main__':
 
     fT = formulaTools()
 
-    formulas = ["C23H32O12"]
+    formulas = ["C9H11NO2"]
 
     res=[]
     for form in formulas:

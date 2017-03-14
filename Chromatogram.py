@@ -280,7 +280,7 @@ class Chromatogram():
         mz_list = []
         intensity_list = []
 
-        if len(line)>0:
+        if line is not None and len(line)>0:
             decoded = base64.decodestring(line)
             if compression=="zlib":
                 decoded = zlib.decompress(decoded)

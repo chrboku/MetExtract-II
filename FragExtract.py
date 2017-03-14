@@ -1173,10 +1173,10 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
             targetsItem.myID = 1
             targetsItem.myData = []
 
-            targets=[t for t in SQLSelectAsObject(self.curFileSQLiteConnection.curs, selectStatement="select id, targetName, precursorMZ, chargeCount, Cn, startRT, stopRT, scanEventMS1, scanEventMS2Native, scanEventMS2Labelled, scanIDNativeRaw, scanIDLabelledRaw, parentSumFormula from Targets")]
+            targets=[t for t in SQLSelectAsObject(self.curFileSQLiteConnection.curs, selectStatement="select id, targetName, precursorMZ, chargeCount, Cn, startRT, stopRT, scanEventMS1, scanEventMS2Native, scanEventMS2Labelled, scanIDNativeRaw, scanIDLabelledRaw, scanRTNativeRaw, scanRTLabeledRaw, parentSumFormula from Targets")]
             for target in targets:
 
-                targetItem = QtGui.QTreeWidgetItem([target.targetName, "%s"%str(target.precursorMZ), "%d"%target.Cn, str(target.parentSumFormula), "%d"%target.chargeCount, "%s"%(target.scanIDNativeRaw), "%s"%(target.scanIDLabelledRaw),
+                targetItem = QtGui.QTreeWidgetItem([target.targetName, "%s"%str(target.precursorMZ), "%d"%target.Cn, str(target.parentSumFormula), "%d"%target.chargeCount, "%.2f (%s)"%(target.scanRTNativeRaw/60., target.scanIDNativeRaw), "%.2f (%s)"%(target.scanRTLabeledRaw/60., target.scanIDLabelledRaw),
                                                     target.scanEventMS2Native, target.scanEventMS2Labelled, target.scanEventMS1])
                 targetItem.myType = "MSMSTarget"
                 targetItem.myID = target.id
@@ -1247,9 +1247,13 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
     def fetchAndPlotMSMSTarget(self, id, highlightCleandPeak=None):
         target=[p for p in SQLSelectAsObject(self.curFileSQLiteConnection.curs,
                                              selectStatement="SELECT targetName, parentSumFormula, scanIDNativeRaw, scanIDLabelledRaw, Cn, scanEventMS2Native, id, "
-                                                             "scanEventMS2Labelled, precursorMZ, chargeCount FROM Targets WHERE id=%d" % (id))]
+                                                             "scanEventMS2Labelled, precursorMZ, chargeCount, eicFS, eicLFS, timesFS FROM Targets WHERE id=%d" % (id))]
         assert len(target)==1
         target=target[0]
+
+        target.eicFS = pickle.loads(base64.b64decode(target.eicFS))
+        target.eicLFS = pickle.loads(base64.b64decode(target.eicLFS))
+        target.timesFS = pickle.loads(base64.b64decode(target.timesFS))
 
         nativeSpectra=[spec for spec in
                        SQLSelectAsObject(self.curFileSQLiteConnection.curs,
@@ -1312,13 +1316,20 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
             else:
                 self.pl1.twinxs[0].text(x=nativeSpectraCleaned.mzs[index], y=nativeSpectraCleaned.ints[index]+2.5, s="%d"%index,
                                         color="lightgrey")
-                self.pl1.twinxs[0].text(x=nativeSpectraCleaned.mzs[index]+nativeSpectraCleaned.annos[index].Cn*1.00335, y=-nativeSpectraCleaned.ints[index]-13., s="%d"%index,
+                self.pl1.twinxs[0].text(x=nativeSpectraCleaned.mzs[index]+nativeSpectraCleaned.annos[index].Cn*1.00335484, y=-nativeSpectraCleaned.ints[index]-13., s="%d"%index,
                                         color="lightgrey")
 
 
         eics=[eic for eic in
               SQLSelectAsObject(self.curFileSQLiteConnection.curs,
                                 selectStatement="SELECT intensityList, timesList, forMZ, type FROM EICs WHERE forTarget=%d"%id)]
+
+        ma=max(target.eicFS)
+        ma=ma if ma > 0 else 1
+        self.pl2.twinxs[0].plot([t/60. for t in target.timesFS], [i/ma for i in target.eicFS], color="black")
+        ma=max(target.eicLFS)
+        ma = ma if ma > 0 else 1
+        self.pl2.twinxs[0].plot([t/60. for t in target.timesFS], [-i/ma for i in target.eicLFS], color="black")
 
         for eic in eics:
             times=[float(f) for f in eic.timesList.split(",")]
