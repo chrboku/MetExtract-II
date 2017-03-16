@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '.\mePyGuis\guis\mainwindow.ui'
 #
-# Created: Fri Mar 10 11:50:51 2017
+# Created: Thu Mar 16 11:34:58 2017
 #      by: PyQt4 UI code generator 4.10
 #
 # WARNING! All changes made in this file will be lost!
@@ -716,17 +716,20 @@ class Ui_MainWindow(object):
         self.wm_ib.setChecked(True)
         self.wm_ib.setObjectName(_fromUtf8("wm_ib"))
         self.horizontalLayout_5.addWidget(self.wm_ib)
-        self.gridLayout_39.addWidget(self.saveMZXML, 0, 2, 1, 1)
+        self.gridLayout_39.addWidget(self.saveMZXML, 0, 3, 1, 1)
         self.savePDF = QtGui.QCheckBox(self.groupBox_3)
         self.savePDF.setChecked(True)
         self.savePDF.setTristate(False)
         self.savePDF.setObjectName(_fromUtf8("savePDF"))
-        self.gridLayout_39.addWidget(self.savePDF, 0, 1, 1, 1)
+        self.gridLayout_39.addWidget(self.savePDF, 0, 2, 1, 1)
         self.saveCSV = QtGui.QCheckBox(self.groupBox_3)
         self.saveCSV.setChecked(True)
         self.saveCSV.setTristate(False)
         self.saveCSV.setObjectName(_fromUtf8("saveCSV"))
         self.gridLayout_39.addWidget(self.saveCSV, 0, 0, 1, 1)
+        self.saveFeatureML = QtGui.QCheckBox(self.groupBox_3)
+        self.saveFeatureML.setObjectName(_fromUtf8("saveFeatureML"))
+        self.gridLayout_39.addWidget(self.saveFeatureML, 0, 1, 1, 1)
         self.gridLayout_20.addWidget(self.groupBox_3, 0, 0, 1, 1)
         spacerItem25 = QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
         self.gridLayout_20.addItem(spacerItem25, 0, 1, 1, 1)
@@ -1912,7 +1915,7 @@ class Ui_MainWindow(object):
         self.menuBar.addAction(self.menuHelp.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.tabWidget.setCurrentIndex(2)
+        self.tabWidget.setCurrentIndex(1)
         self.tabWidget_2.setCurrentIndex(0)
         self.tabWidget_3.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
@@ -2081,6 +2084,7 @@ class Ui_MainWindow(object):
         self.wm_ib.setText(_translate("MainWindow", "M\'", None))
         self.savePDF.setText(_translate("MainWindow", "PDF", None))
         self.saveCSV.setText(_translate("MainWindow", "TSV", None))
+        self.saveFeatureML.setText(_translate("MainWindow", "FeatureML (basic)", None))
         self.label_4.setText(_translate("MainWindow", "Post processing", None))
         self.correctcCount.setText(_translate("MainWindow", "Correct C-Count", None))
         self.groupBox_8.setTitle(_translate("MainWindow", "Isotopolog ratios", None))

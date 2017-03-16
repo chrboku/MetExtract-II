@@ -79,6 +79,7 @@ from chromPeakPicking.MassSpecWavelet import MassSpecWavelet
 from utils import corr, getSubGraphs, ChromPeakPair, Bunch
 from SGR import SGRGenerator
 from mePyGuis.TracerEdit import ConfiguredTracer
+import exportAsFeatureML
 
 
 def getDBSuffix():
@@ -116,7 +117,7 @@ class RunIdentification:
     # Constructor of the class, which stores the processing parameters
     # writeMZXML: 0001: 12C  0010: 12C-Iso  0100: 13C-Iso  1000: 13C
     def __init__(self, file, exOperator="", exExperimentID="", exComments="", exExperimentName="",
-                 writePDF=False, writeTSV=False, writeMZXML=9,
+                 writePDF=False, writeFeatureML=False, writeTSV=False, writeMZXML=9,
                  metabolisationExperiment=False,
                  labellingisotopeA='12C', labellingisotopeB='13C', useCIsotopePatternValidation=False, xOffset=1.00335,
                  minRatio=0, maxRatio=9999999, useRatio=False,
@@ -149,6 +150,7 @@ class RunIdentification:
 
         self.file = file
         self.writePDF = writePDF
+        self.writeFeatureML = writeFeatureML
         self.writeTSV = writeTSV
         self.writeMZXML = writeMZXML
 
@@ -2203,6 +2205,22 @@ class RunIdentification:
         curs.close()
         conn.close()
 
+    ## write a new featureML file
+    def writeResultsToFeatureML(self, forFile):
+        conn = connect(forFile + getDBSuffix())
+        curs = conn.cursor()
+
+        features=[]
+
+        for chromPeak in SQLSelectAsObject(curs,
+                                           "SELECT c.id AS id, c.mz AS mz, c.lmz AS lmz, c.xcount AS xCount, c.Loading AS loading, c.NPeakCenterMin AS NPeakCenterMin FROM chromPeaks c",
+                                           newObject=ChromPeakPair):
+            b = Bunch(mz=chromPeak.mz, rt=chromPeak.NPeakCenterMin, Xn=chromPeak.xCount,
+                      lmz=chromPeak.lmz, charge=chromPeak.loading, name=chromPeak.id)
+            features.append(b)
+
+        exportAsFeatureML.writeFeatureListToFeatureML(features, forFile+".featureML", ppmPM=self.ppm, rtPM=0.25*60)
+
     # write feature pairs detected in this LC-HRMS data file into a new TSV file.
     # Each row represent one feature pair
     def writeResultsToTSVFile(self, forFile):
@@ -3264,6 +3282,14 @@ class RunIdentification:
                 self.postMessageToProgressWrapper("text", "Writing results to TSV..")
 
                 self.writeResultsToTSVFile(self.file)
+            # endregion
+
+            # region W.2 Write results to TSV File
+            ##########################################################################################
+            if self.writeFeatureML:
+                self.postMessageToProgressWrapper("text", "Writing results to featureML..")
+
+                self.writeResultsToFeatureML(self.file)
             # endregion
 
             # region W.3 Write resutls to PDF

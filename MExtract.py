@@ -2048,6 +2048,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
             if sett.contains("saveTSV"):
                 self.ui.saveCSV.setChecked(sett.value("saveTSV").toBool())
+            if sett.contains("saveFeatureML"):
+                self.ui.saveFeatureML.setChecked(sett.value("saveFeatureML").toBool())
             if sett.contains("saveMZXML"):
                 self.ui.saveMZXML.setChecked(sett.value("saveMZXML").toBool())
             if sett.contains("writeMZXMLOptions"):
@@ -2196,6 +2198,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             sett.setValue("heteroElements", base64.b64encode(dumps(self.heteroElements)))
 
             sett.setValue("saveTSV", self.ui.saveCSV.checkState() == QtCore.Qt.Checked)
+            sett.setValue("saveFeatureML", self.ui.saveFeatureML.checkState() == QtCore.Qt.Checked)
             sett.setValue("saveMZXML", self.ui.saveMZXML.isChecked())
             writeMZXMLOptions = 0
             if self.ui.wm_ia.checkState() == QtCore.Qt.Checked:
@@ -2432,6 +2435,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                   exComments=str(self.ui.exComments_TextEdit.toPlainText()),
                                   exExperimentName=str(self.ui.exExperimentName_LineEdit.text()),
                                   writePDF=self.ui.savePDF.checkState() == QtCore.Qt.Checked,
+                                  writeFeatureML=self.ui.saveFeatureML.checkState() == QtCore.Qt.Checked,
                                   writeTSV=self.ui.saveCSV.checkState() == QtCore.Qt.Checked,
                                   writeMZXML=writeMZXMLOptions,
                                   metabolisationExperiment=self.labellingExperiment==TRACER,
@@ -2616,6 +2620,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                       exComments=str(self.ui.exComments_TextEdit.toPlainText()),
                                                       exExperimentName=str(self.ui.exExperimentName_LineEdit.text()),
                                                       writePDF=self.ui.savePDF.checkState() == QtCore.Qt.Checked,
+                                                      writeFeatureML=self.ui.saveFeatureML.checkState() == QtCore.Qt.Checked,
                                                       writeTSV=self.ui.saveCSV.checkState() == QtCore.Qt.Checked,
                                                       writeMZXML=writeMZXMLOptions,
                                                       metabolisationExperiment=self.labellingExperiment==TRACER,
@@ -2778,6 +2783,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                                 exComments=str(self.ui.exComments_TextEdit.toPlainText()),
                                                                 exExperimentName=str(self.ui.exExperimentName_LineEdit.text()),
                                                                 writePDF=False,
+                                                                writeFeatureML=False,
                                                                 writeTSV=False,
                                                                 writeMZXML=0,
                                                                 metabolisationExperiment=self.labellingExperiment==TRACER,
