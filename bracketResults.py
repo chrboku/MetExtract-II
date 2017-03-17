@@ -683,7 +683,7 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
             if align: processingParams.FPBracketing_nPolynom=nPolynom
             f.write("## Bracketing files processing parameters %s\n"%(processingParams.dumpAsJSon().replace("\"", "'")))
 
-        exportAsFeatureML.convertMEMatrixToFeatureML(file)
+        exportAsFeatureML.convertMEMatrixToFeatureMLSepPolarities(file)
 
     except Exception as ex:
         import traceback

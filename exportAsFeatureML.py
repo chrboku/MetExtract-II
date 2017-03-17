@@ -77,13 +77,33 @@ def convertMEMatrixToFeatureML(meMatrixFile, featureMLFile=None):
                 pass
             else:
                 b=Bunch(mz=float(row[headers["MZ"]]), rt=float(row[headers["RT"]])*60, Xn=int(row[headers["Xn"]]), lmz=float(row[headers["L_MZ"]]),
-                        charge=int(row[headers["Charge"]]), name=row[headers["Num"]])
+                        charge=int(row[headers["Charge"]]), name=row[headers["Num"]], ionMode=row[headers["Ionisation_Mode"]])
                 features.append(b)
 
     writeFeatureListToFeatureML(features, featureMLFile, ppmPM=5., rtPM=0.25*60)
 
 
+def convertMEMatrixToFeatureMLSepPolarities(meMatrixFile, featureMLFile=None):
+    if featureMLFile is None:
+        featureMLFile=meMatrixFile.replace(".tsv", ".txt").replace(".txt", "")+".featureML"
+
+    with open(meMatrixFile) as fIn:
+        csvReader=csv.reader(fIn, delimiter="\t", quotechar="\"")
+
+        headers={}
+        features={'+':[], '-':[]}
+        for linei, row in enumerate(csvReader):
+            if linei==0:
+                for colInd, header in enumerate(row):
+                    headers[header]=colInd
+            elif row[0].startswith("#"):
+                pass
+            else:
+                b=Bunch(mz=float(row[headers["MZ"]]), rt=float(row[headers["RT"]])*60, Xn=int(row[headers["Xn"]]), lmz=float(row[headers["L_MZ"]]),
+                        charge=int(row[headers["Charge"]]), name=row[headers["Num"]], ionMode=row[headers["Ionisation_Mode"]])
+                features[b.ionMode].append(b)
+
+    writeFeatureListToFeatureML(features['-'], featureMLFile.replace(".featureML", "_negMode.featureML"), ppmPM=5., rtPM=0.25*60)
+    writeFeatureListToFeatureML(features['+'], featureMLFile.replace(".featureML", "_posMode.featureML"), ppmPM=5., rtPM=0.25 * 60)
 
 
-if __name__=="__main__":
-    convertMEMatrixToFeatureML("C:/PyMetExtract/implTest/LTQ_Orbitrap_XL/10_CM_DON.mzXML.tsv")
