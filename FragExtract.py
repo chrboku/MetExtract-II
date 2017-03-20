@@ -1246,7 +1246,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
     def fetchAndPlotMSMSTarget(self, id, highlightCleandPeak=None):
         target=[p for p in SQLSelectAsObject(self.curFileSQLiteConnection.curs,
-                                             selectStatement="SELECT targetName, parentSumFormula, scanIDNativeRaw, scanIDLabelledRaw, Cn, scanEventMS2Native, id, "
+                                             selectStatement="SELECT targetName, parentSumFormula, scanIDNativeRaw, scanIDLabelledRaw, scanRTNativeRaw, scanRTLabeledRaw, Cn, scanEventMS2Native, id, "
                                                              "scanEventMS2Labelled, precursorMZ, chargeCount, eicFS, eicLFS, timesFS FROM Targets WHERE id=%d" % (id))]
         assert len(target)==1
         target=target[0]
@@ -1324,13 +1324,6 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
               SQLSelectAsObject(self.curFileSQLiteConnection.curs,
                                 selectStatement="SELECT intensityList, timesList, forMZ, type FROM EICs WHERE forTarget=%d"%id)]
 
-        ma=max(target.eicFS)
-        ma=ma if ma > 0 else 1
-        self.pl2.twinxs[0].plot([t/60. for t in target.timesFS], [i/ma for i in target.eicFS], color="black")
-        ma=max(target.eicLFS)
-        ma = ma if ma > 0 else 1
-        self.pl2.twinxs[0].plot([t/60. for t in target.timesFS], [-i/ma for i in target.eicLFS], color="black")
-
         for eic in eics:
             times=[float(f) for f in eic.timesList.split(",")]
             intensities=[float(f) for f in eic.intensityList.split(",")]
@@ -1368,6 +1361,17 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 col=(148/255.,32/255.,146/255.)
                 linewidth=2
                 self.pl2.twinxs[0].plot(times, intensities, color=col, linewidth=linewidth)
+
+
+        ma=max(target.eicFS)
+        ma=ma if ma > 0 else 1
+        self.pl2.twinxs[0].plot([t/60. for t in target.timesFS], [i/ma for i in target.eicFS], color="black")
+        ma=max(target.eicLFS)
+        ma = ma if ma > 0 else 1
+        self.pl2.twinxs[0].plot([t/60. for t in target.timesFS], [-i/ma for i in target.eicLFS], color="black")
+
+        self.pl2.twinxs[0].plot([target.scanRTNativeRaw/60., target.scanRTNativeRaw/60.], [0, 1], color="firebrick")
+        self.pl2.twinxs[0].plot([target.scanRTLabeledRaw/60., target.scanRTLabeledRaw/60.], [0, -1], color="firebrick")
 
     def updateResultsIllustration(self):
         clearPlot(self.pl1)
