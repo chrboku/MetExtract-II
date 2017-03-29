@@ -490,10 +490,16 @@ class Chromatogram():
             tmp_ms.filter_line = specturm["filter string"]
 
             tmp_ms.peak_count = len(specturm.peaks)
-            tmp_ms.retention_time = specturm["scan time"]*60
+            if "scan time" in specturm.keys():
+                tmp_ms.retention_time = specturm["scan time"]*60
+            elif "scan start time" in specturm.keys():
+                tmp_ms.retention_time = specturm["scan start time"]*60
+            else:
+                raise Exception("no scan retention time found")
             #if tmp_ms.peak_count > 0:
             tmp_ms.total_ion_current = specturm["total ion current"]
             tmp_ms.list_size = 0
+
             if specturm.has_key("positive scan"):
                 tmp_ms.polarity = "+"
             elif specturm.has_key("negative scan"):

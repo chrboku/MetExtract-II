@@ -55,7 +55,8 @@ def checkR():
                                                 # R subprocess has been established
 
         return True
-    except:
+    except Exception as ex:
+        print ex
         # The R subprocess could not be started / accessed successfully
         return False
 
@@ -76,7 +77,7 @@ from utils import get_main_dir
 if "R_HOME" in os.environ.keys():
     __RHOMEENVVAR=os.environ["R_HOME"]
 
-
+os.environ["R_USER"]=get_main_dir()+"/Ruser"
 # try to load r configuration file (does not require any environment variables or registry keys)
 if not loadRConfFile(path=get_main_dir()) or not checkR():
     os.environ["R_HOME"]=get_main_dir()+"/R"
@@ -110,7 +111,7 @@ if not loadRConfFile(path=get_main_dir()) or not checkR():
 
             app = QtGui.QApplication(sys.argv)
 
-            if QtGui.QMessageBox.warning(self, "MetExtract",
+            if QtGui.QMessageBox.warning(None, "MetExtract",
                                       "Error: R could not be loaded\nPlease make sure it is installed and accessible\n"
                                       "The default installation path is C:\\Program Files\\R\n"
                                       "Do you want to specify the folder?",
@@ -119,12 +120,13 @@ if not loadRConfFile(path=get_main_dir()) or not checkR():
                 from utils import get_main_dir
                 lastDir=get_main_dir()
                 while tryLoad:
-                    folder = str(QtGui.QFileDialog.getExistingDirectory(self, "Select R-directory (not bin folder)", directory=lastDir))
+                    folder = str(QtGui.QFileDialog.getExistingDirectory(None, "Select R-directory (not bin folder)", directory=lastDir))
                     if folder=="":
                         sys.exit(1)
                     else:
                         lastDir=folder
                         os.environ["R_HOME"]=folder
+                        print os.environ["R_HOME"]
                         if checkR():
                             with open("RPATH.conf", "wb") as rconf:
                                 rconf.write(folder)
@@ -135,7 +137,7 @@ if not loadRConfFile(path=get_main_dir()) or not checkR():
                                           QtGui.QMessageBox.Ok)
                                 sys.exit(0)
                         else:
-                            if QtGui.QMessageBox.warning(self, "MetExtract",
+                            if QtGui.QMessageBox.warning(None, "MetExtract",
                                           "Error: R could not be loaded from the specified location\n"
                                           "%s\n\n"
                                           "Please make sure it is installed and accessible\n"
@@ -242,7 +244,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.ticker import ScalarFormatter
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.backends.backend_qt4agg import NavigationToolbar2QTAgg as NavigationToolbar
+from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 from matplotlib.cm import get_cmap
 import matplotlib.patches as patches

@@ -58,3 +58,4 @@ dist/
 build/
 resources/R-2.15.2-win.exe
 fileImport.sqlite.cache
+Ruser/
