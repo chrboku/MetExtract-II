@@ -40,6 +40,7 @@ from reportlab.pdfgen import canvas
 from reportlab.graphics import renderPDF
 from reportlab.lib.styles import getSampleStyleSheet
 
+from PyMassBankSearchTool import PyMassBankSearchTool
 
 
 
@@ -211,6 +212,7 @@ class ProcessTarget:
                  fullScanEICppm, fullScanThreshold, minMSMSPeakIntensityScaled, scalePrecursorMZ,
                  minXn, useZeroLabelingAtoms, useTracExtractAnnotation,
                  labellingOffset, matchingPPM, maxRelError, annotationElements, annotationPPM, useParentFragmentConsistencyRule,
+                 massBankPPMError, massBankMinRelAbundance, massBankMinimalScore, massBankHitsToLoad,
                  saveAsTSV, saveAsPDF,
                  lock, queue, pID, feVersion):
 
@@ -235,6 +237,11 @@ class ProcessTarget:
         self.annotationPPM=annotationPPM
         self.useParentFragmentConsistencyRule=useParentFragmentConsistencyRule
 
+        self.massBankPPMError=massBankPPMError
+        self.massBankMinRelAbundance=massBankMinRelAbundance
+        self.massBankMinimalScore=massBankMinimalScore
+        self.massBankHitsToLoad=massBankHitsToLoad
+
         self.saveAsTSV=saveAsTSV
         self.saveAsPDF=saveAsPDF
 
@@ -243,6 +250,8 @@ class ProcessTarget:
         self.pID = pID
 
         self.feVersion=feVersion
+
+
 
     # Thread safe printing function
     def printMessage(self, message, type="info"):
@@ -916,6 +925,25 @@ class ProcessTarget:
         pdf.drawString(470, 295, "EICs")
 
 
+        pdf.showPage()
+
+        currentHeight=800
+        pdf.drawString(50, currentHeight, "MassBank entries")
+        currentHeight-=20
+
+        text=[]
+        if target.matches.numResults > 0:
+            for match in target.matches.matchedSubstances:
+                text.extend([match.title, "<br/>", "%.3f"%float(match.score), ", ", match.id, ", ", match.formula, ", ", match.exactMass, "<br/><br/>"])
+        else:
+            text.append("-- no matches --")
+
+        p = Paragraph("".join([str(d) for d in text]), style=getSampleStyleSheet()["Normal"])
+        w, h = p.wrap(750, 60)
+        p.wrapOn(pdf, 750, 60)
+        p.drawOn(pdf, 50, currentHeight - h + 10)
+        currentHeight -= max(20, h + 10)
+
         pdf.save()
 
 
@@ -1154,6 +1182,26 @@ class ProcessTarget:
                                                         annos=base64.b64encode(pickle.dumps([scanMS2Annotated.getAnnotationsForPeakInScan(labelled=True, index=i)[0] for i in range(len(scanMS2Annotated.nativeMz_list))])),
                                                         scanTime=scanMS2Labelled.retention_time, type="labelled_cleaned"),
                                writeFields=["forTarget", "mzs", "ints", "annos", "scanTime", "type"])
+
+        ## for some reason that I have not figured out yet the webservice must be initialized here
+        self.massbankClient = PyMassBankSearchTool()
+        matches=self.massbankClient.searchForMSMSSpectra(mzValues=scanMS2Annotated.nativeMz_list, intensityValues=scanMS2Annotated.nativeIntensity_list,
+                                                    ionMode=scanMS2Native.polarity, tolerance=self.massBankPPMError, cutoff=self.massBankMinRelAbundance,
+                                                    maxNumResults=self.massBankHitsToLoad, minimalScore=self.massBankMinimalScore)
+
+        dummy=Bunch(title="", score=0., id="", formula="", exactMass=0., forTarget=1,   mzs="", relInts="")
+        createTableFromBunch("MassBankHits", dummy, cursor=curs, ifNotExists=True)
+
+
+        if matches.numResults > 0:
+            for match in matches.matchedSubstances:
+                match.forTarget=target.id
+                mzs, relInts=self.massbankClient.getMSMSSpectraForRecordID(match.id)
+                match.mzs=";".join([str(d) for d in mzs])
+                match.relInts=";".join([str(d) for d in relInts])
+                writeObjectAsSQLInsert(curs, "MassBankHits", match, writeFields=["title", "score", "id", "formula", "exactMass", "forTarget", "mzs", "relInts"])
+        target.matches=matches
+
 
         for i in range(len(scanMS2Annotated.nativeMz_list)):
             mz=scanMS2Annotated.nativeMz_list[i]

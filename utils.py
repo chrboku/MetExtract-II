@@ -1035,7 +1035,7 @@ def SQLInsert(curs, tableName, **kwargs):
         if isinstance(val, int) or isinstance(val, float):
             vals.append(val)
         else:
-            vals.append("'%s'"%val)
+            vals.append("%s"%val)
 
     assert len(keys)==len(vals)
 
@@ -1059,12 +1059,12 @@ def SQLInsert(curs, tableName, **kwargs):
         if needsComa:
             parts.append(",")
         needsComa=True
-        parts.append(str(val))
+        parts.append("?")
 
     parts.append(")")
 
     sqlCommand=" ".join(parts)
-    curs.execute(sqlCommand)
+    curs.execute(sqlCommand, vals)
 
 def writeObjectsAsSQLInsert(curs, toTable, objs, writeFields, fieldsMappingToColumns=None):
     if fieldsMappingToColumns is None:

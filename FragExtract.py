@@ -689,6 +689,15 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
         if sett.contains("applyParentFragmentConsistencyRule"):
             self.applyParentFragmentConsistencyRuleCheckBox.setChecked(sett.value("applyParentFragmentConsistencyRule").toBool())
 
+        if sett.contains("doubleSpinBox_massBankPPMError"):
+            self.doubleSpinBox_massBankPPMError.setValue(sett.value("doubleSpinBox_massBankPPMError").toDouble()[0])
+        if sett.contains("doubleSpinBox_massBankMinRelAbundance"):
+            self.doubleSpinBox_massBankMinRelAbundance.setValue(sett.value("doubleSpinBox_massBankMinRelAbundance").toDouble()[0])
+        if sett.contains("doubleSpinBox_massBankMinimalScore"):
+            self.doubleSpinBox_massBankMinimalScore.setValue(sett.value("doubleSpinBox_massBankMinimalScore").toDouble()[0])
+        if sett.contains("spinBox_massBankHitsToLoad"):
+            self.spinBox_massBankHitsToLoad.setValue(sett.value("spinBox_massBankHitsToLoad").toInt()[0])
+
         if sett.contains("saveAsTSV"):
             self.saveResultsAsTSVCheckBox.setChecked(sett.value("saveAsTSV").toBool())
         if sett.contains("saveAsPDF"):
@@ -723,6 +732,11 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
         sett.setValue("annotationPPM", self.annotationPPMErrorSpinner.value())
 
         sett.setValue("applyParentFragmentConsistencyRule", self.applyParentFragmentConsistencyRuleCheckBox.checkState()==QtCore.Qt.Checked)
+
+        sett.setValue("doubleSpinBox_massBankPPMError", self.doubleSpinBox_massBankPPMError.value())
+        sett.setValue("doubleSpinBox_massBankMinRelAbundance", self.doubleSpinBox_massBankMinRelAbundance.value())
+        sett.setValue("doubleSpinBox_massBankMinimalScore", self.doubleSpinBox_massBankMinimalScore.value())
+        sett.setValue("spinBox_massBankHitsToLoad", self.spinBox_massBankHitsToLoad.value())
 
         sett.setValue("saveAsTSV", self.saveResultsAsTSVCheckBox.checkState()==QtCore.Qt.Checked)
         sett.setValue("saveAsPDF", self.saveResultsAsPDFCheckBox.checkState()==QtCore.Qt.Checked)
@@ -991,6 +1005,11 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             labellingOffset=1.00335, annotationElements=self.elements, annotationPPM=self.annotationPPMErrorSpinner.value(),
                             useParentFragmentConsistencyRule=self.applyParentFragmentConsistencyRuleCheckBox.checkState()==QtCore.Qt.Checked,
 
+                            massBankPPMError=self.doubleSpinBox_massBankPPMError.value(),
+                            massBankMinRelAbundance=int(self.doubleSpinBox_massBankMinRelAbundance.value()),
+                            massBankMinimalScore=self.doubleSpinBox_massBankMinimalScore.value(),
+                            massBankHitsToLoad=self.spinBox_massBankHitsToLoad.value(),
+
                             saveAsTSV=self.saveResultsAsTSVCheckBox.checkState()==QtCore.Qt.Checked,
                             saveAsPDF=self.saveResultsAsPDFCheckBox.checkState()==QtCore.Qt.Checked,
 
@@ -1241,13 +1260,30 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                     peakItem.addChild(sumFormItem)
 
 
+                mbMatches=[p for p in SQLSelectAsObject(self.curFileSQLiteConnection.curs,
+                                                        selectStatement="SELECT id, title, exactMass, formula, score FROM MassBankHits WHERE forTarget=%d"%target.id)]
+                if len(mbMatches)>0:
+                    annos = QtGui.QTreeWidgetItem(["MassBank hits (%d)"%len(mbMatches)])
+                    annos.myType="MassBankHits"
+                    annos.myID=-1
+                    annos.myData=Bunch()
+                    for p in mbMatches:
+                        anno=QtGui.QTreeWidgetItem([str(d) for d in [p.title, p.id, p.formula, p.exactMass, p.score]])
+                        anno.targetID=target.id
+                        anno.myType="MassBankHit"
+                        anno.myID=p.id
+                        anno.myData=p
+                        annos.addChild(anno)
+                        targetItem.addChild(annos)
+
             self.resultsTreeWidget.addTopLevelItem(targetsItem)
             self.resultsTreeWidget.expandItem(targetsItem)
 
-    def fetchAndPlotMSMSTarget(self, id, highlightCleandPeak=None):
+    def fetchAndPlotMSMSTarget(self, id, highlightCleandPeak=None, showMassBankSpectra=None):
         target=[p for p in SQLSelectAsObject(self.curFileSQLiteConnection.curs,
                                              selectStatement="SELECT targetName, parentSumFormula, scanIDNativeRaw, scanIDLabelledRaw, scanRTNativeRaw, scanRTLabeledRaw, Cn, scanEventMS2Native, id, "
                                                              "scanEventMS2Labelled, precursorMZ, chargeCount, eicFS, eicLFS, timesFS FROM Targets WHERE id=%d" % (id))]
+
         assert len(target)==1
         target=target[0]
 
@@ -1292,6 +1328,9 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
             self.pl1.twinxs[0].text(x=target.precursorMZ+target.Cn*1.00335/target.chargeCount-1, y=-136, s="PC'", color="Firebrick")
             self.pl1.twinxs[0].vlines(x=labelledSpectra.mzs, ymin=[0 for mz in labelledSpectra.mzs], ymax=[-i for i in labelledSpectra.ints], color=(249/255.,164/255.,78/255.))
 
+
+
+
         if self.plotCleanedScanCheckBox.checkState()==QtCore.Qt.Checked:
             self.pl1.twinxs[0].vlines(x=nativeSpectraCleaned.mzs, ymin=[0 for mz in nativeSpectraCleaned.mzs], ymax=nativeSpectraCleaned.ints,
                                       color=(148/255.,32/255.,146/255.), linewidth=2, alpha=1 if highlightCleandPeak is None else 0.5)
@@ -1318,7 +1357,6 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                         color="lightgrey")
                 self.pl1.twinxs[0].text(x=nativeSpectraCleaned.mzs[index]+nativeSpectraCleaned.annos[index].Cn*1.00335484, y=-nativeSpectraCleaned.ints[index]-13., s="%d"%index,
                                         color="lightgrey")
-
 
         eics=[eic for eic in
               SQLSelectAsObject(self.curFileSQLiteConnection.curs,
@@ -1362,7 +1400,6 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 linewidth=2
                 self.pl2.twinxs[0].plot(times, intensities, color=col, linewidth=linewidth)
 
-
         ma=max(target.eicFS)
         ma=ma if ma > 0 else 1
         self.pl2.twinxs[0].plot([t/60. for t in target.timesFS], [i/ma for i in target.eicFS], color="black")
@@ -1373,6 +1410,17 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.pl2.twinxs[0].plot([target.scanRTNativeRaw/60., target.scanRTNativeRaw/60.], [0, 1], color="firebrick")
         self.pl2.twinxs[0].plot([target.scanRTLabeledRaw/60., target.scanRTLabeledRaw/60.], [0, -1], color="firebrick")
 
+
+        if showMassBankSpectra!=None:
+            p=[p for p in SQLSelectAsObject(self.curFileSQLiteConnection.curs,
+                                             selectStatement="SELECT mzs, relInts FROM MassBankHits WHERE id='%s'"%showMassBankSpectra)][0]
+            mzs=[float(d) for d in p.mzs.split(";")]
+            relInts=[float(d) for d in p.relInts.split(";")]
+            maxVal=max(relInts)
+            relInts=[100*d/maxVal for d in relInts]
+
+            self.pl1.twinxs[0].vlines(x=mzs, ymin=[0 for i in relInts], ymax=[-i for i in relInts], color="green")
+
     def updateResultsIllustration(self):
         clearPlot(self.pl1)
         clearPlot(self.pl2)
@@ -1381,6 +1429,8 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 self.fetchAndPlotMSMSTarget(id=item.myID)
             if hasattr(item, "myType") and item.myType in ["PeakAnnotation", "PeakAnnotation_Adduct", "PeakAnnotation_Adduct_SumFormula"]:
                 self.fetchAndPlotMSMSTarget(id=item.myID, highlightCleandPeak=item.myData.index)
+            if hasattr(item, "myType") and item.myType in ["MassBankHit"]:
+                self.fetchAndPlotMSMSTarget(id=item.targetID, showMassBankSpectra=item.myData.id)
 
         drawCanvas(self.pl1)
         drawCanvas(self.pl2)
