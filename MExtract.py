@@ -600,14 +600,16 @@ def integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colloadi
     for c in colToProc.keys():
         colToProcCur[c]=colToProc[c]
 
-        if len(colToProcCur)>=cpus:
-            _integrateResultsFile(file, toF, colToProcCur, colmz, colrt, colxcount, colloading, colLmz, colIonMode, colnum,
-                                  ppm, maxRTShift, scales, reintegrateIntensityCutoff, snrTH, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom,
-                                  positiveScanEvent, negativeScanEvent, pw, selfObj, cpus, pwOffset=pwOffset, totalFilesToProc=len(colToProc),
-                                  writeConfig=writeConfig, start=start)
-            pwOffset+=len(colToProcCur)
-            colToProcCur={}
-            writeConfig=False
+        ### Required in Python 2.6
+        ### Python 2.7 introduced the new option maxtasksperchild for workerPools
+        # if False and len(colToProcCur)>=cpus:
+        #     _integrateResultsFile(file, toF, colToProcCur, colmz, colrt, colxcount, colloading, colLmz, colIonMode, colnum,
+        #                           ppm, maxRTShift, scales, reintegrateIntensityCutoff, snrTH, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom,
+        #                           positiveScanEvent, negativeScanEvent, pw, selfObj, cpus, pwOffset=pwOffset, totalFilesToProc=len(colToProc),
+        #                           writeConfig=writeConfig, start=start)
+        #     pwOffset+=len(colToProcCur)
+        #     colToProcCur={}
+        #     writeConfig=False
 
     if len(colToProcCur)>0:
         _integrateResultsFile(file, toF, colToProcCur, colmz, colrt, colxcount, colloading, colLmz, colIonMode, colnum,
@@ -668,7 +670,7 @@ def _integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colload
     assert colnum in cols
 
     # initialise multiprocessing queue
-    p = Pool(processes=min(len(colToProc), cpus))  #, maxtasksperchild=1) # only in python >=2.7; experimental
+    p = Pool(processes=min(len(colToProc), cpus), maxtasksperchild=1) # only in python >=2.7; experimental
     manager = Manager()
     queue = manager.Queue()
 
@@ -2420,7 +2422,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
 
             # Initialize multiprocessing pool
-            p = Pool(processes=min(len(files), cpus))  #, maxtasksperchild=1) # only in python >=2.7
+            p = Pool(processes=min(len(files), cpus), maxtasksperchild=1) # only in python >=2.7
             manager = Manager()
             lock = manager.Lock()
             queue = manager.Queue()
