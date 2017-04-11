@@ -716,6 +716,7 @@ class ProcessTarget:
         pdf.line(50, currentHeight + 20 - 4, 540, currentHeight + 20 - 4); currentHeight-=10
 
         currentHeight=writeKeyValuePair("FragExtract version",  str(self.feVersion), pdf, currentHeight)
+        currentHeight-=20
 
 
 
@@ -824,7 +825,7 @@ class ProcessTarget:
         colors.append(Color(100 / 255., 100 / 255., 100 / 255.))
         strokeWidth.append(0.3)
         dd.append([(min(min(nativeRawSpectrum.mzs), min(labelledRawSpectrum.mzs)), -self.minMSMSPeakIntensityScaled), (max(max(nativeRawSpectrum.mzs), max(labelledRawSpectrum.mzs)), -self.minMSMSPeakIntensityScaled)])
-        colors.append(Color(50 / 255., 50 / 255., 50 / 255.))
+        colors.append(Color(100 / 255., 100 / 255., 100 / 255.))
         strokeWidth.append(0.3)
 
         ## parent ions
@@ -923,26 +924,110 @@ class ProcessTarget:
         drawing.add(lp)
         renderPDF.draw(drawing, pdf, 15 , 25)
         pdf.drawString(470, 295, "EICs")
-
-
         pdf.showPage()
 
-        currentHeight=800
-        pdf.drawString(50, currentHeight, "MassBank entries")
-        currentHeight-=20
-
-        text=[]
-        if target.matches.numResults > 0:
+        if target.matches.numResults>0:
+            mbE=1
             for match in target.matches.matchedSubstances:
-                text.extend([match.title, "<br/>", "%.3f"%float(match.score), ", ", match.id, ", ", match.formula, ", ", match.exactMass, "<br/><br/>"])
-        else:
-            text.append("-- no matches --")
+                currentHeight=800
+                pdf.drawString(50, currentHeight, "MassBank match %d"%mbE)
+                currentHeight-=20
+                currentHeight-=20
 
-        p = Paragraph("".join([str(d) for d in text]), style=getSampleStyleSheet()["Normal"])
-        w, h = p.wrap(750, 60)
-        p.wrapOn(pdf, 750, 60)
-        p.drawOn(pdf, 50, currentHeight - h + 10)
-        currentHeight -= max(20, h + 10)
+                pdf.drawString(50, currentHeight, "Title: %s"%match.title)
+                currentHeight -= 20
+
+                pdf.drawString(50, currentHeight, "Score: %.3f"%float(match.score))
+                currentHeight -= 20
+
+                pdf.drawString(50, currentHeight, "ID: %s"%match.id)
+                currentHeight -= 20
+
+                pdf.drawString(50, currentHeight, "Sum formula: %s"%match.formula)
+                currentHeight -= 20
+
+                pdf.drawString(50, currentHeight, "Exact mass: %s"%match.exactMass)
+                currentHeight -= 20
+
+
+                drawing = Drawing(650, 260)
+                lp = LinePlot()
+                lp.x = 20
+                lp.y = 0
+                lp.height = 260
+                lp.width = 500
+
+                dd = []
+                colors = []
+                strokeWidth = []
+
+                ## intensity threshold
+                dd.append([(min(min(nativeRawSpectrum.mzs), min(labelledRawSpectrum.mzs)), self.minMSMSPeakIntensityScaled),(max(max(nativeRawSpectrum.mzs), max(labelledRawSpectrum.mzs)), self.minMSMSPeakIntensityScaled)])
+                colors.append(Color(100 / 255., 100 / 255., 100 / 255.))
+                strokeWidth.append(0.3)
+
+                ## parent ions
+                dd.append([(target.precursorMZ, 110), (target.precursorMZ, 120)])
+                colors.append(Color(107 / 255., 142 / 255., 35 / 255.))
+                strokeWidth.append(2.1)
+                dd.append([(target.precursorMZ, 0), (target.precursorMZ, 120)])
+                colors.append(Color(107 / 255., 142 / 255., 35 / 255.))
+                strokeWidth.append(0.1)
+
+                ## parent ions match
+                dd.append([(float(match.exactMass), -110), (float(match.exactMass), -120)])
+                colors.append(Color(107 / 255., 142 / 255., 35 / 255.))
+                strokeWidth.append(2.1)
+                dd.append([(float(match.exactMass), 0), (float(match.exactMass), -120)])
+                colors.append(Color(107 / 255., 142 / 255., 35 / 255.))
+                strokeWidth.append(0.1)
+
+                ## matched fragment peaks
+                for mz, it, anno in zip(annotatedSpectrum.mzs, annotatedSpectrum.ints, annotatedSpectrum.annos):
+                    dd.append([(mz, 0), (mz, it)])
+                    colors.append(Color(178 / 255., 34 / 255., 34 / 255.))
+                    strokeWidth.append(1.2)
+
+                ## recorded ions
+                for mz, it in zip(nativeRawSpectrum.mzs, nativeRawSpectrum.ints):
+                    dd.append([(mz, 0), (mz, it)])
+                    colors.append(Color(47 / 255., 79 / 255., 79 / 255.))
+                    strokeWidth.append(.35)
+
+                try:
+                    ## MassBank reference spectra
+                    mzs=[float(f) for f in match.mzs.split(";")]
+                    ints=[float(i) for i in match.relInts.split(";")]
+                    mInt=max(ints)
+                    ints=[100*i/mInt for i in ints]
+                    for i in range(len(mzs)):
+                        mz=mzs[i]
+                        relInt=ints[i]
+                        dd.append([(mz, 0), (mz, -relInt)])
+                        colors.append(Color(40 / 255., 40 / 255., 40 / 255.))
+                        strokeWidth.append(.35)
+
+
+
+                    lp.data = dd
+                    lp.joinedLines = 1
+                    for i in range(len(dd)):
+                        lp.lines[i].strokeColor = colors[i]
+                        lp.lines[i].strokeWidth = strokeWidth[i]
+
+                    drawing.add(lp)
+                    renderPDF.draw(drawing, pdf, 30, 400)
+                except:
+
+                    currentHeight -= 20
+                    pdf.drawString(50, currentHeight, "Mass spectra could not be fetched properly from the MassBank servers")
+
+
+                mbE+=1
+                pdf.showPage()
+        else:
+            pdf.drawString(50, 800, "No MassBank entries matched to spectra")
+
 
         pdf.save()
 
