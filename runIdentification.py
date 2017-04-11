@@ -2215,7 +2215,7 @@ class RunIdentification:
         for chromPeak in SQLSelectAsObject(curs,
                                            "SELECT c.id AS id, c.mz AS mz, c.lmz AS lmz, c.xcount AS xCount, c.Loading AS loading, c.NPeakCenterMin AS NPeakCenterMin FROM chromPeaks c",
                                            newObject=ChromPeakPair):
-            b = Bunch(mz=chromPeak.mz, rt=chromPeak.NPeakCenterMin, Xn=chromPeak.xCount,
+            b = Bunch(id=chromPeak.id, ogroup="-1", mz=chromPeak.mz, rt=chromPeak.NPeakCenterMin, Xn=chromPeak.xCount,
                       lmz=chromPeak.lmz, charge=chromPeak.loading, name=chromPeak.id)
             features.append(b)
 

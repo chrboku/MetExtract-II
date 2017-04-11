@@ -19,19 +19,21 @@ def writeFeatureListToFeatureML(features, toFile, ppmPM=5, rtPM=0.25*60):
     fileLineArray.append('	</dataProcessing>')
     fileLineArray.append('	<featureList count="%d">")'%(len(features)))
 
-    id=1
     for feature in features:
-        mz  =feature.mz
-        lmz =feature.lmz
-        rt  =feature.rt
-        z   =feature.charge
-        name=feature.name
+        num    =feature.id
+        grpNum =feature.ogroup
+        mz     =feature.mz
+        lmz    =feature.lmz
+        rt     =feature.rt
+        z      =feature.charge
+        name   =feature.name
+        xn     =feature.Xn
 
-        fileLineArray.append('		<feature id="%d">'%(id))
-        fileLineArray.append('			<UserParam type="string" name="label" value="%s"/>'%(name))
+        fileLineArray.append('		<feature id="%s">'%(num))
+        fileLineArray.append('			<UserParam type="string" name="label" value="%s (Num: %s, OGroup: %s, MZ: %.5f, RT (min): %.2f, Charge: %d, Xn: %s)"/>'%(name, num, grpNum, mz, rt, z, xn))
         fileLineArray.append('			<position dim="0">%f</position>'%(rt))
         fileLineArray.append('			<position dim="1">%f</position>'%(mz))
-        fileLineArray.append('			<charge>1</charge>')
+        fileLineArray.append('			<charge>%d</charge>'%(z))
         fileLineArray.append('			<intensity>1</intensity>')
         fileLineArray.append('			<quality dim="0">-1</quality>')
         fileLineArray.append('			<quality dim="1">-1</quality>')
@@ -76,7 +78,7 @@ def convertMEMatrixToFeatureML(meMatrixFile, featureMLFile=None):
             elif row[0].startswith("#"):
                 pass
             else:
-                b=Bunch(mz=float(row[headers["MZ"]]), rt=float(row[headers["RT"]])*60, Xn=int(row[headers["Xn"]]), lmz=float(row[headers["L_MZ"]]),
+                b=Bunch(id=row[headers["Num"]], ogroup=row[headers["OGroup"]], mz=float(row[headers["MZ"]]), rt=float(row[headers["RT"]])*60, Xn=int(row[headers["Xn"]]), lmz=float(row[headers["L_MZ"]]),
                         charge=int(row[headers["Charge"]]), name=row[headers["Num"]], ionMode=row[headers["Ionisation_Mode"]])
                 features.append(b)
 
@@ -99,7 +101,7 @@ def convertMEMatrixToFeatureMLSepPolarities(meMatrixFile, featureMLFile=None):
             elif row[0].startswith("#"):
                 pass
             else:
-                b=Bunch(mz=float(row[headers["MZ"]]), rt=float(row[headers["RT"]])*60, Xn=int(row[headers["Xn"]]), lmz=float(row[headers["L_MZ"]]),
+                b=Bunch(id=row[headers["Num"]], ogroup=row[headers["OGroup"]], mz=float(row[headers["MZ"]]), rt=float(row[headers["RT"]])*60, Xn=int(row[headers["Xn"]]), lmz=float(row[headers["L_MZ"]]),
                         charge=int(row[headers["Charge"]]), name=row[headers["Num"]], ionMode=row[headers["Ionisation_Mode"]])
                 features[b.ionMode].append(b)
 
