@@ -26,7 +26,7 @@ RequestExecutionLevel user
 # name the installer
 OutFile "Setup.exe" 
 #InstallDir "$PROGRAMFILES32\MetExtractII\"
-InstallDir "$LOCALAPPDATA\MetExtractII_$$METEXTRACTVERSION$$"
+InstallDir "$LOCALAPPDATA\MetExtractII\$$METEXTRACTVERSION$$"
 ShowInstDetails show
 ShowUnInstDetails show 
 
