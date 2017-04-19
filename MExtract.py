@@ -6019,10 +6019,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         if module=="TracExtract":
             self.labellingExperiment=TRACER
-            logging.info("Starting module TracExtract\n")
+            logging.info("  Starting module TracExtract\n")
         elif module=="AllExtract":
             self.labellingExperiment=METABOLOME
-            logging.info("Starting module AllExtract\n")
+            logging.info("  Starting module AllExtract\n")
         else:
             logging.error("Error: invalid module '%s' selected.\nPlease specify either 'TracExtract' or 'AllExtract'\n"%module)
             QtGui.QMessageBox.warning(self, "MetExtract", "Error: invalid module '%s' selected.\nPlease specify either 'TracExtract' or 'AllExtract'\n"%module,
@@ -6036,7 +6036,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         try:
             v = r("R.Version()$version.string")
             module="AllExtract" if self.labellingExperiment==METABOLOME else ("TracExtract" if self.labellingExperiment==TRACER else "")
-            self.ui.version.versionText="%s II %s [%s]" % (module, MetExtractVersion, str(v)[5:(len(str(v)) - 1)])
+            self.ui.version.versionText="%s II %s [Environment: Python: %s (%s), R: %s]" % (module, MetExtractVersion, platform.python_version(), platform.architecture()[0], str(v)[5:(len(str(v)) - 1)])
             self.ui.version.setText(self.ui.version.versionText)
         except:
             self.ui.version.versionText="%s [Error: R not available]" % version
@@ -6402,15 +6402,16 @@ if __name__ == '__main__':
     # inform user, what may not work on the current platform
     if not opts.silentStart:
         logging.info("Platform:")
+        logging.info("  Python %s (%s)"%(platform.python_version(), platform.architecture()[0]))
         if platform.system() == "Darwin":  #MAC
             logging.info("  MAC OS detected")
         if platform.system() == "Windows":  #Windows
-            logging.info("  Windows OS detected: Large LC-HRMS files are currently not supported (eg. Q-ToF in 4Ghz mode)")
+            logging.info("  Windows OS detected")
         if platform.system() == "Linux":  #Linux
             logging.info("  Linux OS detected")
 
         if ctypes.sizeof(ctypes.c_voidp) == 4 and platform.system() != "Windows":  #32 bit system
-            logging.info("  32-bit environment detected: Large files may not work correctly")
+            logging.info("  32-bit environment detected: Large files are not supported (eg. Q-ToF in 4Ghz mode)")
 
         logging.info("")
 
