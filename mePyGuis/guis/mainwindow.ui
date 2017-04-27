@@ -61,7 +61,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>3</number>
       </property>
       <widget class="QWidget" name="inputTab">
        <attribute name="title">
@@ -878,7 +878,7 @@ font: 7pt;</string>
              <x>0</x>
              <y>0</y>
              <width>1252</width>
-             <height>1162</height>
+             <height>1008</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -3975,12 +3975,156 @@ p, li { white-space: pre-wrap; }
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1248</width>
-             <height>597</height>
+             <width>2029</width>
+             <height>1162</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_40">
-            <item row="0" column="0" rowspan="3">
+            <item row="4" column="1">
+             <widget class="QTabWidget" name="tabWidget_3">
+              <property name="currentIndex">
+               <number>0</number>
+              </property>
+              <widget class="QWidget" name="tab_5">
+               <attribute name="title">
+                <string>XICs</string>
+               </attribute>
+               <layout class="QGridLayout" name="gridLayout_42">
+                <item row="1" column="0">
+                 <widget class="QWidget" name="resultsExperiment_widget" native="true">
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>700</width>
+                    <height>500</height>
+                   </size>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+              <widget class="QWidget" name="tab_6">
+               <attribute name="title">
+                <string>Separated peaks</string>
+               </attribute>
+               <layout class="QGridLayout" name="gridLayout_43">
+                <item row="0" column="0">
+                 <widget class="QWidget" name="resultsExperimentSeparatedPeaks_widget" native="true"/>
+                </item>
+               </layout>
+              </widget>
+              <widget class="QWidget" name="tab_4">
+               <attribute name="title">
+                <string>MS scans</string>
+               </attribute>
+               <layout class="QGridLayout" name="gridLayout_48">
+                <item row="0" column="0">
+                 <widget class="QWidget" name="resultsExperimentMSScan_widget" native="true"/>
+                </item>
+               </layout>
+              </widget>
+             </widget>
+            </item>
+            <item row="2" column="1">
+             <layout class="QHBoxLayout" name="horizontalLayout_12">
+              <item>
+               <widget class="QLabel" name="label_63">
+                <property name="text">
+                 <string>EIC ppm</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QDoubleSpinBox" name="doubleSpinBox_resultsExperiment_EICppm">
+                <property name="decimals">
+                 <number>1</number>
+                </property>
+                <property name="minimum">
+                 <double>1.000000000000000</double>
+                </property>
+                <property name="value">
+                 <double>5.000000000000000</double>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLabel" name="label_64">
+                <property name="text">
+                 <string>Peak width (min)</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QDoubleSpinBox" name="doubleSpinBox_resultsExperiment_PeakWidth">
+                <property name="value">
+                 <double>0.500000000000000</double>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QCheckBox" name="resultsExperimentNormaliseXICs_checkBox">
+                <property name="text">
+                 <string>Normalise to labeled features</string>
+                </property>
+                <property name="checked">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="horizontalSpacer_22">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </item>
+            <item row="6" column="0">
+             <layout class="QHBoxLayout" name="horizontalLayout_16">
+              <item>
+               <widget class="QPushButton" name="pushButton_exportAllAsPDF">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="text">
+                 <string>Export all as PDF</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="horizontalSpacer">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeType">
+                 <enum>QSizePolicy::Preferred</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </item>
+            <item row="2" column="0" rowspan="4">
              <widget class="QTreeWidget" name="resultsExperiment_TreeWidget">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Fixed" vsizetype="Expanding">
@@ -4034,83 +4178,6 @@ p, li { white-space: pre-wrap; }
                </property>
               </column>
              </widget>
-            </item>
-            <item row="1" column="1">
-             <widget class="QTabWidget" name="tabWidget_3">
-              <property name="currentIndex">
-               <number>0</number>
-              </property>
-              <widget class="QWidget" name="tab_5">
-               <attribute name="title">
-                <string>XICs</string>
-               </attribute>
-               <layout class="QGridLayout" name="gridLayout_42">
-                <item row="1" column="0">
-                 <widget class="QWidget" name="resultsExperiment_widget" native="true">
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>700</width>
-                    <height>500</height>
-                   </size>
-                  </property>
-                 </widget>
-                </item>
-               </layout>
-              </widget>
-              <widget class="QWidget" name="tab_6">
-               <attribute name="title">
-                <string>Separated peaks</string>
-               </attribute>
-               <layout class="QGridLayout" name="gridLayout_43">
-                <item row="0" column="0">
-                 <widget class="QWidget" name="resultsExperimentSeparatedPeaks_widget" native="true"/>
-                </item>
-               </layout>
-              </widget>
-              <widget class="QWidget" name="tab_4">
-               <attribute name="title">
-                <string>MS scans</string>
-               </attribute>
-               <layout class="QGridLayout" name="gridLayout_48">
-                <item row="0" column="0">
-                 <widget class="QWidget" name="resultsExperimentMSScan_widget" native="true"/>
-                </item>
-               </layout>
-              </widget>
-             </widget>
-            </item>
-            <item row="0" column="1">
-             <layout class="QHBoxLayout" name="horizontalLayout_12">
-              <item>
-               <widget class="QCheckBox" name="resultsExperimentNormaliseXICs_checkBox">
-                <property name="text">
-                 <string>Normalise to labeled features</string>
-                </property>
-                <property name="checked">
-                 <bool>true</bool>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <spacer name="horizontalSpacer_22">
-                <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
-                </property>
-                <property name="sizeHint" stdset="0">
-                 <size>
-                  <width>40</width>
-                  <height>20</height>
-                 </size>
-                </property>
-               </spacer>
-              </item>
-             </layout>
             </item>
            </layout>
           </widget>
@@ -4238,7 +4305,6 @@ p, li { white-space: pre-wrap; }
    </property>
   </action>
  </widget>
- <layoutdefault spacing="6" margin="11"/>
  <tabstops>
   <tabstop>exExperimentName_LineEdit</tabstop>
   <tabstop>exOperator_LineEdit</tabstop>

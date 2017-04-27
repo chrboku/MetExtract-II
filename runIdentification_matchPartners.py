@@ -108,6 +108,17 @@ def matchPartners(mzXMLData, forFile,
                             if curPeakIntensity >= intensityThres:
                                 skipOtherLoadings = False
 
+                                ## do not process peaks that are likely isotopologs
+                                backIsos=[]
+                                for l in range(maxLoading, 0, -1):
+                                    iso = curScan.findMZ(curPeakmz - oriCValidationOffset / l, ppm, start=currentPeakIndex)
+                                    iso = curScan.getMostIntensePeak(iso[0], iso[1])
+
+                                    if iso != -1 and curScan.intensity_list[iso]>curPeakIntensity:
+                                        backIsos.append(l)
+                                if len(backIsos)>0:
+                                    continue
+
 
                                 possibleLoadings=[]
                                 ## figure out possible loadings
@@ -117,6 +128,9 @@ def matchPartners(mzXMLData, forFile,
 
                                     if iso != -1:
                                         possibleLoadings.append(l)
+                                        break ## skip other loadings
+
+
 
                                 if len(possibleLoadings)==0:
                                     possibleLoadings=[1]

@@ -327,6 +327,14 @@ import HCA_general
 from TableUtils import TableUtils
 
 import pyperclip
+
+
+def memory_usage_psutil():
+    # return the memory usage in MB
+    import psutil
+    process = psutil.Process(os.getpid())
+    mem = process.memory_info()[0] / float(2 ** 20)
+    return mem
 #</editor-fold>
 
 #<editor-fold desc="### debug imports">
@@ -1263,6 +1271,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
     #<editor-fold desc="### add/modify/remove group functions">
     def addGroup(self, name, files, minGrpFound, omitFeatures, useForMetaboliteGrouping, color, atPos=None):
+        self.loadedMZXMLs=None
 
         failed=defaultdict(list)
 
@@ -1377,6 +1386,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
     # remove one group from the input
     def remGrp(self):
+        self.loadedMZXMLs=None
+
         todel = []
         for selectedIndex in self.ui.groupsList.selectedIndexes():
             todel.append(selectedIndex.row())
@@ -1392,6 +1403,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
     # show group edit dialog to the user
     def editGroup(self):
+        self.loadedMZXMLs=None
+
         selRow = self.ui.groupsList.selectedIndexes()[0].row()
 
         grp = self.ui.groupsList.item(selRow).data(QListWidgetItem.UserType).toPyObject()
@@ -3959,8 +3972,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         s = int(cp.NPeakCenter - cp.NBorderLeft * 1)
                         e = int(cp.NPeakCenter + cp.NBorderRight * 1)
                         maxP = s + max(range(e - s), key=lambda x: xic[s + x])
-                        maxE  = mean([xic[maxP - 3], xic[maxP - 2], xic[maxP - 1], xic[maxP], xic[maxP + 1], xic[maxP + 2],xic[maxP + 3]])
-                        maxEL = mean([xicL[maxP - 3], xicL[maxP - 2], xicL[maxP - 1], xicL[maxP], xicL[maxP + 1], xicL[maxP + 2], xicL[maxP + 3]])
+                        maxE  = mean(xic[(maxP - 3):(maxP + 3)])
+                        maxEL = mean(xicL[(maxP - 3):(maxP + 3)])
                         if maxE == 0:
                             maxE=1
                         if maxEL == 0:
@@ -4452,8 +4465,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                 s = int(child.NPeakCenter - child.NBorderLeft * 1)
                                 e = int(child.NPeakCenter + child.NBorderRight * 1)
                                 maxP = s + max(range(e - s), key=lambda x: xic[s + x])
-                                maxE  = mean([xic[maxP - 3], xic[maxP - 2], xic[maxP - 1], xic[maxP], xic[maxP + 1],xic[maxP + 2], xic[maxP + 3]])
-                                maxEL = mean([xicL[maxP - 3], xicL[maxP - 2], xicL[maxP - 1], xicL[maxP], xicL[maxP + 1],xicL[maxP + 2], xicL[maxP + 3]])
+                                maxE  = mean(xic[(maxP - 3):(maxP + 3)])
+                                maxEL = mean(xicL[(maxP - 3):(maxP + 3)])
 
                                 if maxE == 0:
                                     maxE=1
@@ -4674,6 +4687,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
             #</editor-fold>
 
+        useColi=0
         for selIndex, item in enumerate(selectedItems):
             if not (hasattr(item, "myType")):
                 continue
@@ -4849,7 +4863,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                         for i, mz in enumerate(mzs):
                             for inc in range(0, cp.xCount+1):
-                                if abs(mz - (cp.mz + mzD * inc / cp.loading)) * 1000000. / (cp.mz + mzD * inc / cp.loading) <= annotationPPM or abs(mz - (cp.mz + mzD * (cp.xCount - inc) / cp.loading)) * 1000000. / (cp.mz + mzD * (cp.xCount - inc) / cp.loading) <= annotationPPM or abs(mz - (cp.mz + mzD * (cp.xCount + inc) / cp.loading)) * 1000000. / (cp.mz + mzD * (cp.xCount + inc) / cp.loading) <= annotationPPM:
+                                if abs(mz - (cp.mz + mzD * inc / cp.loading)) * 1000000. / (cp.mz + mzD * inc / cp.loading) <= annotationPPM \
+                                        or abs(mz - (cp.mz + mzD * (cp.xCount + inc) / cp.loading)) * 1000000. / (cp.mz + mzD * (cp.xCount + inc) / cp.loading) <= annotationPPM \
+                                        or abs(mz - (cp.mz - mzD * inc / cp.loading)) * 1000000. / (cp.mz - mzD * inc / cp.loading) <= annotationPPM:
                                     toDrawMzs = []
                                     toDrawInts = []
 
@@ -4869,7 +4885,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                     minMZ = min(minMZ, mzs[i])
                                     maxMZ = max(maxMZ, mzs[i])
 
-                                    self.drawPlot(self.ui.pl3, plotIndex=0, x=toDrawMzs, y=toDrawInts, useCol="black", multipleLocator=None,  alpha=0.1, title="", xlab="MZ")
+                                    self.drawPlot(self.ui.pl3, plotIndex=0, x=toDrawMzs, y=toDrawInts, useCol=predefinedColors[useColi % len(predefinedColors)], multipleLocator=None,  alpha=0.1, title="", xlab="MZ")
+                                    #self.drawPlot(self.ui.pl3, plotIndex=0, x=toDrawMzs, y=toDrawInts, useCol="black", multipleLocator=None,  alpha=0.1, title="", xlab="MZ")
                 useColi += 1
             #</editor-fold>
 
@@ -5782,6 +5799,155 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                   "Created group %s with %d features" % (groupName, len(selectedItems)),
                                                   QtGui.QMessageBox.Ok)
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    def loadAllSamples(self):
+        definedGroups = [t.data(QListWidgetItem.UserType).toPyObject() for t in natSort(self.ui.groupsList.findItems('*', QtCore.Qt.MatchWildcard), key=lambda x: str(x.data(QListWidgetItem.UserType).toPyObject().name))]
+        self.loadedMZXMLs={}
+
+        ramBefore=memory_usage_psutil()
+
+        pw = ProgressWrapper()
+        pw.setMax(sum([len(group.files) for group in definedGroups]))
+        pw.setValue(0)
+        pw.show()
+
+        done=0
+        for group in definedGroups:
+            for i in range(len(group.files)):
+                fi = str(group.files[i]).replace("\\", "/")
+
+                pw.setValueu(done)
+                pw.setTextu("Loading group %s\nFile %s"%(group.name, fi))
+
+                mzXML = Chromatogram()
+                mzXML.parse_file(fi)
+                self.loadedMZXMLs[fi] = mzXML
+                self.loadedMZXMLs[group.files[i]] = mzXML
+
+                done=done+1
+
+        pw.close()
+        ramAfter=memory_usage_psutil()
+
+
+    def resultsExperimentChangedNew(self):
+        if len(self.ui.resultsExperiment_TreeWidget.selectedItems())==0:
+            pass
+
+        if self.loadedMZXMLs is None:
+            self.loadAllSamples()
+
+        definedGroups = [t.data(QListWidgetItem.UserType).toPyObject() for t in natSort(self.ui.groupsList.findItems('*', QtCore.Qt.MatchWildcard), key=lambda x: str(x.data(QListWidgetItem.UserType).toPyObject().name))]
+
+        self.clearPlot(self.ui.resultsExperiment_plot)
+        self.clearPlot(self.ui.resultsExperimentSeparatedPeaks_plot)
+        self.clearPlot(self.ui.resultsExperimentMSScanPeaks_plot)
+
+        plotItems = []
+
+        for item in self.ui.resultsExperiment_TreeWidget.selectedItems():
+            if item.bunchData.type == "metaboliteGroup":
+                for i in range(item.childCount()):
+                    child=item.child(i)
+                    if child.bunchData.type == "featurePair":
+                        plotItems.append(child.bunchData)
+            if item.bunchData.type == "featurePair":
+                plotItems.append(item.bunchData)
+
+
+        ppm=self.ui.doubleSpinBox_resultsExperiment_EICppm.value()
+        borderOffset=self.ui.doubleSpinBox_resultsExperiment_PeakWidth.value()
+        rtlim=[1E6,0]
+        intlim=[0,0]
+        for pi in plotItems:
+            #print pi
+            #(rt:707.853,lmz:542.225042901,xn:15,FOUNDINCOUNT:2,metaboliteGroupID:9,ionisationMode:+,tracer:DON,charge:1,
+            # scanEvent:LTQ Orbitrap XL (MS lvl: 1, pol: +),dmz:15.0503225261,type:featurePair,id:47,mz:527.174720375)
+
+            rtBorderMin=pi.rt/60.-borderOffset
+            rtBorderMax=pi.rt/60.+borderOffset
+
+            for grpInd, group in enumerate(definedGroups):
+                for i in range(len(group.files)):
+                    fi = str(group.files[i]).replace("\\", "/")
+
+                    eic, times, scanIds, mzs=self.loadedMZXMLs[fi].getEIC(pi.mz, ppm=ppm, filterLine=pi.scanEvent)
+                    eicL, times, scanIds, mzs = self.loadedMZXMLs[fi].getEIC(pi.lmz, ppm=ppm, filterLine=pi.scanEvent)
+
+                    rtlim[0] = min(rtlim[0], min([pi.rt/60]+[times[j] / 60. + grpInd for j in range(len(times)) if rtBorderMin<=times[j]/60.<=rtBorderMax and eic[j]>0]))
+                    rtlim[1] = max(rtlim[1], max([pi.rt/60]+[times[j] / 60. + grpInd for j in range(len(times)) if rtBorderMin<=times[j]/60.<=rtBorderMax and eicL[j]>0]))
+                    intlim[0] = min(intlim[0], min([-eicL[j] for j in range(len(eic)) if rtBorderMin <= times[j] / 60. <= rtBorderMax]))
+                    intlim[1] = max(intlim[1], max([eic[j] for j in range(len(eic)) if rtBorderMin <= times[j] / 60. <= rtBorderMax]))
+
+                    self.ui.resultsExperiment_plot.axes.plot([t / 60. for t in times], [e for e in eic], color=group.color)
+                    self.ui.resultsExperiment_plot.axes.plot([t / 60. for t in times], [-e for e in eicL], color=group.color)
+
+                    self.ui.resultsExperimentSeparatedPeaks_plot.axes.plot([t / 60. + grpInd for t in times if rtBorderMin<=t/60.<=rtBorderMax], [eic[j] for j in range(len(eic)) if rtBorderMin<=times[j]/60.<=rtBorderMax], color=group.color)
+                    self.ui.resultsExperimentSeparatedPeaks_plot.axes.plot([t / 60. + grpInd for t in times if rtBorderMin<=t/60.<=rtBorderMax], [-eicL[j] for j in range(len(eicL)) if rtBorderMin<=times[j]/60.<=rtBorderMax], color=group.color)
+
+        self.ui.resultsExperiment_plot.axes.set_title("Overlaid EICs of selected feature pairs or groups")
+        self.ui.resultsExperiment_plot.axes.set_xlabel("Retention time (min)")
+        self.ui.resultsExperiment_plot.axes.set_ylabel("Intensity")
+        self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_title("Overlaid EICs of selected feature pairs or groups (separated artificially by respective experimental group)")
+        self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_xlabel("Retention time (min)")
+        self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_ylabel("Intensity")
+
+        rtlim=[rtlim[0]-(rtlim[1]-rtlim[0])*0.1, rtlim[1]+(rtlim[1]-rtlim[0])*0.1]
+        intlim=[intlim[0]*1.1, intlim[1]*1.1]
+        self.drawCanvas(self.ui.resultsExperiment_plot, xlim=rtlim, ylim=intlim)
+        self.drawCanvas(self.ui.resultsExperimentSeparatedPeaks_plot)
+        self.drawCanvas(self.ui.resultsExperimentMSScanPeaks_plot)
+
+
+    def exportAsPDF(self):
+
+        experimentalGroups = [t.data(QListWidgetItem.UserType).toPyObject() for t in natSort(self.ui.groupsList.findItems('*', QtCore.Qt.MatchWildcard), key=lambda x: str(x.data(QListWidgetItem.UserType).toPyObject().name))]
+
+        metabolitesToPlot = []
+        for i in range(self.ui.resultsExperiment_TreeWidget.topLevelItemCount()):
+            item=self.ui.resultsExperiment_TreeWidget.topLevelItem(i)
+            features = []
+            for j in range(item.childCount()):
+                child=item.child(j)
+                features.append(Bunch(num=child.bunchData.id,
+                                      ogroup=item.bunchData.metaboliteGroupID,
+                                      mz=child.bunchData.mz,
+                                      lmz=child.bunchData.lmz,
+                                      rt=child.bunchData.rt/60.,
+                                      rtBorders=.33,
+                                      filterLine=child.bunchData.scanEvent,
+                                      comment=""))
+
+            metabolitesToPlot.append(Bunch(name="unknown_"+str(item.bunchData.metaboliteGroupID), ogroup=item.bunchData.metaboliteGroupID,
+                                           features=features))
+
+        pdfFile = str(QtGui.QFileDialog.getSaveFileName(caption="Select pdf file", directory=self.lastOpenDir, filter="PDF (*.pdf)"))
+        pdfFile=pdfFile.replace("\\", "/").replace(".PDF", ".pdf")
+
+        if self.loadedMZXMLs is None:
+            self.loadAllSamples()
+
+        from resultsPostProcessing.GenericFeaturePDF.GenericFeaturePlotter import generatePDF
+        generatePDF(experimentalGroups, metabolitesToPlot, saveTo=pdfFile, mzXMLs=self.loadedMZXMLs)
+
+
+
+
+
     def heteroAtomsConfiguration(self):
         t = heteroAtomEdit(heteroAtoms=deepcopy(self.heteroElements))
         if t.executeDialog() == QtGui.QDialog.Accepted:
@@ -5798,13 +5964,13 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
             logging.info("Configured adducts")
             for add in self.adducts:
-                logging.info("  *", add.name)
+                logging.info("  *" + add.name)
 
             self.elementsForNL = t.getNeutralLosses()
 
             logging.info("Configured neutral loss elements")
             for elem in self.elementsForNL:
-                logging.info("  *", elem.name)
+                logging.info("  *" + elem.name)
 
     def updateCores(self):
         curMax = self.ui.cpuCores.maximum()
@@ -6113,7 +6279,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         self.ui.res_ExtractedData.itemSelectionChanged.connect(self.selectedResChanged)
 
-        self.ui.resultsExperiment_TreeWidget.itemSelectionChanged.connect(self.resultsExperimentChanged)
+        #self.ui.resultsExperiment_TreeWidget.itemSelectionChanged.connect(self.resultsExperimentChanged)
 
 
         self.ui.eicSmoothingWindow.currentIndexChanged.connect(self.smoothingWindowChanged)
@@ -6316,6 +6482,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         #todo: implement results view with all brackated feature pairs
         self.ui.tabWidget.setTabText(3, "EXPERIMENTAL: "+self.ui.tabWidget.tabText(3))
         self.ui.tabWidget.setTabEnabled(3, True)
+
+        self.loadedMZXMLs=None
+        self.ui.resultsExperiment_TreeWidget.itemSelectionChanged.connect(self.resultsExperimentChangedNew)
+        self.ui.pushButton_exportAllAsPDF.clicked.connect(self.exportAsPDF)
 
         # fetch provided settings and show them as a menu
         try:
@@ -6541,12 +6711,6 @@ if __name__ == '__main__':
 
 
             import threading
-            def memory_usage_psutil():
-                # return the memory usage in MB
-                import psutil
-                process = psutil.Process(os.getpid())
-                mem = process.memory_info()[0] / float(2 ** 20)
-                return mem
             mainWin._contMemoryWatcher=True
             def updateMemoryInfo():
                 mainWin.ui.version.setText("%.0f MB memory used, %s"%(memory_usage_psutil(), mainWin.ui.version.versionText))

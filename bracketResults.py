@@ -253,7 +253,9 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                                     hours, mins, ionMode, xCount, cLoading, res.fileName)))
 
                             for row in res.curs.execute(
-                                    "SELECT c.id, c.tracer, c.NPeakCenter, c.NPeakCenterMin, c.NPeakScale, c.NSNR, c.NPeakArea, c.mz, c.xcount, c.LPeakCenter, c.LPeakCenterMin, c.LPeakScale, c.LSNR, c.LPeakArea, c.Loading, (SELECT f.fGroupId FROM featureGroupFeatures f WHERE f.fID=c.id) AS fGroupId, (SELECT t.name FROM tracerConfiguration t WHERE t.id=c.tracer) AS tracerName, c.ionMode, c.correlationsToOthers, c.NPeakAbundance, c.LPeakAbundance "
+                                    "SELECT c.id, c.tracer, c.NPeakCenter, c.NPeakCenterMin, c.NPeakScale, c.NSNR, c.NPeakArea, c.mz, c.xcount, c.LPeakCenter, c.LPeakCenterMin, c.LPeakScale, c.LSNR, c.LPeakArea, "
+                                    "c.Loading, (SELECT f.fGroupId FROM featureGroupFeatures f WHERE f.fID=c.id) AS fGroupId, (SELECT t.name FROM tracerConfiguration t WHERE t.id=c.tracer) AS tracerName, c.ionMode, "
+                                    "c.correlationsToOthers, c.NPeakAbundance, c.LPeakAbundance "
                                     "FROM chromPeaks c WHERE c.ionMode='%s' AND c.xcount=%d and c.Loading=%d"%(ionMode, xCount, cLoading)):
                                 try:
                                     cp = ChromPeakPair(id=row[0], tracer=row[1], NPeakCenter=row[2], NPeakCenterMin=row[3],
@@ -307,361 +309,379 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                                                chromPeak.xCount == xCount and chromPeak.loading == cLoading and chromPeak.tracerName == tracer and chromPeak.ionMode == ionMode])
 
                             # cluster all current results with HCA
-                            if len(allMZs)>0:
-                                hc = HierarchicalClustering(allMZs,
-                                                        dist=lambda x, y: x.getValue() - y.getValue(),
-                                                        val=lambda x: x, mean=lambda x, y: x / y,
-                                                        add=lambda x, y: x + y)
+                            allMZs=sorted(allMZs)
+                            lastMZ=None
+                            u=0
+                            curAllMZs=[]
 
-                                # cut HCA tree in subclusters
-                                for n in cutTreeSized(hc.getTree(), groupSizePPM):
-                                    try:
-                                        lowMZ=min([kid.getValue() for kid in n.getKids()])
-                                        minMZ=max([kid.getValue() for kid in n.getKids()])
+                            ## pre-separate detected feature pairs to improve speed of HCA
+                            while len(allMZs)>0:
+                                procCurSet=False
+                                if u<len(allMZs) and (lastMZ is None or (allMZs[u]-lastMZ)<3*(groupSizePPM*allMZs[u]/1E6)):
+                                    curAllMZs.append(allMZs[u])
+                                    lastMZ=allMZs[u]
+                                    u+=1
+                                else:
+                                    lastMZ=None
+                                    allMZs=allMZs[u:]
+                                    u=0
+                                    procCurSet=True
 
-                                        maxMZInGroup = lowMZ
+                                if procCurSet or len(allMZs)==u:
+                                    if len(curAllMZs)>0:
+                                        hc = HierarchicalClustering(curAllMZs,
+                                                                dist=lambda x, y: x.getValue() - y.getValue(),
+                                                                val=lambda x: x, mean=lambda x, y: x / y,
+                                                                add=lambda x, y: x + y)
 
-                                        partChromPeaks = {}
-                                        partXICs = {}
-                                        toDel = {}
-                                        allChromPeaks=[]
-                                        for res in results:
-                                            chromPeaks = []
-                                            toDel[res.filePath] = set()
-                                            for i in range(len(res.featurePairs)):
-                                                chromPeak = res.featurePairs[i]
-                                                if chromPeak.xCount == xCount and chromPeak.loading == cLoading and chromPeak.tracerName == tracer and chromPeak.ionMode == ionMode and chromPeak.mz <= minMZ:
-                                                    toDel[res.filePath].add(i)
-                                                    chromPeaks.append(chromPeak)
-                                                    allChromPeaks.append(chromPeak)
-                                                    maxMZInGroup = max(maxMZInGroup, chromPeak.mz)
+                                        # cut HCA tree in subclusters
+                                        for n in cutTreeSized(hc.getTree(), groupSizePPM):
+                                            try:
+                                                lowMZ=min([kid.getValue() for kid in n.getKids()])
+                                                minMZ=max([kid.getValue() for kid in n.getKids()])
 
-                                            xics = []
-                                            # get EICs of current subCluster
-                                            for chromPeak in chromPeaks:
+                                                maxMZInGroup = lowMZ
 
-                                                res.curs.execute("SELECT x.xicL, x.times, x.scanCount, eicid FROM XICs x, chromPeaks c WHERE c.id=%d AND c.eicID=x.id" % chromPeak.id)
-                                                i = 0
-                                                for row in res.curs:
-                                                    scanCount = float(row[2])
-                                                    times = [float(r) for r in row[1].split(";")]
-                                                    xicL = [float(r) for r in row[0].split(";")]
-                                                    eicID = int(row[3])
-                                                    i = i + 1
-                                                assert (i == 1)
-                                                xics.append([scanCount, times, xicL, eicID])
-                                            partChromPeaks[res.filePath] = chromPeaks
-                                            partXICs[res.filePath] = xics
+                                                partChromPeaks = {}
+                                                partXICs = {}
+                                                toDel = {}
+                                                allChromPeaks=[]
+                                                for res in results:
+                                                    chromPeaks = []
+                                                    toDel[res.filePath] = set()
+                                                    for i in range(len(res.featurePairs)):
+                                                        chromPeak = res.featurePairs[i]
+                                                        if chromPeak.xCount == xCount and chromPeak.loading == cLoading and chromPeak.tracerName == tracer and chromPeak.ionMode == ionMode and chromPeak.mz <= minMZ:
+                                                            toDel[res.filePath].add(i)
+                                                            chromPeaks.append(chromPeak)
+                                                            allChromPeaks.append(chromPeak)
+                                                            maxMZInGroup = max(maxMZInGroup, chromPeak.mz)
 
+                                                    xics = []
+                                                    # get EICs of current subCluster
+                                                    for chromPeak in chromPeaks:
 
-                                        xy = xy + 1
-                                        if (xy % 50) == 0:
-                                            if writePDF:
-                                                pdf.save()
-                                                pdf = canvas.Canvas(file + "_%d.pdf" % xy)
-                                                _writeFirstPage(pdf, groupSizePPM, maxTimeDeviation, align, nPolynom)
-                                                print "\r   new pdf %d metabolic features.." % xy,
-
-                                        # debug purposes: create PDF for current subcluster
-                                        if writePDF:
-                                            drawing = Drawing(500, 350)
-
-                                            lp = LinePlot()
-                                            lp.x = 50
-                                            lp.y = 30
-                                            lp.height = 350
-                                            lp.width = 500
-
-                                            dd = []
-
-                                            tr = 0
-                                            pdf.drawString(40, 810, "Tracer: %s IonMode: %s" % (tracer, ionMode))
-                                            pdf.drawString(40, 795, "MZ: (min: %f - max: %f (tolerated: %f ppm: %.1f)) " % (lowMZ, maxMZInGroup, minMZ, (maxMZInGroup - lowMZ) * 1000000 / lowMZ))
-                                            pdf.drawString(40, 780, "xCount: %d Z: %d Feature pairs: %d" % (xCount, cLoading, len(partXICs)))
-                                            pdj = []
-                                            pdjm = []
-                                            for r in partXICs.keys():
-                                                xics = partXICs[r]
-                                                for xic in xics:
-                                                    pdj.append(xic[2])
-                                                    pdjm.append(xic[1])
-                                                    dd.append([(xic[1][i] / 60., xic[2][i]) for i in range(0, len(xic[1]))])
-                                                    tr = tr + 1
-                                            pdf.drawString(40, 765, "Aligning %d EICs" % (tr))
-
-                                            lp.data = dd
-
-                                            i = 0
-                                            for k in partXICs.keys():
-                                                lp.lines[i].strokeColor = colos[i % len(colos)]
-                                                lp.lines[i].strokeWidth = 0.01
-                                                i = i + 1
-
-                                            lp.joinedLines = 1
-                                            drawing.add(lp)
-                                            renderPDF.draw(drawing, pdf, 10, 380)
-
-                                            alignedEICs = xicAlign.getAligendXICs(pdj, pdjm, align=align, nPolynom=nPolynom)[0]
-                                            drawing = Drawing(500, 350)
-                                            lp = LinePlot()
-                                            lp.x = 50
-                                            lp.y = 30
-                                            lp.height = 350
-                                            lp.width = 500
-
-                                            dd = []
-
-                                            tr = 0
-                                            for xic in alignedEICs:
-                                                dd.append([(i / 60., xic[i]) for i in range(0, len(xic))])
-                                                tr = tr + 1
-
-                                            lp.data = dd
-
-                                            i = 0
-                                            for k in range(len(alignedEICs)):
-                                                lp.lines[i].strokeColor = colos[i % len(colos)]
-                                                lp.lines[i].strokeWidth = 0.01
-                                                i = i + 1
-
-                                            lp.joinedLines = 1
-                                            drawing.add(lp)
-                                            renderPDF.draw(drawing, pdf, 10, 0)
-
-                                            pdf.showPage()
+                                                        res.curs.execute("SELECT x.xicL, x.times, x.scanCount, eicid FROM XICs x, chromPeaks c WHERE c.id=%d AND c.eicID=x.id" % chromPeak.id)
+                                                        i = 0
+                                                        for row in res.curs:
+                                                            scanCount = float(row[2])
+                                                            times = [float(r) for r in row[1].split(";")]
+                                                            xicL = [float(r) for r in row[0].split(";")]
+                                                            eicID = int(row[3])
+                                                            i = i + 1
+                                                        assert (i == 1)
+                                                        xics.append([scanCount, times, xicL, eicID])
+                                                    partChromPeaks[res.filePath] = chromPeaks
+                                                    partXICs[res.filePath] = xics
 
 
-                                        eics = []
-                                        peaks = []
-                                        scantimes = []
-                                        dd = []
-                                        do = []
-                                        for k in partChromPeaks.keys():
-                                            for i in range(len(partChromPeaks[k])):
-                                                do.append(k)
-                                                dd.append(partChromPeaks[k][i].mz)
-                                                eics.append(partXICs[k][i][2])
-                                                peaks.append([partChromPeaks[k][i]])
-                                                scantimes.append(partXICs[k][i][1])
+                                                xy = xy + 1
+                                                if (xy % 50) == 0:
+                                                    if writePDF:
+                                                        pdf.save()
+                                                        pdf = canvas.Canvas(file + "_%d.pdf" % xy)
+                                                        _writeFirstPage(pdf, groupSizePPM, maxTimeDeviation, align, nPolynom)
+                                                        print "\r   new pdf %d metabolic features.." % xy,
 
-                                        # optional: align EICs; get bracketed chromatographic peaks
-                                        aligned = xicAlign.alignXIC(eics, peaks, scantimes, align=align, maxTimeDiff=maxTimeDeviation, nPolynom=nPolynom)
-                                        aligned = [(x[0][0], int(x[0][1])) for x in aligned]
+                                                # debug purposes: create PDF for current subcluster
+                                                if writePDF:
+                                                    drawing = Drawing(500, 350)
 
-                                        if writePDF:
-                                            u = 800
-                                            o = 0
-                                            for peak in peaks:
-                                                for p in peak:
-                                                    pdf.drawString(40, u, "%35s: %d %.2f -> %d %d" % (
-                                                                   do[o][(1 + do[o].rfind("/")):], int(p.NPeakCenter),
-                                                                   p.NPeakCenterMin / 60., int(aligned[o][0]), aligned[o][1]))
-                                                u -= 20
-                                                o += 1
+                                                    lp = LinePlot()
+                                                    lp.x = 50
+                                                    lp.y = 30
+                                                    lp.height = 350
+                                                    lp.width = 500
 
-                                        maxGroup = max(aligned, key=itemgetter(1))[1]
-                                        minGroup = min(aligned, key=itemgetter(1))[1]
+                                                    dd = []
 
-                                        groupedChromPeaks = []
-                                        groupedChromPeaksAVGMz = []
-                                        groupedChromPeaksAVGTimes = []
+                                                    tr = 0
+                                                    pdf.drawString(40, 810, "Tracer: %s IonMode: %s" % (tracer, ionMode))
+                                                    pdf.drawString(40, 795, "MZ: (min: %f - max: %f (tolerated: %f ppm: %.1f)) " % (lowMZ, maxMZInGroup, minMZ, (maxMZInGroup - lowMZ) * 1000000 / lowMZ))
+                                                    pdf.drawString(40, 780, "xCount: %d Z: %d Feature pairs: %d" % (xCount, cLoading, len(partXICs)))
+                                                    pdj = []
+                                                    pdjm = []
+                                                    for r in partXICs.keys():
+                                                        xics = partXICs[r]
+                                                        for xic in xics:
+                                                            pdj.append(xic[2])
+                                                            pdjm.append(xic[1])
+                                                            dd.append([(xic[1][i] / 60., xic[2][i]) for i in range(0, len(xic[1]))])
+                                                            tr = tr + 1
+                                                    pdf.drawString(40, 765, "Aligning %d EICs" % (tr))
 
-                                        for i in range(maxGroup + 1):
-                                            groupedChromPeaks.append({})
-                                            groupedChromPeaksAVGMz.append([])
-                                            groupedChromPeaksAVGTimes.append([])
+                                                    lp.data = dd
 
-                                        # calculate average values (RT and mz) for feature pairs in the sub-subclusters
-                                        j = 0
-                                        for k in partChromPeaks.keys():
-                                            for i in range(len(partChromPeaks[k])):
-                                                if not (groupedChromPeaks[aligned[j][1]].has_key(k)):
-                                                    groupedChromPeaks[aligned[j][1]][k] = []
-                                                groupedChromPeaks[aligned[j][1]][k].append((aligned[j], partChromPeaks[k][i]))
-                                                groupedChromPeaksAVGMz[aligned[j][1]].append(partChromPeaks[k][i].mz)
-                                                groupedChromPeaksAVGTimes[aligned[j][1]].append(partChromPeaks[k][i].NPeakCenterMin)
+                                                    i = 0
+                                                    for k in partXICs.keys():
+                                                        lp.lines[i].strokeColor = colos[i % len(colos)]
+                                                        lp.lines[i].strokeWidth = 0.01
+                                                        i = i + 1
 
-                                                j = j + 1
+                                                    lp.joinedLines = 1
+                                                    drawing.add(lp)
+                                                    renderPDF.draw(drawing, pdf, 10, 380)
 
-                                        assert (j == len(aligned))
-                                        assert (len(groupedChromPeaks) == len(groupedChromPeaksAVGMz) == len(groupedChromPeaksAVGTimes))
+                                                    alignedEICs = xicAlign.getAligendXICs(pdj, pdjm, align=align, nPolynom=nPolynom)[0]
+                                                    drawing = Drawing(500, 350)
+                                                    lp = LinePlot()
+                                                    lp.x = 50
+                                                    lp.y = 30
+                                                    lp.height = 350
+                                                    lp.width = 500
 
-                                        # write results to data matrix and SQLite DB
-                                        for i in range(minGroup, maxGroup + 1):
-                                            if len(groupedChromPeaks[i]) > 0:
-                                                avgmz = sum(groupedChromPeaksAVGMz[i]) / len(groupedChromPeaksAVGMz[i])
-                                                avgtime = sum(groupedChromPeaksAVGTimes[i]) / len(groupedChromPeaksAVGTimes[i])
+                                                    dd = []
 
-                                                f.write(str(curNum))
-                                                f.write("\t")
-                                                f.write("")
-                                                f.write("\t")
-                                                f.write(str(avgmz))
-                                                f.write("\t")
-                                                f.write(str(avgmz + xCount * tracersDeltaMZ[tracer] / cLoading))
-                                                f.write("\t")
-                                                f.write(str(xCount * tracersDeltaMZ[tracer] / cLoading))
-                                                f.write("\t")
-                                                f.write("%.6f - %.6f"%(min(groupedChromPeaksAVGMz[i]), max(groupedChromPeaksAVGMz[i])))
-                                                f.write("\t")
-                                                f.write("%.2f" % (avgtime / 60.))
-                                                f.write("\t")
-                                                f.write("%.3f - %.3f" %(min(groupedChromPeaksAVGTimes[i])/60., max(groupedChromPeaksAVGTimes[i])/60.))
-                                                f.write("\t")
-                                                f.write("%d" % xCount)
-                                                f.write("\t")
-                                                f.write(str(cLoading))
-                                                f.write("\t")
-                                                f.write(scanEvent)
-                                                f.write("\t")
-                                                f.write(ionMode)
-                                                f.write("\t")
-                                                f.write(str(tracer))
+                                                    tr = 0
+                                                    for xic in alignedEICs:
+                                                        dd.append([(i / 60., xic[i]) for i in range(0, len(xic))])
+                                                        tr = tr + 1
 
-                                                f.write("\t")
-                                                f.write("") # OGroup
-                                                f.write("\t")
-                                                f.write("") # Ion
-                                                f.write("\t")
-                                                f.write("") # Loss
-                                                f.write("\t")
-                                                f.write("") # M
+                                                    lp.data = dd
+
+                                                    i = 0
+                                                    for k in range(len(alignedEICs)):
+                                                        lp.lines[i].strokeColor = colos[i % len(colos)]
+                                                        lp.lines[i].strokeWidth = 0.01
+                                                        i = i + 1
+
+                                                    lp.joinedLines = 1
+                                                    drawing.add(lp)
+                                                    renderPDF.draw(drawing, pdf, 10, 0)
+
+                                                    pdf.showPage()
 
 
-                                                SQLInsert(resDB.curs, "GroupResults", id=curNum, mz=avgmz, lmz=avgmz + xCount * tracersDeltaMZ[tracer] / cLoading,
-                                                            dmz=xCount * tracersDeltaMZ[tracer] / cLoading, rt=avgtime, xn=xCount, charge=cLoading, ionisationMode=ionMode, scanEvent=scanEvent,
-                                                            tracer=str(tracer))
+                                                eics = []
+                                                peaks = []
+                                                scantimes = []
+                                                dd = []
+                                                do = []
+                                                for k in partChromPeaks.keys():
+                                                    for i in range(len(partChromPeaks[k])):
+                                                        do.append(k)
+                                                        dd.append(partChromPeaks[k][i].mz)
+                                                        eics.append(partXICs[k][i][2])
+                                                        peaks.append([partChromPeaks[k][i]])
+                                                        scantimes.append(partXICs[k][i][1])
 
-                                                doublePeak = 0
-                                                toapp = ""
-                                                for j in range(len(results)):
-                                                    res = results[j].filePath
-                                                    f.write("\t")
-                                                    toapp = toapp + "\t"
-                                                    if groupedChromPeaks[i].has_key(res) and len(groupedChromPeaks[i][res]) > 0:
+                                                # optional: align EICs; get bracketed chromatographic peaks
+                                                aligned = xicAlign.alignXIC(eics, peaks, scantimes, align=align, maxTimeDiff=maxTimeDeviation, nPolynom=nPolynom)
+                                                aligned = [(x[0][0], int(x[0][1])) for x in aligned]
 
-                                                        for peak in groupedChromPeaks[i][res]:
-                                                            SQLInsert(resDB.curs, "FoundFeaturePairs", file=results[j].fileName, featurePairID=peak[1].id, featureGroupID=peak[1].fGroupID, resID=curNum, areaN=peak[1].NPeakArea, areaL=peak[1].LPeakArea, featureType="foundPattern")
+                                                if writePDF:
+                                                    u = 800
+                                                    o = 0
+                                                    for peak in peaks:
+                                                        for p in peak:
+                                                            pdf.drawString(40, u, "%35s: %d %.2f -> %d %d" % (
+                                                                           do[o][(1 + do[o].rfind("/")):], int(p.NPeakCenter),
+                                                                           p.NPeakCenterMin / 60., int(aligned[o][0]), aligned[o][1]))
+                                                        u -= 20
+                                                        o += 1
 
-                                                        appe = False
-                                                        for peak in groupedChromPeaks[i][res]:
-                                                            if appe:
-                                                                toapp = toapp + ";"
-                                                                doublePeak = doublePeak + 1
-                                                            else:
-                                                                appe = True
-                                                            toapp = toapp + str(peak[1].NPeakArea / peak[1].LPeakArea)
+                                                maxGroup = max(aligned, key=itemgetter(1))[1]
+                                                minGroup = min(aligned, key=itemgetter(1))[1]
 
-                                                        # Area of native, monoisotopic isotopolog
-                                                        appe = False
-                                                        for peak in groupedChromPeaks[i][res]:
-                                                            if appe:
-                                                                f.write(";")
-                                                            else:
-                                                                appe = True
-                                                            f.write(str(peak[1].NPeakArea))
+                                                groupedChromPeaks = []
+                                                groupedChromPeaksAVGMz = []
+                                                groupedChromPeaksAVGTimes = []
+
+                                                for i in range(maxGroup + 1):
+                                                    groupedChromPeaks.append({})
+                                                    groupedChromPeaksAVGMz.append([])
+                                                    groupedChromPeaksAVGTimes.append([])
+
+                                                # calculate average values (RT and mz) for feature pairs in the sub-subclusters
+                                                j = 0
+                                                for k in partChromPeaks.keys():
+                                                    for i in range(len(partChromPeaks[k])):
+                                                        if not (groupedChromPeaks[aligned[j][1]].has_key(k)):
+                                                            groupedChromPeaks[aligned[j][1]][k] = []
+                                                        groupedChromPeaks[aligned[j][1]][k].append((aligned[j], partChromPeaks[k][i]))
+                                                        groupedChromPeaksAVGMz[aligned[j][1]].append(partChromPeaks[k][i].mz)
+                                                        groupedChromPeaksAVGTimes[aligned[j][1]].append(partChromPeaks[k][i].NPeakCenterMin)
+
+                                                        j = j + 1
+
+                                                assert (j == len(aligned))
+                                                assert (len(groupedChromPeaks) == len(groupedChromPeaksAVGMz) == len(groupedChromPeaksAVGTimes))
+
+                                                # write results to data matrix and SQLite DB
+                                                for i in range(minGroup, maxGroup + 1):
+                                                    if len(groupedChromPeaks[i]) > 0:
+                                                        avgmz = sum(groupedChromPeaksAVGMz[i]) / len(groupedChromPeaksAVGMz[i])
+                                                        avgtime = sum(groupedChromPeaksAVGTimes[i]) / len(groupedChromPeaksAVGTimes[i])
+
+                                                        f.write(str(curNum))
+                                                        f.write("\t")
+                                                        f.write("")
+                                                        f.write("\t")
+                                                        f.write(str(avgmz))
+                                                        f.write("\t")
+                                                        f.write(str(avgmz + xCount * tracersDeltaMZ[tracer] / cLoading))
+                                                        f.write("\t")
+                                                        f.write(str(xCount * tracersDeltaMZ[tracer] / cLoading))
+                                                        f.write("\t")
+                                                        f.write("%.6f - %.6f"%(min(groupedChromPeaksAVGMz[i]), max(groupedChromPeaksAVGMz[i])))
+                                                        f.write("\t")
+                                                        f.write("%.2f" % (avgtime / 60.))
+                                                        f.write("\t")
+                                                        f.write("%.3f - %.3f" %(min(groupedChromPeaksAVGTimes[i])/60., max(groupedChromPeaksAVGTimes[i])/60.))
+                                                        f.write("\t")
+                                                        f.write("%d" % xCount)
+                                                        f.write("\t")
+                                                        f.write(str(cLoading))
+                                                        f.write("\t")
+                                                        f.write(scanEvent)
+                                                        f.write("\t")
+                                                        f.write(ionMode)
+                                                        f.write("\t")
+                                                        f.write(str(tracer))
 
                                                         f.write("\t")
-                                                        # Area of labeled isotopolog
-                                                        appe = False
-                                                        for peak in groupedChromPeaks[i][res]:
-                                                            if appe:
-                                                                f.write(";")
-                                                            else:
-                                                                appe = True
-                                                            f.write(str(peak[1].LPeakArea))
-
+                                                        f.write("") # OGroup
                                                         f.write("\t")
-                                                        # Abundance of native, monoisotopic isotopolog
-                                                        appe = False
-                                                        for peak in groupedChromPeaks[i][res]:
-                                                            if appe:
-                                                                f.write(";")
-                                                            else:
-                                                                appe = True
-                                                            f.write(str(peak[1].NPeakAbundance))
-
+                                                        f.write("") # Ion
                                                         f.write("\t")
-                                                        # Abundance of labeled isotopolog
-                                                        appe = False
-                                                        for peak in groupedChromPeaks[i][res]:
-                                                            if appe:
-                                                                f.write(";")
-                                                            else:
-                                                                appe = True
-                                                            f.write(str(peak[1].LPeakAbundance))
-
+                                                        f.write("") # Loss
                                                         f.write("\t")
-                                                        # Feature ID
-                                                        appe = False
-                                                        for peak in groupedChromPeaks[i][res]:
-                                                            if appe:
-                                                                f.write(";")
+                                                        f.write("") # M
+
+
+                                                        SQLInsert(resDB.curs, "GroupResults", id=curNum, mz=avgmz, lmz=avgmz + xCount * tracersDeltaMZ[tracer] / cLoading,
+                                                                    dmz=xCount * tracersDeltaMZ[tracer] / cLoading, rt=avgtime, xn=xCount, charge=cLoading, ionisationMode=ionMode, scanEvent=scanEvent,
+                                                                    tracer=str(tracer))
+
+                                                        doublePeak = 0
+                                                        toapp = ""
+                                                        for j in range(len(results)):
+                                                            res = results[j].filePath
+                                                            f.write("\t")
+                                                            toapp = toapp + "\t"
+                                                            if groupedChromPeaks[i].has_key(res) and len(groupedChromPeaks[i][res]) > 0:
+
+                                                                for peak in groupedChromPeaks[i][res]:
+                                                                    SQLInsert(resDB.curs, "FoundFeaturePairs", file=results[j].fileName, featurePairID=peak[1].id, featureGroupID=peak[1].fGroupID, resID=curNum, areaN=peak[1].NPeakArea, areaL=peak[1].LPeakArea, featureType="foundPattern")
+
+                                                                appe = False
+                                                                for peak in groupedChromPeaks[i][res]:
+                                                                    if appe:
+                                                                        toapp = toapp + ";"
+                                                                        doublePeak = doublePeak + 1
+                                                                    else:
+                                                                        appe = True
+                                                                    toapp = toapp + str(peak[1].NPeakArea / peak[1].LPeakArea)
+
+                                                                # Area of native, monoisotopic isotopolog
+                                                                appe = False
+                                                                for peak in groupedChromPeaks[i][res]:
+                                                                    if appe:
+                                                                        f.write(";")
+                                                                    else:
+                                                                        appe = True
+                                                                    f.write(str(peak[1].NPeakArea))
+
+                                                                f.write("\t")
+                                                                # Area of labeled isotopolog
+                                                                appe = False
+                                                                for peak in groupedChromPeaks[i][res]:
+                                                                    if appe:
+                                                                        f.write(";")
+                                                                    else:
+                                                                        appe = True
+                                                                    f.write(str(peak[1].LPeakArea))
+
+                                                                f.write("\t")
+                                                                # Abundance of native, monoisotopic isotopolog
+                                                                appe = False
+                                                                for peak in groupedChromPeaks[i][res]:
+                                                                    if appe:
+                                                                        f.write(";")
+                                                                    else:
+                                                                        appe = True
+                                                                    f.write(str(peak[1].NPeakAbundance))
+
+                                                                f.write("\t")
+                                                                # Abundance of labeled isotopolog
+                                                                appe = False
+                                                                for peak in groupedChromPeaks[i][res]:
+                                                                    if appe:
+                                                                        f.write(";")
+                                                                    else:
+                                                                        appe = True
+                                                                    f.write(str(peak[1].LPeakAbundance))
+
+                                                                f.write("\t")
+                                                                # Feature ID
+                                                                appe = False
+                                                                for peak in groupedChromPeaks[i][res]:
+                                                                    if appe:
+                                                                        f.write(";")
+                                                                    else:
+                                                                        appe = True
+                                                                    f.write("%d" % peak[1].id)
+
+                                                                f.write("\t")
+                                                                # Group ID
+                                                                appe = False
+                                                                for peak in groupedChromPeaks[i][res]:
+                                                                    if appe:
+                                                                        f.write(";")
+                                                                    else:
+                                                                        appe = True
+                                                                    f.write("%d" % peak[1].fGroupID)
+
+                                                                f.write("\t")
+                                                                # CorrelatesTo
+                                                                appe = False
+                                                                for peak in groupedChromPeaks[i][res]:
+                                                                    if appe:
+                                                                        f.write(";")
+                                                                    else:
+                                                                        appe = True
+                                                                    f.write("%s" % str(peak[1].correlationsToOthers))
+
                                                             else:
-                                                                appe = True
-                                                            f.write("%d" % peak[1].id)
+                                                                f.write("\t\t\t\t\t\t")
+                                                        f.write(toapp)
+                                                        f.write("\t%d" % doublePeak)
+                                                        f.write("\n")
 
-                                                        f.write("\t")
-                                                        # Group ID
-                                                        appe = False
-                                                        for peak in groupedChromPeaks[i][res]:
-                                                            if appe:
-                                                                f.write(";")
-                                                            else:
-                                                                appe = True
-                                                            f.write("%d" % peak[1].fGroupID)
+                                                        curNum = curNum + 1
 
-                                                        f.write("\t")
-                                                        # CorrelatesTo
-                                                        appe = False
-                                                        for peak in groupedChromPeaks[i][res]:
-                                                            if appe:
-                                                                f.write(";")
-                                                            else:
-                                                                appe = True
-                                                            f.write("%s" % str(peak[1].correlationsToOthers))
+                                                if writePDF: pdf.showPage()
 
-                                                    else:
-                                                        f.write("\t\t\t\t\t\t")
-                                                f.write(toapp)
-                                                f.write("\t%d" % doublePeak)
-                                                f.write("\n")
+                                            except Exception as e:
+                                                import traceback
+                                                traceback.print_exc()
+                                                logging.error(str(traceback))
 
-                                                curNum = curNum + 1
+                                                logging.error("Error", str(e))
+                                            grp = grp + 1
 
-                                        if writePDF: pdf.showPage()
+                                            for res in results:
+                                                if toDel.has_key(res.filePath):
+                                                    toDel[res.filePath] = [a for a in toDel[res.filePath]]
+                                                    toDel[res.filePath].sort()
+                                                    toDel[res.filePath].reverse()
+                                                    for i in toDel[res.filePath]:
+                                                        res.featurePairs.pop(i)
+                                                        chromPeaksAct = chromPeaksAct - 1
+                                                        totalChromPeaksProc = totalChromPeaksProc + 1
 
-                                    except Exception as e:
-                                        import traceback
-                                        traceback.print_exc()
-                                        logging.error(str(traceback))
+                                            if pwValSet is not None: pwValSet.put(Bunch(mes="value",val=totalChromPeaksProc))
+                                            if pwTextSet is not None:
 
-                                        logging.error("Error", str(e))
-                                    grp = grp + 1
-
-                                    for res in results:
-                                        if toDel.has_key(res.filePath):
-                                            toDel[res.filePath] = [a for a in toDel[res.filePath]]
-                                            toDel[res.filePath].sort()
-                                            toDel[res.filePath].reverse()
-                                            for i in toDel[res.filePath]:
-                                                res.featurePairs.pop(i)
-                                                chromPeaksAct = chromPeaksAct - 1
-                                                totalChromPeaksProc = totalChromPeaksProc + 1
-
-                                    if pwValSet is not None: pwValSet.put(Bunch(mes="value",val=totalChromPeaksProc))
-                                    if pwTextSet is not None:
-
-                                        # Log time used for bracketing
-                                        elapsed = (time.time() - start) / 60.
-                                        hours = ""
-                                        if elapsed >= 60.:
-                                            hours = "%d hours " % (elapsed // 60)
-                                        mins = "%.2f mins" % (elapsed % 60.)
-                                        pwTextSet.put(Bunch(mes="text",val="<p align='right' >%s%s elapsed</p>\n\n\n\nBracketing results\n%d feature pairs (%d individual pairs processed).."%(hours, mins, curNum, totalChromPeaksProc)))
-
+                                                # Log time used for bracketing
+                                                elapsed = (time.time() - start) / 60.
+                                                hours = ""
+                                                if elapsed >= 60.:
+                                                    hours = "%d hours " % (elapsed // 60)
+                                                mins = "%.2f mins" % (elapsed % 60.)
+                                                pwTextSet.put(Bunch(mes="text",val="<p align='right' >%s%s elapsed</p>\n\n\n\nBracketing results\n%d feature pairs (%d individual pairs processed).. (Ionmode: %s, XCount: %d, Charge: %d)"%(hours, mins, curNum, totalChromPeaksProc, ionMode, xCount, cLoading)))
+                                    curAllMZs=[]
             if writePDF: pdf.save()
-
 
             import uuid
             import platform
