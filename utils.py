@@ -482,6 +482,9 @@ class ChromPeakPair:
         if args.has_key("peaksCorr"):
             self.peaksCorr = args["peaksCorr"]
             argsUsed += 1
+        if args.has_key("silRatios"):
+            self.silRatios = args["silRatios"]
+            argsUsed += 1
         if args.has_key("peaksRatio"):
             self.peaksRatio = args["peaksRatio"]
             argsUsed += 1

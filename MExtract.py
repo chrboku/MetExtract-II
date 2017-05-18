@@ -176,15 +176,15 @@ def checkRDependencies(r):
     RPackageAvailable=0
     RPackageCheck=1
     RPackageError=2
-    dependencies = {"R": RPackageCheck, "waveslim": RPackageCheck, "signal": RPackageCheck, "ptw": RPackageCheck, "MASS": RPackageCheck, "MassSpecWavelet": RPackageCheck}
+    dependencies = {"R": RPackageCheck, "waveslim": RPackageCheck, "signal": RPackageCheck, "ptw": RPackageCheck, "MASS": RPackageCheck, "MassSpecWavelet": RPackageCheck, "baseline":RPackageCheck}
     dialog = DependenciesDialog(dependencies=dependencies, statuss={RPackageAvailable: "olivedrab", RPackageCheck: "orange", RPackageError: "firebrick"},
-                                dependencyOrder=["R", "waveslim", "signal", "ptw", "MASS", "MassSpecWavelet"])
+                                dependencyOrder=["R", "waveslim", "signal", "ptw", "MASS", "MassSpecWavelet", "baseline"])
     dialog.show()
     dialog.setDependencyStatus("R", RPackageAvailable)
 
     # Check each dependency, if it is installed and update the dialog accordingly
     missingDependency = False
-    for dep in ["waveslim", "signal", "ptw", "MASS"]:
+    for dep in ["waveslim", "signal", "ptw", "MASS", "baseline"]:
         if str(r("is.installed(\"%s\")" % dep)[0]).lower() == "true":
             dialog.setDependencyStatus(dep, RPackageAvailable)
         else:
@@ -2098,6 +2098,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     QtGui.QMessageBox.warning(self, "MetExtract", "Could not parse elements for neutral loss calculation. Predefined elements will be used instead. "
                                                                   "Please adapt the list accordingly and save the compilation again.")
                     self.elementsForNL=self.preConfigured_elementsForNL
+            if sett.contains("simplifyInSourceFragments"):
+                self.ui.checkBox_simplifyInSourceFragments.setChecked(sett.value("simplifyInSourceFragments").toBool())
 
             if sett.contains("processMultipleFiles"):
                 self.ui.processMultipleFiles.setChecked(sett.value("processMultipleFiles").toBool())
@@ -2234,6 +2236,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             sett.setValue("minCorrelationConnections", self.ui.minCorrelationConnections.value())
             sett.setValue("adducts", base64.b64encode(dumps(self.adducts)))
             sett.setValue("elementsForNL", base64.b64encode(dumps(self.elementsForNL)))
+            sett.setValue("simplifyInSourceFragments", self.ui.checkBox_simplifyInSourceFragments.checkState() == QtCore.Qt.Checked)
 
             sett.setValue("processMultipleFiles", self.ui.processMultipleFiles.checkState() == QtCore.Qt.Checked)
 
@@ -2501,7 +2504,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                   minCorrelation=self.ui.minCorrelation.value(),
                                   hAIntensityError=self.ui.hAIntensityError.value(),
                                   hAMinScans=self.ui.hAMinScans.value(), adducts=self.adducts, elements=self.elementsForNL,
-                                  heteroAtoms=self.heteroElements, lock=lock, queue=queue, pID=i + 1,
+                                  heteroAtoms=self.heteroElements,
+                                  simplifyInSourceFragments=self.ui.checkBox_simplifyInSourceFragments.isChecked(),
+                                  lock=lock, queue=queue, pID=i + 1,
                                   rVersion=getRVersion(), meVersion="MetExtract (%s)" % MetExtractVersion) for i in
                 range(len(files))])
 
@@ -2689,6 +2694,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                       adducts="[%s]"%",".join([str(a) for a in self.adducts]),
                                                       elements="[%s]"%",".join([str(e) for e in self.elementsForNL]),
                                                       heteroAtoms="[%s]"%",".join([str(h) for h in self.heteroElements]),
+                                                      simplifyInSourceFragments=self.ui.checkBox_simplifyInSourceFragments.isChecked(),
                                                       rVersion=getRVersion(), meVersion="MetExtract (%s)" % MetExtractVersion)
                         procProc = FuncProcess(_target=bracketResults,
                                                 indGroups=indGroups, xCounts=str(self.ui.xCountSearch.text()),
@@ -2841,11 +2847,13 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                                 minCorrelation=self.ui.minCorrelation.value(),
                                                                 hAIntensityError=self.ui.hAIntensityError.value() / 100.,
                                                                 hAMinScans=self.ui.hAMinScans.value(), adducts=self.adducts, elements=self.elementsForNL,
-                                                                heteroAtoms=self.heteroElements, lock=None, queue=None, pID=1,
+                                                                heteroAtoms=self.heteroElements, simplifyInSourceFragments=self.ui.checkBox_simplifyInSourceFragments.isChecked(),
+                                                                lock=None, queue=None, pID=1,
                                                                 rVersion=getRVersion(), meVersion="MetExtract (%s)" % MetExtractVersion)
 
                     calculateMetaboliteGroups(str(self.ui.groupsSave.text()), definedGroups,
                                               minConnectionsInFiles=self.ui.metaboliteClusterMinConnections.value(), minConnectionRate=self.ui.minConnectionRate.value(),
+                                              minPeakCorrelation=self.ui.minCorrelation.value(),
                                               runIdentificationInstance=runIdentificationInstance)
                     logging.info("Metabolite groups calculated..")
 
@@ -3152,6 +3160,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                                            "heteroAtoms, "
                                                                            "name AS tracerName, "
                                                                            "adducts, "
+                                                                           "fDesc, "
                                                                            "heteroAtoms, "
                                                                            "chromPeaks.ionMode AS ionMode, "
                                                                            "assignedName, "
@@ -3170,6 +3179,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 lk = loads(base64.b64decode(row.adducts))
                 if len(lk) > 0:
                     adducts = ", ".join(lk)
+                fDesc = ""
+                lk=loads(base64.b64decode(row.fDesc))
+                if len(lk) > 0:
+                    fDesc=", ".join(lk)
 
                 heteroAtoms = []
                 lk = loads(base64.b64decode(row.heteroAtoms))
@@ -3187,12 +3200,12 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                LBorderLeft=float(row.LBorderLeft), LBorderRight=float(row.LBorderRight),
                                NPeakCenterMin=float(row.NPeakCenterMin), LPeakCenterMin=float(row.LPeakCenterMin), eicID=int(row.eicID), massSpectrumID=int(row.massSpectrumID),
                                assignedName=str(row.assignedName), id=int(row.cpID), loading=int(row.Loading), peaksCorr=float(row.peaksCorr), peaksRatio=float(row.peaksRatio),
-                               tracer=str(row.tracerName), ionMode=str(row.ionMode), heteroAtoms=heteroAtoms, adducts=adducts, assignedMZs=assignedMZs)
+                               tracer=str(row.tracerName), ionMode=str(row.ionMode), heteroAtoms=heteroAtoms, adducts=adducts, fDesc=fDesc, assignedMZs=assignedMZs)
 
                 d = QtGui.QTreeWidgetItem(["%.5f"%xp.mz + " (/" + str(row.ionMode) + str(row.Loading) + ") ",
                                            "%.2f / %.2f" % (float(row.NPeakCenterMin) / 60., float(row.LPeakCenterMin) / 60.),
                                            str(row.xcount),
-                                           "%s / %s "%(adducts, heteroAtoms),
+                                           "%s / %s / %s "%(adducts, fDesc, heteroAtoms),
                                            "%.0f / %.0f" % (float(row.NPeakScale), float(row.LPeakScale)),
                                            "%.3f%s"%(row.peaksCorr, "" if xp.artificialEICLShift==0 else " (%d)"%(xp.artificialEICLShift)),
                                            "%.3f / %.3f"%(row.peaksRatio, row.NPeakArea/row.LPeakArea),
@@ -3265,6 +3278,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                                                "c.LPeakArea AS LPeakArea, "
                                                                                "t.name AS tracerName, "
                                                                                "adducts AS adducts, "
+                                                                               "c.fDesc AS fDesc, "
                                                                                "heteroAtoms AS heteroAtoms, "
                                                                                "c.assignedName AS assignedName, "
                                                                                "c.ionMode AS ionMode, "
@@ -3279,6 +3293,11 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     lk = loads(base64.b64decode(row.adducts))
                     if len(lk) > 0:
                         adducts = ", ".join(lk)
+
+                    fDesc = ""
+                    lk = loads(base64.b64decode(row.fDesc))
+                    if len(lk) > 0:
+                        fDesc = ", ".join(lk)
 
                     heteroAtoms = []
                     lk = loads(base64.b64decode(row.heteroAtoms))
@@ -3306,7 +3325,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     g = QtGui.QTreeWidgetItem(["%.5f"%xp.mz + " (/" + str(row.ionMode) + str(row.Loading) + ") ",
                                                "%.2f / %.2f" % (float(row.NPeakCenterMin) / 60., float(row.LPeakCenterMin) / 60.),
                                                str(row.xcount),
-                                               "%s / %s "%(adducts, heteroAtoms),
+                                               "%s / %s / %s "%(adducts, fDesc, heteroAtoms),
                                                "%.0f / %.0f" % (float(row.NPeakScale), float(row.LPeakScale)),
                                                "%.3f%s"%(row.peaksCorr, "" if xp.artificialEICLShift==0 else " (%d)"%(xp.artificialEICLShift)),
                                                "%.3f / %.3f"%(row.peaksRatio, row.NPeakArea/row.LPeakArea),
@@ -3777,7 +3796,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             return
 
         self.clearPlot(self.ui.pl1)
-        self.clearPlot(self.ui.pl2)
+        self.clearPlot(self.ui.pl2A)
+        self.clearPlot(self.ui.pl2B)
         self.clearPlot(self.ui.pl3)
 
         useColi = 0
@@ -3926,7 +3946,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 self.ui.chromPeakName.setText("")
 
                 self.ui.res_ExtractedData.setHeaderLabels(QtCore.QStringList(
-                    ["MZ (/Ionmode Z)", "Rt min", "Xn", "Adducts, hetero atoms", "Scale M / M'", "Peak cor", "M:M' peaks ratio / area ratio", "Area M / M'", "Scans", "LMZ", "Tracer"]))
+                    ["MZ (/Ionmode Z)", "Rt min", "Xn", "Adducts / in-source fragments / hetero atoms", "Scale M / M'", "Peak cor", "M:M' peaks ratio / area ratio", "Area M / M'", "Scans", "LMZ", "Tracer"]))
 
                 if item.myType == "Features":
                     mzs = []
@@ -3955,17 +3975,19 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         invert=-1
 
                     for row in self.currentOpenResultsFile.curs.execute(
-                                    "SELECT xic, xicL, xicfirstiso, xicLfirstiso, xicLfirstisoconjugate, xic_smoothed, xicL_smoothed, times, allPeaks FROM XICs WHERE id==%d" % cp.eicID):
+                                    "SELECT xic, xicL, xicfirstiso, xicLfirstiso, xicLfirstisoconjugate, xic_smoothed, xicL_smoothed, times, allPeaks, xic_baseline, xicL_baseline FROM XICs WHERE id==%d" % cp.eicID):
                         xic                   = [float(t) for t in row[0].split(";")]
                         xicL                  = [float(t) for t in row[1].split(";")]
                         xicfirstiso           = [float(t) for t in row[2].split(";")]
                         xicLfirstiso          = [float(t) for t in row[3].split(";")]
                         xicLfirstisoconjugate = [float(t) for t in row[4].split(";")]
-                        xic_smoothed                   = [float(t) for t in row[5].split(";")]
-                        xicL_smoothed                  = [float(t) for t in row[6].split(";")]
+                        xic_smoothed          = [float(t) for t in row[5].split(";")]
+                        xicL_smoothed         = [float(t) for t in row[6].split(";")]
                         offset = cp.NPeakCenterMin / 60. if self.ui.setPeakCentersToZero.isChecked() else 0
                         times = [float(t) / 60. - offset for t in row[7].split(";")]
                         allPeaks = loads(base64.b64decode(str(row[8])))
+                        xic_baseline          = [float(t) for t in row[9].split(";")]
+                        xicL_baseline         = [float(t) for t in row[10].split(";")]
 
 
                     if self.ui.scaleFeatures.isChecked():
@@ -3986,13 +4008,16 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         xicL                  = [u / maxEL for u in xicL]
                         xicLfirstiso          = [u / maxEL for u in xicLfirstiso]
                         xicLfirstisoconjugate = [u / maxEL for u in xicLfirstisoconjugate]
-                        xic_smoothed                   = [u / maxE for u in xic_smoothed]
-                        xicL_smoothed                  = [u / maxEL for u in xicL_smoothed]
+                        xic_smoothed          = [u / maxE for u in xic_smoothed]
+                        xicL_smoothed         = [u / maxEL for u in xicL_smoothed]
+                        xic_baseline          = [u /maxE for u in xic_baseline]
+                        xicL_baseline         = [u / maxEL for u in xicL_baseline]
 
                     xicL                  = [invert*u for u in xicL]
                     xicLfirstiso          = [invert*u for u in xicLfirstiso]
                     xicLfirstisoconjugate = [invert*u for u in xicLfirstisoconjugate]
                     xicL_smoothed         = [invert*u for u in xicL_smoothed]
+                    xicL_baseline         = [invert*u for u in xicL_baseline]
 
                     if self.ui.flattenXIC.isChecked():
                         ps = min(int(cp.NPeakCenter - cp.NPeakScale * 2), int(cp.LPeakCenter - cp.LPeakScale * 2))
@@ -4025,6 +4050,12 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                   fill=[int(cp.NPeakCenter - cp.NBorderLeft),
                                         int(cp.NPeakCenter + cp.NBorderRight)], rearrange=len(selectedItems) == 1,
                                   label="%.4f (%d, %s)"%(cp.mz, cp.xCount, cp.ionMode), useCol=useColi)
+
+                    if self.ui.checkBox_showBaseline.isChecked():
+                        self.drawPlot(self.ui.pl1, plotIndex=0, x=times[ps:pe], y=xic_baseline[ps:pe],
+                                      fill=[int(cp.LPeakCenter - cp.LBorderLeft),
+                                            int(cp.LPeakCenter + cp.LBorderRight)], rearrange=len(selectedItems) == 1,
+                                      label=None, useCol=useColi, linestyle="--")
 
                     if self.ui.showSmoothedEIC_checkBox.isChecked():
                         self.drawPlot(self.ui.pl1, plotIndex=0, x=times[ps:pe], y=xic_smoothed[ps:pe],
@@ -4061,6 +4092,12 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                   fill=[int(cp.LPeakCenter - cp.LBorderLeft),
                                         int(cp.LPeakCenter + cp.LBorderRight)], rearrange=len(selectedItems) == 1,
                                   label=None, useCol=useColi)
+
+                    if self.ui.checkBox_showBaseline.isChecked():
+                        self.drawPlot(self.ui.pl1, plotIndex=0, x=times[pst:pet], y=xicL_baseline[ps:pe],
+                                      fill=[int(cp.LPeakCenter - cp.LBorderLeft),
+                                            int(cp.LPeakCenter + cp.LBorderRight)], rearrange=len(selectedItems) == 1,
+                                      label=None, useCol=useColi, linestyle="--")
 
                     if self.ui.showSmoothedEIC_checkBox.isChecked():
                         self.drawPlot(self.ui.pl1, plotIndex=0, x=times[pst:pet], y=xicL_smoothed[ps:pe],
@@ -4146,7 +4183,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             #<editor-fold desc="#featureGroup results">
             elif item.myType == "featureGroup" or item.myType == "Feature Groups":
                 self.ui.res_ExtractedData.setHeaderLabels(
-                    QtCore.QStringList(["Feature group / MZ (/Ionmode Z)", "Rt min", "Xn", "Adducts, hetero atoms", "Scale M / M'", "Peak cor", "M:M' peaks ratio / area ratio", "Area M / M'", "Scans", "Tracer"]))
+                    QtCore.QStringList(["Feature group / MZ (/Ionmode Z)", "Rt min", "Xn", "Adducts / in-source fragments / hetero atoms", "Scale M / M'", "Peak cor", "M:M' peaks ratio / area ratio", "Area M / M'", "Scans", "Tracer"]))
 
 
                 item.setBackgroundColor(0, QColor(predefinedColors[(useColi) % len(predefinedColors)]))
@@ -4446,7 +4483,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             if self.ui.negEIC.isChecked():
                                 invert=-1
 
-                            for row in self.currentOpenResultsFile.curs.execute("SELECT xic, xicL, xicfirstiso, xicLfirstiso, xicLfirstisoconjugate, xic_smoothed, xicL_smoothed, times FROM XICs WHERE id==%d" % child.eicID):
+                            for row in self.currentOpenResultsFile.curs.execute("SELECT xic, xicL, xicfirstiso, xicLfirstiso, xicLfirstisoconjugate, xic_smoothed, xicL_smoothed, times, xic_baseline, xicL_baseline FROM XICs WHERE id==%d" % child.eicID):
                                 xic                   = [float(t) for t in row[0].split(";")]
                                 xicL                  = [float(t) for t in row[1].split(";")]
                                 xicfirstiso           = [float(t) for t in row[2].split(";")]
@@ -4454,7 +4491,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                 xicLfirstisoconjugate = [float(t) for t in row[4].split(";")]
                                 xic_smoothed          = [float(t) for t in row[5].split(";")]
                                 xicL_smoothed         = [float(t) for t in row[6].split(";")]
-                                times = [float(t) / 60. for t in row[7].split(";")]
+                                times                 = [float(t) / 60. for t in row[7].split(";")]
+                                xic_baseline          = [float(t) for t in row[8].split(";")]
+                                xicL_baseline         = [float(t) for t in row[9].split(";")]
 
                             minTime = min(minTime, min(times[int(child.NPeakCenter - child.NPeakScale * 1):int(
                                 child.NPeakCenter + child.NPeakScale * 1)]))
@@ -4478,11 +4517,13 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                 xic = [u / maxE for u in xic]
                                 xic_smoothed = [u / maxE for u in xic_smoothed]
                                 xicfirstiso = [u / maxE for u in xicfirstiso]
+                                xic_baseline = [u / maxE for u in xic_baseline]
 
                                 xicL = [u / maxEL for u in xicL]
                                 xicL_smoothed = [u / maxEL for u in xicL_smoothed]
                                 xicLfirstiso = [u / maxEL for u in xicLfirstiso]
                                 xicLfirstisoconjugate = [u / maxEL for u in xicLfirstisoconjugate]
+                                xicL_baseline = [u / maxEL for u in xicL_baseline]
 
                             xicL = [invert*u for u in xicL]
                             xicL_smoothed = [invert*u for u in xicL_smoothed]
@@ -4518,6 +4559,21 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                 min(int(child.NPeakCenter + child.NBorderRight),
                                     int(child.LPeakCenter + child.LBorderRight))], rearrange=len(selectedItems) == 1,
                                           label="%.4f (%d, %s)"%(child.mz, child.xCount, child.ionMode), useCol=useColi)  #useCol=selIndex*2)
+
+                            if self.ui.checkBox_showBaseline.isChecked():
+                                self.drawPlot(self.ui.pl1, plotIndex=0, x=times[ps:pe], y=xic_baseline[ps:pe], fill=[
+                                    max(int(child.LPeakCenter - child.LBorderLeft),
+                                        int(child.NPeakCenter - child.NBorderLeft)),
+                                    min(int(child.NPeakCenter + child.NBorderRight),
+                                        int(child.LPeakCenter + child.LBorderRight))], rearrange=len(selectedItems) == 1,
+                                              label="", useCol=useColi, linestyle="--")
+                                self.drawPlot(self.ui.pl1, plotIndex=0, x=times[ps:pe], y=xicL_baseline[ps:pe], fill=[
+                                    max(int(child.LPeakCenter - child.LBorderLeft),
+                                        int(child.NPeakCenter - child.NBorderLeft)),
+                                    min(int(child.NPeakCenter + child.NBorderRight),
+                                        int(child.LPeakCenter + child.LBorderRight))], rearrange=len(selectedItems) == 1,
+                                              label="", useCol=useColi, linestyle="--")
+
 
                             if self.ui.showSmoothedEIC_checkBox.isChecked():
                                 self.drawPlot(self.ui.pl1, plotIndex=0, x=times[ps:pe], y=xic_smoothed[ps:pe], fill=[
@@ -4581,9 +4637,11 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         childIDs.append(child.id)
                 if len(childIDs)>=1:
                     try:
-                        self.clearPlot(self.ui.pl2)
+                        self.clearPlot(self.ui.pl2A)
+                        self.clearPlot(self.ui.pl2B)
                         plt.cla()
-                        self.ui.pl2.fig.subplots_adjust(left=0.15, bottom=0.05, right=0.99, top=0.85)
+                        self.ui.pl2A.fig.subplots_adjust(left=0.15, bottom=0.05, right=0.99, top=0.85)
+                        self.ui.pl2B.fig.subplots_adjust(left=0.15, bottom=0.05, right=0.99, top=0.85)
 
                         fRows = 0
                         minCorr = 1
@@ -4592,14 +4650,18 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             minCorr = float(row[1])
                         assert 0 < fRows <= 1, "Min Correlation not found or found multiple times in settings"
 
-                        data = []
+                        dataCorr = []
+                        dataSILRatios = []
                         featureIDToColsNum = {}
                         texts = []
                         for i in range(len(childIDs)):
                             arow = []
+                            brow = []
                             for j in range(len(childIDs)):
                                 arow.append(0)
-                            data.append(arow)
+                                brow.append(0)
+                            dataCorr.append(arow)
+                            dataSILRatios.append(brow)
                             texts.append("")
                             featureIDToColsNum[childIDs[i]] = i
 
@@ -4612,10 +4674,16 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             fI1 = featureIDToColsNum[id]
                             texts[fI1]="%s%.4f/%d"%(ionMode, mz, xcount)
 
+                        minCorrCurrent=1
+                        maxSilRatioCurrent=0
                         for row in self.currentOpenResultsFile.curs.execute(
-                                        "SELECT ff.fID1, ff.fID2, ff.corr FROM featurefeatures ff WHERE ff.fID1 IN (%s) AND ff.fID2 IN (%s)" % (
+                                        "SELECT ff.fID1, ff.fID2, ff.corr, ff.silRatioValue FROM featurefeatures ff WHERE ff.fID1 IN (%s) AND ff.fID2 IN (%s)" % (
                                         cIds, cIds)):
                             correlation = row[2]
+                            silRatioValue = row[3]
+
+                            minCorrCurrent=min(minCorrCurrent, correlation)
+                            maxSilRatioCurrent=max(maxSilRatioCurrent, silRatioValue-1)
 
                             fI1 = featureIDToColsNum[row[0]]
                             fI2 = featureIDToColsNum[row[1]]
@@ -4625,61 +4693,100 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                 fI2 = fI1
                                 fI1 = a
 
-                            data[fI1][fI2] = correlation
-                            data[fI2][fI1] = correlation
+                            dataCorr[fI1][fI2] = correlation
+                            dataCorr[fI2][fI1] = correlation
+
+                            dataSILRatios[fI1][fI2] = silRatioValue-1
+                            dataSILRatios[fI2][fI1] = silRatioValue-1
 
                         dv=[]
-                        for i in range(len(data)):
-                            data[i][i] = 1
-                            dv.extend(data[i])
+                        for i in range(len(dataCorr)):
+                            dataCorr[i][i] = 1
+                            dv.extend(dataCorr[i])
 
                         hc=HCA_general.HCA_generic()
-                        tree=hc.generateTree(data)
+                        tree=hc.generateTree(dataCorr)
 
-                        datOrd=range(len(data))
+                        datOrd=range(len(dataCorr))
 
                         datOrd=hc.getObjsOrderInTree(tree)
                         dnew=[]
+                        dnew2=[]
                         for i in datOrd:
-                            dnew.append([data[i][j] for j in datOrd])
-                        data=dnew
+                            dnew.append([dataCorr[i][j] for j in datOrd])
+                            dnew2.append([dataSILRatios[i][j] for j in datOrd])
+                        dataCorr=dnew
+                        dataSILRatios=dnew2
 
-                        data[len(data) - 1][len(data) - 1] = 1
+                        dataCorr[len(dataCorr) - 1][len(dataCorr) - 1] = 1
 
                         colorDict = {'red': ((0.0, 0, convertXaToX(47 / 255., 0.2)),
-                                             (0.5, convertXaToX(47 / 255., 0.5), convertXaToX(178 / 255., 0.225)), (
-                        minCorr + (1 - minCorr) / 2., convertXaToX(178 / 255., 0.525),
-                        convertXaToX(154 / 255., .5)), (1.0, convertXaToX(154 / 255., .9), 0)),
+                                             (0.5, convertXaToX(47 / 255., 0.5), convertXaToX(178 / 255., 0.225)),
+                                             (minCorr + (1 - minCorr) / 2., convertXaToX(178 / 255., 0.525),convertXaToX(154 / 255., .5)),
+                                             (1.0, convertXaToX(154 / 255., .9), 0)),
 
                                      'green': ((0.0, 0, convertXaToX(79 / 255., 0.2)),
                                                (0.5, convertXaToX(79 / 255., 0.5), convertXaToX(34 / 255., 0.225)),
-                                               (minCorr + (1 - minCorr) / 2., convertXaToX(34 / 255., 0.525),
-                                                convertXaToX(205 / 255., .5)),
+                                               (minCorr + (1 - minCorr) / 2., convertXaToX(34 / 255., 0.525),convertXaToX(205 / 255., .5)),
                                                (1.0, convertXaToX(205 / 255., .9), 0)),
 
                                      'blue': ((0.0, 0, convertXaToX(79 / 255., 0.2)),
-                                              (0.5, convertXaToX(79 / 255., 0.5), convertXaToX(34 / 255., 0.225)), (
-                                     minCorr + (1 - minCorr) / 2., convertXaToX(34 / 255., 0.525),
-                                     convertXaToX(50 / 255., .5)), (1.0, convertXaToX(50 / 255., 0.9), .0))}
+                                              (0.5, convertXaToX(79 / 255., 0.5), convertXaToX(34 / 255., 0.225)),
+                                              (minCorr + (1 - minCorr) / 2., convertXaToX(34 / 255., 0.525),convertXaToX(50 / 255., .5)),
+                                              (1.0, convertXaToX(50 / 255., 0.9), .0))}
+
                         plt.register_cmap(name='custom_colormap', data=colorDict)
-                        cax = self.ui.pl2.twinxs[0].matshow(data, cmap=get_cmap("custom_colormap"))
+                        cax = self.ui.pl2A.twinxs[0].matshow(dataCorr, cmap=get_cmap("custom_colormap"))
 
-                        self.ui.pl2.axes.set_xticks([i for i in range(len(data))])
-                        self.ui.pl2.axes.set_xticklabels([texts[i] for i in datOrd], rotation=90)
-                        self.ui.pl2.axes.set_yticks([i for i in range(len(data))])
-                        self.ui.pl2.axes.set_yticklabels([texts[i] for i in datOrd])
+                        self.ui.pl2A.axes.set_xticks([i for i in range(len(dataCorr))])
+                        self.ui.pl2A.axes.set_xticklabels([texts[i] for i in datOrd], rotation=90)
+                        self.ui.pl2A.axes.set_yticks([i for i in range(len(dataCorr))])
+                        self.ui.pl2A.axes.set_yticklabels([texts[i] for i in datOrd])
 
-                        self.ui.pl2.axes.set_yticks([i - .5 for i in range(len(data) + 1)], minor=True)
-                        self.ui.pl2.axes.set_xticks([i - .5 for i in range(len(data) + 1)], minor=True)
+                        self.ui.pl2A.axes.set_yticks([i - .5 for i in range(len(dataCorr) + 1)], minor=True)
+                        self.ui.pl2A.axes.set_xticks([i - .5 for i in range(len(dataCorr) + 1)], minor=True)
 
-                        self.ui.pl2.axes.grid(ls='solid', which='minor', color='white', linewidth=2)
+                        self.ui.pl2A.axes.grid(ls='solid', which='minor', color='white', linewidth=2)
 
                         cax.set_clim(-1, 1)
-                        cb = self.ui.pl2.fig.colorbar(cax, ticks=[-1, 0, minCorr])
-                        cb.outline.set_color('white')
+                        cb = self.ui.pl2A.fig.colorbar(cax, ticks=[-1, 0, minCorr, minCorrCurrent])
                         cb.outline.set_linewidth(0)
 
-                        self.ui.pl2.fig.canvas.draw()
+                        colorDict = {'red': ((0.0, 0, convertXaToX(47 / 255., 0.2)),
+                                             (0.5, convertXaToX(47 / 255., 0.5), convertXaToX(154 / 255., .9)),
+                                             (0.6, convertXaToX(154 / 255., .5),convertXaToX(178 / 255., 0.225)),
+                                             (1.0, convertXaToX(178 / 255., 0.525), 0)),
+
+                                     'green': ((0.0, 0, convertXaToX(79 / 255., 0.2)),
+                                               (0.5, convertXaToX(79 / 255., 0.5), convertXaToX(34 / 255., 0.225)),
+                                               (0.6, convertXaToX(205 / 255., .5), convertXaToX(205 / 255., .9)),
+                                               (1.0, convertXaToX(34 / 255., 0.525), 0)),
+
+                                     'blue': ((0.0, 0, convertXaToX(79 / 255., 0.2)),
+                                              (0.5, convertXaToX(79 / 255., 0.5), convertXaToX(50 / 255., 0.9)),
+                                              (0.6, convertXaToX(50 / 255., .5),convertXaToX(34 / 255., 0.225)),
+                                              (1.0, convertXaToX(34 / 255., 0.525), .0))}
+
+                        plt.register_cmap(name='custom_colormap2', data=colorDict)
+                        cbx = self.ui.pl2B.twinxs[0].matshow(dataSILRatios, cmap=get_cmap("custom_colormap2"))
+                        self.ui.pl2B.axes.set_xticks([i for i in range(len(dataSILRatios))])
+                        self.ui.pl2B.axes.set_xticklabels([texts[i] for i in datOrd], rotation=90)
+                        self.ui.pl2B.axes.set_yticks([i for i in range(len(dataSILRatios))])
+                        self.ui.pl2B.axes.set_yticklabels([texts[i] for i in datOrd])
+
+                        self.ui.pl2B.axes.set_yticks([i - .5 for i in range(len(dataSILRatios) + 1)], minor=True)
+                        self.ui.pl2B.axes.set_xticks([i - .5 for i in range(len(dataSILRatios) + 1)], minor=True)
+
+                        self.ui.pl2B.axes.grid(ls='solid', which='minor', color='white', linewidth=2)
+
+                        cbx.set_clim(-1, 1)
+                        cb = self.ui.pl2B.fig.colorbar(cbx, ticks=[0, 0.1,0.2, maxSilRatioCurrent])
+                        cb.outline.set_linewidth(0)
+
+
+                        self.ui.pl2A.fig.canvas.draw()
+                        self.ui.pl2B.fig.canvas.draw()
+
                     except Exception as ex:
                         import traceback
                         traceback.print_exc()
@@ -4697,7 +4804,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 self.ui.chromPeakName.setText("")
 
                 self.ui.res_ExtractedData.setHeaderLabels(QtCore.QStringList(
-                    ["MZ (/Ionmode Z)", "Rt min", "Xn", "Adducts, hetero atoms", "Scale M / M'", "Peak cor", "M:M' peaks ratio / area ratio", "Area M / M'", "Scans", "LMZ", "Tracer"]))
+                    ["MZ (/Ionmode Z)", "Rt min", "Xn", "Adducts / in-source fragments / hetero atoms", "Scale M / M'", "Peak cor", "M:M' peaks ratio / area ratio", "Area M / M'", "Scans", "LMZ", "Tracer"]))
 
                 if item.myType == "feature":
                     cp = item.myData
@@ -5344,17 +5451,19 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
     def multipleFilesPlotAdd(self):
 
-        if self.ui.pl2.pictureShown:
-            self.clearPlot(self.ui.pl2)
-            self.ui.pl2.pictureShown = False
+        if self.ui.pl2A.pictureShown:
+            self.clearPlot(self.ui.pl2A)
+            self.ui.pl2A.pictureShown = False
+            self.clearPlot(self.ui.pl2B)
+            self.ui.pl2B.pictureShown = False
 
         maxInt = 0
         mzs = []
         peaks = []
         for item in self.ui.res_ExtractedData.selectedItems():
             if item.myType == "feature":
-                if self.ui.pl2.type is None or self.ui.pl2.type == "feature":
-                    self.ui.pl2.type = "feature"
+                if self.ui.pl2A.type is None or self.ui.pl2A.type == "feature":
+                    self.ui.pl2A.type = "feature"
                 else:
                     QtGui.QMessageBox.warning(self, "MetExtract",
                                               "Selecting different result types in not supported. Please select only mz, mzbins or chromatographic peaks at a time",
@@ -5370,12 +5479,12 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     xic = [float(t) for t in row[0].split(";")]
                     times = [float(t) / 60. for t in row[1].split(";")]
                     xicL = [float(t) for t in row[2].split(";")]
-                self.ui.pl2.xics.append(xic)
-                self.ui.pl2.times.append(times)
-                self.ui.pl2.peaks.append([item.myData])
+                self.ui.pl2A.xics.append(xic)
+                self.ui.pl2A.times.append(times)
+                self.ui.pl2A.peaks.append([item.myData])
             if item.myType == "MZs":
-                if self.ui.pl2.type is None or self.ui.pl2.type == "MZs":
-                    self.ui.pl2.type = "MZs"
+                if self.ui.pl2A.type is None or self.ui.pl2A.type == "MZs":
+                    self.ui.pl2A.type = "MZs"
                 else:
                     QtGui.QMessageBox.warning(self, "MetExtract",
                                               "Selecting different result types is not supported. Please select only mz, mzbins or chromatographic peaks at a time",
@@ -5391,43 +5500,43 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     x.append(child.myData[3] / 60.)
                     y.append(child.myData[0])
 
-                self.ui.pl2.x_vals.append(x)
-                self.ui.pl2.y_vals.append(y)
+                self.ui.pl2A.x_vals.append(x)
+                self.ui.pl2A.y_vals.append(y)
 
-        if self.ui.pl2.type == "feature":
-            for i in range(len(self.ui.pl2.peaks)):
-                maxInt = max(maxInt, max(self.ui.pl2.xics[i]))
+        if self.ui.pl2A.type == "feature":
+            for i in range(len(self.ui.pl2A.peaks)):
+                maxInt = max(maxInt, max(self.ui.pl2A.xics[i]))
                 maxindex, maxvalue = max(enumerate(
-                    xic[int(self.ui.pl2.peaks[i][0].NPeakCenter - 3):int(self.ui.pl2.peaks[i][0].NPeakCenter + 3)],
-                    start=int(self.ui.pl2.peaks[i][0].NPeakCenter - 3)), key=itemgetter(1))
-                if i == (len(self.ui.pl2.peaks) - 1):
-                    self.drawPlot(self.ui.pl2, plotIndex=0, x=self.ui.pl2.times[i], y=self.ui.pl2.xics[i], fill=[
-                        int(self.ui.pl2.peaks[i][0].NPeakCenter - self.ui.pl2.peaks[i][0].NBorderLeft),
-                        int(self.ui.pl2.peaks[i][0].NPeakCenter + self.ui.pl2.peaks[i][0].NBorderRight)],
+                    xic[int(self.ui.pl2A.peaks[i][0].NPeakCenter - 3):int(self.ui.pl2A.peaks[i][0].NPeakCenter + 3)],
+                    start=int(self.ui.pl2A.peaks[i][0].NPeakCenter - 3)), key=itemgetter(1))
+                if i == (len(self.ui.pl2A.peaks) - 1):
+                    self.drawPlot(self.ui.pl2A, plotIndex=0, x=self.ui.pl2A.times[i], y=self.ui.pl2A.xics[i], fill=[
+                        int(self.ui.pl2A.peaks[i][0].NPeakCenter - self.ui.pl2A.peaks[i][0].NBorderLeft),
+                        int(self.ui.pl2A.peaks[i][0].NPeakCenter + self.ui.pl2A.peaks[i][0].NBorderRight)],
                                   useCol=i * 2)
                     if self.ui.plotAddLabels.checkState() == QtCore.Qt.Checked:
-                        self.addAnnotation(self.ui.pl2, "%s\n%.5f\n@ %.2f" % (
-                            self.ui.pl2.peaks[i][0].assignedName, self.ui.pl2.peaks[i][0].mz,
-                            self.ui.pl2.peaks[i][0].NPeakCenterMin / 60.),
-                                           (self.ui.pl2.times[i][maxindex], self.ui.pl2.xics[i][maxindex]),
-                                           (self.ui.pl2.times[i][maxindex], self.ui.pl2.xics[i][maxindex]), 0)
-            self.drawCanvas(self.ui.pl2, ylim=[0, maxInt * 1.2])
-        if self.ui.pl2.type == "MZs":
+                        self.addAnnotation(self.ui.pl2A, "%s\n%.5f\n@ %.2f" % (
+                            self.ui.pl2A.peaks[i][0].assignedName, self.ui.pl2A.peaks[i][0].mz,
+                            self.ui.pl2A.peaks[i][0].NPeakCenterMin / 60.),
+                                           (self.ui.pl2A.times[i][maxindex], self.ui.pl2A.xics[i][maxindex]),
+                                           (self.ui.pl2A.times[i][maxindex], self.ui.pl2A.xics[i][maxindex]), 0)
+            self.drawCanvas(self.ui.pl2A, ylim=[0, maxInt * 1.2])
+        if self.ui.pl2A.type == "MZs":
 
             #matplotlib code taken from http://stackoverflow.com/questions/6508769/matplotlib-scatter-hist-with-stepfilled-histtype-in-histogram
             colour_LUT = ['#0000FF', '#FF0000', '#00FF00', '#FF00FF', '#00FFFF', '#FFFF00', '#FFFFFF']
 
             # the scatter plot:
-            maxIntX = max([max(x) for x in self.ui.pl2.x_vals])
-            maxIntY = max([max(y) for y in self.ui.pl2.y_vals])
+            maxIntX = max([max(x) for x in self.ui.pl2A.x_vals])
+            maxIntY = max([max(y) for y in self.ui.pl2A.y_vals])
             colors = []
-            axScatter = self.ui.pl2.axes
+            axScatter = self.ui.pl2A.axes
 
-            for i in range(len(self.ui.pl2.x_vals)):
+            for i in range(len(self.ui.pl2A.x_vals)):
                 colour = colour_LUT[i % len(colour_LUT)]
-                axScatter.scatter(self.ui.pl2.x_vals[i], self.ui.pl2.y_vals[i], color=colour)
+                axScatter.scatter(self.ui.pl2A.x_vals[i], self.ui.pl2A.y_vals[i], color=colour)
                 colors.append(colour)
-            self.drawCanvas(self.ui.pl2, ylim=[0, maxIntY], xlim=[0, maxIntX])
+            self.drawCanvas(self.ui.pl2A, ylim=[0, maxIntY], xlim=[0, maxIntX])
 
     def res_doubleClick(self, item):
         self.multipleFilesPlotAdd()
@@ -6356,24 +6465,43 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         vbox.addWidget(self.ui.pl1.canvas)
         self.ui.visualizationWidget.setLayout(vbox)
 
-        #setup second plot
-        self.ui.pl2 = QtCore.QObject()
-        self.ui.pl2.type = None
-        self.ui.pl2.dpi = 50
-        self.ui.pl2.fig = Figure((5.0, 4.0), dpi=self.ui.pl2.dpi, facecolor='white')
-        self.ui.pl2.fig.subplots_adjust(left=0.15, bottom=0.05, right=0.99, top=0.85)
-        self.ui.pl2.canvas = FigureCanvas(self.ui.pl2.fig)
-        self.ui.pl2.canvas.setParent(self.ui.visualizationWidget2)
-        self.ui.pl2.axes = self.ui.pl2.fig.add_subplot(111)
-        #noaxis(self.ui.pl2.axes)
-        self.ui.pl2.twinxs = [self.ui.pl2.axes]
-        self.ui.pl2.mpl_toolbar = NavigationToolbar(self.ui.pl2.canvas, self.ui.visualizationWidget2)
-        self.ui.pl2.pictureShown = False
+        #setup second plot2
+        self.ui.pl2A = QtCore.QObject()
+        self.ui.pl2A.type = None
+        self.ui.pl2A.dpi = 50
+        self.ui.pl2A.fig = Figure((5.0, 4.0), dpi=self.ui.pl2A.dpi, facecolor='white')
+        self.ui.pl2A.fig.subplots_adjust(left=0.15, bottom=0.05, right=0.99, top=0.85)
+        self.ui.pl2A.canvas = FigureCanvas(self.ui.pl2A.fig)
+        self.ui.pl2A.canvas.setParent(self.ui.pl2AWidget)
+        self.ui.pl2A.axes = self.ui.pl2A.fig.add_subplot(111)
+        #noaxis(self.ui.pl2A.axes)
+        self.ui.pl2A.twinxs = [self.ui.pl2A.axes]
+        self.ui.pl2A.mpl_toolbar = NavigationToolbar(self.ui.pl2A.canvas, self.ui.pl2AWidget)
+        self.ui.pl2A.pictureShown = False
 
         vbox = QtGui.QVBoxLayout()
-        vbox.addWidget(self.ui.pl2.canvas)
-        vbox.addWidget(self.ui.pl2.mpl_toolbar)
-        self.ui.visualizationWidget2.setLayout(vbox)
+        vbox.addWidget(self.ui.pl2A.canvas)
+        vbox.addWidget(self.ui.pl2A.mpl_toolbar)
+        self.ui.pl2AWidget.setLayout(vbox)
+
+
+        self.ui.pl2B = QtCore.QObject()
+        self.ui.pl2B.type = None
+        self.ui.pl2B.dpi = 50
+        self.ui.pl2B.fig = Figure((5.0, 4.0), dpi=self.ui.pl2B.dpi, facecolor='white')
+        self.ui.pl2B.fig.subplots_adjust(left=0.15, bottom=0.05, right=0.99, top=0.85)
+        self.ui.pl2B.canvas = FigureCanvas(self.ui.pl2B.fig)
+        self.ui.pl2B.canvas.setParent(self.ui.pl2BWidget)
+        self.ui.pl2B.axes = self.ui.pl2B.fig.add_subplot(111)
+        #noaxis(self.ui.pl2B.axes)
+        self.ui.pl2B.twinxs = [self.ui.pl2B.axes]
+        self.ui.pl2B.mpl_toolbar = NavigationToolbar(self.ui.pl2B.canvas, self.ui.pl2BWidget)
+        self.ui.pl2B.pictureShown = False
+
+        vbox = QtGui.QVBoxLayout()
+        vbox.addWidget(self.ui.pl2B.canvas)
+        vbox.addWidget(self.ui.pl2B.mpl_toolbar)
+        self.ui.pl2BWidget.setLayout(vbox)
 
         #setup third plot
         self.ui.pl3 = QtCore.QObject()
@@ -6447,11 +6575,11 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         vbox.addWidget(self.ui.resultsExperimentMSScanPeaks_plot.mpl_toolbar)
         self.ui.resultsExperimentMSScan_widget.setLayout(vbox)
 
-        self.ui.pl2.xics = []
-        self.ui.pl2.times = []
-        self.ui.pl2.peaks = []
-        self.ui.pl2.x_vals = []
-        self.ui.pl2.y_vals = []
+        self.ui.pl2A.xics = []
+        self.ui.pl2A.times = []
+        self.ui.pl2A.peaks = []
+        self.ui.pl2A.x_vals = []
+        self.ui.pl2A.y_vals = []
 
         font = {'size': 18}
         matplotlib.rc('font', **font)

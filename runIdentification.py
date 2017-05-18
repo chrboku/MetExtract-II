@@ -76,6 +76,7 @@ from formulaTools import formulaTools, getIsotopeMass
 from utils import getAtomAdd, mean, weightedMean, sd, weightedSd, smoothDataSeries, SQLInsert, SQLSelectAsObject
 from MZHCA import HierarchicalClustering, cutTreeSized
 from chromPeakPicking.MassSpecWavelet import MassSpecWavelet
+import Baseline
 from utils import corr, getSubGraphs, ChromPeakPair, Bunch
 from SGR import SGRGenerator
 from mePyGuis.TracerEdit import ConfiguredTracer
@@ -130,7 +131,7 @@ class RunIdentification:
                  startTime=2, stopTime=37, positiveScanEvent="None", negativeScanEvent="None",
                  eicSmoothingWindow="None", eicSmoothingWindowSize=0, eicSmoothingPolynom=0, artificialMPshift_start=0, artificialMPshift_stop=0,
                  correctCCount=True, minCorrelation=0.85, minCorrelationConnections=0.4, hAIntensityError=5., hAMinScans=3, adducts=[],
-                 elements=[], heteroAtoms=[], chromPeakFile=None, lock=None, queue=None, pID=-1, rVersion="NA",
+                 elements=[], heteroAtoms=[], simplifyInSourceFragments=True, chromPeakFile=None, lock=None, queue=None, pID=-1, rVersion="NA",
                  meVersion="NA"):
 
 
@@ -252,6 +253,7 @@ class RunIdentification:
         self.heteroAtoms = {}
         for heteroAtom in heteroAtoms:
             self.heteroAtoms[heteroAtom.name] = heteroAtom
+        self.simplifyInSourceFragments=simplifyInSourceFragments
 
         #System
         self.lock = lock
@@ -333,7 +335,7 @@ class RunIdentification:
 
         curs.execute("DROP TABLE IF EXISTS XICs")
         curs.execute(
-            "CREATE TABLE XICs(id INTEGER PRIMARY KEY, avgmz REAL, xcount INTEGER, loading INTEGER, polarity TEXT, xic TEXT, xic_smoothed TEXT, xicL TEXT, xicL_smoothed TEXT, xicfirstiso TEXT, xicLfirstiso TEXT, xicLfirstisoconjugate TEXT, mzs TEXT, mzsL TEXT, mzsfirstiso TEXT, mzsLfirstiso TEXT, mzsLfirstisoconjugate TEXT, times TEXT, scanCount INTEGER, allPeaks TEXT)")
+            "CREATE TABLE XICs(id INTEGER PRIMARY KEY, avgmz REAL, xcount INTEGER, loading INTEGER, polarity TEXT, xic TEXT, xic_smoothed TEXT, xic_baseline TEXT, xicL TEXT, xicL_smoothed TEXT, xicL_baseline TEXT, xicfirstiso TEXT, xicLfirstiso TEXT, xicLfirstisoconjugate TEXT, mzs TEXT, mzsL TEXT, mzsfirstiso TEXT, mzsLfirstiso TEXT, mzsLfirstisoconjugate TEXT, times TEXT, scanCount INTEGER, allPeaks TEXT)")
 
         curs.execute("DROP TABLE IF EXISTS tics")
         curs.execute(
@@ -357,7 +359,7 @@ class RunIdentification:
 
         curs.execute("DROP TABLE IF EXISTS featurefeatures")
         curs.execute(
-            "CREATE TABLE featurefeatures (fID1 INTEGER, fID2 INTEGER, corr FLOAT, desc1 TEXT, desc2 TEXT, add1 TEXT, add2 TEXT)")
+            "CREATE TABLE featurefeatures (fID1 INTEGER, fID2 INTEGER, corr FLOAT, silRatioValue FLOAT, desc1 TEXT, desc2 TEXT, add1 TEXT, add2 TEXT)")
 
         curs.execute("DROP TABLE IF EXISTS massspectrum")
         curs.execute(
@@ -429,6 +431,7 @@ class RunIdentification:
         SQLInsert(curs, "config", key="minCorrelationConnections", value=self.minCorrelationConnections)
         SQLInsert(curs, "config", key="adducts", value=base64.b64encode(dumps(self.adducts)))
         SQLInsert(curs, "config", key="elements", value=base64.b64encode(dumps(self.elements)))
+        SQLInsert(curs, "config", key="simplifyInSourceFragments", value=str(self.simplifyInSourceFragments))
 
 
         import uuid
@@ -659,6 +662,9 @@ class RunIdentification:
         p.wrapOn(pdf, 460, 60)
         p.drawOn(pdf, 80, currentHeight - h + 10);
         currentHeight -= max(35, h + 10)
+
+        pdf.drawString(70, currentHeight, "Simplify in-source fragments: "+str(self.simplifyInSourceFragments))
+        currentHeight -= 15
 
         pdf.drawString(50, currentHeight, "Software");
         pdf.line(50, currentHeight - 2, 540, currentHeight - 2);
@@ -1017,10 +1023,12 @@ class RunIdentification:
                     # extract the EIC of the native ion and detect its chromatographic peaks
                     # optionally: smoothing
                     eic, times, scanIds, mzs = mzxml.getEIC(meanmz, self.chromPeakPPM, filterLine=scanEvent)
+                    eicBaseline=self.BL.getBaseline(copy(eic), times)
                     eicSmoothed = smoothDataSeries(times, copy(eic), windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
                     # extract the EIC of the labelled ion and detect its chromatographic peaks
                     # optionally: smoothing
                     eicL, times, scanIds, mzsL = mzxml.getEIC(meanmzLabelled,self.chromPeakPPM, filterLine=scanEvent)
+                    eicLBaseline=self.BL.getBaseline(copy(eicL), times)
                     eicLSmoothed = smoothDataSeries(times, copy(eicL), windowLen=self.eicSmoothingWindowSize,window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
 
                     # determine boundaries for chromatographic peak picking
@@ -1105,7 +1113,8 @@ class RunIdentification:
                                 for artShift in range(shiftFrom, shiftTo+1):
                                     peakN=eicN[lb:rb]
                                     peakL=eicL[(lb-artShift):(rb-artShift)]
-                                    correlations.append(Bunch(correlation=corr(peakN, peakL), artificialShift=artShift))
+                                    silRatios=[peakN[i]/peakL[i] for i in range(int(len(peakN)*.25), int(len(peakN)*.75)+1) if peakL[i]>0 and peakN[i]>0]
+                                    correlations.append(Bunch(correlation=corr(peakN, peakL), artificialShift=artShift, silRatios=silRatios, peakNInts=[peakN[i] for i in range(int(len(peakN)*.25), int(len(peakN)*.75)+1) if peakL[i]>0 and peakN[i]>0], peakLInts=[peakL[i] for i in range(int(len(peakN)*.25), int(len(peakN)*.75)+1) if peakL[i]>0 and peakN[i]>0]))
                                 bestFit=max(correlations, key=lambda x: x.correlation)
 
                                 return bestFit
@@ -1116,6 +1125,7 @@ class RunIdentification:
 
                             if co.correlation >= self.minPeakCorr and ((not self.checkPeaksRatio) or self.minPeaksRatio<=(peak.NPeakArea/peak.LPeakArea)<=self.maxPeaksRatio):
                                 peak.peaksCorr = co.correlation
+                                peak.silRatios = Bunch(silRatios=co.silRatios, peakNInts=co.peakNInts, peakLInts=co.peakLInts)
                                 if co.artificialShift!=0:
                                     peak.artificialEICLShift=co.artificialShift
 
@@ -1175,13 +1185,15 @@ class RunIdentification:
                         # save the native and labelled EICs to the database
                         SQLInsert(curs, "XICs", id=self.curEICId, avgmz=meanmz, xcount=xcount,
                                   loading=kids[0].getObject().loading, polarity=ionMode,
-                                  xic                   =";".join(["%f" % (eic[i]) for i in range(0, len(eic))]),
-                                  xicL                  =";".join(["%f" % (eicL[i]) for i in range(0, len(eic))]),
-                                  xicfirstiso           =";".join(["%f" % (eicfirstiso[i]) for i in range(0, len(eic))]),
-                                  xicLfirstiso          =";".join(["%f" % (eicLfirstiso[i]) for i in range(0, len(eic))]),
-                                  xicLfirstisoconjugate =";".join(["%f" % (eicLfirstisoconjugate[i]) for i in range(0, len(eic))]),
-                                  xic_smoothed          =";".join(["%f" % (eicSmoothed[i]) for i in range(0, len(eic))]),
-                                  xicL_smoothed         =";".join(["%f" % (eicLSmoothed[i]) for i in range(0, len(eic))]),
+                                  xic                   =";".join(["%f" % i for i in eic]),
+                                  xicL                  =";".join(["%f" % i for i in eicL]),
+                                  xicfirstiso           =";".join(["%f" % i for i in eicfirstiso]),
+                                  xicLfirstiso          =";".join(["%f" % i for i in eicLfirstiso]),
+                                  xicLfirstisoconjugate =";".join(["%f" % i for i in eicLfirstisoconjugate]),
+                                  xic_smoothed          =";".join(["%f" % i for i in eicSmoothed]),
+                                  xicL_smoothed         =";".join(["%f" % i for i in eicLSmoothed]),
+                                  xic_baseline          =";".join(["%f" % i for i in eicBaseline]),
+                                  xicL_baseline         =";".join(["%f" % i for i in eicLBaseline]),
 
                                   mzs                   =";".join(["%f" % (mzs[i]) for i in range(0, len(eic))]),
                                   mzsL                  =";".join(["%f" % (mzsL[i]) for i in range(0, len(eic))]),
@@ -1847,17 +1859,18 @@ class RunIdentification:
                         removeAdductFromFeaturePair(pa, "[M+K]+",   peakA.adducts)
 
 
+            inSourceFragments={}
 
             # 3. iterate all peaks pairwise to find common in-source fragments
             for pa in group:
                 peakA = peaksInGroup[pa]
+
                 for pb in group:
                     peakB = peaksInGroup[pb]
 
                     # peakA shall always have the lower mass
                     if peakA.mz < peakB.mz and abs(peakA.mz - peakB.mz) <= 101:
                         mzDif = peakB.mz - peakA.mz
-                        mzD = [[], []]
                         done = False
 
                         # generate putative in-source fragments (using the labelled carbon atoms)
@@ -1899,14 +1912,44 @@ class RunIdentification:
                                                  useSevenGoldenRules=False)
 
                             for pF in pFs:
+                                if pa not in inSourceFragments.keys():
+                                    inSourceFragments[pa]={}
+                                if pb not in inSourceFragments[pa].keys():
+                                    inSourceFragments[pa][pb]=[]
+
+
                                 c = fT.parseFormula(pF)
                                 mw = fT.calcMolWeight(c)
                                 dif = abs(abs(peakB.mz - peakA.mz) - mw)
                                 sf = fT.flatToString(c, prettyPrintWithHTMLTags=False)
-                                mzD[0].append("-" + sf)
-                                mzD[1].append("(" + sf + ")")
-                                peakA.fDesc.append("-" + sf)
-                                peakB.fDesc.append("(" + sf + ")")
+                                inSourceFragments[pa][pb].append("%.4f-%s"%(peakB.mz, sf))
+
+            if self.simplifyInSourceFragments:
+                for pa in group:
+                    peakA = peaksInGroup[pa]
+                    peakA.fDesc = []
+
+                    for pb in group:
+                        peakB = peaksInGroup[pb]
+
+                        for pc in group:
+                            peakC = peaksInGroup[pc]
+
+                            if peakA.mz < peakC.mz < peakB.mz:
+
+                                if pa in inSourceFragments.keys() and pb in inSourceFragments[pa].keys() and \
+                                    pc in inSourceFragments[pa].keys() and \
+                                    pc in inSourceFragments.keys() and pb in inSourceFragments[pc].keys():
+                                    del inSourceFragments[pa][pc]
+
+            for pa in group:
+                peakA = peaksInGroup[pa]
+
+                if pa in inSourceFragments.keys():
+                    for pb in inSourceFragments[pa].keys():
+                        for inFrag in inSourceFragments[pa][pb]:
+                            peakA.fDesc.append(inFrag)
+
 
 
 
@@ -1971,8 +2014,26 @@ class RunIdentification:
                             correlations[peakA.id][peakB.id]=pb
                             correlations[peakB.id][peakA.id]=pb
 
-                            # check for similar chromatographic peak profile
-                            if pb >= self.minCorrelation:
+                            silRatiosA=peakA.silRatios.silRatios
+                            silRatiosB=peakB.silRatios.silRatios
+
+                            meanSilRatioA = weightedMean(silRatiosA, peakA.silRatios.peakNInts)
+                            meanSilRatioB = weightedMean(silRatiosB, peakB.silRatios.peakNInts)
+
+                            silRatiosFold=max(meanSilRatioA, meanSilRatioB)/min(meanSilRatioA, meanSilRatioB)
+                            silRatiosSD=weightedSd([abs(r-meanSilRatioA)/meanSilRatioA for r in silRatiosA if min(r, meanSilRatioA)>0]+
+                                                   [abs(r-meanSilRatioB)/meanSilRatioB for r in silRatiosB if min(r, meanSilRatioB)>0],
+                                                   peakA.silRatios.peakNInts+peakB.silRatios.peakNInts)
+
+                            if 181.<peakA.mz<181.2 or 181.<peakB.mz<181.2:
+                                silRatioTest= silRatiosFold <= 1+max(0.2, 3*silRatiosSD)
+                                print peakA.mz, peakB.mz, peakA.NPeakCenterMin/60., "     ", pb, "      ", meanSilRatioA, weightedSd(silRatiosA, peakA.silRatios.peakNInts), "    ", meanSilRatioB, weightedSd(silRatiosB, peakB.silRatios.peakNInts), "    ", silRatiosFold, silRatiosSD, "-->", silRatioTest
+                                print silRatiosA
+                                print silRatiosB
+                                print ""
+
+                            # check for similar chromatographic peak profile and similar native to labeled ratio
+                            if pb >= self.minCorrelation and silRatiosFold <= 1+max(0.2, 3*silRatiosSD):
                                 nodes[peakA.id].append(peakB.id)
                                 nodes[peakB.id].append(peakA.id)
 
@@ -1980,10 +2041,10 @@ class RunIdentification:
                                 peakA.correlationsToOthers.append(peakB.id)
 
                             try:
-                                SQLInsert(curs, "featurefeatures", fID1=peakA.id, fID2=peakB.id, corr=pb)
+                                SQLInsert(curs, "featurefeatures", fID1=peakA.id, fID2=peakB.id, corr=pb, silRatioValue=silRatiosFold)
                             except Exception as e:
                                 logging.error("Error while convoluting two feature pairs, skipping.. (%s)"%str(e))
-                                SQLInsert(curs, "featurefeatures", fID1=peakA.id, fID2=peakB.id, corr=0)
+                                SQLInsert(curs, "featurefeatures", fID1=peakA.id, fID2=peakB.id, corr=0, silRatioValue=0)
 
             self.postMessageToProgressWrapper("text", "%s: Convoluting feature groups" % tracer.name)
 
@@ -2263,7 +2324,7 @@ class RunIdentification:
 
         csvFile = open(forFile + ".tsv", "w")
         csvFile.write(
-            "\t".join(["Num","MZ","L_MZ","D_MZ_Error_ppm","FoundInScans","D_MZ_Peak_Error_mean_ppm","D_MZ_Peak_Error_sd_ppm","D_MZ_Min_ppm","D_MZ_Max_ppm","Quant20_MZ_Diff_ppm","Quant80_MZ_Diff_ppm","RT","Xn","Charge","ScanEvent","Ionisation_Mode","Tracer","Area_N","Area_L","Abundance_N","Abundance_L","Fold","PeakRatio","LeftBorder_N","RightBorder_N","LeftBorder_L","RightBorder_L","Group_ID","Corr", "ArtificialEICLShift","Adducts","Hetero_Elements","Comments"])
+            "\t".join(["Num","MZ","L_MZ","D_MZ_Error_ppm","FoundInScans","D_MZ_Peak_Error_mean_ppm","D_MZ_Peak_Error_sd_ppm","D_MZ_Min_ppm","D_MZ_Max_ppm","Quant20_MZ_Diff_ppm","Quant80_MZ_Diff_ppm","RT","Xn","Charge","ScanEvent","Ionisation_Mode","Tracer","Area_N","Area_L","Abundance_N","Abundance_L","Fold","PeakRatio","LeftBorder_N","RightBorder_N","LeftBorder_L","RightBorder_L","Group_ID","Corr", "ArtificialEICLShift","Adducts", "FDesc","Hetero_Elements","Comments"])
             )
         if len(chromPeaks)>1:
             i=1
@@ -2282,13 +2343,15 @@ class RunIdentification:
                         hetAtom, hetAtomCount, len(pIso[hetAtomCount]), 100. * mean([d[1] for d in pIso[hetAtomCount]]),
                         100. * mean([d[2] for d in pIso[hetAtomCount]])))
             if len(hetIso) == 0:
-                hetIso = "-"
+                hetIso = ""
             else:
                 hetIso = ", ".join(hetIso)
 
             addsF = ",".join(chromPeak.adducts)
             if len(addsF) == 0:
                 addsF = "-"
+
+            fDesc = ",".join(chromPeak.fDesc)
 
             scanEvent = ""
             if chromPeak.ionMode == "+":
@@ -2345,6 +2408,7 @@ class RunIdentification:
                                                       chromPeak.peaksCorr,
                                                       chromPeak.artificialEICLShift,
                                                       addsF,
+                                                      fDesc,
                                                       hetIso,
                                                       chromPeak.comments]]))
             for isoRatio in chromPeak.isotopeRatios:
@@ -3052,6 +3116,9 @@ class RunIdentification:
                 self.CP=GradientPeaks(minInt=1000,minIntFlanks=100,minIncreaseRatio=.5,minDelta=100,expTime=[5,150])    ##Lin
                 #self.CP=GradientPeaks(minInt=5, minIntFlanks=2, minIncreaseRatio=.05, expTime=[15, 150], minDelta=1, minInflectionDelta=2) ## Roitinger
                 #self.CP=GradientPeaks(minInt=10000, minIntFlanks=10, minIncreaseRatio=.05, expTime=[5, 45])       ## RNA
+
+            self.BL = Baseline.Baseline()
+
 
             self.curPeakId = 1
             self.curEICId = 1

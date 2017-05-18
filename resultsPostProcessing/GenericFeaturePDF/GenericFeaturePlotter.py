@@ -117,75 +117,76 @@ def generatePageFor(feature, mzXMLs, experimentalGroups, pdf, ppm=5.):
     AreaCols = []
     for i, expGroup in enumerate(experimentalGroups):
         for file in expGroup.files:
+            try:
+                print ("\rProcessing.. |%%-%ds| (%%d/%%d)"%(totalFiles)) % ("*"*filesDone, filesDone, totalFiles),
+                filesDone+=1
 
-            print ("\rProcessing.. |%%-%ds| (%%d/%%d)"%(totalFiles)) % ("*"*filesDone, filesDone, totalFiles),
-            filesDone+=1
+                ## Native EICs
+                eic, times, scanIds, mzs = mzXMLs[file].getEIC(mz=feature.mz, ppm=ppm, filterLine=feature.filterLine,
+                                                              removeSingles=False, intThreshold=0, useMS1=True)
+                maxEICValue=max(maxEICValue, max([eic[j] for j in range(len(eic)) if
+                               (feature.rt - feature.rtBorders) <= (times[j] / 60.) <= (feature.rt + feature.rtBorders)]))
 
-            ## Native EICs
-            eic, times, scanIds, mzs = mzXMLs[file].getEIC(mz=feature.mz, ppm=ppm, filterLine=feature.filterLine,
-                                                          removeSingles=False, intThreshold=0, useMS1=True)
-            maxEICValue=max(maxEICValue, max([eic[j] for j in range(len(eic)) if
-                           (feature.rt - feature.rtBorders) <= (times[j] / 60.) <= (feature.rt + feature.rtBorders)]))
+                ## plot overlaied EICs to drawing
+                eicsDD.append([(times[j] / 60., eic[j]) for j in range(len(eic)) if
+                               (feature.rt - feature.rtBorders) <= (times[j] / 60.) <= (feature.rt + feature.rtBorders)])
 
-            ## plot overlaied EICs to drawing
-            eicsDD.append([(times[j] / 60., eic[j]) for j in range(len(eic)) if
-                           (feature.rt - feature.rtBorders) <= (times[j] / 60.) <= (feature.rt + feature.rtBorders)])
+                ## plot separated EICs to drawing
+                eicsSeparatedDD.append([((times[j] + (i+1) * 60) / 60. - feature.rt, eic[j]) for j in range(len(eic)) if
+                                        (feature.rt - feature.rtBorders) <= (times[j] / 60.) <= (
+                                        feature.rt + feature.rtBorders)])
 
-            ## plot separated EICs to drawing
-            eicsSeparatedDD.append([((times[j] + i * 60) / 60., eic[j]) for j in range(len(eic)) if
-                                    (feature.rt - feature.rtBorders) <= (times[j] / 60.) <= (
-                                    feature.rt + feature.rtBorders)])
-
-            eicsCols.append(expGroup.color)
-
-
-
-            ## Labeled EICs
-            eic, times, scanIds, mzsL = mzXMLs[file].getEIC(mz=feature.lmz, ppm=ppm, filterLine=feature.filterLine,
-                                                          removeSingles=False, intThreshold=0, useMS1=True)
-            maxEICValue=max(maxEICValue, max([eic[j] for j in range(len(eic)) if
-                           (feature.rt - feature.rtBorders) <= (times[j] / 60.) <= (feature.rt + feature.rtBorders)]))
-
-            ## plot overlaied EICs to drawing
-            eicsLDD.append([(times[j] / 60., eic[j]) for j in range(len(eic)) if
-                           (feature.rt - feature.rtBorders) <= (times[j] / 60.) <= (feature.rt + feature.rtBorders)])
-
-            ## plot separated EICs to drawing
-            eicsLSeparatedDD.append([((times[j] + i * 60) / 60., eic[j]) for j in range(len(eic)) if
-                                    (feature.rt - feature.rtBorders) <= (times[j] / 60.) <= (
-                                    feature.rt + feature.rtBorders)])
-
-            eicsLCols.append(expGroup.color)
+                eicsCols.append(expGroup.color)
 
 
 
-            ## find best scan in EIC peak
-            bestScanIndex=max([(j, ab) for j, ab in enumerate(eic) if
-                                       (feature.rt - feature.rtBorders/3) <= (times[j] / 60.) <= (feature.rt + feature.rtBorders/3)],
-                              key=lambda x: x[1])[0]
+                ## Labeled EICs
+                eic, times, scanIds, mzsL = mzXMLs[file].getEIC(mz=feature.lmz, ppm=ppm, filterLine=feature.filterLine,
+                                                              removeSingles=False, intThreshold=0, useMS1=True)
+                maxEICValue=max(maxEICValue, max([eic[j] for j in range(len(eic)) if
+                               (feature.rt - feature.rtBorders) <= (times[j] / 60.) <= (feature.rt + feature.rtBorders)]))
 
-            scan=mzXMLs[file].getIthMS1Scan(index=bestScanIndex, filterLine=feature.filterLine)
-            uInds=[j for j, mz in enumerate(scan.mz_list) if
-                     feature.mz-3 <= mz <= feature.lmz+3]
-            f=[]
-            for uInd in uInds:
-                mz=scan.mz_list[uInd]
-                ab=scan.intensity_list[uInd]
+                ## plot overlaied EICs to drawing
+                eicsLDD.append([(times[j] / 60., eic[j]) for j in range(len(eic)) if
+                               (feature.rt - feature.rtBorders) <= (times[j] / 60.) <= (feature.rt + feature.rtBorders)])
 
-                if abs(mz-feature.mz)*1E6/feature.mz <= 5. or \
-                   abs(mz-feature.lmz)*1E6/feature.lmz <= 5.:
-                    scanDD.append([(mz, 0), (mz, ab)])
-                    scanCols.append(matplotlib.colors.cnames[expGroup.color.lower()])
-                    scanWidths.append(1.)
-                elif abs(mz-feature.mz-1.00335484)*1E6/feature.mz <= 5. or \
-                     abs(mz+1.00335484-feature.lmz)*1E6/feature.lmz <= 5.:
-                    scanDD.append([(mz, 0), (mz, ab)])
-                    scanCols.append(matplotlib.colors.cnames[expGroup.color.lower()])
-                    scanWidths.append(.5)
-                else:
-                    scanBackgroundDD.append([(mz, 0), (mz, ab)])
-                    scanBackgroundCols.append("#396FAC")
-                    scanBackgroundWidths.append(.1)
+                ## plot separated EICs to drawing
+                eicsLSeparatedDD.append([((times[j] + (i+1) * 60) / 60. - feature.rt, eic[j]) for j in range(len(eic)) if
+                                        (feature.rt - feature.rtBorders) <= (times[j] / 60.) <= (
+                                        feature.rt + feature.rtBorders)])
+
+                eicsLCols.append(expGroup.color)
+
+
+                ## find best scan in EIC peak
+                bestScanIndex=max([(j, ab) for j, ab in enumerate(eic) if
+                                           (feature.rt - feature.rtBorders/3) <= (times[j] / 60.) <= (feature.rt + feature.rtBorders/3)],
+                                  key=lambda x: x[1])[0]
+
+                scan=mzXMLs[file].getIthMS1Scan(index=bestScanIndex, filterLine=feature.filterLine)
+                uInds=[j for j, mz in enumerate(scan.mz_list) if
+                         feature.mz-3 <= mz <= feature.lmz+3]
+                f=[]
+                for uInd in uInds:
+                    mz=scan.mz_list[uInd]
+                    ab=scan.intensity_list[uInd]
+
+                    if abs(mz-feature.mz)*1E6/feature.mz <= 5. or \
+                       abs(mz-feature.lmz)*1E6/feature.lmz <= 5.:
+                        scanDD.append([(mz, 0), (mz, ab)])
+                        scanCols.append(matplotlib.colors.cnames[expGroup.color.lower()])
+                        scanWidths.append(1.)
+                    elif abs(mz-feature.mz-1.00335484)*1E6/feature.mz <= 5. or \
+                         abs(mz+1.00335484-feature.lmz)*1E6/feature.lmz <= 5.:
+                        scanDD.append([(mz, 0), (mz, ab)])
+                        scanCols.append(matplotlib.colors.cnames[expGroup.color.lower()])
+                        scanWidths.append(.5)
+                    else:
+                        scanBackgroundDD.append([(mz, 0), (mz, ab)])
+                        scanBackgroundCols.append("#396FAC")
+                        scanBackgroundWidths.append(.1)
+            except Exception:
+                print "-- skipping for", file
 
 
             # ## get chromatogram area
@@ -336,10 +337,10 @@ def generatePageFor(feature, mzXMLs, experimentalGroups, pdf, ppm=5.):
 
 
 
-    data=[["", "Groupname / order"]]
+    data=[["", "Group number", "Groupname / order"]]
     style=[('FONTSIZE', (0, 0), (-1, -1), 8)]
     for i, expGroup in enumerate(experimentalGroups):
-        data.append(["", expGroup.name])
+        data.append(["", str(i+1), expGroup.name])
         style.append(('BACKGROUND', (0, len(data)-1), (0, len(data)-1), expGroup.color))
 
     table = Table(data, style=style)
@@ -374,8 +375,11 @@ def generatePDF(experimentalGroups, metabolitesToPlot, saveTo, mzXMLs=None):
     ## geneate PDF page for each feature
     print "\nGenerating PDF pages for features"
 
+    pdf=None
     for metabolite in metabolitesToPlot:
-        if not done%20:
+        if not done%200:
+            if pdf is not None:
+                pdf.save()
             pdf = canvas.Canvas(saveTo.replace(".pdf", "_%d.pdf"%(done//50)), pagesize=pagesizes.landscape(pagesizes.A3))
             # pdf = canvas.Canvas(saveTo, pagesize=pagesizes.A4)
         done+=1
@@ -440,228 +444,399 @@ def generatePDF(experimentalGroups, metabolitesToPlot, saveTo, mzXMLs=None):
 
 
 if __name__=="__main__" and True:
-    currentWorkspace="E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData"
-    experimentalGroups=[]
-    # experimentalGroups.append(Bunch(name="Exp2 negMode CellsHeavy dmalQ",
-    #                                 files=["E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment2/heavy acetate data_2ndProcessing_correctlyConverted/QE1_TG_Cell1AH1.mzXML",
-    #                                        "E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment2/heavy acetate data_2ndProcessing_correctlyConverted/QE1_TG_Cell1BH1.mzXML",
-    #                                        ],
-    #                                 color="#B22222"))
-    # experimentalGroups.append(Bunch(name="Exp2 negMode CellsHeavy dmalQDmaa",
-    #                                 files=["E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment2/heavy acetate data_2ndProcessing_correctlyConverted/QE1_TG_Cell2BH.mzXML",
-    #                                        "E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment2/heavy acetate data_2ndProcessing_correctlyConverted/QE1_TG_Cell2BH_150917210015.mzXML",
-    #                                        ],
-    #                                 color="#B22222"))
-    # experimentalGroups.append(Bunch(name="Exp2 negMode CellsNative dmalQ",
-    #                                 files=["E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment2/heavy acetate data_2ndProcessing_correctlyConverted/QE1_TG_Cell1A1.mzXML",
-    #                                        "E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment2/heavy acetate data_2ndProcessing_correctlyConverted/QE1_TG_Cell1B1.mzXML",
-    #                                        ],
-    #                                 color="#2F4F4F"))
-    # experimentalGroups.append(Bunch(name="Exp2 negMode CellsNative dmalQDmaa",
-    #                                 files=["E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment2/heavy acetate data_2ndProcessing_correctlyConverted/QE1_TG_Cell1A2.mzXML",
-    #                                        "E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment2/heavy acetate data_2ndProcessing_correctlyConverted/QE1_TG_Cell2A.mzXML",
-    #                                        "E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment2/heavy acetate data_2ndProcessing_correctlyConverted/QE1_TG_Cell2B.mzXML"
-    #                                        ],
-    #                                 color="#2F4F4F"))
-    # experimentalGroups.append(Bunch(name="Exp2 negMode SupHeavy dmalQ",
-    #                                 files=["E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment2/heavy acetate data_2ndProcessing_correctlyConverted/QE1_TG_Sup1AHM.mzXML",
-    #                                        "E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment2/heavy acetate data_2ndProcessing_correctlyConverted/QE1_TG_Sup1BHM.mzXML",
-    #                                        ],
-    #                                 color="#B22222"))
-    # experimentalGroups.append(Bunch(name="Exp2 negMode SupHeavy dmalQDmaa",
-    #                                 files=["E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment2/heavy acetate data_2ndProcessing_correctlyConverted/QE1_TG_Sup2AHM.mzXML",
-    #                                        "E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment2/heavy acetate data_2ndProcessing_correctlyConverted/QE1_TG_Sup2BHM.mzXML",
-    #                                        "E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment2/heavy acetate data_2ndProcessing_correctlyConverted/QE1_TG_Sup2BM.mzXML"
-    #                                        ],
-    #                                 color="#B22222"))
-    # experimentalGroups.append(Bunch(name="Exp2 negMode SupNative dmalQ",
-    #                                 files=["E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment2/heavy acetate data_2ndProcessing_correctlyConverted/QE1_TG_Sup1AM.mzXML",
-    #                                        "E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment2/heavy acetate data_2ndProcessing_correctlyConverted/QE1_TG_Sup1BM.mzXML",
-    #                                        ],
-    #                                 color="#2F4F4F"))
-    # experimentalGroups.append(Bunch(name="Exp2 negMode SupNative dmalQDmaa",
-    #                                 files=["E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment2/heavy acetate data_2ndProcessing_correctlyConverted/QE1_TG_Sup2AM.mzXML",
-    #                                        ],
-    #                                 color="#2F4F4F"))
+
+
+    ########################################################################################################################
+    ######   Negative mode
+    ########################################################################################################################
+    if True:
+        experimentalGroups=[]
+        path="E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs"
+        experimentalGroups.append(Bunch(name="NHC dmalQ",
+                                        files=[path+"/NHC_dmalQ/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_26_1AH_Cells_n.mzXML",
+                                               path+"/NHC_dmalQ/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_28_1BH_Cells_n.mzXML"
+                                              ],
+                                        color="Firebrick"))
+
+        experimentalGroups.append(Bunch(name="NHC dmalQDmaa",
+                                        files=[path+"/NHC_dmalQDmaa/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_30_2AH_Cells_n.mzXML",
+                                               path+"/NHC_dmalQDmaa/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_32_2BH_Cells_n.mzXML"
+                                              ],
+                                        color="Firebrick"))
+
+        experimentalGroups.append(Bunch(name="NHC dmnaT",
+                                        files=[path+"/NHC_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_10_B1H_Cells_n.mzXML",
+                                               path+"/NHC_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_11_B2H_Cells_n.mzXML",
+                                               path+"/NHC_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_12_B3H_Cells_n.mzXML"
+                                               ],
+                                        color="Firebrick"))
+
+        experimentalGroups.append(Bunch(name="NHC wildtype",
+                                        files=[path+"/NHC_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_7_A1H_Cells_n.mzXML",
+                                               path+"/NHC_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_8_A2H_Cells_n.mzXML",
+                                               path+"/NHC_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_9_A3H_Cells_n.mzXML"
+                                              ],
+                                        color="Firebrick"))
+
+        experimentalGroups.append(Bunch(name="NNC dmalQ",
+                                        files=[path+"/NNC_dmalQ/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_25_1A_Cells_n.mzXML",
+                                               path+"/NNC_dmalQ/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_27_1B_Cells_n.mzXML"
+                                              ],
+                                        color="Slategrey"))
+
+        experimentalGroups.append(Bunch(name="NNC dmalQDmaa",
+                                        files=[path+"/NNC_dmalQDmaa/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_29_2A_Cells_n.mzXML",
+                                               path+"/NNC_dmalQDmaa/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_31_2B_Cells_n.mzXML"
+                                              ],
+                                        color="Slategrey"))
+
+        experimentalGroups.append(Bunch(name="NNC dmnaT",
+                                        files=[path+"/NNC_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_4_B1_Cells_n.mzXML",
+                                               path+"/NNC_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_5_B2_Cells_n.mzXML",
+                                               path+"/NNC_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_6_B3_Cells_n.mzXML"
+                                              ],
+                                        color="Slategrey"))
+
+        experimentalGroups.append(Bunch(name="NNC wildtype",
+                                        files=[path+"/NNC_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_1_A1_Cells_n.mzXML",
+                                               path+"/NNC_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_2_A2_Cells_n.mzXML",
+                                               path+"/NNC_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_3_A3_Cells_n.mzXML"
+                                              ],
+                                        color="Slategrey"))
+
+        experimentalGroups.append(Bunch(name="NHM dmalQ",
+                                        files=[path+"/NHM_dmalQ/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_34_1AH_Media_n.mzXML",
+                                               path+"/NHM_dmalQ/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_36_1BH_Media_n.mzXML"
+                                              ],
+                                        color="Olivedrab"))
+
+        experimentalGroups.append(Bunch(name="NHM dmalQDmaa",
+                                        files=[path+"/NHM_dmalQDmaa/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_38_2AH_Media_n.mzXML",
+                                               path+"/NHM_dmalQDmaa/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_40_2BH_Media_n.mzXML"
+                                              ],
+                                        color="Olivedrab"))
+
+        experimentalGroups.append(Bunch(name="NHM dmnaT",
+                                        files=[path+"/NHM_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_22_B1H_Media_n.mzXML",
+                                               path+"/NHM_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_23_B2H_Media_n.mzXML",
+                                               path+"/NHM_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_24_B3H_Media_n.mzXML"
+                                              ],
+                                        color="Olivedrab"))
+
+        experimentalGroups.append(Bunch(name="NHM wildtype",
+                                        files=[path+"/NHM_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_19_A1H_Media_n.mzXML",
+                                               path+"/NHM_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_20_A2H_Media_n.mzXML",
+                                               path+"/NHM_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_21_A3H_Media_n.mzXML"
+                                              ],
+                                        color="Olivedrab"))
+
+        experimentalGroups.append(Bunch(name="NNM dmalQ",
+                                        files=[path+"/NNM_dmalQ/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_33_1A_Media_n.mzXML",
+                                               path+"/NNM_dmalQ/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_35_1B_Media_n.mzXML"
+                                              ],
+                                        color="Slategrey"))
+
+        experimentalGroups.append(Bunch(name="NNM dmalQDmaa",
+                                        files=[path+"/NNM_dmalQDmaa/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_37_2A_Media_n.mzXML",
+                                               path+"/NNM_dmalQDmaa/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_39_2B_Media_n.mzXML"
+                                              ],
+                                        color="Slategrey"))
+
+        experimentalGroups.append(Bunch(name="NNM dmnaT",
+                                        files=[path+"/NNM_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_16_B1_Media_n.mzXML",
+                                               path+"/NNM_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_17_B2_Media_n.mzXML",
+                                               path+"/NNM_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_18_B3_Media_n.mzXML"
+                                              ],
+                                        color="Slategrey"))
+
+        experimentalGroups.append(Bunch(name="NNM wildtype",
+                                        files=[path+"/NNM_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_13_A1_Media_n.mzXML",
+                                               path+"/NNM_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_14_A2_Media_n.mzXML",
+                                               path+"/NNM_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_15_A3_Media_n.mzXML"
+                                              ],
+                                        color="Slategrey"))
+
+        # experimentalGroups.append(Bunch(name="N_blanks",
+        #                                 files=[path+"/N_blanks_stds/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_1_Blank_n.mzXML",
+        #                                        path + "/N_blanks_stds/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_2_Blank_n.mzXML",
+        #                                        path + "/N_blanks_stds/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_3_Blank_n.mzXML",
+        #                                        path + "/N_blanks_stds/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_4_Blank_n.mzXML",
+        #                                        path + "/N_blanks_stds/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_5_Blank_n.mzXML",
+        #                                        path + "/N_blanks_stds/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_5_Blank_n_170222024019.mzXML",
+        #                                        path + "/N_blanks_stds/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_5_Blank_n_170222055313.mzXML",
+        #                                       ],
+        #                                 color="Black"))
+        #
+        # experimentalGroups.append(Bunch(name="O_acetylserine",
+        #                                 files=[path+"/N_blanks_stds/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_1_O_acetylserine_n.mzXML",
+        #                                        path+"/N_blanks_stds/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_1_O_acetylserine_n_repeat.mzXML"
+        #                                       ],
+        #                                 color="Orange"))
+        # experimentalGroups.append(Bunch(name="N_acetylaspartate",
+        #                                 files=[path+"/N_blanks_stds/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_2_N_acetylaspartate_n.mzXML"
+        #                                       ],
+        #                                 color="Orange"))
+        # experimentalGroups.append(Bunch(name="N_acetylglutamate",
+        #                                 files=[path+"/N_blanks_stds/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_3_N_acetylglutamate_n.mzXML"
+        #                                       ],
+        #                                 color="Orange"))
+        # experimentalGroups.append(Bunch(name="acetylglycine",
+        #                                 files=[path+"/N_blanks_stds/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_4_N_acetylglycine_n.mzXML"
+        #                                       ],
+        #                                 color="Orange"))
+        # experimentalGroups.append(Bunch(name="N_acetylgalactosamine",
+        #                                 files=[path+"/N_blanks_stds/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_5_N_acetylgalactosamine_n.mzXML"
+        #                                       ],
+        #                                 color="Orange"))
+        # experimentalGroups.append(Bunch(name="N_acetylglucosamine",
+        #                                 files=[path+"/N_blanks_stds/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_6_N_acetylglucosamine_n.mzXML"
+        #                                       ],
+        #                                 color="Orange"))
+        # experimentalGroups.append(Bunch(name="N_acetylmannosamine",
+        #                                 files=[path+"/N_blanks_stds/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_7_N_acetylmannosamine_n.mzXML"
+        #                                       ],
+        #                                 color="Orange"))
+        # experimentalGroups.append(Bunch(name="N_acetylserine",
+        #                                 files=[path+"/N_blanks_stds/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_8_N_acetylserine_n.mzXML"
+        #                                       ],
+        #                                 color="Orange"))
+        # experimentalGroups.append(Bunch(name="acetylurea",
+        #                                 files=[path+"/N_blanks_stds/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_9_acetylurea_n.mzXML"
+        #                                       ],
+        #                                 color="Orange"))
+
+
+
+        fps=TableUtils.readFile("E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/results.txt", sep="\t")
+
+
+        ogroups=set()
+        for row in fps.getData(cols=["OGroup"], getResultsAsBunchObjects=True):
+            ogroups.add(row.OGroup)
+
+        metabolitesToPlot=[]
+
+        for ogroup in ogroups:
+            features=[]
+            for row in fps.getData(cols=["Num", "MZ", "L_MZ", "RT", "ScanEvent", "Type", "Comment", "Ionisation_Mode"], where="OGroup=%d"%ogroup, getResultsAsBunchObjects=True):
+                if row.Ionisation_Mode=="-":
+                    features.append(Bunch(num=row.Num,
+                                          ogroup=ogroup,
+                                          mz=row.MZ,
+                                          lmz=row.L_MZ,
+                                          rt=row.RT,
+                                          rtBorders=.33,
+                                          filterLine=row.ScanEvent,
+                                          comment=row.Type+"; "+row.Comment))
+            if len(features)>0:
+                metabolitesToPlot.append(Bunch(name=ogroup, ogroup=ogroup, features=features))
+
+        generatePDF(experimentalGroups, metabolitesToPlot, saveTo="E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/featurePairs_negMode.pdf")
 
 
 
 
-    experimentalGroups.append(Bunch(name="Exp3 negMode CellsHeavy dmalQ",
-                                    files=["E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NHC_dmalQ/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_26_1AH_Cells_n.mzXML",
-                                           "E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NHC_dmalQ/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_28_1BH_Cells_n.mzXML"
-                                          ],
-                                    color="#B22222"))
-
-    experimentalGroups.append(Bunch(name="Exp3 negMode CellsHeavy dmalQDmaa",
-                                    files=["E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NHC_dmalQDmaa/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_30_2AH_Cells_n.mzXML",
-                                           "E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NHC_dmalQDmaa/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_32_2BH_Cells_n.mzXML"
-                                          ],
-                                    color="#B22222"))
-
-    experimentalGroups.append(Bunch(name="Exp3 negMode CellsHeavy dmnaT",
-                                    files=["E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NHC_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_10_B1H_Cells_n.mzXML",
-                                           "E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NHC_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_11_B2H_Cells_n.mzXML",
-                                           "E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NHC_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_12_B3H_Cells_n.mzXML"
-                                           ],
-                                    color="#B22222"))
-
-    experimentalGroups.append(Bunch(name="Exp3 negMode CellsHeavy wildtype",
-                                    files=["E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NHC_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_7_A1H_Cells_n.mzXML",
-                                           "E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NHC_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_8_A2H_Cells_n.mzXML",
-                                           "E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NHC_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_9_A3H_Cells_n.mzXML"
-                                          ],
-                                    color="#B22222"))
-
-    experimentalGroups.append(Bunch(name="Exp3 negMode CellsNative dmalQ",
-                                    files=["E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NNC_dmalQ/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_25_1A_Cells_n.mzXML",
-                                           "E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NNC_dmalQ/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_27_1B_Cells_n.mzXML"
-                                          ],
-                                    color="#2F4F4F"))
-
-    experimentalGroups.append(Bunch(name="Exp3 negMode CellsNative dmalQDmaa",
-                                    files=["E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NNC_dmalQDmaa/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_29_2A_Cells_n.mzXML",
-                                           "E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NNC_dmalQDmaa/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_31_2B_Cells_n.mzXML"
-                                          ],
-                                    color="#2F4F4F"))
-
-    experimentalGroups.append(Bunch(name="Exp3 negMode CellsNative dmnaT",
-                                    files=["E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NNC_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_4_B1_Cells_n.mzXML",
-                                           "E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NNC_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_5_B2_Cells_n.mzXML",
-                                           "E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NNC_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_6_B3_Cells_n.mzXML"
-                                          ],
-                                    color="#2F4F4F"))
-
-    experimentalGroups.append(Bunch(name="Exp3 negMode CellsNative wildtype",
-                                    files=["E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NNC_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_1_A1_Cells_n.mzXML",
-                                           "E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NNC_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_2_A2_Cells_n.mzXML",
-                                           "E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NNC_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_3_A3_Cells_n.mzXML"
-                                          ],
-                                    color="#2F4F4F"))
-
-    experimentalGroups.append(Bunch(name="Exp3 negMode MediumHeavy dmalQ",
-                                    files=["E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NHM_dmalQ/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_34_1AH_Media_n.mzXML",
-                                           "E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NHM_dmalQ/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_36_1BH_Media_n.mzXML"
-                                          ],
-                                    color="#9ACD32"))
-
-    experimentalGroups.append(Bunch(name="Exp3 negMode MediumHeavy dmalQDmaa",
-                                    files=["E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NHM_dmalQDmaa/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_38_2AH_Media_n.mzXML",
-                                           "E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NHM_dmalQDmaa/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_40_2BH_Media_n.mzXML"
-                                          ],
-                                    color="#9ACD32"))
-
-    experimentalGroups.append(Bunch(name="Exp3 negMode MediumHeavy dmnaT",
-                                    files=["E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NHM_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_22_B1H_Media_n.mzXML",
-                                           "E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NHM_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_23_B2H_Media_n.mzXML",
-                                           "E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NHM_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_24_B3H_Media_n.mzXML"
-                                          ],
-                                    color="#9ACD32"))
-
-    experimentalGroups.append(Bunch(name="Exp3 negMode MediumHeavy wildtype",
-                                    files=["E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NHM_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_19_A1H_Media_n.mzXML",
-                                           "E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NHM_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_20_A2H_Media_n.mzXML",
-                                           "E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NHM_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_21_A3H_Media_n.mzXML"
-                                          ],
-                                    color="#9ACD32"))
-
-    experimentalGroups.append(Bunch(name="Exp3 negMode MediumNative dmalQ",
-                                    files=["E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NNM_dmalQ/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_33_1A_Media_n.mzXML",
-                                           "E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NNM_dmalQ/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_35_1B_Media_n.mzXML"
-                                          ],
-                                    color="#2F4F4F"))
-
-    experimentalGroups.append(Bunch(name="Exp3 negMode MediumNative dmalQDmaa",
-                                    files=["E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NNM_dmalQDmaa/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_37_2A_Media_n.mzXML",
-                                           "E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NNM_dmalQDmaa/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_39_2B_Media_n.mzXML"
-                                          ],
-                                    color="#2F4F4F"))
-
-    experimentalGroups.append(Bunch(name="Exp3 negMode MediumNative dmnaT",
-                                    files=["E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NNM_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_16_B1_Media_n.mzXML",
-                                           "E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NNM_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_17_B2_Media_n.mzXML",
-                                           "E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NNM_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_18_B3_Media_n.mzXML"
-                                          ],
-                                    color="#2F4F4F"))
-
-    experimentalGroups.append(Bunch(name="Exp3 negMode MediumNative wildtype",
-                                    files=["E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NNM_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_13_A1_Media_n.mzXML",
-                                           "E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NNM_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_14_A2_Media_n.mzXML",
-                                           "E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs/NNM_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_15_A3_Media_n.mzXML"
-                                          ],
-                                    color="#2F4F4F"))
 
 
-    metabolitesToPlot=[]
 
-    features=[]
-    features.append(Bunch(num="a", ogroup="1",
-                            mz=419.09528,
-                            lmz=419.09528 +2*1.00335484+3*1.00628,
-                            rt=3.83,
-                            rtBorders=.33,
-                            filterLine="Q Exactive (MS lvl: 1, pol: -)",
-                            comment="Annotated as [Acetylmaltose+Cl]-"))
-    features.append(Bunch(num="a_37Cl", ogroup="1",
-                            mz=421.09321,
-                            lmz=421.09321 +2*1.00335484+3*1.00628,
-                            rt=3.83,
-                            rtBorders=.33,
-                            filterLine="Q Exactive (MS lvl: 1, pol: -)",
-                            comment="Annotated as [Acetylmaltose+37Cl]-"))
-    features.append(Bunch(num="b", ogroup="1",
-                            mz=429.124744925,
-                            lmz=429.124744925 +2*1.00335484+3*1.00628,
-                            rt=3.83,
-                            rtBorders=.33,
-                            filterLine="Q Exactive (MS lvl: 1, pol: -)",
-                            comment="Annotated as [Acetylmaltose+FA-H]-"))
-    metabolitesToPlot.append(Bunch(name="unknown1", ogroup="1",
-                                   features=features))
 
-    features=[]
-    features.append(Bunch(num="a", ogroup="2",
-                            mz=256.059379,
-                            lmz=256.059379 +2*1.00335484+3*1.00628,
-                            rt=4.78,
-                            rtBorders=.25,
-                            filterLine="Q Exactive (MS lvl: 1, pol: -)",
-                            comment=""))
-    features.append(Bunch(num="b", ogroup="2",
-                            mz=258.0556897,
-                            lmz=258.0556897 +2*1.00335484+3*1.00628,
-                            rt=4.78,
-                            rtBorders=.25,
-                            filterLine="Q Exactive (MS lvl: 1, pol: -)",
-                            comment=""))
-    metabolitesToPlot.append(Bunch(name="unknown2", ogroup="2",
-                                   features=features))
 
-    features=[]
-    features.append(Bunch(num="a", ogroup="3",
-                            mz=274.093205981,
-                            lmz=274.093205981 +2*1.00335484+3*1.00628,
-                            rt=6.73,
-                            rtBorders=.33,
-                            filterLine="Q Exactive (MS lvl: 1, pol: -)",
-                            comment=""))
-    features.append(Bunch(num="b", ogroup="3",
-                            mz=310.069820134,
-                            lmz=310.069820134 +2*1.00335484+3*1.00628,
-                            rt=6.73,
-                            rtBorders=.33,
-                            filterLine="Q Exactive (MS lvl: 1, pol: -)",
-                            comment=""))
-    features.append(Bunch(num="c", ogroup="3",
-                            mz=312.066038469,
-                            lmz=312.066038469 +2*1.00335484+3*1.00628,
-                            rt=6.73,
-                            rtBorders=.33,
-                            filterLine="Q Exactive (MS lvl: 1, pol: -)",
-                            comment=""))
-    metabolitesToPlot.append(Bunch(name="unknown3", ogroup="3",
-                                   features=features))
 
-    generatePDF(experimentalGroups, metabolitesToPlot, saveTo=currentWorkspace + "/featurePlot.pdf")
+    ########################################################################################################################
+    ######   Positive mode
+    ########################################################################################################################
+    if True:
+        experimentalGroups=[]
+        path = "E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs"
+        experimentalGroups.append(Bunch(name="PHC dmalQ",
+                                        files=[
+                                            path + "/PHC_dmalQ/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_26_1AH_Cells_p.mzXML",
+                                            path + "/PHC_dmalQ/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_28_1BH_Cells_p.mzXML"
+                                            ],
+                                        color="Firebrick"))
 
+        experimentalGroups.append(Bunch(name="PHC dmalQDmaa",
+                                        files=[
+                                            path + "/PHC_dmalQDmaa/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_30_2AH_Cells_p.mzXML",
+                                            path + "/PHC_dmalQDmaa/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_32_2BH_Cells_p.mzXML"
+                                            ],
+                                        color="Firebrick"))
+
+        experimentalGroups.append(Bunch(name="PHC dmnaT",
+                                        files=[
+                                            path + "/PHC_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_10_B1H_Cells_p.mzXML",
+                                            path + "/PHC_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_11_B2H_Cells_p.mzXML",
+                                            path + "/PHC_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_12_B3H_Cells_p.mzXML"
+                                            ],
+                                        color="Firebrick"))
+
+        experimentalGroups.append(Bunch(name="PHC wildtype",
+                                        files=[
+                                            path + "/PHC_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_7_A1H_Cells_p.mzXML",
+                                            path + "/PHC_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_8_A2H_Cells_p.mzXML",
+                                            path + "/PHC_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_9_A3H_Cells_p.mzXML"
+                                            ],
+                                        color="Firebrick"))
+
+        experimentalGroups.append(Bunch(name="PNC dmalQ",
+                                        files=[path + "/PNC_dmalQ/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_25_1A_Cells_p.mzXML",
+                                               path + "/PNC_dmalQ/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_27_1B_Cells_p.mzXML"
+                                               ],
+                                        color="Slategrey"))
+
+        experimentalGroups.append(Bunch(name="PNC dmalQDmaa",
+                                        files=[
+                                            path + "/PNC_dmalQDmaa/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_29_2A_Cells_p.mzXML",
+                                            path + "/PNC_dmalQDmaa/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_31_2B_Cells_p.mzXML"
+                                            ],
+                                        color="Slategrey"))
+
+        experimentalGroups.append(Bunch(name="PNC dmnaT",
+                                        files=[path + "/PNC_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_4_B1_Cells_p.mzXML",
+                                               path + "/PNC_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_5_B2_Cells_p.mzXML",
+                                               path + "/PNC_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_6_B3_Cells_p.mzXML"
+                                               ],
+                                        color="Slategrey"))
+
+        experimentalGroups.append(Bunch(name="PNC wildtype",
+                                        files=[
+                                            path + "/PNC_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_1_A1_Cells_p.mzXML",
+                                            path + "/PNC_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_2_A2_Cells_p.mzXML",
+                                            path + "/PNC_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_3_A3_Cells_p.mzXML"
+                                            ],
+                                        color="Slategrey"))
+
+        experimentalGroups.append(Bunch(name="PHM dmalQ",
+                                        files=[
+                                            path + "/PHM_dmalQ/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_34_1AH_Media_p.mzXML",
+                                            path + "/PHM_dmalQ/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_36_1BH_Media_p.mzXML"
+                                            ],
+                                        color="Olivedrab"))
+
+        experimentalGroups.append(Bunch(name="PHM dmalQDmaa",
+                                        files=[
+                                            path + "/PHM_dmalQDmaa/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_38_2AH_Media_p.mzXML",
+                                            path + "/PHM_dmalQDmaa/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_40_2BH_Media_p.mzXML"
+                                            ],
+                                        color="Olivedrab"))
+
+        experimentalGroups.append(Bunch(name="PHM dmnaT",
+                                        files=[
+                                            path + "/PHM_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_22_B1H_Media_p.mzXML",
+                                            path + "/PHM_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_23_B2H_Media_p.mzXML",
+                                            path + "/PHM_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_24_B3H_Media_p.mzXML"
+                                            ],
+                                        color="Olivedrab"))
+
+        experimentalGroups.append(Bunch(name="PHM wildtype",
+                                        files=[
+                                            path + "/PHM_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_19_A1H_Media_p.mzXML",
+                                            path + "/PHM_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_20_A2H_Media_p.mzXML",
+                                            path + "/PHM_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_21_A3H_Media_p.mzXML"
+                                            ],
+                                        color="Olivedrab"))
+
+        experimentalGroups.append(Bunch(name="PNM dmalQ",
+                                        files=[path + "/PNM_dmalQ/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_33_1A_Media_p.mzXML",
+                                               path + "/PNM_dmalQ/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_35_1B_Media_p.mzXML"
+                                               ],
+                                        color="Slategrey"))
+
+        experimentalGroups.append(Bunch(name="PNM dmalQDmaa",
+                                        files=[
+                                            path + "/PNM_dmalQDmaa/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_37_2A_Media_p.mzXML",
+                                            path + "/PNM_dmalQDmaa/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_39_2B_Media_p.mzXML"
+                                            ],
+                                        color="Slategrey"))
+
+        experimentalGroups.append(Bunch(name="PNM dmnaT",
+                                        files=[path + "/PNM_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_16_B1_Media_p.mzXML",
+                                               path + "/PNM_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_17_B2_Media_p.mzXML",
+                                               path + "/PNM_dmnaT/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_18_B3_Media_p.mzXML"
+                                               ],
+                                        color="Slategrey"))
+
+        experimentalGroups.append(Bunch(name="PNM wildtype",
+                                        files=[
+                                            path + "/PNM_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_13_A1_Media_p.mzXML",
+                                            path + "/PNM_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_14_A2_Media_p.mzXML",
+                                            path + "/PNM_wildtype/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_15_A3_Media_p.mzXML"
+                                            ],
+                                        color="Slategrey"))
+
+        # experimentalGroups.append(Bunch(name="P_blanks",
+        #                                 files=[path+"/P_blanks_stds/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_1_Blank_p.mzXML",
+        #                                        path + "/P_blanks_stds/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_1_Blank_p_170221095225.mzXML",
+        #                                        path + "/P_blanks_stds/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_2_Blank_p.mzXML",
+        #                                        path + "/P_blanks_stds/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_3_Blank_p.mzXML",
+        #                                        path + "/P_blanks_stds/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_4_Blank_p.mzXML",
+        #                                        path + "/P_blanks_stds/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_5_Blank_p.mzXML",
+        #                                        path + "/P_blanks_stds/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_5_Blank_p_170221011813.mzXML",
+        #                                        path + "/P_blanks_stds/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_5_Blank_p_170221042956.mzXML",
+        #                                       ],
+        #                                 color="Black"))
+        #
+        # experimentalGroups.append(Bunch(name="O_acetylserine",
+        #                                 files=[path+"/P_blanks_stds/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_1_O_acetylserine_p.mzXML"
+        #                                       ],
+        #                                 color="Orange"))
+        # experimentalGroups.append(Bunch(name="N_acetylaspartate",
+        #                                 files=[path+"/P_blanks_stds/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_2_N_acetylaspartate_p.mzXML"
+        #                                       ],
+        #                                 color="Orange"))
+        # experimentalGroups.append(Bunch(name="N_acetylglutamate",
+        #                                 files=[path+"/P_blanks_stds/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_3_N_acetylglutamate_p.mzXML"
+        #                                       ],
+        #                                 color="Orange"))
+        # experimentalGroups.append(Bunch(name="acetylglycine",
+        #                                 files=[path+"/P_blanks_stds/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_4_N_acetylglycine_p.mzXML"
+        #                                       ],
+        #                                 color="Orange"))
+        # experimentalGroups.append(Bunch(name="N_acetylgalactosamine",
+        #                                 files=[path+"/P_blanks_stds/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_5_N_acetylgalactosamine_p.mzXML"
+        #                                       ],
+        #                                 color="Orange"))
+        # experimentalGroups.append(Bunch(name="N_acetylglucosamine",
+        #                                 files=[path+"/P_blanks_stds/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_6_N_acetylglucosamine_p.mzXML"
+        #                                       ],
+        #                                 color="Orange"))
+        # experimentalGroups.append(Bunch(name="N_acetylmannosamine",
+        #                                 files=[path+"/P_blanks_stds/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_7_N_acetylmannosamine_p.mzXML"
+        #                                       ],
+        #                                 color="Orange"))
+        # experimentalGroups.append(Bunch(name="N_acetylserine",
+        #                                 files=[path+"/P_blanks_stds/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_8_N_acetylserine_p.mzXML"
+        #                                       ],
+        #                                 color="Orange"))
+        # experimentalGroups.append(Bunch(name="acetylurea",
+        #                                 files=[path+"/P_blanks_stds/QE2_jdg_62_Hanson_Niehaus_Hanson_Niehaus_9_acetylurea_p.mzXML"
+        #                                       ],
+        #                                 color="Orange"))
+
+        fps = TableUtils.readFile("E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/results.txt", sep="\t")
+
+        ogroups = set()
+        for row in fps.getData(cols=["OGroup"], getResultsAsBunchObjects=True):
+            ogroups.add(row.OGroup)
+
+        metabolitesToPlot = []
+
+        for ogroup in ogroups:
+            features = []
+            for row in fps.getData(cols=["Num", "MZ", "L_MZ", "RT", "ScanEvent", "Type", "Comment", "Ionisation_Mode"],
+                                   where="OGroup=%d" % ogroup, getResultsAsBunchObjects=True):
+                if row.Ionisation_Mode == "+":
+                    features.append(Bunch(num=row.Num,
+                                          ogroup=ogroup,
+                                          mz=row.MZ,
+                                          lmz=row.L_MZ,
+                                          rt=row.RT,
+                                          rtBorders=.33,
+                                          filterLine=row.ScanEvent,
+                                          comment=row.Type + "; " + row.Comment))
+            if len(features) > 0:
+                metabolitesToPlot.append(Bunch(name=ogroup, ogroup=ogroup, features=features))
+
+        generatePDF(experimentalGroups, metabolitesToPlot,
+                    saveTo="E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/featurePairs_posMode.pdf")
 
