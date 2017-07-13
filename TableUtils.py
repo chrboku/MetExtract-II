@@ -74,14 +74,17 @@ class Table:
             c = "integer"
             for row in rows:
                 if len(row) > i and len(row[i]) > 0:
-                    try:
-                        row[i] = int(row[i])
-                    except:
-                        c = "real"
-                    try:
-                        row[i] = float(row[i])
-                    except:
-                        c = "text"
+                    if c=="integer":
+                        try:
+                            row[i] = int(row[i])
+                        except:
+                            c = "real"
+
+                    if c=="real":
+                        try:
+                            row[i] = float(row[i])
+                        except:
+                            c = "text"
             if str.isdigit(h[0]):
                 h = "_" + h
             h = h.replace("-", "__")

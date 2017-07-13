@@ -29,7 +29,7 @@ from MetExtractII_Main import MetExtractVersion
 import matplotlib
 
 import sys
-sys.path.append("C:/Users/cbueschl/Documents/Dropbox/IFA Tulln/Archive/PyMetExtract/PyMetExtract")
+sys.path.append("../PyMassBankSearchTool")
 from TableUtils import TableUtils
 
 
@@ -215,7 +215,7 @@ setup(console=[{"script": "MetExtractII_Main.py"}],
                  "includes": ["sip", "matplotlib.backends.backend_tkagg", 'scipy', 'scipy.integrate', 'scipy.special.*','scipy.linalg.*', 'scipy.sparse.csgraph._validation'],  # use this line if above does not work
                  "dll_excludes": ["MSVCP90.dll"],
                  "excludes": ["_gtkagg", "_tkagg"],
-                 "packages": ["FileDialog", "openpyxl", 'reportlab','reportlab.graphics.charts','reportlab.graphics.samples','reportlab.graphics.widgets','reportlab.graphics.barcode','reportlab.graphics','reportlab.lib','reportlab.pdfbase','reportlab.pdfgen','reportlab.platypus']
+                 "packages": ["FileDialog", "openpyxl", 'reportlab','reportlab.graphics.charts','reportlab.graphics.samples','reportlab.graphics.widgets','reportlab.graphics.barcode','reportlab.graphics','reportlab.lib','reportlab.pdfbase','reportlab.pdfgen','reportlab.platypus', 'zeep', 'lxml']
       }})
 shutil.copytree("./dist", "./dist_MetExtract_Main")
 #rmtree("./build/")
@@ -228,7 +228,7 @@ setup(console=[{"script": "FragExtract.py"}],
                  "includes": ["sip", "matplotlib.backends.backend_tkagg", 'scipy', 'scipy.integrate', 'scipy.special.*','scipy.linalg.*', 'scipy.sparse.csgraph._validation'],
                  "dll_excludes": ["MSVCP90.dll"],
                  "excludes": ["_gtkagg", "_tkagg"],
-                 "packages": ["FileDialog", "openpyxl", 'reportlab','reportlab.graphics.charts','reportlab.graphics.samples','reportlab.graphics.widgets','reportlab.graphics.barcode','reportlab.graphics','reportlab.lib','reportlab.pdfbase','reportlab.pdfgen','reportlab.platypus']
+                 "packages": ["FileDialog", "openpyxl", 'reportlab','reportlab.graphics.charts','reportlab.graphics.samples','reportlab.graphics.widgets','reportlab.graphics.barcode','reportlab.graphics','reportlab.lib','reportlab.pdfbase','reportlab.pdfgen','reportlab.platypus', 'zeep', 'lxml']
       }},
       data_files=data_files,
       requires=['matplotlib'])
@@ -243,7 +243,7 @@ setup(console=[{"script": "MExtract.py"}],
                  "includes": ["sip", "matplotlib.backends.backend_tkagg", 'scipy', 'scipy.integrate', 'scipy.special.*','scipy.linalg.*', 'scipy.sparse.csgraph._validation'],
                  "dll_excludes": ["MSVCP90.dll"],
                  "excludes": ["_gtkagg", "_tkagg"],
-                 "packages": ["FileDialog", "openpyxl", 'reportlab','reportlab.graphics.charts','reportlab.graphics.samples','reportlab.graphics.widgets','reportlab.graphics.barcode','reportlab.graphics','reportlab.lib','reportlab.pdfbase','reportlab.pdfgen','reportlab.platypus']
+                 "packages": ["FileDialog", "openpyxl", 'reportlab','reportlab.graphics.charts','reportlab.graphics.samples','reportlab.graphics.widgets','reportlab.graphics.barcode','reportlab.graphics','reportlab.lib','reportlab.pdfbase','reportlab.pdfgen','reportlab.platypus', 'zeep', 'lxml']
       }},
       data_files=data_files,
       requires=['matplotlib'])

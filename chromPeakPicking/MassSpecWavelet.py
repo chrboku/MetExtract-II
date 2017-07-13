@@ -125,41 +125,16 @@ if __name__ == '__main__':
 
     chromatogram = Chromatogram.Chromatogram()
 
-    if False:
-        chromatogram.parse_file("F:/Thermo_OribtrapTest/OrbitrapHF_Swiss/Vial1_pos_60k_06.mzXML")
-        mz = 359.131328
-        ppm = 5.
-        cn = 14
-        z = 1
-        scales = [11, 31]
-        dmz = 1.00335
-
-    if False:
-        chromatogram.parse_file("E:/150425_pos_197_Fg_13C_15N_Labeling/Fg_14N15N_WH1.mzXML")
-        mz = 532.33537
-        ppm = 5.
-        cn = 4
-        z = 1
-        scales = [3,19]
-        dmz = 0.99703
-
-    if False:
-        chromatogram.parse_file("F:/HrKoch/Dataset/151215_pos_236_13C_Trp/151215_pos_236_fullyLab_Remus.mzXML")
-        mz = 604.2231
-        ppm = 9.
-        cn = 4
-        z = 1
-        scales = [5,19]
-        dmz = 1.00335
-
     if True:
-        chromatogram.parse_file("F:/Constance_IAA TEST/IAA product characterization_dataset/160829_276_pos_IAAmix_MSMS1.mzXML")
-        mz = 307.144523
-        ppm = 5.
-        cn = 18
+        chromatogram.parse_file("C:/PyMetExtract/implTest/D-GEN_Warth/GEN_24h_5uM_lysate_3_neg_067.mzXML")
+        mz = 349.00227
+        ppm = 10.
+        cn = 4
         z = 1
-        scales = [2,6]
-        dmz = 1.00335
+        scales = [2, 7]
+        dmz = 1.00628
+
+
 
     scanEvents = chromatogram.getFilterLines()
     for s in scanEvents:
@@ -171,8 +146,8 @@ if __name__ == '__main__':
     fig = plt.figure(facecolor='white')
     ax = fig.add_subplot(111)
 
-    eic, times, timesI  = chromatogram.getEIC(mz, ppm, scanEvent)
-    eicL, times, timesI = chromatogram.getEIC(mz+cn*dmz/z, ppm, scanEvent)
+    eic, times, timesI, mzs  = chromatogram.getEIC(mz, ppm, scanEvent)
+    eicL, times, timesI, mzsL = chromatogram.getEIC(mz+cn*dmz/z, ppm, scanEvent)
 
     #eic=[e/6/1.6 for e in eic]
     #eicL=[e/6/1.6 for e in eicL]
@@ -193,13 +168,13 @@ if __name__ == '__main__':
     for peak in ret:
         peak.peakAtTime=times[peak.peakIndex] / 60.
     print "Native"
-    printObjectsAsTable(ret, ["peakAtTime", "peakIndex", "peakArea", "peakLeftFlank", "peakIndex", "peakRightFlank", "peakSNR"])
+    printObjectsAsTable(ret, ["peakAtTime", "peakIndex", "peakScale", "peakArea", "peakLeftFlank", "peakIndex", "peakRightFlank", "peakSNR"])
 
     ret = CP.getPeaksFor(times, eicL, scales=scales, startIndex=startIndex, endIndex=endIndex, minScans=1)
     for peak in ret:
         peak.peakAtTime=times[peak.peakIndex] / 60.
     print "Labeled"
-    printObjectsAsTable(ret, ["peakAtTime", "peakIndex", "peakArea", "peakLeftFlank", "peakIndex", "peakRightFlank", "peakSNR"])
+    printObjectsAsTable(ret, ["peakAtTime", "peakIndex", "peakScale", "peakArea", "peakLeftFlank", "peakIndex", "peakRightFlank", "peakSNR"])
     
 
     ax.plot([t / 60. for t in times], [e for e in eic])

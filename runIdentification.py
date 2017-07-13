@@ -1103,8 +1103,8 @@ class RunIdentification:
                                              LBorderLeft=peakL.peakLeftFlank, LBorderRight=peakL.peakRightFlank,
                                              isotopeRatios=[], mzDiffErrors=Bunch(), comments=[], artificialEICLShift=0)
 
-                            lb = int(min(peak.NPeakCenter - peak.NBorderLeft, peak.LPeakCenter - peak.LBorderLeft))
-                            rb = int(max(peak.NPeakCenter + peak.NBorderRight, peak.LPeakCenter + peak.LBorderRight)) + 1
+                            lb = int(max(0, min(peak.NPeakCenter - peak.NBorderLeft, peak.LPeakCenter - peak.LBorderLeft)))
+                            rb = int(min(max(peak.NPeakCenter + peak.NBorderRight, peak.LPeakCenter + peak.LBorderRight)+1, len(eic)-1))
                             peakN = eicSmoothed[lb:rb]
                             peakL = eicLSmoothed[lb:rb]
 
@@ -1162,8 +1162,8 @@ class RunIdentification:
 
 
                     for peak in curChromPeaks:
-                        lb = int(min(peak.NPeakCenter - peakAbundanceUseSignalsSides, peak.LPeakCenter - peakAbundanceUseSignalsSides))
-                        rb = int(max(peak.NPeakCenter + peakAbundanceUseSignalsSides, peak.LPeakCenter + peakAbundanceUseSignalsSides)) + 1
+                        lb = int(max(0, min(peak.NPeakCenter - peakAbundanceUseSignalsSides, peak.LPeakCenter - peakAbundanceUseSignalsSides)))
+                        rb = int(min(max(peak.NPeakCenter + peakAbundanceUseSignalsSides, peak.LPeakCenter + peakAbundanceUseSignalsSides) + 1, len(eic)-1))
                         peakN = eic[lb:rb]
                         peakL = eicL[lb:rb]
 
@@ -2488,7 +2488,7 @@ class RunIdentification:
             for peak in sorted([peak for peak in chromPeaks if peak.fGroupID == gi], cmp=lambda x, y: int(
                             100 * (x.NPeakCenter - y.NPeakCenter)) if x.fGroupID == y.fGroupID else int(
                             x.fGroupID - y.fGroupID)):
-                ddd.append((peak.NPeakCenterMin / 60., peak.mz))
+                ddd.append((peak.NPeakCenterMin, peak.mz))
             dd.append(ddd)
         sc.data = dd
         sc.yLabel = "M/Z"

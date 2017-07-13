@@ -17,26 +17,74 @@ import csv
 ########################################################################################################################
 #############################  Function definitions
 
+
+## read table into table-like object
+
+
+def readDataMatrixToTable(matFile):
+
+    ## import data matrix
+    res = Bunch(columns=[], data=[], comments=[])
+    with open(matFile, "rb") as inF:
+        for iline, line in enumerate(inF):
+            if iline == 0:
+                res.columns = line.split("\t")
+            else:
+                if line.startswith("#"):
+                    res.comments.append(line)
+                else:
+                    d = {}
+                    cells = line.split("\t")
+                    for i, h in enumerate(res.columns):
+                        d[h] = cells[i]
+                    res.data.append(Bunch(**d))
+
+    ## check column types and parse them
+    for col in res.columns:
+        type="int"
+        for row in res.data:
+            cell=getattr(row, col)
+            if type=="int":
+                try:
+                   int(cell)
+                except:
+                    type="float"
+            if type=="float":
+                try:
+                    float(cell)
+                except:
+                    type="str"
+        for irow, row in enumerate(res.data):
+            if type=="int":
+                setattr(row, col, int(getattr(row, col)))
+            elif type=="float":
+                setattr(row, col, float(getattr(row, col)))
+
+    return res
+
+
 ## combine the results of two experiments using the m/z, rt, xn and loading properties of the detected feature pairs
 def combineResults(resAFile, resBFile, resAName, resBName, saveToFile,
                    mergeName="", maxPPMError=5., maxRTShift=0.15, checkXn=False,
                    numCol="Num", mzCol="MZ", rtCol="RT", xnCol="Xn", chargeCol="Charge", ionModeCol="Ionisation_Mode",
                    importantCols=[]):
+
     ## read the results files
-    resA = TableUtils.readFile(resAFile)
-    resB = TableUtils.readFile(resBFile)
+    resA = readDataMatrixToTable(resAFile)
+    resB = readDataMatrixToTable(resBFile)
+
 
     ## fetch all feature pairs from the two results files
     resAFPs = {}
     resAFPslist = []
-    for rowA in resA.getData(getResultsAsBunchObjects=True):
+    for rowA in resA.data:
         num = getattr(rowA, numCol)
         resAFPs[num] = rowA
         resAFPslist.append(rowA)
 
     resBFPs = {}
     resBFPslist = []
-    for rowB in resB.getData(getResultsAsBunchObjects=True):
+    for rowB in resB.data:
         num = getattr(rowB, numCol)
         rowB.unused = True
         resBFPs[num] = rowB
@@ -76,8 +124,8 @@ def combineResults(resAFile, resBFile, resAName, resBName, saveToFile,
 
     ## fetch all columns of both result files
     firstCols = [numCol, mzCol, rtCol, xnCol, chargeCol, ionModeCol] + importantCols
-    colsA = [x.getName() for x in resA.getColumns()]
-    colsB = [x.getName() for x in resB.getColumns()]
+    colsA = resA.columns
+    colsB = resB.columns
     colsRes = ["Num"] + \
               [mzCol, rtCol, xnCol, chargeCol, ionModeCol] + \
               ["%s_%s" % (resAName, c) for c in firstCols] + \
@@ -108,7 +156,7 @@ def combineResults(resAFile, resBFile, resAName, resBName, saveToFile,
             elif len(match.bnums) == 1:
                 row.extend([getattr(resBFPs[match.bnums[0]], c) for c in firstCols])
             else:
-                row.extend(["Several(%d)" % len(match.bnums)] + [""] * (len(firstCols) - 1))
+                row.extend(["Several(%d): %s" % (len(match.bnums), ";".join([str(s) for s in match.bnums]))] + ["" for c in firstCols[2:]])
 
             if match.anum != None:
                 row.extend([getattr(resAFPs[match.anum], c) for c in colsA if c not in firstCols])
@@ -125,10 +173,10 @@ def combineResults(resAFile, resBFile, resAName, resBName, saveToFile,
             num = num + 1
 
         resWriter.writerow(["###### Processing %s" % resAName])
-        for comment in resA.getComments():
+        for comment in resA.comments:
             resWriter.writerow(["## %s" % comment])
         resWriter.writerow(["###### Processing %s" % resBName])
-        for comment in resB.getComments():
+        for comment in resB.comments:
             resWriter.writerow(["## Parameters %s" % comment])
         resWriter.writerow(["###### Processing combination of the two processing results"])
 
@@ -145,6 +193,7 @@ def combineResults(resAFile, resBFile, resAName, resBName, saveToFile,
         resWriter.writerow(["## Combination parameters %s" % ((b.dumpAsJSon().replace("\"", "'")))])
         resWriter.writerow(
             ["## IMPORTANT: Nums, OGroups and other ID values cannot be compared accross different processings!"])
+
 
 
 ########################################################################################################################

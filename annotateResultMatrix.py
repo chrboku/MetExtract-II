@@ -81,6 +81,7 @@ def addStatsColumnToResults(metaFile, groups, toFile, outputOrder, commentStarti
 # omit those columns that have less results than required by the user input
 def performGroupOmit(infile, groupStats, outfile, commentStartingCharacter="#"):
     data = []
+    notUsed = []
     headers = {}
     hrow = []
     comments = []
@@ -109,6 +110,8 @@ def performGroupOmit(infile, groupStats, outfile, commentStartingCharacter="#"):
 
                 if use or allGomit:     ## either use it because it was found more than n times in a group or because no omit was used
                     data.append(line)
+                else:
+                    notUsed.append(line)
             rowNum += 1
 
     with open(outfile, "wb") as x:
@@ -118,4 +121,14 @@ def performGroupOmit(infile, groupStats, outfile, commentStartingCharacter="#"):
             metaWriter.writerow(row)
         for comment in comments:
             metaWriter.writerow([comment])
+
+
+    if len(notUsed)>0:
+        with open(outfile.replace(".tsv", ".omittedFPs.tsv"), "wb") as x:
+            metaWriter = csv.writer(x, delimiter="\t")
+            metaWriter.writerow(hrow)
+            for row in notUsed:
+                metaWriter.writerow(row)
+            for comment in comments:
+                metaWriter.writerow([comment])
 

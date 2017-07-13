@@ -6,7 +6,8 @@ class SGRGenerator:
     def __init__(self, atoms=None):
         if atoms is None:
             self.atoms = {"C": [12.0, 4], "H": [1.007825, 1], "O": [15.994915, 6], "N": [14.003074, 5],
-                          "P": [30.973763, 5], "S": [31.972072, 6], "Cl": [34.968853, 7], "Na": [22.98977]};
+                          "P": [30.973763, 5], "S": [31.972072, 6], "Cl": [34.968853, 7], "Na": [22.98977],
+                          "Fe": [55.934939, 2], "Cr": [51.94051, 6]};
         else:
             self.atoms = atoms
 
@@ -207,14 +208,14 @@ if __name__=="__main__":
 
 
 
-    mz=47.008713
+    mz=99.925232
     adducts=[0]
 
     for add in adducts:
         print add
         m=mz-add
 
-        formsCRes=sfg.findFormulas(m, useAtoms=["C", "N", "H", "O", "P", "S"], atomsRange=[(1,1), (0,500), (0,10000), (0,400), [0, 10], [0, 20]],
+        formsCRes=sfg.findFormulas(m, useAtoms=["C", "N", "H", "O", "P", "S", "Fe", "Cr"], atomsRange=[(1,1), (0,500), (0,10000), (0,400), [0, 10], [0, 20], [0, 1], [0, 1]],
                                    useSevenGoldenRules=False, useSecondRule=False, ppm=250.)
 
         from utils import Bunch, printObjectsAsTable

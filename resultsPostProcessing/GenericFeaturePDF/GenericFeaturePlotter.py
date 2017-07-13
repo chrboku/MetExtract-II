@@ -353,7 +353,7 @@ def generatePageFor(feature, mzXMLs, experimentalGroups, pdf, ppm=5.):
 
 
 
-def generatePDF(experimentalGroups, metabolitesToPlot, saveTo, mzXMLs=None):
+def generatePDF(experimentalGroups, metabolitesToPlot, saveTo, ppm=5., mzXMLs=None, pw=None):
 
     if mzXMLs is None:
         mzXMLs={}
@@ -376,6 +376,13 @@ def generatePDF(experimentalGroups, metabolitesToPlot, saveTo, mzXMLs=None):
     print "\nGenerating PDF pages for features"
 
     pdf=None
+
+    if pw!=None:
+        pw.setMax(sum([len(metabolite.features) for metabolite in metabolitesToPlot]))
+        pw.setValue(0)
+
+    done=0
+    f=0
     for metabolite in metabolitesToPlot:
         if not done%200:
             if pdf is not None:
@@ -387,10 +394,16 @@ def generatePDF(experimentalGroups, metabolitesToPlot, saveTo, mzXMLs=None):
         pdf.drawString(20, 820, "Name: %s OGroup: %s  Number of features: %d" % (metabolite.name, metabolite.ogroup, len(metabolite.features)))
         pdf.showPage()
 
-        print "   Metabolite: %s"%(metabolite.ogroup)
+        if pw!=None:
+            pw.setText("   Metabolite: %s"%(metabolite.ogroup))
         for feature in metabolite.features:
-            print "      Num: %s, mz: %.5f, rt: %.2f"%(feature.num, feature.mz, feature.rt)
-            generatePageFor(feature, mzXMLs, experimentalGroups, pdf)
+            if pw!=None:
+                pw.setText(" Metabolite: %s      Num: %s, mz: %.5f, rt: %.2f"%(metabolite.ogroup, feature.num, feature.mz, feature.rt))
+            generatePageFor(feature, mzXMLs, experimentalGroups, pdf, ppm=ppm)
+
+            if pw!=None:
+                pw.setValueu(f)
+            f=f+1
 
     ## save PDF
     pdf.save()

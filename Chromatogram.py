@@ -275,7 +275,7 @@ class Chromatogram():
             return minInt, maxInt, avgsum/avgcount
 
     # converts base64 coded spectrum in an mz and intensity array
-    def decode_spectrum(self, line, compression=None):
+    def decode_spectrum(self, line, compression=None, precision=32):
         idx = 0
         mz_list = []
         intensity_list = []
@@ -284,17 +284,20 @@ class Chromatogram():
             decoded = base64.decodestring(line)
             if compression=="zlib":
                 decoded = zlib.decompress(decoded)
-            tmp_size = len(decoded) / 4
-            unpack_format1 = ">%dL" % tmp_size
+
+            if precision == 64:
+                tmp_size = len(decoded) / 8
+                unpack_format1 = ">%dd" % tmp_size
+            else:
+                tmp_size = len(decoded) / 4
+                unpack_format1 = ">%df" % tmp_size
 
 
             for tmp in struct.unpack(unpack_format1, decoded):
-                tmp_i = struct.pack("I", tmp)
-                tmp_f = struct.unpack("f", tmp_i)[0]
                 if idx % 2 == 0:
-                    mz_list.append(float(tmp_f))
+                    mz_list.append(float(tmp))
                 else:
-                    intensity_list.append(float(tmp_f))
+                    intensity_list.append(float(tmp))
                 idx += 1
 
         return mz_list, intensity_list
@@ -390,6 +393,7 @@ class Chromatogram():
             curScan.compression=None
             if attrs.has_key("compressionType"):
                 curScan.compression=str(attrs["compressionType"])
+            curScan.precision = int(attrs['precision'])
 
     # xml parser - end element handler
     def _end_element(self, name):
@@ -401,7 +405,7 @@ class Chromatogram():
             elif self.msLevel==2:
                 curScan=self.MS2_list[-1]
 
-            mz_list, intensity_list = self.decode_spectrum(curScan.encodedData, compression=curScan.compression)
+            mz_list, intensity_list = self.decode_spectrum(curScan.encodedData, compression=curScan.compression, precision=curScan.precision)
             assert len(mz_list) == len(intensity_list)
             mz_list = [mz_list[i] for i in range(len(intensity_list)) if intensity_list[i] > self.intensityCutoff]
             intensity_list = [intensity_list[i] for i in range(len(intensity_list)) if intensity_list[i] > self.intensityCutoff]
@@ -451,6 +455,7 @@ class Chromatogram():
 
         if not ignoreCharacterData:
             for scan in self.MS1_list:
+
                 assert len(scan.mz_list) == len(scan.intensity_list) == scan.peak_count
                 if intensityCutoff<0:
                     assert scan.peak_count == scan.peak_count_tag
@@ -628,8 +633,8 @@ class Chromatogram():
 
 
 if __name__=="__main__":
-    f="E:/150807_pos_213_MSMS_12C13C_PPAs_Exp36/12C13C_Wheat_Fg_conc_MSMS_CID20_Set1.mzML"
-    f="D:/PyMetExtract/implTest/Exactive_plus/WheatEar_DON_posneg.mzML"
+    f="F:/MaxPlanck_FrederikDethloff/exp4/POS/pos-MF-1_25_01_4001.mzXML"
+    f="E:/___Backup/Publications/Manuscripts/MetExtractII/_assets/geoRge/MTBLS213_20170613_073311/CELL_Glc13_05mM_Normo_01.mzXML"
 
     t=Chromatogram()
     t.parse_file(f)
@@ -640,7 +645,7 @@ if __name__=="__main__":
     print t.getPolarities()
 
     x=Chromatogram()
-    x.parse_file(f.replace(".mzML", ".mzXML"))
+    x.parse_file(f)
 
 
     import matplotlib.pyplot as plt
@@ -652,5 +657,11 @@ if __name__=="__main__":
 
     TIC, times, scanIds=x.getTIC()
     plt.plot(times, [t*1 for t in TIC])
+
+
+    scan=x.getMS1ScanByNum(0)
+
+    for mz, inte in zip(scan.mz_list, scan.intensity_list):
+        print mz, inte
 
     plt.show()

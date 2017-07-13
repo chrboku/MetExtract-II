@@ -77,7 +77,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>3</number>
       </property>
       <widget class="QWidget" name="inputTab">
        <attribute name="title">
@@ -1356,6 +1356,20 @@ font: 7pt;</string>
                      <item row="0" column="0">
                       <layout class="QHBoxLayout" name="horizontalLayout_8">
                        <item>
+                        <widget class="QLabel" name="label_65">
+                         <property name="text">
+                          <string>Max. time window (min)</string>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QDoubleSpinBox" name="maxAnnotationTimeWindow">
+                         <property name="value">
+                          <double>0.050000000000000</double>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
                         <widget class="QLabel" name="label_69">
                          <property name="text">
                           <string>Min. connections</string>
@@ -2207,10 +2221,10 @@ font: 7pt;</string>
                               <item>
                                <widget class="QSpinBox" name="spinBox_artificialMPshift_start">
                                 <property name="minimum">
-                                 <number>-99</number>
+                                 <number>-100</number>
                                 </property>
                                 <property name="maximum">
-                                 <number>0</number>
+                                 <number>100</number>
                                 </property>
                                </widget>
                               </item>
@@ -2365,7 +2379,7 @@ font: 7pt;</string>
                          <item>
                           <widget class="QGroupBox" name="checkBox_checkPeakRatio">
                            <property name="title">
-                            <string>Required ratio (M:M')</string>
+                            <string>Required M:M' peak area ratio</string>
                            </property>
                            <property name="checkable">
                             <bool>true</bool>
@@ -3072,19 +3086,15 @@ p, li { white-space: pre-wrap; }
                         </widget>
                        </item>
                        <item>
-                        <widget class="QCheckBox" name="useRatio">
-                         <property name="text">
-                          <string>Check M:M' ratio</string>
-                         </property>
-                         <property name="tristate">
-                          <bool>false</bool>
-                         </property>
-                        </widget>
-                       </item>
-                       <item>
-                        <widget class="QGroupBox" name="ratioGroupBox">
+                        <widget class="QGroupBox" name="useRatio">
                          <property name="title">
-                          <string>Allowed M:M' ratio</string>
+                          <string>Required M:M' signal ratio</string>
+                         </property>
+                         <property name="checkable">
+                          <bool>true</bool>
+                         </property>
+                         <property name="checked">
+                          <bool>false</bool>
                          </property>
                          <layout class="QGridLayout" name="gridLayout_45">
                           <item row="0" column="0">
@@ -4021,8 +4031,8 @@ p, li { white-space: pre-wrap; }
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1248</width>
-             <height>634</height>
+             <width>2029</width>
+             <height>1162</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_40">
@@ -4119,6 +4129,13 @@ p, li { white-space: pre-wrap; }
                 </property>
                 <property name="checked">
                  <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QCheckBox" name="resultsExperimentNormaliseXICsSeparately_checkBox">
+                <property name="text">
+                 <string>Normalise separately</string>
                 </property>
                </widget>
               </item>
@@ -4350,7 +4367,6 @@ p, li { white-space: pre-wrap; }
   <tabstop>isotopeBText</tabstop>
   <tabstop>isotopicAbundanceB</tabstop>
   <tabstop>useCValidation</tabstop>
-  <tabstop>useRatio</tabstop>
   <tabstop>minRatio</tabstop>
   <tabstop>maxRatio</tabstop>
   <tabstop>setupTracers</tabstop>

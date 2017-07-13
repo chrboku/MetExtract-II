@@ -23,6 +23,9 @@ from MZHCA import HierarchicalClustering, cutTreeSized
 import base64
 from pickle import dumps, loads
 
+from math import isnan
+
+
 import time
 
 import HCA_general
@@ -709,7 +712,7 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
             if align: processingParams.FPBracketing_nPolynom=nPolynom
             f.write("## Bracketing files processing parameters %s\n"%(processingParams.dumpAsJSon().replace("\"", "'")))
 
-        exportAsFeatureML.convertMEMatrixToFeatureMLSepPolarities(file)
+        exportAsFeatureML.convertMEMatrixToFeatureMLSepPolarities(file, postfix="_ab")
 
     except Exception as ex:
         import traceback
@@ -793,7 +796,7 @@ def getPeak(times, rt, borderleft, borderright):
     return (minind, maxind)
 
 
-def calculateMetaboliteGroups(file="./results.tsv", groups=[],
+def calculateMetaboliteGroups(file="./results.tsv", groups=[], eicPPM=10., maxAnnotationTimeWindow=0.05,
                               minConnectionsInFiles=1, minConnectionRate=0.4, minPeakCorrelation=0.85,
                               runIdentificationInstance=None):
 
@@ -814,10 +817,11 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[],
                 useGroupsForConfig.append(str(group.name)+":"+str(group.files))
 
                 for fi in group.files:
+                    print "reading file", fi
                     mzXML = Chromatogram()
                     mzXML.parse_file(fi)
                     loadedMZXMLs[fi]=mzXML
-
+        print "files read"
 
         # connect to results db
         writeMetaboliteGroupingConfigToDB(resDB.curs, minConnectionsInFiles, minConnectionRate, str(useGroupsForConfig).replace("'", "").replace("\"", ""))
@@ -843,7 +847,8 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[],
         if doublePeaks>0:
             print "found double peaks:", doublePeaks
         writeCols=[]
-        TableUtils.saveFile(table, file.replace(".tsv", ".doublePeaks.tsv"), cols=writeCols, order="OGroup, MZ, Xn", where="doublePeak>0")
+        if doublePeaks>0:
+            TableUtils.saveFile(table, file.replace(".tsv", ".doubleFPs.tsv"), cols=writeCols, order="OGroup, MZ, Xn", where="doublePeak>0")
 
         table.executeSQL("DELETE FROM :table: WHERE doublePeak>0")
         ## file specific columns
@@ -875,7 +880,8 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[],
                 if fpNumB not in correlations.keys():
                     correlations[fpNumB]={}
 
-                if nodeA.fpNum!=nodeB.fpNum and nodeA.fpNum<nodeB.fpNum and abs(nodeB.rt-nodeA.rt)<=0.25:
+                print nodeA.fpNum, nodeB.fpNum, "    ", nodeA.rt, nodeB.rt, maxAnnotationTimeWindow
+                if nodeA.fpNum!=nodeB.fpNum and nodeA.fpNum<nodeB.fpNum and abs(nodeB.rt-nodeA.rt)<=maxAnnotationTimeWindow:
 
                     ## test the current feature pair pair for A co-elution and B similar SIL-ratio
                     averageBordersA=[]
@@ -926,62 +932,73 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[],
 
                             mzXML = loadedMZXMLs[fi]
 
-                            eicAL, times, scanIds, mzs = mzXML.getEIC(nodeA.lmz, ppm=5., filterLine=nodeA.scanEvent,
-                                                                     removeSingles=True, intThreshold=0, useMS1=True,
-                                                                     useMS2=False, startTime=0, endTime=1000000)
-                            eicBL, times, scanIds, mzs = mzXML.getEIC(nodeB.lmz, ppm=5., filterLine=nodeB.scanEvent,
-                                                                     removeSingles=True, intThreshold=0, useMS1=True,
-                                                                     useMS2=False, startTime=0, endTime=1000000)
+                            if nodeA.scanEvent in mzXML.getFilterLines(includeMS1=True, includeMS2=False, includePosPolarity=True, includeNegPolarity=True) and \
+                                nodeB.scanEvent in mzXML.getFilterLines(includeMS1=True, includeMS2=False, includePosPolarity=True, includeNegPolarity=True):
 
-                            eicA, times, scanIds, mzs = mzXML.getEIC(nodeA.mz, ppm=5., filterLine=nodeA.scanEvent,
-                                                                     removeSingles=True, intThreshold=0, useMS1=True,
-                                                                     useMS2=False, startTime=0, endTime=1000000)
-                            eicB, times, scanIds, mzs = mzXML.getEIC(nodeB.mz, ppm=5., filterLine=nodeB.scanEvent,
-                                                                     removeSingles=True, intThreshold=0, useMS1=True,
-                                                                     useMS2=False, startTime=0, endTime=1000000)
+                                eicAL, times, scanIds, mzs = mzXML.getEIC(nodeA.lmz, ppm=eicPPM, filterLine=nodeA.scanEvent,
+                                                                         removeSingles=True, intThreshold=0, useMS1=True,
+                                                                         useMS2=False, startTime=0, endTime=1000000)
+                                eicBL, times, scanIds, mzs = mzXML.getEIC(nodeB.lmz, ppm=eicPPM, filterLine=nodeB.scanEvent,
+                                                                         removeSingles=True, intThreshold=0, useMS1=True,
+                                                                         useMS2=False, startTime=0, endTime=1000000)
 
-
-                            ## A) Test correlation of different feature pairs
-                            lI, rI=getPeak([t/60. for t in times], mean([nodeA.rt, nodeB.rt]), min(nanbl, nbnbl), min(nanbr, nbnbr))
-
-                            eicAC=eicAL[lI:rI]
-                            eicBC=eicBL[lI:rI]
-
-                            co=corr(eicAC, eicBC)
-                            allCorrelations.append(co)
+                                eicA, times, scanIds, mzs = mzXML.getEIC(nodeA.mz, ppm=eicPPM, filterLine=nodeA.scanEvent,
+                                                                         removeSingles=True, intThreshold=0, useMS1=True,
+                                                                         useMS2=False, startTime=0, endTime=1000000)
+                                eicB, times, scanIds, mzs = mzXML.getEIC(nodeB.mz, ppm=eicPPM, filterLine=nodeB.scanEvent,
+                                                                         removeSingles=True, intThreshold=0, useMS1=True,
+                                                                         useMS2=False, startTime=0, endTime=1000000)
 
 
-                            ## B) Test similarity of native:labeled ratio
-                            lISIL, rISIL=getPeak([t/60. for t in times], nodeA.rt, min(nanbl, nanbr)*.4, min(nalbl, nalbr)*.4)
+                                ## A) Test correlation of different feature pairs
+                                lI, rI=getPeak([t/60. for t in times], mean([nodeA.rt, nodeB.rt]), min(nanbl, nbnbl), min(nanbr, nbnbr))
 
-                            eicANCSIL=eicA[lISIL:rISIL]
-                            eicALCSIL=eicAL[lISIL:rISIL]
+                                eicAC=eicAL[lI:rI]
+                                eicBC=eicBL[lI:rI]
 
-                            folds=[eicANCSIL[i]/eicALCSIL[i] for i in range(len(eicANCSIL)) if eicALCSIL[i]>0]
-                            ma=mean(folds)
-                            sa=sd(folds)
+                                co=corr(eicAC, eicBC)
 
-
-                            lISIL, rISIL=getPeak([t/60. for t in times], nodeB.rt, min(nanbl, nanbr)*.4, min(nalbl, nalbr)*.4)
-
-                            eicBNCSIL=eicB[lISIL:rISIL]
-                            eicBLCSIL=eicBL[lISIL:rISIL]
-
-                            folds=[eicBNCSIL[i]/eicBLCSIL[i] for i in range(len(eicBNCSIL)) if eicBLCSIL[i]>0]
-                            mb=mean(folds)
-                            sb=sd(folds)
-
-                            silRatio=(max([ma, mb])-min([ma, mb]))/mean([sa,sb])
-                            allSILRatios.append(silRatio)
+                                if not(isnan(co)) and co != None:
+                                    allCorrelations.append(co)
 
 
-                    if sum([co>=minPeakCorrelation for co in allCorrelations])>=minConnectionRate*len(allCorrelations) and \
-                        sum([rat<=3 for rat in allSILRatios])>=minConnectionRate*len(allSILRatios):
-                        nodes[nodeA.fpNum].correlationToOtherFPs[nodeB.fpNum] = True
-                        nodes[nodeB.fpNum].correlationToOtherFPs[nodeA.fpNum] = True
+                                ## B) Test similarity of native:labeled ratio
+                                lISIL, rISIL=getPeak([t/60. for t in times], nodeA.rt, min(nanbl, nanbr)*.4, min(nalbl, nalbr)*.4)
+
+                                eicANCSIL=eicA[lISIL:rISIL]
+                                eicALCSIL=eicAL[lISIL:rISIL]
+
+                                folds=[eicANCSIL[i]/eicALCSIL[i] for i in range(len(eicANCSIL)) if eicALCSIL[i]>0]
+                                ma=mean(folds)
+                                sa=sd(folds)
+
+
+                                lISIL, rISIL=getPeak([t/60. for t in times], nodeB.rt, min(nanbl, nanbr)*.4, min(nalbl, nalbr)*.4)
+
+                                eicBNCSIL=eicB[lISIL:rISIL]
+                                eicBLCSIL=eicBL[lISIL:rISIL]
+
+                                folds=[eicBNCSIL[i]/eicBLCSIL[i] for i in range(len(eicBNCSIL)) if eicBLCSIL[i]>0]
+                                mb=mean(folds)
+                                sb=sd(folds)
+
+                                if ma!=None and mb!=None and sa!=None and sb!=None:
+                                    silRatio=(max([ma, mb])-min([ma, mb]))/mean([sa,sb])
+                                    allSILRatios.append(silRatio)
+
+
+                    if len(allCorrelations)>0:
+                        if sum([co>=minPeakCorrelation for co in allCorrelations])>=minConnectionRate*len(allCorrelations) and \
+                            sum([rat<=3 for rat in allSILRatios])>=minConnectionRate*len(allSILRatios):
+                            nodes[nodeA.fpNum].correlationToOtherFPs[nodeB.fpNum] = True
+                            nodes[nodeB.fpNum].correlationToOtherFPs[nodeA.fpNum] = True
 
                         correlations[fpNumA][fpNumB]=mean(allCorrelations)
                         correlations[fpNumB][fpNumA]=mean(allCorrelations)
+                    else:
+                        correlations[fpNumA][fpNumB] = 0
+                        correlations[fpNumB][fpNumA] = 0
+
 
 
         nodes2={}
@@ -1059,6 +1076,7 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[],
             cGroups = [tGroup]
             while len(cGroups) > 0:
                 gGroup = cGroups.pop(0)
+
                 sGroups = splitGroupWithHCA(gGroup, correlations)
 
                 if len(sGroups) == 1:
@@ -1136,6 +1154,8 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[],
                 writeCols.append(column.name)
 
         TableUtils.saveFile(table, file, cols=writeCols, order="OGroup, MZ, Xn")
+
+        exportAsFeatureML.convertMEMatrixToFeatureMLSepPolarities(file, postfix="_ac")
 
     except Exception as ex:
         import traceback

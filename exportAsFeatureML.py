@@ -85,15 +85,15 @@ def convertMEMatrixToFeatureML(meMatrixFile, featureMLFile=None):
     writeFeatureListToFeatureML(features, featureMLFile, ppmPM=5., rtPM=0.25*60)
 
 
-def convertMEMatrixToFeatureMLSepPolarities(meMatrixFile, featureMLFile=None):
+def convertMEMatrixToFeatureMLSepPolarities(meMatrixFile, featureMLFile=None, postfix=""):
     if featureMLFile is None:
         featureMLFile=meMatrixFile.replace(".tsv", ".txt").replace(".txt", "")+".featureML"
 
+    features = {'+': [], '-': []}
     with open(meMatrixFile) as fIn:
         csvReader=csv.reader(fIn, delimiter="\t", quotechar="\"")
 
         headers={}
-        features={'+':[], '-':[]}
         for linei, row in enumerate(csvReader):
             if linei==0:
                 for colInd, header in enumerate(row):
@@ -105,7 +105,9 @@ def convertMEMatrixToFeatureMLSepPolarities(meMatrixFile, featureMLFile=None):
                         charge=int(row[headers["Charge"]]), name=row[headers["Num"]], ionMode=row[headers["Ionisation_Mode"]])
                 features[b.ionMode].append(b)
 
-    writeFeatureListToFeatureML(features['-'], featureMLFile.replace(".featureML", "_negMode.featureML"), ppmPM=5., rtPM=0.25*60)
-    writeFeatureListToFeatureML(features['+'], featureMLFile.replace(".featureML", "_posMode.featureML"), ppmPM=5., rtPM=0.25 * 60)
+    if len(features['-'])>0:
+        writeFeatureListToFeatureML(features['-'], featureMLFile.replace(".featureML", "_negMode%s.featureML"%(postfix)), ppmPM=5., rtPM=0.25*60)
+    if len(features['+'])>0:
+        writeFeatureListToFeatureML(features['+'], featureMLFile.replace(".featureML", "_posMode%s.featureML"%(postfix)), ppmPM=5., rtPM=0.25 * 60)
 
 
