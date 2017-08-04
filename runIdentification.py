@@ -950,10 +950,10 @@ class RunIdentification:
                 if sumEICL > sumEIC:
                     normEIC = eicB
 
-                os=[o for o in range(lib, rib) if eicA[o] >= minInt and eicB[o] >= minInt]
+                os=[o for o in range(lib, rib) if eicA[o] >= minInt and eicB[o] >= minInt and eicB[o]>0]
                 normSum = sum([normEIC[o] for o in os])
-                ratios = [1. * eicA[o] / eicB[o] for o in os]
                 weights = [1. * normEIC[o] / normSum for o in os]
+                ratios = [1. * eicA[o] / eicB[o] for o in os if eicB[o]>minInt and eicB[o]>0]
 
 
                 if len(ratios) >= minRatiosNecessary:
@@ -1135,9 +1135,9 @@ class RunIdentification:
                                 libs = int(max(peak.NPeakCenter - floor(peak.NBorderLeft*.33), peak.LPeakCenter - floor(peak.LBorderLeft*.33)))
                                 ribs = int(min(peak.NPeakCenter + floor(peak.NBorderRight*.33), peak.LPeakCenter + floor(peak.LBorderRight*.33))) + 1
 
-                                peak.peaksRatio = self.getMeanRatioOfScans(eic, eicL, libs, ribs)
-                                peak.peaksRatioMp1 = self.getMeanRatioOfScans(eicfirstiso, eic, libs, ribs)
-                                peak.peaksRatioMPm1 = self.getMeanRatioOfScans(eicLfirstiso, eicL, libs, ribs)
+                                peak.peaksRatio = self.getMeanRatioOfScans(eic, eicL, libs, ribs, minInt=self.intensityThreshold)
+                                peak.peaksRatioMp1 = self.getMeanRatioOfScans(eicfirstiso, eic, libs, ribs, minInt=self.intensityThreshold)
+                                peak.peaksRatioMPm1 = self.getMeanRatioOfScans(eicLfirstiso, eicL, libs, ribs, minInt=self.intensityThreshold)
 
                     # check, if enough MS scans fulfill the requirements (isotope patterns)
                     for kid in kids:
@@ -2025,12 +2025,6 @@ class RunIdentification:
                                                    [abs(r-meanSilRatioB)/meanSilRatioB for r in silRatiosB if min(r, meanSilRatioB)>0],
                                                    peakA.silRatios.peakNInts+peakB.silRatios.peakNInts)
 
-                            if 181.<peakA.mz<181.2 or 181.<peakB.mz<181.2:
-                                silRatioTest= silRatiosFold <= 1+max(0.2, 3*silRatiosSD)
-                                print peakA.mz, peakB.mz, peakA.NPeakCenterMin/60., "     ", pb, "      ", meanSilRatioA, weightedSd(silRatiosA, peakA.silRatios.peakNInts), "    ", meanSilRatioB, weightedSd(silRatiosB, peakB.silRatios.peakNInts), "    ", silRatiosFold, silRatiosSD, "-->", silRatioTest
-                                print silRatiosA
-                                print silRatiosB
-                                print ""
 
                             # check for similar chromatographic peak profile and similar native to labeled ratio
                             if pb >= self.minCorrelation and silRatiosFold <= 1+max(0.2, 3*silRatiosSD):

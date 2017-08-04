@@ -2363,7 +2363,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                               QtGui.QMessageBox.Yes | QtGui.QMessageBox.No) == QtGui.QMessageBox.No:
                     return 1
 
-        if self.ui.intensityCutoff.value() >= self.ui.intensityThreshold.value() and self.ui.intensityCutoff > 0:
+        if self.ui.intensityCutoff.value() > self.ui.intensityThreshold.value() and self.ui.intensityCutoff.value() > 0:
             QtGui.QMessageBox.information(self, "MetExtract",
                                           "The intensity cutoff needs to be less than the intensity threshold. Adjust the two parameters accordingly")
             return 1
@@ -5970,7 +5970,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 pw.setTextu("Loading group %s\nFile %s"%(group.name, fi))
 
                 mzXML = Chromatogram()
-                mzXML.parse_file(fi)
+                mzXML.parse_file(fi) #intensityCutoff=
                 self.loadedMZXMLs[fi] = mzXML
                 self.loadedMZXMLs[group.files[i]] = mzXML
 
@@ -6068,7 +6068,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.drawCanvas(self.ui.resultsExperimentMSScanPeaks_plot)
 
 
-    def exportAsPDF(self):
+    def exportAsPDF(self, pdfFile=None):
 
         experimentalGroups = [t.data(QListWidgetItem.UserType).toPyObject() for t in natSort(self.ui.groupsList.findItems('*', QtCore.Qt.MatchWildcard), key=lambda x: str(x.data(QListWidgetItem.UserType).toPyObject().name))]
 
@@ -6090,13 +6090,12 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             metabolitesToPlot.append(Bunch(name="unknown_"+str(item.bunchData.metaboliteGroupID), ogroup=item.bunchData.metaboliteGroupID,
                                            features=features))
 
-        pdfFile = str(QtGui.QFileDialog.getSaveFileName(caption="Select pdf file", directory=self.lastOpenDir, filter="PDF (*.pdf)"))
-        pdfFile=pdfFile.replace("\\", "/").replace(".PDF", ".pdf")
+        if pdfFile is None:
+            pdfFile = str(QtGui.QFileDialog.getSaveFileName(caption="Select pdf file", directory=self.lastOpenDir, filter="PDF (*.pdf)"))
+            pdfFile=pdfFile.replace("\\", "/").replace(".PDF", ".pdf")
 
         if self.loadedMZXMLs is None:
             self.loadAllSamples()
-
-
 
         pw = ProgressWrapper()
         pw.show()
@@ -6728,6 +6727,8 @@ if __name__ == '__main__':
                       help="Set if individual results shall be grouped")
     parser.add_option("-p", "--reintegrateResults", dest="reintegrateResults", default=None,
                       help="Set if individual results shall be reintegrated")
+    parser.add_option("-k", "--plotResults", dest="plotResults", action="store_true",
+                      help="Set if bracketed results shall be plotted as PDF files")
 
     parser.add_option("-c", "--cores", dest="cores", default=1000, metavar="CORES", type="int",
                       help="Set maximum number of cores to use")
@@ -6848,6 +6849,8 @@ if __name__ == '__main__':
                 mainWin.ui.integratedMissedPeaks.setChecked(opts.reintegrateResults.lower() in ["true", "t", "yes", "y", "1"])
 
 
+
+
             # print development messages
             if False:
                 import textwrap
@@ -6880,9 +6883,12 @@ if __name__ == '__main__':
             else:
                 mainWin.ui.INFOLabel.setVisible(False)
 
+
             if opts.start:
                 mainWin.runProcess(dontSave=True, askStarting=False)
 
+            if opts.plotResults:
+                mainWin.exportAsPDF(pdfFile="./results.pdf")
 
 
             import threading

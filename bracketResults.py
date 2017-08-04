@@ -880,7 +880,7 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[], eicPPM=10., maxAn
                 if fpNumB not in correlations.keys():
                     correlations[fpNumB]={}
 
-                print nodeA.fpNum, nodeB.fpNum, "    ", nodeA.rt, nodeB.rt, maxAnnotationTimeWindow
+                #print nodeA.fpNum, nodeB.fpNum, "    ", nodeA.rt, nodeB.rt, maxAnnotationTimeWindow
                 if nodeA.fpNum!=nodeB.fpNum and nodeA.fpNum<nodeB.fpNum and abs(nodeB.rt-nodeA.rt)<=maxAnnotationTimeWindow:
 
                     ## test the current feature pair pair for A co-elution and B similar SIL-ratio

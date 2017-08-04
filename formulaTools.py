@@ -424,15 +424,17 @@ if __name__ == '__main__':
 
     fT = formulaTools()
 
-    formulas = ["C10H14O2"]
+    formulas = ["C15H20O6", "C15H20O6", "C14H17O5", "C14H18O5", "C13H16O5", "C15H20O6",
+                "C15H20O7", "C15H20O5", "C15H22O5", "C15H20O6"]
 
     res=[]
     for form in formulas:
         elems = fT.parseFormula(form)
-        res.append([form, str(elems), "%.5f"%fT.calcMolWeight(elems), "%.5f"%(fT.calcMolWeight(elems)+1.007276), "%.5f"%(fT.calcMolWeight(elems)+18.033823), "%.5f"%(fT.calcMolWeight(elems)+22.989218), "%.5f"%(fT.calcMolWeight(elems)-1.007276), fT.flatToString(elems)])
+        res.append([form, str(elems), "%.5f"%fT.calcMolWeight(elems), "%.5f"%(fT.calcMolWeight(elems)+1.007276), "%.5f"%(fT.calcMolWeight(elems)+18.033823),
+                    "%.5f"%(fT.calcMolWeight(elems)+22.989218), "%.5f"%(fT.calcMolWeight(elems)+44.998201), "%.5f"%(fT.calcMolWeight(elems)-1.007276), fT.flatToString(elems)])
 
     from utils import printAsTable
-    printAsTable(["Input", "Parsed", "Mass", "[M+H]+", "[M+NH4]+", "[M+Na]+", "[M-H]-", "Rendered"], res, printInExcelFormat=True)
+    printAsTable(["Input", "Parsed", "Mass", "[M+H]+", "[M+NH4]+", "[M+Na]+", "[M+Fa-H]-", "[M-H]-", "Rendered"], res, printInExcelFormat=True)
     
     
     
