@@ -2020,19 +2020,27 @@ class RunIdentification:
                             meanSilRatioA = weightedMean(silRatiosA, peakA.silRatios.peakNInts)
                             meanSilRatioB = weightedMean(silRatiosB, peakB.silRatios.peakNInts)
 
-                            silRatiosFold=max(meanSilRatioA, meanSilRatioB)/min(meanSilRatioA, meanSilRatioB)
-                            silRatiosSD=weightedSd([abs(r-meanSilRatioA)/meanSilRatioA for r in silRatiosA if min(r, meanSilRatioA)>0]+
-                                                   [abs(r-meanSilRatioB)/meanSilRatioB for r in silRatiosB if min(r, meanSilRatioB)>0],
-                                                   peakA.silRatios.peakNInts+peakB.silRatios.peakNInts)
+                            silRatiosFold=0
+                            silRatiosSD=1
+
+                            try:
+
+                                silRatiosFold=max(meanSilRatioA, meanSilRatioB)/min(meanSilRatioA, meanSilRatioB)
+                                silRatiosSD=weightedSd([abs(r-meanSilRatioA)/meanSilRatioA for r in silRatiosA if min(r, meanSilRatioA)>0]+
+                                                       [abs(r-meanSilRatioB)/meanSilRatioB for r in silRatiosB if min(r, meanSilRatioB)>0],
+                                                       peakA.silRatios.peakNInts+peakB.silRatios.peakNInts)
 
 
-                            # check for similar chromatographic peak profile and similar native to labeled ratio
-                            if pb >= self.minCorrelation and silRatiosFold <= 1+max(0.2, 3*silRatiosSD):
-                                nodes[peakA.id].append(peakB.id)
-                                nodes[peakB.id].append(peakA.id)
+                                # check for similar chromatographic peak profile and similar native to labeled ratio
+                                if pb >= self.minCorrelation and silRatiosFold <= 1+max(0.2, 3*silRatiosSD):
+                                    nodes[peakA.id].append(peakB.id)
+                                    nodes[peakB.id].append(peakA.id)
 
-                                peakB.correlationsToOthers.append(peakA.id)
-                                peakA.correlationsToOthers.append(peakB.id)
+                                    peakB.correlationsToOthers.append(peakA.id)
+                                    peakA.correlationsToOthers.append(peakB.id)
+
+                            except Exception as e:
+                                logging.error("Error while convoluting two feature pairs, skipping.. (%s)"%str(e))
 
                             try:
                                 SQLInsert(curs, "featurefeatures", fID1=peakA.id, fID2=peakB.id, corr=pb, silRatioValue=silRatiosFold)

@@ -785,12 +785,13 @@ def getXCombinations(elements, startTupleSize=2, endTupleSize=-1):
 
 # HELPER CLASS for storing a defined group
 class SampleGroup:
-    def __init__(self, name, files, minFound, omitFeatures, useForMetaboliteGrouping, color):
+    def __init__(self, name, files, minFound, omitFeatures, useForMetaboliteGrouping, removeAsFalsePositive, color):
         self.name = name
         self.files = files
         self.minFound = minFound
         self.omitFeatures = omitFeatures
         self.useForMetaboliteGrouping = useForMetaboliteGrouping
+        self.removeAsFalsePositive = removeAsFalsePositive
         self.color = color
 
 

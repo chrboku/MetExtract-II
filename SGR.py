@@ -171,6 +171,7 @@ class SGRGenerator:
     #make sure, C is always the first element in useAtoms
     def findFormulas(self, molMass, ppm=5., useAtoms=["C", "H", "O", "N"], atomsRange=[], fixed=[],
                      useSevenGoldenRules=True, useSecondRule=True):
+
         #use Golden rule number 1
         if len(atomsRange) == 0:
             atomsRange = [[0, 1000] for u in useAtoms]
@@ -208,15 +209,15 @@ if __name__=="__main__":
 
 
 
-    mz=99.925232
+    mz=296.125299306
     adducts=[0]
 
     for add in adducts:
         print add
         m=mz-add
 
-        formsCRes=sfg.findFormulas(m, useAtoms=["C", "N", "H", "O", "P", "S", "Fe", "Cr"], atomsRange=[(1,1), (0,500), (0,10000), (0,400), [0, 10], [0, 20], [0, 1], [0, 1]],
-                                   useSevenGoldenRules=False, useSecondRule=False, ppm=250.)
+        formsCRes=sfg.findFormulas(m, useAtoms=["C", "N", "H", "O", "P", "S", "Fe", "Cr"], atomsRange=[(1,15), (0,500), (0,10000), (0,400), [0, 10], [0, 20], [0, 1], [0, 1]],
+                                   useSevenGoldenRules=True, useSecondRule=False, ppm=3.)
 
         from utils import Bunch, printObjectsAsTable
         from formulaTools import formulaTools

@@ -649,7 +649,11 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                                                         f.write(";")
                                                                     else:
                                                                         appe = True
-                                                                    f.write("%d" % peak[1].fGroupID)
+                                                                    try:
+                                                                        f.write("%d" % peak[1].fGroupID)
+                                                                    except Exception:
+                                                                        f.write("-1")
+                                                                        print peak[1], peak[1].fGroupID, results[j].fileName, peak[1].id
 
                                                             else:
                                                                 f.write("\t\t\t\t\t")

@@ -34,7 +34,6 @@ getNormalisedIsotopePatternRatio(50, 1, 0.986)-getNormalisedIsotopePatternRatio(
 
 
 
-
 ################################################################################
 ################################################################################
 ######################## Show results as a theoretical mass spectra

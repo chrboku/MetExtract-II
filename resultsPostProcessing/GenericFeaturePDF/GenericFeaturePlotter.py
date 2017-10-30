@@ -95,7 +95,7 @@ def generatePageFor(feature, mzXMLs, experimentalGroups, pdf, ppm=5.):
     totalFiles=sum([len(e.files) for e in experimentalGroups])
     filesDone=0
 
-    pdf.drawString(20, 820, "Num: %s OGroup: %s  MZ: %.5f LMZ: %.5f  RT: %.2f ScanEvent: %s" % (feature.num, feature.ogroup, feature.mz, feature.lmz, feature.rt, feature.filterLine))
+    pdf.drawString(20, 820, "Num: %s, OGroup: %s,  MZ: %.5f, LMZ: %.5f, Xn: %d,  RT: %.2f, ScanEvent: %s, Ionisation mode: %s" % (feature.num, feature.ogroup, feature.mz, feature.lmz, feature.xn, feature.rt, feature.filterLine, feature.ionisationMode))
     pdf.drawString(20, 800, "Comment: %s"%(feature.comment))
 
     maxEICValue=0
@@ -186,7 +186,8 @@ def generatePageFor(feature, mzXMLs, experimentalGroups, pdf, ppm=5.):
                         scanBackgroundCols.append("#396FAC")
                         scanBackgroundWidths.append(.1)
             except Exception:
-                print "-- skipping for", file
+                #print "-- skipping for", file
+                pass
 
 
             # ## get chromatogram area
@@ -243,6 +244,22 @@ def generatePageFor(feature, mzXMLs, experimentalGroups, pdf, ppm=5.):
     renderPDF.draw(drawingEICs, pdf, 170, 510)
     pdf.drawString(240, 770, "Native EICs (artificially separated by assigned group)")
 
+    drawingEICs = Drawing(500, 500)
+    lp = LinePlot()
+    lp.x = 20
+    lp.y = 20
+    lp.height = 230
+    lp.width = 400
+    lp.data = eicsSeparatedDD
+    lp.joinedLines = 1
+    for i, col in enumerate(eicsCols):
+        lp.lines[i].strokeColor = HexColor(matplotlib.colors.cnames[col.lower()])
+        lp.lines[i].strokeWidth = 0.1
+    lp.yValueAxis.labelTextFormat = scientificFormatter
+    drawingEICs.add(lp)
+    renderPDF.draw(drawingEICs, pdf, 620, 510)
+    pdf.drawString(240, 770, "Native EICs (artificially separated by assigned group)")
+
 
 
 
@@ -278,9 +295,24 @@ def generatePageFor(feature, mzXMLs, experimentalGroups, pdf, ppm=5.):
         lp.lines[i].strokeWidth = 0.1
     lp.yValueAxis.labelTextFormat = scientificFormatter
     lp.yValueAxis.valueMax=maxEICValue
-
     drawingEICs.add(lp)
     renderPDF.draw(drawingEICs, pdf, 170, 230)
+    pdf.drawString(240, 490, "Labeled EICs (artificially separated by assigned group)")
+
+    drawingEICs = Drawing(500, 500)
+    lp = LinePlot()
+    lp.x = 20
+    lp.y = 20
+    lp.height = 230
+    lp.width = 400
+    lp.data = eicsLSeparatedDD
+    lp.joinedLines = 1
+    for i, col in enumerate(eicsLCols):
+        lp.lines[i].strokeColor = HexColor(matplotlib.colors.cnames[col.lower()])
+        lp.lines[i].strokeWidth = 0.1
+    lp.yValueAxis.labelTextFormat = scientificFormatter
+    drawingEICs.add(lp)
+    renderPDF.draw(drawingEICs, pdf, 620, 230)
     pdf.drawString(240, 490, "Labeled EICs (artificially separated by assigned group)")
 
 

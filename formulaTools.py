@@ -21,11 +21,13 @@ class formulaTools:
             self.elemDetails["44Ca"] = ["Calcium",      "Ca", 44, 43.955485, 0.0208]  #3.992894
 
             self.elemDetails["C"] =    ["Carbon",       "C", 12, 12., .9893]
+            self.elemDetails["12C"] =  ["Carbon",       "C", 12, 12., .9893]
             self.elemDetails["13C"] =  ["Carbon",       "C", 13, 13.00335483507, 0.0107]  #1.00335
 
             self.elemDetails["Ce"] =   ["Cerium",       "Ce", 140, 139.905442, .8848]
             self.elemDetails["Cs"] =   ["Cesium",       "Cs", 133, 132.905433, 1.00]
             self.elemDetails["Cl"] =   ["Chlorine",     "Cl", 35, 34.968853, .7577]
+            self.elemDetails["35Cl"] = ["Chlorine",     "Cl", 35, 34.968853, .7577]
             self.elemDetails["37Cl"] = ["Chlorine",     "Cl", 37, 36.965903, 0.2423]  #1.997077
 
             self.elemDetails["Cr"] =   ["Chromium",     "Cr", 52, 51.94051, .8379]
@@ -49,11 +51,14 @@ class formulaTools:
             self.elemDetails["He"] =   ["Helium",       "He", 4, 4.002603, 1.00]
             self.elemDetails["Ho"] =   ["Holmium",      "Ho", 165, 164.930332, 1.00]
             self.elemDetails["H"] =    ["Hydrogen",     "H", 1, 1.007825, .999]
+            self.elemDetails["1H"] =   ["Hydrogen",     "H", 1, 1.007825, .999]
             self.elemDetails["D"] =    ["Hydrogen",     "H", 2, 1.007825 + 1.00627,.001]  ## ATTENTION May be wrong. Just used for Cambridge
+            self.elemDetails["2H"] =   ["Hydrogen",     "H", 2, 1.007825 + 1.00627,.001]  ## ATTENTION May be wrong. Just used for Cambridge
             self.elemDetails["In"] =   ["Indium",       "In", 115, 114.903875, .957]
             self.elemDetails["I"] =    ["Iodine",       "I", 127, 126.904477, 1.00]
             self.elemDetails["Ir"] =   ["Iridium",      "Ir", 193, 192.962942, .627]
             self.elemDetails["Fe"] =   ["Iron",         "Fe", 56, 55.934939, .9172]
+            self.elemDetails["56Fe"] = ["Iron",         "Fe", 56, 55.934939, .9172]
             self.elemDetails["54Fe"] = ["Iron",         "Fe", 54, 53.939612, 0.058]  #-1.995327
             self.elemDetails["57Fe"] = ["Iron",         "Fe", 57, 56.935396, 0.022]  #1.000457
 
@@ -74,6 +79,7 @@ class formulaTools:
             self.elemDetails["Ni"] =   ["Nickel",       "Ni", 58, 57.935347, .6827]
             self.elemDetails["Nb"] =   ["Niobium",      "Nb", 93, 92.906378, 1.00]
             self.elemDetails["N"] =    ["Nitrogen",     "N", 14, 14.003074, .9963]
+            self.elemDetails["14N"] =  ["Nitrogen",     "N", 14, 14.003074, .9963]
             self.elemDetails["15N"] =  ["Nitrogen",     "N", 15, 15.0001088982, .00364]
             self.elemDetails["Os"] =   ["Osmium",       "Os", 192, 191.961487, .41]
             self.elemDetails["O"] =    ["Oxygen",       "O", 16, 15.994915, .9976]
@@ -419,13 +425,16 @@ def getIsotopeMass(isotope):
                 element = elemDetails[0]
     return mass, element
 
+def getElementOfIsotope(isotope):
+    fT = formulaTools()
+    return fT.elemDetails[isotope][1]
+
 
 if __name__ == '__main__':
 
     fT = formulaTools()
 
-    formulas = ["C15H20O6", "C15H20O6", "C14H17O5", "C14H18O5", "C13H16O5", "C15H20O6",
-                "C15H20O7", "C15H20O5", "C15H22O5", "C15H20O6"]
+    formulas = ["C9H11NO2"]
 
     res=[]
     for form in formulas:

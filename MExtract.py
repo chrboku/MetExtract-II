@@ -316,7 +316,7 @@ from mePyGuis.mainWindow import Ui_MainWindow
 from mePyGuis.adductsEdit import ConfiguredAdduct, ConfiguredElement
 from mePyGuis.heteroAtomEdit import ConfiguredHeteroAtom
 from mePyGuis.TracerEdit import tracerEdit
-from formulaTools import getIsotopeMass
+from formulaTools import formulaTools, getIsotopeMass, getElementOfIsotope
 #</editor-fold>
 #<editor-fold desc="### Various Imports">
 from utils import natSort, ChromPeakPair, getNormRatio, mean, SampleGroup
@@ -325,6 +325,9 @@ from utils import FuncProcess, CallBackMethod
 import HCA_general
 
 from TableUtils import TableUtils
+
+import resultsPostProcessing.generateSumFormulas as sumFormulaGeneration
+import resultsPostProcessing.searchDatabases as searchDatabases
 
 import pyperclip
 
@@ -1270,7 +1273,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
     #</editor-fold>
 
     #<editor-fold desc="### add/modify/remove group functions">
-    def addGroup(self, name, files, minGrpFound, omitFeatures, useForMetaboliteGrouping, color, atPos=None):
+    def addGroup(self, name, files, minGrpFound, omitFeatures, useForMetaboliteGrouping, removeAsFalsePositive, color, atPos=None):
         self.loadedMZXMLs=None
 
         failed=defaultdict(list)
@@ -1305,9 +1308,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             qpixmap.fill(QtGui.QColor(color))
             icon = QtGui.QIcon(qpixmap)
 
-            qlwi=QListWidgetItem(icon, "%s (%d%s%s)"%(str(name), len(files), ", Annotate" if useForMetaboliteGrouping else "", ", Omit/%d"%minGrpFound if omitFeatures else ""))
+            qlwi=QListWidgetItem(icon, "%s (%d%s%s%s)"%(str(name), len(files), ", Annotate" if useForMetaboliteGrouping else "", ", Omit/%d"%minGrpFound if omitFeatures else "", ", FalsePositives" if removeAsFalsePositive else ""))
             #qlwi.setBackgroundColor(QColor(color))
-            qlwi.setData(QListWidgetItem.UserType, SampleGroup(name, files, minGrpFound, omitFeatures, useForMetaboliteGrouping, color))
+            qlwi.setData(QListWidgetItem.UserType, SampleGroup(name, files, minGrpFound, omitFeatures, useForMetaboliteGrouping, removeAsFalsePositive, color))
 
             self.ui.groupsList.insertItem(atPos, qlwi)
         else:
@@ -1379,6 +1382,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
             self.addGroup(name=tdiag.getGroupName(), files=tdiag.getGroupFiles(), minGrpFound=tdiag.getMinimumGroupFound(),
                           omitFeatures=tdiag.getOmitFeatures(), useForMetaboliteGrouping=tdiag.getUseForMetaboliteGrouping(),
+                          removeAsFalsePositive=tdiag.getRemoveAsFalsePositive(),
                           color=str(tdiag.getGroupColor()))
 
             if self.updateLCMSSampleSettings():
@@ -1410,10 +1414,11 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         grp = self.ui.groupsList.item(selRow).data(QListWidgetItem.UserType).toPyObject()
         t = groupEdit(colors=predefinedColors)
         if t.executeDialog(groupName=grp.name, groupfiles=grp.files, minimumGroupFound=grp.minFound,
-                           omitFeatures=grp.omitFeatures, useForMetaboliteGrouping=grp.useForMetaboliteGrouping, activeColor=grp.color) == QtGui.QDialog.Accepted:
+                           omitFeatures=grp.omitFeatures, useForMetaboliteGrouping=grp.useForMetaboliteGrouping, removeAsFalsePositive=grp.removeAsFalsePositive, activeColor=grp.color) == QtGui.QDialog.Accepted:
 
             self.addGroup(name=t.getGroupName(), files=t.getGroupFiles(), minGrpFound=t.getMinimumGroupFound(),
                           omitFeatures=t.getOmitFeatures(), useForMetaboliteGrouping=t.getUseForMetaboliteGrouping(),
+                          removeAsFalsePositive=t.getRemoveAsFalsePositive(),
                           color=str(t.getGroupColor()), atPos=selRow)
 
             self.ui.groupsList.takeItem(selRow+1)
@@ -1551,6 +1556,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     grps.setValue(group.name + "__" + str(i), relFilePath)
                 grps.setValue("Min_Peaks_Found", group.minFound)
                 grps.setValue("OmitFeatures", group.omitFeatures)
+                grps.setValue("RemoveAsFalsePositive", group.removeAsFalsePositive)
                 grps.setValue("Color", group.color)
                 grps.setValue("UseForMetaboliteGrouping", group.useForMetaboliteGrouping)
                 grps.endGroup()
@@ -1622,6 +1628,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 color = predefinedColors[grpi%len(predefinedColors)]
                 omitFeatures = True
                 useForMetaboliteGrouping = True
+                removeAsFalsePositive = False
                 for kid in grps.childKeys():
                     if str(kid) == "Min_Peaks_Found":
                         minFound = grps.value(kid).toInt()[0]
@@ -1631,19 +1638,23 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         color= str(grps.value(kid).toString())
                     elif str(kid) == "UseForMetaboliteGrouping":
                         useForMetaboliteGrouping = grps.value(kid).toBool()
+                    elif str(kid) == "RemoveAsFalsePositive":
+                        removeAsFalsePositive = grps.value(kid).toBool()
                     elif str(kid).startswith(grp):
                         if os.path.isabs(str(grps.value(kid).toString()).replace("\\", "/")):
                             kids.append(str(grps.value(kid).toString()).replace("\\", "/"))
                         else:
                             kids.append(os.path.split(str(groupFile))[0].replace("\\", "/") + "/" + str(grps.value(kid).toString()).replace("\\", "/"))
 
-                groupsToAdd.append(Bunch(name=grp, files=kids, minGrpFound=minFound, omitFeatures=omitFeatures, useForMetaboliteGrouping=useForMetaboliteGrouping, color=color))
+                groupsToAdd.append(Bunch(name=grp, files=kids, minGrpFound=minFound, omitFeatures=omitFeatures, useForMetaboliteGrouping=useForMetaboliteGrouping, removeAsFalsePositive=removeAsFalsePositive, color=color))
 
                 grps.endGroup()
                 grpi += 1
 
             for grpToAdd in natSort(groupsToAdd, key=lambda x:x.name):
-                self.addGroup(name=grpToAdd.name, files=grpToAdd.files, minGrpFound=grpToAdd.minGrpFound, omitFeatures=grpToAdd.omitFeatures, useForMetaboliteGrouping=grpToAdd.useForMetaboliteGrouping, color=grpToAdd.color)
+                self.addGroup(name=grpToAdd.name, files=grpToAdd.files, minGrpFound=grpToAdd.minGrpFound, omitFeatures=grpToAdd.omitFeatures,
+                              useForMetaboliteGrouping=grpToAdd.useForMetaboliteGrouping, removeAsFalsePositive=grpToAdd.removeAsFalsePositive,
+                              color=grpToAdd.color)
 
             grps.beginGroup("ExperimentResults")
             if grps.contains("GroupSaveFile"):
@@ -2131,6 +2142,33 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             if sett.contains("reintegrateIntensityCutoff"):
                 self.ui.reintegrateIntensityCutoff.setValue(sett.value("reintegrateIntensityCutoff").toDouble()[0])
 
+
+            if sett.contains("annotateMetabolites"):
+                self.ui.annotateMetabolites_CheckBox.setChecked(sett.value("annotateMetabolites").toBool())
+            if sett.contains("annotateMetabolites_generateSumFormulas"):
+                self.ui.generateSumFormulas_CheckBox.setChecked(sett.value("annotateMetabolites_generateSumFormulas").toBool())
+            if sett.contains("annotateMetabolites_sumFormulasMinimumElements"):
+                self.ui.sumFormulasMinimumElements_lineEdit.setText(str(sett.value("annotateMetabolites_sumFormulasMinimumElements").toString()))
+            if sett.contains("annotateMetabolites_sumFormulasMaximumElements"):
+                self.ui.sumFormulasMaximumElements_lineEdit.setText(str(sett.value("annotateMetabolites_sumFormulasMaximumElements").toString()))
+            if sett.contains("annotateMetabolites_sumFormulasUseExactXn"):
+                te=str(sett.value("annotateMetabolites_sumFormulasUseExactXn").toString())
+                opts={"Exact":0, "Don't use":1, "Minimum":2, "PlusMinus":3}
+                self.ui.sumFormulasUseExactXn_ComboBox.setCurrentIndex(opts[te])
+            if sett.contains("annotateMetabolites_plusMinus"):
+                self.ui.sumFormulasPlusMinus_spinBox.setValue(sett.value("annotateMetabolites_plusMinus").toInt()[0])
+            if sett.contains("annotateMetabolites_checkRT"):
+                self.ui.checkRTInHits_checkBox.setChecked(sett.value("annotateMetabolites_checkRT").toBool())
+            if sett.contains("annotateMetabolites_maxRTError"):
+                self.ui.maxRTErrorInHits_spinnerBox.setValue(sett.value("annotateMetabolites_maxRTError").toDouble()[0])
+
+            if sett.contains("annotateMetabolites_usedDatabases"):
+                usedDBs=loads(base64.b64decode(str(sett.value("annotateMetabolites_usedDatabases").toString())))
+                for dbName, dbFile in usedDBs:
+                    item = QtGui.QStandardItem("%s" % dbName)
+                    item.setData(dbFile)
+                    self.ui.dbList_listView.model().appendRow(item)
+
             sett.endGroup()
 
             self.updateTracerInfo()
@@ -2256,6 +2294,22 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             sett.setValue("GroupIntegrateMissedPeaks", self.ui.integratedMissedPeaks.isChecked())
             sett.setValue("integrationMaxTimeDifference", self.ui.integrationMaxTimeDifference.value())
             sett.setValue("reintegrateIntensityCutoff", self.ui.reintegrateIntensityCutoff.value())
+
+            sett.setValue("annotateMetabolites", self.ui.annotateMetabolites_CheckBox.isChecked())
+            sett.setValue("annotateMetabolites_generateSumFormulas", self.ui.generateSumFormulas_CheckBox.isChecked())
+            sett.setValue("annotateMetabolites_sumFormulasMinimumElements", self.ui.sumFormulasMinimumElements_lineEdit.text())
+            sett.setValue("annotateMetabolites_sumFormulasMaximumElements", self.ui.sumFormulasMaximumElements_lineEdit.text())
+            sett.setValue("annotateMetabolites_sumFormulasUseExactXn", self.ui.sumFormulasUseExactXn_ComboBox.currentText())
+            sett.setValue("annotateMetabolites_plusMinus", self.ui.sumFormulasPlusMinus_spinBox.value())
+            sett.setValue("annotateMetabolites_checkRT", self.ui.checkRTInHits_checkBox.isChecked())
+            sett.setValue("annotateMetabolites_maxRTError", self.ui.maxRTErrorInHits_spinnerBox.value())
+
+            usedDBs=[]
+            for entryInd in range(self.ui.dbList_listView.model().rowCount()):
+                dbFile = str(self.ui.dbList_listView.model().item(entryInd, 0).data().toString())
+                dbName = dbFile[dbFile.rfind("/") + 1:dbFile.rfind(".")]
+                usedDBs.append([dbName, dbFile])
+            sett.setValue("annotateMetabolites_usedDatabases", base64.b64encode(dumps(usedDBs)))
 
             sett.endGroup()
 
@@ -2928,12 +2982,140 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     pw.setSkipCallBack(True)
                     pw.hide()
 
+
+
             if self.terminateJobs:
                 pw.hide()
                 return
 
+        ## annotate results
+        if self.ui.annotateMetabolites_CheckBox.isChecked():
+            logging.info("Annotation of detected metabolites..")
+
+            pw = ProgressWrapper(1, parent=self)
+            pw.show()
+            pw.getCallingFunction()("text")("Annotation of detected metabolites")
+            pw.getCallingFunction()("header")("Annotating..")
+
+            if self.ui.generateSumFormulas_CheckBox.isChecked():
+                pw.getCallingFunction()("text")("Generating sum formulas..")
+                try:
+                    fT = formulaTools()
+
+                    elemsMin=fT.parseFormula(str(self.ui.sumFormulasMinimumElements_lineEdit.text()))
+                    elemsMax=fT.parseFormula(str(self.ui.sumFormulasMaximumElements_lineEdit.text()))
+
+                    useAtoms=[]
+
+                    if getElementOfIsotope(str(self.ui.isotopeAText.text())) in elemsMax.keys():
+                        useAtoms.append(getElementOfIsotope(str(self.ui.isotopeAText.text())))
+
+                    if "C" in elemsMax.keys() and "C" not in useAtoms:
+                        useAtoms.append("C")
+                    if "H" in elemsMax.keys() and "H" not in useAtoms:
+                        useAtoms.append("H")
+                    if "N" in elemsMax.keys() and "N" not in useAtoms:
+                        useAtoms.append("N")
+                    if "O" in elemsMax.keys() and "O" not in useAtoms:
+                        useAtoms.append("O")
+                    if "S" in elemsMax.keys() and "S" not in useAtoms:
+                        useAtoms.append("S")
+
+                    for atom in elemsMax.keys():
+                        if atom not in useAtoms:
+                            useAtoms.append(atom)
 
 
+                    atomsRange=[]
+
+                    for atom in useAtoms:
+                        minE=0
+                        if atom in elemsMin.keys():
+                            minE=elemsMin[atom]
+
+                        maxE=elemsMax[atom]
+
+                        atomsRange.append([minE, maxE])
+
+
+
+                    useExactXn=str(self.ui.sumFormulasUseExactXn_ComboBox.currentText())
+                    if useExactXn.lower()=="plusminus":
+                        useExactXn="PlusMinus_%d"%(self.ui.sumFormulasPlusMinus_spinBox.value())
+                    sumFormulaGeneration.annotateResultsWithSumFormulas(str(self.ui.groupsSave.text()),
+                                                                        useAtoms,
+                                                                        atomsRange,
+                                                                        getElementOfIsotope(str(self.ui.isotopeAText.text())),
+                                                                        useExactXn,
+                                                                        ppm=self.ui.ppmRangeIdentification.value())
+
+                except Exception as e:
+                    import traceback
+                    traceback.print_exc()
+                    logging.error(str(traceback))
+
+                    QtGui.QMessageBox.warning(self, "MetExtract", "Error during metabolite annotation",
+                                              QtGui.QMessageBox.Ok)
+                    errorCount += 1
+                finally:
+                    pass
+
+            if self.ui.searchDB_checkBox.isChecked():
+                pw.getCallingFunction()("text")("Searching hits in databases..")
+                db = searchDatabases.DBSearch()
+                table = TableUtils.readFile(str(self.ui.groupsSave.text()))
+
+                dbEntries=[]
+                for entryInd in range(self.ui.dbList_listView.model().rowCount()):
+                    dbFile = str(self.ui.dbList_listView.model().item(entryInd, 0).data().toString())
+                    dbName = dbFile[dbFile.rfind("/") + 1:dbFile.rfind(".")]
+                    db.addEntriesFromFile(dbName, dbFile)
+                    table.addColumn("DBs_"+dbName, "TEXT")
+
+                db.optimizeDB()
+
+                class dbSearch:
+                    def __init__(self, dbs, ppm, rtError, useRt=True, checkXnInHits=True, processedElement="C"):
+                        self.ppm = ppm
+                        self.rtError=rtError
+                        self.useRt=useRt
+                        self.checkXnInHits=checkXnInHits
+                        self.processedElement=processedElement
+                        self.dbs=dbs
+
+                    def updateDBCols(self, x):
+                        mass=float(x["M"]) if x["M"]!="" and "," not in x["M"] else None
+                        mz=float(x["MZ"])
+                        rt_min=float(x["RT"])
+                        charges=int(x["Charge"])
+                        polarity=x["Ionisation_Mode"]
+                        xn=int(x["Xn"])
+
+                        hits={}
+                        for hit in self.dbs.searchDB(mass=mass, mz=mz, polarity=polarity, charges=charges,
+                                               rt_min=rt_min if self.useRt else None,
+                                               ppm=self.ppm, rt_error=self.rtError,
+                                               checkXN=self.checkXnInHits, element=self.processedElement, Xn=xn):
+                            if hit.dbName not in hits.keys():
+                                hits[hit.dbName]=[]
+                            hits[hit.dbName].append("%s (%s): Num %s, Formula %s, Additional information: %s" % (hit.name, hit.hitType, hit.num, hit.sumFormula, hit.additionalInfo))
+
+                        for dbName in hits.keys():
+                            x["DBs_"+dbName] = ",".join(hits[dbName])
+                        return x
+
+                useExactXn=str(self.ui.sumFormulasUseExactXn_ComboBox.currentText())
+                if useExactXn.lower()=="plusminus":
+                    useExactXn="PlusMinus_%d"%(self.ui.sumFormulasPlusMinus_spinBox.value())
+
+                x = dbSearch(db, ppm=self.ui.ppmRangeIdentification.value(), rtError=self.ui.maxRTErrorInHits_spinnerBox.value(), useRt=self.ui.checkRTInHits_checkBox.isChecked(),
+                checkXnInHits=useExactXn, processedElement=getElementOfIsotope(str(self.ui.isotopeAText.text())))
+                table.applyFunction(x.updateDBCols, showProgress=True)
+
+                table.addComment("## Database search: checkXn %s"%(useExactXn))
+
+                TableUtils.saveFile(table, str(self.ui.groupsSave.text()))
+            pw.hide()
 
         self.updateLCMSSampleSettings()
 
@@ -6082,17 +6264,21 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                       ogroup=item.bunchData.metaboliteGroupID,
                                       mz=child.bunchData.mz,
                                       lmz=child.bunchData.lmz,
+                                      xn=child.bunchData.xn,
                                       rt=child.bunchData.rt/60.,
                                       rtBorders=self.ui.doubleSpinBox_resultsExperiment_PeakWidth.value(),
                                       filterLine=child.bunchData.scanEvent,
+                                      ionisationMode=child.bunchData.ionisationMode,
                                       comment=""))
 
             metabolitesToPlot.append(Bunch(name="unknown_"+str(item.bunchData.metaboliteGroupID), ogroup=item.bunchData.metaboliteGroupID,
                                            features=features))
 
-        if pdfFile is None:
+        if pdfFile == None or pdfFile==False:
             pdfFile = str(QtGui.QFileDialog.getSaveFileName(caption="Select pdf file", directory=self.lastOpenDir, filter="PDF (*.pdf)"))
             pdfFile=pdfFile.replace("\\", "/").replace(".PDF", ".pdf")
+            if pdfFile=="":
+                return
 
         if self.loadedMZXMLs is None:
             self.loadAllSamples()
@@ -6261,6 +6447,75 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         except Exception as ex:
             pass
 
+
+
+    def annotateMetabolitesChanged(self, events):
+        self.ui.generateSumFormulas_CheckBox.setEnabled(self.ui.annotateMetabolites_CheckBox.isChecked())
+
+    def addDB(self, events):
+        dbFile = QtGui.QFileDialog.getOpenFileName(caption="Select database file", directory=self.lastOpenDir,
+                                                      filter="Database (*.tsv);;All files (*.*)")
+        dbFile=str(dbFile)
+
+        if len(dbFile) > 0:
+            self.lastOpenDir = str(dbFile).replace("\\", "/")
+            self.lastOpenDir = self.lastOpenDir[:self.lastOpenDir.rfind("/")]
+
+            dbFile = dbFile.replace("\\", "/")
+            dbName = dbFile[dbFile.rfind("/") + 1:dbFile.rfind(".")]
+
+            item=QtGui.QStandardItem("%s (Database)"%dbName)
+            item.setData(dbFile)
+            self.ui.dbList_listView.model().appendRow(item)
+
+    def addMZVaultRepository(self, events):
+        dbFile = QtGui.QFileDialog.getOpenFileName(caption="Select database file", directory=self.lastOpenDir,
+                                                      filter="Database (*.db);;All files (*.*)")
+        dbFile=str(dbFile)
+
+        if len(dbFile) > 0:
+            self.lastOpenDir = str(dbFile).replace("\\", "/")
+            self.lastOpenDir = self.lastOpenDir[:self.lastOpenDir.rfind("/")]
+
+            dbFile = dbFile.replace("\\", "/")
+            dbName = dbFile[dbFile.rfind("/") + 1:dbFile.rfind(".")]
+
+            item=QtGui.QStandardItem("%s (mzVault repository)"%dbName)
+            item.setData(dbFile)
+            self.ui.dbList_listView.model().appendRow(item)
+
+    def removeDB(self, events):
+        ind=self.ui.dbList_listView.currentIndex().row()
+        self.ui.dbList_listView.model().removeRows(ind, 1)
+
+    def generateDBTemplate(self, events):
+        dbTemplateFile=QtGui.QFileDialog.getSaveFileName(caption="Select database template", directory=self.lastOpenDir+"/DBTemplate.tsv",
+                                                         filter="Database (*.tsv);;All files (*.*)", )
+        dbTemplateFile=str(dbTemplateFile)
+
+        if len(dbTemplateFile) > 0:
+            with open(dbTemplateFile, "wb") as dbt:
+                dbt.write("Num\tName\tSumFormula\tRt_min\tMZ\tIonisationMode\tAdditionalColumn1\tAdditionalColumn2")
+                dbt.write("\n")
+                dbt.write("1\tPhenylalanine\tC9H11NO2\t\t\t")
+                dbt.write("\n")
+                dbt.write("1\tPhenylalanine\tC9H11NO2\t5.5\t\t")
+                dbt.write("\n")
+                dbt.write("1\tPhenylalanine\t\t5.5\t166.085706\t+")
+                dbt.write("\n")
+                dbt.write("1\tPhenylalanine\tC9H11NO2\t5.5\t166.085706\t+")
+                dbt.write("\n")
+                dbt.write("## Any line starting with the hash-symbol (#) is a comment and will be skipped")
+                dbt.write("\n")
+                dbt.write("## Mandatory fields are the Num and Name")
+                dbt.write("\n")
+                dbt.write("## Additionally, either the sum formula or the m/z value (and a polarity mode) have to be provided")
+                dbt.write("\n")
+                dbt.write("## If the sum formula is provided, the accurate mass will automatically be calculated")
+                dbt.write("\n")
+                dbt.write("## The retention time is optional and must be specified in minutes. If several retention times are possible, use different rows.")
+                dbt.write("\n")
+                dbt.write("## Additional columns may be provided. These will be transfered to the results but not checked in any way")
 
 
     # initialise main interface, triggers and command line parameters
@@ -6465,7 +6720,14 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
 
 
+        self.ui.annotateMetabolites_CheckBox.stateChanged.connect(self.annotateMetabolitesChanged)
 
+        self.dbListModel=QtGui.QStandardItemModel()
+        self.ui.dbList_listView.setModel(self.dbListModel)
+        self.ui.addDB_pushButton.clicked.connect(self.addDB)
+        self.ui.addmzVaultRep_pushButton.clicked.connect(self.addMZVaultRepository)
+        self.ui.removeDB_pushButton.clicked.connect(self.removeDB)
+        self.ui.generateDBTemplate_pushButton.clicked.connect(self.generateDBTemplate)
 
 
 

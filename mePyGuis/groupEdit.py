@@ -81,6 +81,9 @@ class groupEdit(QtGui.QDialog, Ui_GroupEditor):
     def getUseForMetaboliteGrouping(self):
         return bool(self.useForMetaboliteGrouping.checkState() == QtCore.Qt.Checked)
 
+    def getRemoveAsFalsePositive(self):
+        return bool(self.removeAsFalsePositive.checkState() == QtCore.Qt.Checked)
+
     def getOpenDir(self):
         return self.initDir
 
@@ -109,7 +112,7 @@ class groupEdit(QtGui.QDialog, Ui_GroupEditor):
                         self.groupfiles.append(root + "/" + file)
 
 
-    def executeDialog(self, groupName="", groupfiles=[], minimumGroupFound=1, omitFeatures=True, useForMetaboliteGrouping=True, activeColor="Red"):
+    def executeDialog(self, groupName="", groupfiles=[], minimumGroupFound=1, omitFeatures=True, useForMetaboliteGrouping=True, removeAsFalsePositive=False, activeColor="Red"):
 
         for file in groupfiles:
             self.groupFiles.addItem(file)
@@ -139,6 +142,11 @@ class groupEdit(QtGui.QDialog, Ui_GroupEditor):
             self.useForMetaboliteGrouping.setCheckState(QtCore.Qt.Checked)
         else:
             self.useForMetaboliteGrouping.setCheckState(QtCore.Qt.Unchecked)
+        if removeAsFalsePositive:
+            self.removeAsFalsePositive.setCheckState(QtCore.Qt.Checked)
+        else:
+            self.removeAsFalsePositive.setCheckState(QtCore.Qt.Unchecked)
+
         self.groupName.setFocus()
         return self.exec_()
 

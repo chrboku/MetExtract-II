@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>2077</width>
-    <height>1237</height>
+    <height>1403</height>
    </rect>
   </property>
   <property name="acceptDrops">
@@ -77,7 +77,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>3</number>
+       <number>1</number>
       </property>
       <widget class="QWidget" name="inputTab">
        <attribute name="title">
@@ -894,7 +894,7 @@ font: 7pt;</string>
              <x>0</x>
              <y>0</y>
              <width>1312</width>
-             <height>1162</height>
+             <height>1333</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -922,7 +922,14 @@ font: 7pt;</string>
             </item>
             <item row="0" column="0">
              <layout class="QGridLayout" name="gridLayout_27">
-              <item row="7" column="0">
+              <item row="8" column="0" colspan="5">
+               <widget class="Line" name="line_14">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+               </widget>
+              </item>
+              <item row="9" column="0">
                <layout class="QVBoxLayout" name="verticalLayout_15">
                 <item>
                  <widget class="QLabel" name="label_5">
@@ -1054,7 +1061,7 @@ font: 7pt;</string>
                 </property>
                </widget>
               </item>
-              <item row="7" column="4">
+              <item row="9" column="4">
                <layout class="QHBoxLayout" name="horizontalLayout">
                 <property name="margin">
                  <number>3</number>
@@ -1188,7 +1195,7 @@ font: 7pt;</string>
                 </property>
                </widget>
               </item>
-              <item row="7" column="2">
+              <item row="9" column="2">
                <widget class="Line" name="line_8">
                 <property name="frameShadow">
                  <enum>QFrame::Plain</enum>
@@ -3242,6 +3249,330 @@ p, li { white-space: pre-wrap; }
                 </layout>
                </widget>
               </item>
+              <item row="6" column="0">
+               <layout class="QVBoxLayout" name="verticalLayout_18">
+                <item>
+                 <widget class="QCheckBox" name="annotateMetabolites_CheckBox">
+                  <property name="layoutDirection">
+                   <enum>Qt::RightToLeft</enum>
+                  </property>
+                  <property name="text">
+                   <string>Annotate metabolites</string>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <spacer name="verticalSpacer_18">
+                  <property name="orientation">
+                   <enum>Qt::Vertical</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Fixed</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>20</width>
+                    <height>5</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item>
+                 <widget class="QLabel" name="label_66">
+                  <property name="maximumSize">
+                   <size>
+                    <width>200</width>
+                    <height>16777215</height>
+                   </size>
+                  </property>
+                  <property name="styleSheet">
+                   <string notr="true">color: rgb(90, 90, 90);
+font: 7pt;</string>
+                  </property>
+                  <property name="text">
+                   <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Detected and bracketed results will be annotated with putative sum formulas (Seven Golden Rules Kind et al. 2007) and/or metabolite databases (in the form of TSV lists)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignJustify|Qt::AlignVCenter</set>
+                  </property>
+                  <property name="wordWrap">
+                   <bool>true</bool>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <spacer name="verticalSpacer_15">
+                  <property name="orientation">
+                   <enum>Qt::Vertical</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>20</width>
+                    <height>0</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+               </layout>
+              </item>
+              <item row="6" column="4">
+               <layout class="QGridLayout" name="gridLayout_41">
+                <item row="0" column="0">
+                 <widget class="QGroupBox" name="generateSumFormulas_CheckBox">
+                  <property name="title">
+                   <string>Generate sum formulas</string>
+                  </property>
+                  <property name="checkable">
+                   <bool>true</bool>
+                  </property>
+                  <layout class="QGridLayout" name="gridLayout_7">
+                   <item row="0" column="1">
+                    <spacer name="horizontalSpacer_6">
+                     <property name="orientation">
+                      <enum>Qt::Horizontal</enum>
+                     </property>
+                     <property name="sizeHint" stdset="0">
+                      <size>
+                       <width>0</width>
+                       <height>20</height>
+                      </size>
+                     </property>
+                    </spacer>
+                   </item>
+                   <item row="0" column="0">
+                    <widget class="QGroupBox" name="groupBox_9">
+                     <property name="title">
+                      <string>Elements</string>
+                     </property>
+                     <layout class="QGridLayout" name="gridLayout_50">
+                      <item row="0" column="1">
+                       <widget class="QLineEdit" name="sumFormulasMinimumElements_lineEdit">
+                        <property name="text">
+                         <string>CHNOS</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item row="0" column="0">
+                       <widget class="QLabel" name="label_67">
+                        <property name="text">
+                         <string>Minimum</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item row="0" column="2">
+                       <widget class="QLabel" name="label_75">
+                        <property name="text">
+                         <string>Maximum</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item row="0" column="3" colspan="2">
+                       <widget class="QLineEdit" name="sumFormulasMaximumElements_lineEdit">
+                        <property name="text">
+                         <string>C80H300N10O20S10</string>
+                        </property>
+                       </widget>
+                      </item>
+                     </layout>
+                    </widget>
+                   </item>
+                  </layout>
+                 </widget>
+                </item>
+                <item row="0" column="1">
+                 <spacer name="horizontalSpacer_4">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>40</width>
+                    <height>20</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item row="2" column="0">
+                 <layout class="QHBoxLayout" name="horizontalLayout_19">
+                  <item>
+                   <widget class="QLabel" name="label_76">
+                    <property name="text">
+                     <string>Use number of labeling atoms</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QComboBox" name="sumFormulasUseExactXn_ComboBox">
+                    <item>
+                     <property name="text">
+                      <string>Exact</string>
+                     </property>
+                    </item>
+                    <item>
+                     <property name="text">
+                      <string>Don't use</string>
+                     </property>
+                    </item>
+                    <item>
+                     <property name="text">
+                      <string>Minimum</string>
+                     </property>
+                    </item>
+                    <item>
+                     <property name="text">
+                      <string>PlusMinus</string>
+                     </property>
+                    </item>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QSpinBox" name="sumFormulasPlusMinus_spinBox"/>
+                  </item>
+                 </layout>
+                </item>
+                <item row="1" column="0">
+                 <widget class="QGroupBox" name="searchDB_checkBox">
+                  <property name="title">
+                   <string>Annotation sources</string>
+                  </property>
+                  <property name="checkable">
+                   <bool>true</bool>
+                  </property>
+                  <layout class="QGridLayout" name="gridLayout_51">
+                   <item row="3" column="1">
+                    <widget class="QPushButton" name="addDB_pushButton">
+                     <property name="text">
+                      <string>Add database</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="3" column="0">
+                    <spacer name="horizontalSpacer_7">
+                     <property name="orientation">
+                      <enum>Qt::Horizontal</enum>
+                     </property>
+                     <property name="sizeHint" stdset="0">
+                      <size>
+                       <width>40</width>
+                       <height>20</height>
+                      </size>
+                     </property>
+                    </spacer>
+                   </item>
+                   <item row="3" column="4">
+                    <widget class="Line" name="line_36">
+                     <property name="orientation">
+                      <enum>Qt::Vertical</enum>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="3" column="3">
+                    <widget class="QPushButton" name="removeDB_pushButton">
+                     <property name="text">
+                      <string>Remove annotation source</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="0" column="0" colspan="6">
+                    <widget class="QListView" name="dbList_listView">
+                     <property name="sizePolicy">
+                      <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                       <horstretch>0</horstretch>
+                       <verstretch>0</verstretch>
+                      </sizepolicy>
+                     </property>
+                     <property name="minimumSize">
+                      <size>
+                       <width>50</width>
+                       <height>70</height>
+                      </size>
+                     </property>
+                     <property name="maximumSize">
+                      <size>
+                       <width>16777215</width>
+                       <height>70</height>
+                      </size>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="3" column="5">
+                    <widget class="QPushButton" name="generateDBTemplate_pushButton">
+                     <property name="text">
+                      <string>Generate database template</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="1" column="5">
+                    <layout class="QHBoxLayout" name="horizontalLayout_11">
+                     <item>
+                      <widget class="QLabel" name="label_79">
+                       <property name="text">
+                        <string>max. error</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QDoubleSpinBox" name="maxRTErrorInHits_spinnerBox">
+                       <property name="value">
+                        <double>0.150000000000000</double>
+                       </property>
+                      </widget>
+                     </item>
+                    </layout>
+                   </item>
+                   <item row="1" column="3" colspan="2">
+                    <widget class="QCheckBox" name="checkRTInHits_checkBox">
+                     <property name="text">
+                      <string>Check retention time</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="3" column="2">
+                    <widget class="QPushButton" name="addmzVaultRep_pushButton">
+                     <property name="text">
+                      <string>Add mzVault repository</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="2" column="5">
+                    <layout class="QHBoxLayout" name="horizontalLayout_20">
+                     <item>
+                      <widget class="QLabel" name="label_80">
+                       <property name="text">
+                        <string>min. score</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QDoubleSpinBox" name="minMSMSScore_doubleSpinBox">
+                       <property name="maximum">
+                        <double>1.000000000000000</double>
+                       </property>
+                       <property name="value">
+                        <double>0.700000000000000</double>
+                       </property>
+                      </widget>
+                     </item>
+                    </layout>
+                   </item>
+                  </layout>
+                 </widget>
+                </item>
+               </layout>
+              </item>
+              <item row="6" column="2">
+               <widget class="Line" name="line_20">
+                <property name="frameShadow">
+                 <enum>QFrame::Plain</enum>
+                </property>
+                <property name="orientation">
+                 <enum>Qt::Vertical</enum>
+                </property>
+               </widget>
+              </item>
              </layout>
             </item>
             <item row="1" column="0">
@@ -3357,8 +3688,8 @@ p, li { white-space: pre-wrap; }
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>2047</width>
-             <height>1180</height>
+             <width>1790</width>
+             <height>878</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_15">
@@ -4031,8 +4362,8 @@ p, li { white-space: pre-wrap; }
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>2029</width>
-             <height>1162</height>
+             <width>1248</width>
+             <height>634</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_40">

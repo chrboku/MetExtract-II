@@ -127,83 +127,16 @@
         </spacer>
        </item>
        <item>
-        <widget class="QPushButton" name="dialogCanceled">
-         <property name="text">
-          <string>Cancel</string>
-         </property>
-        </widget>
-       </item>
-       <item>
         <widget class="QPushButton" name="dialogFinished">
          <property name="text">
           <string>Ok</string>
          </property>
         </widget>
        </item>
-      </layout>
-     </item>
-     <item row="7" column="4">
-      <layout class="QGridLayout" name="gridLayout_3">
-       <item row="0" column="0">
-        <spacer name="horizontalSpacer_3">
-         <property name="orientation">
-          <enum>Qt::Horizontal</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>40</width>
-           <height>20</height>
-          </size>
-         </property>
-        </spacer>
-       </item>
-       <item row="0" column="3">
-        <widget class="QSpinBox" name="groupMinimumFound">
-         <property name="minimum">
-          <number>1</number>
-         </property>
-         <property name="maximum">
-          <number>999</number>
-         </property>
-         <property name="value">
-          <number>1</number>
-         </property>
-        </widget>
-       </item>
-       <item row="3" column="2" colspan="2">
-        <widget class="QComboBox" name="colorsComboBox"/>
-       </item>
-       <item row="3" column="1">
-        <widget class="QLabel" name="label_7">
+       <item>
+        <widget class="QPushButton" name="dialogCanceled">
          <property name="text">
-          <string>Color</string>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="1" colspan="2">
-        <widget class="QLabel" name="label_4">
-         <property name="text">
-          <string>Minimum found </string>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="1" colspan="3">
-        <widget class="QCheckBox" name="omitFeatures">
-         <property name="text">
-          <string>Omit features</string>
-         </property>
-         <property name="checked">
-          <bool>true</bool>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="1" colspan="3">
-        <widget class="QCheckBox" name="useForMetaboliteGrouping">
-         <property name="text">
-          <string>Use samples for metabolite grouping</string>
-         </property>
-         <property name="checked">
-          <bool>true</bool>
+          <string>Cancel</string>
          </property>
         </widget>
        </item>
@@ -422,10 +355,98 @@ font: 7pt;</string>
        </property>
       </widget>
      </item>
+     <item row="7" column="4">
+      <layout class="QGridLayout" name="gridLayout_3">
+       <item row="0" column="0">
+        <spacer name="horizontalSpacer_3">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>40</width>
+           <height>20</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item row="0" column="3">
+        <widget class="QSpinBox" name="groupMinimumFound">
+         <property name="minimum">
+          <number>1</number>
+         </property>
+         <property name="maximum">
+          <number>999</number>
+         </property>
+         <property name="value">
+          <number>1</number>
+         </property>
+        </widget>
+       </item>
+       <item row="4" column="2" colspan="2">
+        <widget class="QComboBox" name="colorsComboBox"/>
+       </item>
+       <item row="4" column="1">
+        <widget class="QLabel" name="label_7">
+         <property name="text">
+          <string>Color</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1" colspan="2">
+        <widget class="QLabel" name="label_4">
+         <property name="text">
+          <string>Minimum found </string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1" colspan="3">
+        <widget class="QCheckBox" name="omitFeatures">
+         <property name="text">
+          <string>Omit features</string>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="1" colspan="3">
+        <widget class="QCheckBox" name="useForMetaboliteGrouping">
+         <property name="text">
+          <string>Use samples for metabolite grouping</string>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="1" colspan="3">
+        <widget class="QCheckBox" name="removeAsFalsePositive">
+         <property name="text">
+          <string>Remove (false positive)</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
     </layout>
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>groupName</tabstop>
+  <tabstop>addFiles</tabstop>
+  <tabstop>groupMinimumFound</tabstop>
+  <tabstop>omitFeatures</tabstop>
+  <tabstop>useForMetaboliteGrouping</tabstop>
+  <tabstop>removeAsFalsePositive</tabstop>
+  <tabstop>colorsComboBox</tabstop>
+  <tabstop>dialogFinished</tabstop>
+  <tabstop>dialogCanceled</tabstop>
+  <tabstop>addFolder</tabstop>
+  <tabstop>removeSelected</tabstop>
+  <tabstop>groupFiles</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>

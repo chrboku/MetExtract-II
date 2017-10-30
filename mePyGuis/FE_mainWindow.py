@@ -341,6 +341,7 @@ class Ui_MainWindow(object):
         self.doubleSpinBox_massBankPPMError.setObjectName(_fromUtf8("doubleSpinBox_massBankPPMError"))
         self.gridLayout_19.addWidget(self.doubleSpinBox_massBankPPMError, 0, 1, 1, 1)
         self.doubleSpinBox_massBankMinRelAbundance = QtGui.QDoubleSpinBox(self.groupBox_7)
+        self.doubleSpinBox_massBankMinRelAbundance.setDecimals(0)
         self.doubleSpinBox_massBankMinRelAbundance.setMinimum(1.0)
         self.doubleSpinBox_massBankMinRelAbundance.setObjectName(_fromUtf8("doubleSpinBox_massBankMinRelAbundance"))
         self.gridLayout_19.addWidget(self.doubleSpinBox_massBankMinRelAbundance, 1, 1, 1, 1)

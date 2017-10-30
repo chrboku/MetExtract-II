@@ -2,8 +2,7 @@
 
 # Form implementation generated from reading ui file '.\mePyGuis\guis\ModuleSelectionWindow.ui'
 #
-# Created: Tue Jan 03 12:31:01 2017
-#      by: PyQt4 UI code generator 4.10
+# Created by: PyQt4 UI code generator 4.11.4
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -40,7 +39,6 @@ class Ui_MainWindow(object):
         self.line_2 = QtGui.QFrame(self.centralwidget)
         self.line_2.setFrameShadow(QtGui.QFrame.Sunken)
         self.line_2.setFrameShape(QtGui.QFrame.HLine)
-        self.line_2.setFrameShadow(QtGui.QFrame.Sunken)
         self.line_2.setObjectName(_fromUtf8("line_2"))
         self.gridLayout.addWidget(self.line_2, 3, 0, 1, 2)
         self.tracExtractLabel = QtGui.QLabel(self.centralwidget)
@@ -56,7 +54,6 @@ class Ui_MainWindow(object):
         self.line = QtGui.QFrame(self.centralwidget)
         self.line.setFrameShadow(QtGui.QFrame.Sunken)
         self.line.setFrameShape(QtGui.QFrame.HLine)
-        self.line.setFrameShadow(QtGui.QFrame.Sunken)
         self.line.setObjectName(_fromUtf8("line"))
         self.gridLayout.addWidget(self.line, 1, 0, 1, 2)
         self.documentationLabel = QtGui.QLabel(self.centralwidget)
@@ -65,7 +62,6 @@ class Ui_MainWindow(object):
         self.line_3 = QtGui.QFrame(self.centralwidget)
         self.line_3.setFrameShadow(QtGui.QFrame.Sunken)
         self.line_3.setFrameShape(QtGui.QFrame.HLine)
-        self.line_3.setFrameShadow(QtGui.QFrame.Sunken)
         self.line_3.setObjectName(_fromUtf8("line_3"))
         self.gridLayout.addWidget(self.line_3, 5, 0, 1, 2)
         self.allExtractIcon = QtGui.QPushButton(self.centralwidget)
