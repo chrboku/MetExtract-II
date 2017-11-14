@@ -894,7 +894,7 @@ font: 7pt;</string>
              <x>0</x>
              <y>0</y>
              <width>1312</width>
-             <height>1333</height>
+             <height>1361</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -3442,14 +3442,14 @@ font: 7pt;</string>
                    <bool>true</bool>
                   </property>
                   <layout class="QGridLayout" name="gridLayout_51">
-                   <item row="3" column="1">
+                   <item row="4" column="1">
                     <widget class="QPushButton" name="addDB_pushButton">
                      <property name="text">
                       <string>Add database</string>
                      </property>
                     </widget>
                    </item>
-                   <item row="3" column="0">
+                   <item row="4" column="0">
                     <spacer name="horizontalSpacer_7">
                      <property name="orientation">
                       <enum>Qt::Horizontal</enum>
@@ -3462,14 +3462,14 @@ font: 7pt;</string>
                      </property>
                     </spacer>
                    </item>
-                   <item row="3" column="4">
+                   <item row="4" column="4">
                     <widget class="Line" name="line_36">
                      <property name="orientation">
                       <enum>Qt::Vertical</enum>
                      </property>
                     </widget>
                    </item>
-                   <item row="3" column="3">
+                   <item row="4" column="3">
                     <widget class="QPushButton" name="removeDB_pushButton">
                      <property name="text">
                       <string>Remove annotation source</string>
@@ -3498,14 +3498,14 @@ font: 7pt;</string>
                      </property>
                     </widget>
                    </item>
-                   <item row="3" column="5">
+                   <item row="4" column="5">
                     <widget class="QPushButton" name="generateDBTemplate_pushButton">
                      <property name="text">
                       <string>Generate database template</string>
                      </property>
                     </widget>
                    </item>
-                   <item row="1" column="5">
+                   <item row="2" column="5">
                     <layout class="QHBoxLayout" name="horizontalLayout_11">
                      <item>
                       <widget class="QLabel" name="label_79">
@@ -3523,21 +3523,21 @@ font: 7pt;</string>
                      </item>
                     </layout>
                    </item>
-                   <item row="1" column="3" colspan="2">
+                   <item row="2" column="3" colspan="2">
                     <widget class="QCheckBox" name="checkRTInHits_checkBox">
                      <property name="text">
                       <string>Check retention time</string>
                      </property>
                     </widget>
                    </item>
-                   <item row="3" column="2">
+                   <item row="4" column="2">
                     <widget class="QPushButton" name="addmzVaultRep_pushButton">
                      <property name="text">
                       <string>Add mzVault repository</string>
                      </property>
                     </widget>
                    </item>
-                   <item row="2" column="5">
+                   <item row="3" column="5">
                     <layout class="QHBoxLayout" name="horizontalLayout_20">
                      <item>
                       <widget class="QLabel" name="label_80">
@@ -3553,6 +3553,24 @@ font: 7pt;</string>
                        </property>
                        <property name="value">
                         <double>0.700000000000000</double>
+                       </property>
+                      </widget>
+                     </item>
+                    </layout>
+                   </item>
+                   <item row="1" column="5">
+                    <layout class="QHBoxLayout" name="horizontalLayout_21">
+                     <item>
+                      <widget class="QLabel" name="label_81">
+                       <property name="text">
+                        <string>max. ppm</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QDoubleSpinBox" name="annotationMaxPPM_doubleSpinBox">
+                       <property name="value">
+                        <double>3.000000000000000</double>
                        </property>
                       </widget>
                      </item>

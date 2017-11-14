@@ -2161,6 +2161,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 self.ui.checkRTInHits_checkBox.setChecked(sett.value("annotateMetabolites_checkRT").toBool())
             if sett.contains("annotateMetabolites_maxRTError"):
                 self.ui.maxRTErrorInHits_spinnerBox.setValue(sett.value("annotateMetabolites_maxRTError").toDouble()[0])
+            if sett.contains("annotateMetabolites_maxPPM"):
+                self.ui.annotationMaxPPM_doubleSpinBox.setValue(sett.value("annotateMetabolites_maxPPM").toDouble()[0])
 
             if sett.contains("annotateMetabolites_usedDatabases"):
                 usedDBs=loads(base64.b64decode(str(sett.value("annotateMetabolites_usedDatabases").toString())))
@@ -2303,6 +2305,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             sett.setValue("annotateMetabolites_plusMinus", self.ui.sumFormulasPlusMinus_spinBox.value())
             sett.setValue("annotateMetabolites_checkRT", self.ui.checkRTInHits_checkBox.isChecked())
             sett.setValue("annotateMetabolites_maxRTError", self.ui.maxRTErrorInHits_spinnerBox.value())
+            sett.setVAlue("annotateMetabolites_maxPPM", self.ui.annotationMaxPPM_doubleSpinBox.value())
 
             usedDBs=[]
             for entryInd in range(self.ui.dbList_listView.model().rowCount()):
@@ -3047,7 +3050,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                                         atomsRange,
                                                                         getElementOfIsotope(str(self.ui.isotopeAText.text())),
                                                                         useExactXn,
-                                                                        ppm=self.ui.ppmRangeIdentification.value())
+                                                                        ppm=self.ui.annotationMaxPPM_doubleSpinBox.value())
 
                 except Exception as e:
                     import traceback
@@ -3084,7 +3087,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         self.dbs=dbs
 
                     def updateDBCols(self, x):
-                        mass=float(x["M"]) if x["M"]!="" and "," not in x["M"] else None
+                        mass=float(x["M"]) if x["M"]!="" and "," not in str(x["M"]) else None
                         mz=float(x["MZ"])
                         rt_min=float(x["RT"])
                         charges=int(x["Charge"])
@@ -3108,11 +3111,11 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 if useExactXn.lower()=="plusminus":
                     useExactXn="PlusMinus_%d"%(self.ui.sumFormulasPlusMinus_spinBox.value())
 
-                x = dbSearch(db, ppm=self.ui.ppmRangeIdentification.value(), rtError=self.ui.maxRTErrorInHits_spinnerBox.value(), useRt=self.ui.checkRTInHits_checkBox.isChecked(),
+                x = dbSearch(db, ppm=self.ui.annotationMaxPPM_doubleSpinBox.value(), rtError=self.ui.maxRTErrorInHits_spinnerBox.value(), useRt=self.ui.checkRTInHits_checkBox.isChecked(),
                 checkXnInHits=useExactXn, processedElement=getElementOfIsotope(str(self.ui.isotopeAText.text())))
                 table.applyFunction(x.updateDBCols, showProgress=True)
 
-                table.addComment("## Database search: checkXn %s"%(useExactXn))
+                table.addComment("## Database search: checkXn %s, ppm: %.5f"%(useExactXn, self.ui.annotationMaxPPM_doubleSpinBox.value()))
 
                 TableUtils.saveFile(table, str(self.ui.groupsSave.text()))
             pw.hide()
@@ -6451,6 +6454,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
     def annotateMetabolitesChanged(self, events):
         self.ui.generateSumFormulas_CheckBox.setEnabled(self.ui.annotateMetabolites_CheckBox.isChecked())
+        self.ui.searchDB_checkBox.setEnabled(self.ui.annotateMetabolites_CheckBox.isChecked())
 
     def addDB(self, events):
         dbFile = QtGui.QFileDialog.getOpenFileName(caption="Select database file", directory=self.lastOpenDir,

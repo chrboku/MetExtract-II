@@ -1110,6 +1110,7 @@ class RunIdentification:
 
                             def findBestArtificialShift(eicN, eicL, lb, rb, shiftFrom=0, shiftTo=0):
                                 correlations=[]
+
                                 for artShift in range(shiftFrom, shiftTo+1):
                                     peakN=eicN[lb:rb]
                                     peakL=eicL[(lb-artShift):(rb-artShift)]

@@ -130,7 +130,7 @@ class DBSearch:
                 if ph[0]!=-1:
                     for entryi in range(ph[0], ph[1]+1):
                         entry = self.dbEntriesNeutral[entryi]
-                        if rt_min==None or (abs(rt_min-entry.rt_min)<=rt_error):
+                        if rt_min==None or entry.rt_min==None or (abs(rt_min-entry.rt_min)<=rt_error):
                             elems=None
                             if entry.sumFormula!="":
                                 fT=formulaTools()
@@ -144,7 +144,7 @@ class DBSearch:
         if ph[0]!=-1:
             for entryi in ph:
                 entry=self.dbEntriesMZ[entryi]
-                if rt_min==None or (abs(rt_min-entry.rt_min)<=rt_error):
+                if rt_min==None or entry.rt_min==None or (abs(rt_min-entry.rt_min)<=rt_error):
                     elems=None
                     if entry.sumFormula!="":
                         fT=formulaTools()
@@ -173,7 +173,7 @@ class DBSearch:
                 if ph[0]!=-1:
                     for entryi in ph:
                         entry=self.dbEntriesMZ[entryi]
-                        if rt_min==None or (abs(rt_min - entry.rt_min) <= rt_error):
+                        if rt_min==None or entry.rt_min==None or (abs(rt_min - entry.rt_min) <= rt_error):
                             elems=None
                             if entry.sumFormula!="":
                                 fT=formulaTools()
@@ -187,7 +187,7 @@ class DBSearch:
         if ph[0]!=-1:
             for entryi in ph:
                 entry=self.dbEntriesNeutral[entryi]
-                if rt_min==None or (abs(rt_min - entry.rt_min) <= rt_error):
+                if rt_min==None or entry.rt_min==None or (abs(rt_min - entry.rt_min) <= rt_error):
                     elems=None
                     if entry.sumFormula!="":
                         fT=formulaTools()
