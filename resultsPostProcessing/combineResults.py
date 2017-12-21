@@ -2,6 +2,8 @@
 ########################################################################################################################
 #############################  Imports
 
+import sys
+sys.path.append("C:/PyMetExtract/PyMetExtract")
 
 from TableUtils import TableUtils
 from utils import Bunch
@@ -64,135 +66,117 @@ def readDataMatrixToTable(matFile):
 
 
 ## combine the results of two experiments using the m/z, rt, xn and loading properties of the detected feature pairs
-def combineResults(resAFile, resBFile, resAName, resBName, saveToFile,
-                   mergeName="", maxPPMError=5., maxRTShift=0.15, checkXn=False,
+def combineResults(experiments, experimentsOrder, saveToFile,
+                   maxPPMError=5., maxRTShift=0.15, checkXn=False,
                    numCol="Num", mzCol="MZ", rtCol="RT", xnCol="Xn", chargeCol="Charge", ionModeCol="Ionisation_Mode",
                    importantCols=[]):
 
+    results = {}
+
     ## read the results files
-    resA = readDataMatrixToTable(resAFile)
-    resB = readDataMatrixToTable(resBFile)
+    for expDesc in experimentsOrder:
+        expFile=experiments[expDesc]
+        res = readDataMatrixToTable(expFile)
+        experiments[expDesc] = res
 
+        results[expDesc]={}
+        for row in res.data:
+            num = getattr(row, numCol)
 
-    ## fetch all feature pairs from the two results files
-    resAFPs = {}
-    resAFPslist = []
-    for rowA in resA.data:
-        num = getattr(rowA, numCol)
-        resAFPs[num] = rowA
-        resAFPslist.append(rowA)
+            results[expDesc][num] = row
 
-    resBFPs = {}
-    resBFPslist = []
-    for rowB in resB.data:
-        num = getattr(rowB, numCol)
-        rowB.unused = True
-        resBFPs[num] = rowB
-        resBFPslist.append(rowB)
-
-    ## perform outer join on mz, rt, xn, charge, and ionmode values
-    matches = []
-    for a in resAFPslist:
-        anum = getattr(a, numCol)
-        amz = getattr(a, mzCol)
-        art = getattr(a, rtCol)
-        axn = getattr(a, xnCol)
-        az = getattr(a, chargeCol)
-        aionMode = getattr(a, ionModeCol)
-
-        wi = []
-        for b in resBFPslist:
-            bnum = getattr(b, numCol)
-            bmz = getattr(b, mzCol)
-            brt = getattr(b, rtCol)
-            bxn = getattr(b, xnCol)
-            bz = getattr(b, chargeCol)
-            bionMode = getattr(b, ionModeCol)
-
-            if az == bz and aionMode == bionMode and \
-                                            abs(amz - bmz) * 1000000 / amz <= maxPPMError and abs(
-                        art - brt) <= maxRTShift \
-                    and (not checkXn or axn == bxn):
-                wi.append(bnum)
-                setattr(b, "unused", False)
-
-        matches.append(Bunch(anum=anum, bnums=wi))
-
-    for b in resBFPslist:
-        if getattr(b, "unused"):
-            matches.append(Bunch(anum=None, bnums=[getattr(b, numCol)]))
-
-    ## fetch all columns of both result files
-    firstCols = [numCol, mzCol, rtCol, xnCol, chargeCol, ionModeCol] + importantCols
-    colsA = resA.columns
-    colsB = resB.columns
-    colsRes = ["Num"] + \
-              [mzCol, rtCol, xnCol, chargeCol, ionModeCol] + \
-              ["%s_%s" % (resAName, c) for c in firstCols] + \
-              ["%s_%s" % (resBName, c) for c in firstCols] + \
-              ["%s_%s" % (resAName, c) for c in colsA if c not in firstCols] + \
-              ["%s_%s" % (resBName, c) for c in colsB if c not in firstCols]
-
-    ## save results
-    num = 1
+    ## outer join of all results
     with open(saveToFile, "wb") as tsvFile:
         resWriter = csv.writer(tsvFile, delimiter="\t", quotechar="\"", quoting=csv.QUOTE_MINIMAL)
 
-        resWriter.writerow(colsRes)
+        rowVals=["Num", "Results", "PPMDev", "RTDev"]
+        for expDesc in experimentsOrder:
+            rowVals.extend([expDesc+"_Num", expDesc+"_MZ", expDesc+"_RT", expDesc+"_Xn", expDesc+"_Charge", expDesc+"_Ionisation_Mode"])
+            rowVals.extend([expDesc+"_"+t for t in importantCols])
+        resWriter.writerow(rowVals)
 
-        for match in matches:
-            row = [num]
-            if match.anum != None:
-                row.extend([getattr(resAFPs[match.anum], c) for c in [mzCol, rtCol, xnCol, chargeCol, ionModeCol]])
-                row.extend([getattr(resAFPs[match.anum], c) for c in firstCols])
-            elif len(match.bnums) == 1:
-                row.extend([getattr(resBFPs[match.bnums[0]], c) for c in [mzCol, rtCol, xnCol, chargeCol, ionModeCol]])
-                row.extend([""] * (len(firstCols)))
-            else:
-                row.extend(["Error"] + [""] * (len(firstCols) - 2))
+        resI=1
+        run = True
+        while run:
 
-            if len(match.bnums) == 0:
-                row.extend([""] * len(firstCols))
-            elif len(match.bnums) == 1:
-                row.extend([getattr(resBFPs[match.bnums[0]], c) for c in firstCols])
-            else:
-                row.extend(["Several(%d): %s" % (len(match.bnums), ";".join([str(s) for s in match.bnums]))] + ["" for c in firstCols[2:]])
+            result=None
+            for expDesc in experimentsOrder:
+                if len(results[expDesc])>0:
+                    result = results[expDesc].itervalues().next()
+                    break
+            run = result!=None
 
-            if match.anum != None:
-                row.extend([getattr(resAFPs[match.anum], c) for c in colsA if c not in firstCols])
-            else:
-                row.extend(["" for c in colsA if c not in firstCols])
+            ## match all results for the current one (variable result)
+            minRT=1000000
+            maxRT=0
+            minMZ=10000000
+            maxMZ=0
+            if run:
+                ## find possible matching feature pairs
+                possibleHits={}
+                for expDesc in experimentsOrder:
+                    possibleHits[expDesc]=[]
+                    for pHitNum, pHitRow in results[expDesc].items():
+                        if abs(getattr(pHitRow, mzCol)-getattr(result, mzCol))*1E6/getattr(result, mzCol) <= maxPPMError and \
+                           abs(getattr(pHitRow, rtCol)-getattr(result, rtCol)) <= maxRTShift and \
+                           getattr(pHitRow, chargeCol) == getattr(result, chargeCol) and \
+                           getattr(pHitRow, ionModeCol) == getattr(result, ionModeCol) and \
+                           ((not checkXn) or getattr(pHitRow, xnCol) == getattr(result, xnCol)):
 
-            if len(match.bnums) == 1:
-                row.extend([getattr(resBFPs[match.bnums[0]], c) for c in colsB if c not in firstCols])
-            else:
-                row.extend(["" for c in colsA if c not in firstCols])
+                            possibleHits[expDesc].append(pHitNum)
 
-            resWriter.writerow(row)
+                            minRT=min(minRT, getattr(pHitRow, rtCol))
+                            maxRT=max(maxRT, getattr(pHitRow, rtCol))
+                            minMZ=min(minMZ, getattr(pHitRow, mzCol))
+                            maxMZ=max(maxMZ, getattr(pHitRow, mzCol))
 
-            num = num + 1
+                ## write matched feature pairs to new TSV file
+                rowVals = [resI, sum([len(possibleHits[j]) for j in possibleHits.keys()]), "%.5f"%((maxMZ-minMZ)*1E6/getattr(result, mzCol)), "%.2f"%(maxRT-minRT)]
+                for expDesc in experimentsOrder:
 
-        resWriter.writerow(["###### Processing %s" % resAName])
-        for comment in resA.comments:
-            resWriter.writerow(["## %s" % comment])
-        resWriter.writerow(["###### Processing %s" % resBName])
-        for comment in resB.comments:
-            resWriter.writerow(["## Parameters %s" % comment])
-        resWriter.writerow(["###### Processing combination of the two processing results"])
+                    if len(possibleHits[expDesc])==0:
+                        rowVals.extend(["", "", "", "", "", ""])
+                        rowVals.extend(["" for t in importantCols])
+                    elif len(possibleHits[expDesc])==1:
+                        rowVals.extend([getattr(results[expDesc][possibleHits[expDesc][0]], numCol),
+                                        getattr(results[expDesc][possibleHits[expDesc][0]], mzCol),
+                                        getattr(results[expDesc][possibleHits[expDesc][0]], rtCol),
+                                        getattr(results[expDesc][possibleHits[expDesc][0]], xnCol),
+                                        getattr(results[expDesc][possibleHits[expDesc][0]], chargeCol),
+                                        getattr(results[expDesc][possibleHits[expDesc][0]], ionModeCol)])
+                        for t in importantCols:
+                            rowVals.append(getattr(results[expDesc][possibleHits[expDesc][0]], t))
+                    else:
+                        rowVals.extend([",".join(possibleHits[expDesc]), "", "", "", "", ""])
+                        rowVals.extend(["" for t in importantCols])
+                resWriter.writerow(rowVals)
 
+                ## remove all matched feature pairs
+                for expDesc in experimentsOrder:
+                    for pH in possibleHits[expDesc]:
+                        del results[expDesc][pH]
+
+            resI += 1
+
+        ## add processing information as comments to new file
+        for expDesc in experimentsOrder:
+            resWriter.writerow(["###### Experiment %s" % expDesc])
+            for comment in experiments[expDesc].comments:
+                resWriter.writerow(["## %s" % comment])
+
+        resWriter.writerow(["###### Processing combination of the processing results"])
         b = Bunch()
-        b.resAFile = resAFile
-        b.resBFile = resBFile
-        b.resAName = resAName
-        b.resBName = resBName
-        b.saveToFile = saveToFile
-        b.mergeName = mergeName
         b.maxPPMError = maxPPMError
         b.maxRTShift = maxRTShift
         b.checkXn = checkXn
         resWriter.writerow(["## Combination parameters %s" % ((b.dumpAsJSon().replace("\"", "'")))])
-        resWriter.writerow(
-            ["## IMPORTANT: Nums, OGroups and other ID values cannot be compared accross different processings!"])
+        resWriter.writerow(["## !!! IMPORTANT: Nums, OGroups and other ID values cannot be compared accross different processings!"])
+
+
+
+
+
+
 
 
 
@@ -211,6 +195,15 @@ if __name__ == "__main__":
     params.expADesc = ""
     params.expB = ""
     params.expBDesc = ""
+    params.expC = ""
+    params.expCDesc = ""
+    params.expD = ""
+    params.expDDesc = ""
+    params.expE = ""
+    params.expEDesc = ""
+    params.expF = ""
+    params.expFDesc = ""
+
     params.maxPPMError = 5
     params.maxRTError = 0.05
     params.checkXn = 1
@@ -232,37 +225,78 @@ if __name__ == "__main__":
         expBDescString = di.StringItem("Experiment B prefix", params.expBDesc)
         _eg1 = dt.EndGroup("Input files")
 
+        expC = di.FileOpenItem("Select results C", ("tsv", "txt"), params.expC, check=False)
+        expCDescString = di.StringItem("Experiment C prefix", params.expCDesc)
+        _eg1 = dt.EndGroup("Input files")
+
+        expD = di.FileOpenItem("Select results D", ("tsv", "txt"), params.expD, check=False)
+        expDDescString = di.StringItem("Experiment D prefix", params.expDDesc)
+        _eg1 = dt.EndGroup("Input files")
+
+        expE = di.FileOpenItem("Select results E", ("tsv", "txt"), params.expE, check=False)
+        expEDescString = di.StringItem("Experiment E prefix", params.expEDesc)
+        _eg1 = dt.EndGroup("Input files")
+
+        expF = di.FileOpenItem("Select results F", ("tsv", "txt"), params.expF, check=False)
+        expFDescString = di.StringItem("Experiment F prefix", params.expFDesc)
+        _eg1 = dt.EndGroup("Input files")
+
         _bg2 = dt.BeginGroup("Processing parameters")
         maxPPMError = di.FloatItem("Max. ppm error", min=0, max=1000, default=params.maxPPMError)
         maxRTError = di.FloatItem("Max. RT error [min]", min=0, max=10, default=params.maxRTError)
-        checkXn = di.ChoiceItem("Require Xn identity", ["No", "Yes"], default=params.checkXn)
         _eg2 = dt.EndGroup("Processing parameters")
 
         saveResTo = di.FileSaveItem("Select new results file", ("tsv", "txt"), params.saveResTo)
 
 
-    run = True
+    ## show the input dialog to the user
+    dialog = Processing()
+    if dialog.edit():
 
-    while run:
-        ## show the input dialog to the user
-        dialog = Processing()
-        if dialog.edit():
+        params = Bunch()
+        params.expA = str(dialog.expA)
+        params.expADesc = str(dialog.expADescString)
+        params.expB = str(dialog.expB)
+        params.expBDesc = str(dialog.expBDescString)
+        params.expC = str(dialog.expC)
+        params.expCDesc = str(dialog.expCDescString)
+        params.expD = str(dialog.expD)
+        params.expDDesc = str(dialog.expDDescString)
+        params.expE = str(dialog.expE)
+        params.expEDesc = str(dialog.expEDescString)
+        params.expF = str(dialog.expF)
+        params.expFDesc = str(dialog.expFDescString)
 
-            params = Bunch()
-            params.expA = str(dialog.expA)
-            params.expADesc = str(dialog.expADescString)
-            params.expB = str(dialog.expB)
-            params.expBDesc = str(dialog.expBDescString)
-            params.maxPPMError = float(dialog.maxPPMError)
-            params.maxRTError = float(dialog.maxRTError)
-            params.checkXn = [False, True][dialog.checkXn]
-            params.saveResTo = str(dialog.saveResTo)
+        params.maxPPMError = float(dialog.maxPPMError)
+        params.maxRTError = float(dialog.maxRTError)
+        params.checkXn = [False, True][dialog.checkXn]
+        params.saveResTo = str(dialog.saveResTo)
 
-            ## combine the results from the two experiments
-            print "Combining ... (%s and %s)" % (params.expADesc, params.expBDesc)
-            combineResults(params.expA, params.expB, params.expADesc, params.expBDesc,
-                           maxPPMError=params.maxPPMError, maxRTShift=params.maxRTError,
-                           checkXn=params.checkXn, saveToFile=params.saveResTo,
-                           importantCols=["OGroup", "Ion", "Loss", "M"])
-        else:
-            run = False
+        experiments={}
+        experimentsOrder=[]
+        if params.expADesc != "":
+            experimentsOrder.append(params.expADesc)
+            experiments[params.expADesc] = params.expA
+        if params.expBDesc != "":
+            experimentsOrder.append(params.expBDesc)
+            experiments[params.expBDesc] = params.expB
+        if params.expCDesc != "":
+            experimentsOrder.append(params.expCDesc)
+            experiments[params.expCDesc] = params.expC
+        if params.expDDesc != "":
+            experimentsOrder.append(params.expDDesc)
+            experiments[params.expDDesc] = params.expD
+        if params.expEDesc != "":
+            experimentsOrder.append(params.expEDesc)
+            experiments[params.expEDesc] = params.expE
+        if params.expFDesc != "":
+            experimentsOrder.append(params.expFDesc)
+            experiments[params.expFDesc] = params.expF
+
+        ## combine the results from the two experiments
+        print "Combining results of %d experiments..." % (len(experiments))
+        combineResults(experiments, experimentsOrder,
+                       maxPPMError=params.maxPPMError, maxRTShift=params.maxRTError,
+                       checkXn=False, saveToFile=params.saveResTo,
+                       importantCols=["OGroup", "Ion", "Loss", "M"])
+

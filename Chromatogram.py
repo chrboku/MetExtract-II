@@ -132,6 +132,7 @@ class Chromatogram():
         for scan in msLevelList:
             if filterLine == "" or scan.filter_line == filterLine:
                 TIC.append(scan.total_ion_current)
+                #TIC.append(sum(scan.intensity_list))
                 times.append(scan.retention_time)
                 scanIds.append(scan.id)
 
@@ -381,6 +382,8 @@ class Chromatogram():
             elif self.msLevel == 2:
                 if attrs.has_key("collisionEnergy"):
                     tmp_ms.collisionEnergy=float(attrs["collisionEnergy"])
+                else:
+                    tmp_ms.collisionEnergy=-1
                 tmp_ms.ms1_id = self.MS1_list[-1].id
                 self.MS2_list.append(tmp_ms)
 

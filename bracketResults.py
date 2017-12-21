@@ -206,7 +206,7 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                 if tracersDeltaMZ["FLE"] != dmz:
                     logging.warning("Warning: Tracers have not been configured identical in all measurement files")
 
-            if pwMaxSet is not None: pwMaxSet.put(Bunch(mes="max", val=totalChromPeaks))
+
 
             grp = 1
             if writePDF: pdf = canvas.Canvas(file + "_0.pdf")
@@ -234,7 +234,7 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
 
             doneSoFar=0
             doneSoFarPercent=0
-
+            if pwMaxSet is not None: pwMaxSet.put(Bunch(mes="max", val=totalThingsToDo))
 
             # bracket data
             # process ionModes, tracers, xCount and loading separately
@@ -288,8 +288,7 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                             if elapsed >= 60.:
                                 hours = "%d hours " % (elapsed // 60)
                             mins = "%.2f mins" % (elapsed % 60.)
-                            pwTextSet.put(Bunch(mes="text", val="<p align='right' >%s%s elapsed</p>\n\n\n\nClustering \n  (Ionmode: %s, XCount: %d, Charge: %d)" % (
-                                                hours, mins, ionMode, xCount, cLoading)))
+                            pwTextSet.put(Bunch(mes="text", val="<p align='right' >%s%s elapsed</p>\n\n\n\nClustering \n  (Ionmode: %s, XCount: %d, Charge: %d)" % (hours, mins, ionMode, xCount, cLoading)))
 
 
                             totalChromPeaks = totalChromPeaks + len(res.featurePairs)
@@ -297,10 +296,8 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
 
                         for tracer in tracersDeltaMZ:
                             ## TODO this does not work correctly. improve
+                            if pwValSet is not None: pwValSet.put(Bunch(mes="value", val=doneSoFar))
                             doneSoFar+=1
-                            if floor(doneSoFar/totalThingsToDo*100)>doneSoFarPercent:
-                                doneSoFarPercent=floor(doneSoFar/totalThingsToDo*100)
-                                #print "\r   %d%% performed"%doneSoFarPercent,
 
                             # get all results that match current bracketing criteria
                             chromPeaksAct = 0
@@ -683,7 +680,6 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                                         chromPeaksAct = chromPeaksAct - 1
                                                         totalChromPeaksProc = totalChromPeaksProc + 1
 
-                                            if pwValSet is not None: pwValSet.put(Bunch(mes="value",val=totalChromPeaksProc))
                                             if pwTextSet is not None:
 
                                                 # Log time used for bracketing
@@ -705,7 +701,20 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
             f.write("## MetExtract II %s\n"%(Bunch(MetExtractVersion=meVersion, RVersion=rVersion, UUID_ext=identifier).dumpAsJSon().replace("\"", "'")))
             f.write("## Individual files processing parameters %s\n"%(generalProcessingParams.dumpAsJSon().replace("\"", "'")))
             processingParams=Bunch()
-            processingParams.FPBracketing_xCounts=xCounts
+            xCountsFmt=[]
+            for xn in sorted(xCounts):
+                if xn-1 in xCounts and xn+1 in xCounts:
+                    xCountsFmt.append("-")
+                else:
+                    if xn-1 not in xCounts:
+                        xCountsFmt.append(", ")
+                    xCountsFmt.append(xn)
+            xCountsFmt.pop(0)
+            seen = set()
+            seen_add = seen.add
+            xCountsFmt = [x for x in xCountsFmt if not (x in seen or seen_add(x)) or x == ", "]
+
+            processingParams.FPBracketing_xCounts="".join([str(t) for t in xCountsFmt])
             processingParams.FPBracketing_groupSizePPM=groupSizePPM
             processingParams.FPBracketing_positiveScanEvent=positiveScanEvent
             processingParams.FPBracketing_negativeScanEvent=negativeScanEvent
@@ -802,7 +811,7 @@ def getPeak(times, rt, borderleft, borderright):
 
 def calculateMetaboliteGroups(file="./results.tsv", groups=[], eicPPM=10., maxAnnotationTimeWindow=0.05,
                               minConnectionsInFiles=1, minConnectionRate=0.4, minPeakCorrelation=0.85,
-                              runIdentificationInstance=None):
+                              runIdentificationInstance=None, pwMaxSet=None, pwValSet=None, pwTextSet=None):
 
     resDB=Bunch(conn=None, curs=None)
     resDB.conn=connect(file+getDBSuffix())
@@ -811,21 +820,19 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[], eicPPM=10., maxAn
     try:
         # Select only those groups that shall be used for metabolite group grouping
         ## load mzxml files for improved metabolite convolution
-        loadedMZXMLs={}
-
         useGroups=[]
         useGroupsForConfig=[]
+        numFilesForConvolution=0
         for group in groups:
             if group.useForMetaboliteGrouping:
                 useGroups.append(group)
                 useGroupsForConfig.append(str(group.name)+":"+str(group.files))
 
                 for fi in group.files:
-                    print "reading file", fi
-                    mzXML = Chromatogram()
-                    mzXML.parse_file(fi)
-                    loadedMZXMLs[fi]=mzXML
-        print "files read"
+                    numFilesForConvolution+=1
+
+        if pwMaxSet is not None: pwMaxSet.put(Bunch(mes="max", val=numFilesForConvolution))
+        if pwValSet is not None: pwValSet.put(Bunch(mes="value", val=0))
 
         # connect to results db
         writeMetaboliteGroupingConfigToDB(resDB.curs, minConnectionsInFiles, minConnectionRate, str(useGroupsForConfig).replace("'", "").replace("\"", ""))
@@ -849,7 +856,7 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[], eicPPM=10., maxAn
             doublePeaks=int(row)
 
         if doublePeaks>0:
-            print "found double peaks:", doublePeaks
+            logging.info("  found double peaks: %d"%doublePeaks)
         writeCols=[]
         if doublePeaks>0:
             TableUtils.saveFile(table, file.replace(".tsv", ".doubleFPs.tsv"), cols=writeCols, order="OGroup, MZ, Xn", where="doublePeak>0")
@@ -872,136 +879,144 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[], eicPPM=10., maxAn
         for fpNum, mz, lmz, rt, xn, charge, scanEvent, ionMode in table.getData(cols=["Num", "MZ", "L_MZ", "RT", "Xn", "Charge", "ScanEvent", "Ionisation_Mode"]):
             nodes[fpNum]=Bunch(fpNum=fpNum, mz=mz, lmz=lmz, rt=rt, xn=xn, charge=charge, scanEvent=scanEvent, ionMode=ionMode, oGroup=None, correlationToOtherFPs={})
 
+
+        ## generate all correlations and sil ratios
+        fileCorrelations = {}
+        fileSILRatios = {}
+
+        ## Iterate all files
+        processedFiles=0
+        for group in useGroups:
+            for fi in group.files:
+
+                if fi not in fileCorrelations.keys():
+                    fileCorrelations[fi]={}
+                    fileSILRatios[fi]={}
+
+                    b = fi.replace("\\", "/")
+                    fiName = b[(b.rfind("/") + 1):b.rfind(".mzXML")]
+
+                    if pwTextSet is not None: pwTextSet.put(Bunch(mes="text", val="Convoluting feature pairs in file %s" % (fi)))
+                    if pwValSet is not None: pwValSet.put(Bunch(mes="value", val=processedFiles))
+                    mzXML = Chromatogram()
+                    mzXML.parse_file(fi)
+
+
+                    for fpNumA in nodes.keys():
+                        nodeA = nodes[fpNumA]
+                        if fpNumA not in fileCorrelations[fi].keys():
+                            fileCorrelations[fi][fpNumA] = {}
+                            fileSILRatios[fi][fpNumA] = {}
+
+                        for fpNumB in nodes.keys():
+                            nodeB = nodes[fpNumB]
+                            if fpNumB not in fileCorrelations[fi].keys():
+                                fileCorrelations[fi][fpNumB] = {}
+                                fileSILRatios[fi][fpNumB] = {}
+
+                            if nodeA.fpNum != nodeB.fpNum and nodeA.fpNum < nodeB.fpNum and abs(nodeB.rt - nodeA.rt) <= maxAnnotationTimeWindow:
+
+                                ra = getBordersFor(resDB.curs, nodeA.fpNum, fiName)
+                                rb = getBordersFor(resDB.curs, nodeB.fpNum, fiName)
+
+
+                                if ra != None and rb != None:
+                                    nanbl, nanbr, nalbl, nalbr = ra
+                                    nbnbl, nbnbr, nblbl, nblbr = rb
+
+                                    if nodeA.scanEvent in mzXML.getFilterLines(includeMS1=True, includeMS2=False, includePosPolarity=True, includeNegPolarity=True) and  \
+                                                    nodeB.scanEvent in mzXML.getFilterLines(includeMS1=True, includeMS2=False, includePosPolarity=True, includeNegPolarity=True):
+
+                                        eicAL, times, scanIds, mzs = mzXML.getEIC(nodeA.lmz, ppm=eicPPM, filterLine=nodeA.scanEvent, removeSingles=True, intThreshold=0, useMS1=True, useMS2=False, startTime=0, endTime=1000000)
+                                        eicBL, times, scanIds, mzs = mzXML.getEIC(nodeB.lmz, ppm=eicPPM, filterLine=nodeB.scanEvent, removeSingles=True, intThreshold=0, useMS1=True, useMS2=False, startTime=0, endTime=1000000)
+
+                                        eicA, times, scanIds, mzs = mzXML.getEIC(nodeA.mz, ppm=eicPPM, filterLine=nodeA.scanEvent, removeSingles=True, intThreshold=0, useMS1=True, useMS2=False, startTime=0, endTime=1000000)
+                                        eicB, times, scanIds, mzs = mzXML.getEIC(nodeB.mz, ppm=eicPPM, filterLine=nodeB.scanEvent, removeSingles=True, intThreshold=0, useMS1=True, useMS2=False, startTime=0, endTime=1000000)
+
+                                        ## A) Test correlation of different feature pairs
+                                        try:
+                                            lI, rI = getPeak([t / 60. for t in times], mean([nodeA.rt, nodeB.rt]), min(nanbl, nbnbl), min(nanbr, nbnbr))
+
+                                            eicAC = eicAL[lI:rI]
+                                            eicBC = eicBL[lI:rI]
+
+                                            co = corr(eicAC, eicBC)
+
+                                            if not (isnan(co)) and co != None:
+                                                fileCorrelations[fi][fpNumA][fpNumB]=co
+                                        except Exception as err:
+                                            logging.error("  Error during convolution of feature pairs (Peak-correlation, Nums: %s and %s, message: %s).." % (fpNumA, fpNumB, err.message))
+
+                                        ## B) Test similarity of native:labeled ratio
+                                        try:
+                                            lISIL, rISIL = getPeak([t / 60. for t in times], nodeA.rt, min(nanbl, nanbr) * .4, min(nalbl, nalbr) * .4)
+
+                                            eicANCSIL = eicA[lISIL:rISIL]
+                                            eicALCSIL = eicAL[lISIL:rISIL]
+
+                                            folds = [eicANCSIL[i] / eicALCSIL[i] for i in range(len(eicANCSIL)) if eicALCSIL[i] > 0]
+                                            ma = mean(folds)
+                                            sa = sd(folds)
+
+                                            lISIL, rISIL = getPeak([t / 60. for t in times], nodeB.rt, min(nanbl, nanbr) * .4, min(nalbl, nalbr) * .4)
+
+                                            eicBNCSIL = eicB[lISIL:rISIL]
+                                            eicBLCSIL = eicBL[lISIL:rISIL]
+
+                                            folds = [eicBNCSIL[i] / eicBLCSIL[i] for i in range(len(eicBNCSIL)) if eicBLCSIL[i] > 0]
+                                            mb = mean(folds)
+                                            sb = sd(folds)
+
+                                            if ma != None and mb != None and sa != None and sb != None:
+
+                                                silRatioFold=(max([ma, mb]) - min([ma, mb]))
+                                                fileSILRatios[fi][fpNumA][fpNumB]=silRatioFold <= 1+max(0.2, 3*mean([sa, sb]))
+                                        except Exception as err:
+                                            logging.error(
+                                                "  Error during convolution of feature pairs (SIL-ratio, Nums: %s and %s, message: %s).." % (fpNumA, fpNumB, err.message))
+                    processedFiles+=1
+
+
+
         ## test all feature pair pairs for co-elution and similar SIL ratio
-        correlations={}
+        connections={}
         for fpNumA in nodes.keys():
             nodeA=nodes[fpNumA]
-            if fpNumA not in correlations.keys():
-                correlations[fpNumA]={}
+            if fpNumA not in connections.keys():
+                connections[fpNumA]={}
 
             for fpNumB in nodes.keys():
                 nodeB=nodes[fpNumB]
-                if fpNumB not in correlations.keys():
-                    correlations[fpNumB]={}
+                if fpNumB not in connections.keys():
+                    connections[fpNumB]={}
 
                 #print nodeA.fpNum, nodeB.fpNum, "    ", nodeA.rt, nodeB.rt, maxAnnotationTimeWindow
                 if nodeA.fpNum!=nodeB.fpNum and nodeA.fpNum<nodeB.fpNum and abs(nodeB.rt-nodeA.rt)<=maxAnnotationTimeWindow:
-
-                    ## test the current feature pair pair for A co-elution and B similar SIL-ratio
-                    averageBordersA=[]
-                    averageBordersB=[]
-
-                    ## determine average peak borders
-                    for group in useGroups:
-                        for fi in group.files:
-                            b=fi.replace("\\", "/")
-                            fiName=b[(b.rfind("/")+1):b.rfind(".mzXML")]
-
-                            ra=getBordersFor(resDB.curs, nodeA.fpNum, fiName)
-                            rb=getBordersFor(resDB.curs, nodeB.fpNum, fiName)
-
-                            if ra!=None:
-                                averageBordersA.append(ra)
-                            if rb!=None:
-                                averageBordersB.append(rb)
-
-                    averageBorderA=[mean([b[0] for b in averageBordersA]),
-                                    mean([b[1] for b in averageBordersA]),
-                                    mean([b[2] for b in averageBordersA]),
-                                    mean([b[3] for b in averageBordersA])]
-                    averageBorderB=[mean([b[0] for b in averageBordersB]),
-                                    mean([b[1] for b in averageBordersB]),
-                                    mean([b[2] for b in averageBordersB]),
-                                    mean([b[3] for b in averageBordersB])]
 
                     ## test feature pair pair convolution in all samples
                     allCorrelations=[]
                     allSILRatios=[]
                     for group in useGroups:
                         for fi in group.files:
-                            b = fi.replace("\\", "/")
-                            fiName = b[(b.rfind("/") + 1):b.rfind(".mzXML")]
 
-                            ra=getBordersFor(resDB.curs, nodeA.fpNum, fiName)
-                            rb=getBordersFor(resDB.curs, nodeB.fpNum, fiName)
+                            if fi in fileCorrelations.keys() and fpNumA in fileCorrelations[fi].keys() and fpNumB in fileCorrelations[fi][fpNumA].keys():
+                                co = fileCorrelations[fi][fpNumA][fpNumB]
+                                allCorrelations.append(co)
+                            if fi in fileSILRatios.keys() and fpNumA in fileSILRatios[fi].keys() and fpNumB in fileSILRatios[fi][fpNumA].keys():
+                                silRatio = fileSILRatios[fi][fpNumA][fpNumB]
+                                allSILRatios.append(silRatio)
 
-                            if ra!=None:
-                                nanbl, nanbr, nalbl, nalbr = ra
-                            else:
-                                nanbl, nanbr, nalbl, nalbr = averageBorderA
-                            if rb!=None:
-                                nbnbl, nbnbr, nblbl, nblbr = rb
-                            else:
-                                nbnbl, nbnbr, nblbl, nblbr = averageBorderB
-
-                            mzXML = loadedMZXMLs[fi]
-
-                            if nodeA.scanEvent in mzXML.getFilterLines(includeMS1=True, includeMS2=False, includePosPolarity=True, includeNegPolarity=True) and \
-                                nodeB.scanEvent in mzXML.getFilterLines(includeMS1=True, includeMS2=False, includePosPolarity=True, includeNegPolarity=True):
-
-                                eicAL, times, scanIds, mzs = mzXML.getEIC(nodeA.lmz, ppm=eicPPM, filterLine=nodeA.scanEvent,
-                                                                         removeSingles=True, intThreshold=0, useMS1=True,
-                                                                         useMS2=False, startTime=0, endTime=1000000)
-                                eicBL, times, scanIds, mzs = mzXML.getEIC(nodeB.lmz, ppm=eicPPM, filterLine=nodeB.scanEvent,
-                                                                         removeSingles=True, intThreshold=0, useMS1=True,
-                                                                         useMS2=False, startTime=0, endTime=1000000)
-
-                                eicA, times, scanIds, mzs = mzXML.getEIC(nodeA.mz, ppm=eicPPM, filterLine=nodeA.scanEvent,
-                                                                         removeSingles=True, intThreshold=0, useMS1=True,
-                                                                         useMS2=False, startTime=0, endTime=1000000)
-                                eicB, times, scanIds, mzs = mzXML.getEIC(nodeB.mz, ppm=eicPPM, filterLine=nodeB.scanEvent,
-                                                                         removeSingles=True, intThreshold=0, useMS1=True,
-                                                                         useMS2=False, startTime=0, endTime=1000000)
-
-
-                                ## A) Test correlation of different feature pairs
-                                lI, rI=getPeak([t/60. for t in times], mean([nodeA.rt, nodeB.rt]), min(nanbl, nbnbl), min(nanbr, nbnbr))
-
-                                eicAC=eicAL[lI:rI]
-                                eicBC=eicBL[lI:rI]
-
-                                co=corr(eicAC, eicBC)
-
-                                if not(isnan(co)) and co != None:
-                                    allCorrelations.append(co)
-
-
-                                ## B) Test similarity of native:labeled ratio
-                                lISIL, rISIL=getPeak([t/60. for t in times], nodeA.rt, min(nanbl, nanbr)*.4, min(nalbl, nalbr)*.4)
-
-                                eicANCSIL=eicA[lISIL:rISIL]
-                                eicALCSIL=eicAL[lISIL:rISIL]
-
-                                folds=[eicANCSIL[i]/eicALCSIL[i] for i in range(len(eicANCSIL)) if eicALCSIL[i]>0]
-                                ma=mean(folds)
-                                sa=sd(folds)
-
-
-                                lISIL, rISIL=getPeak([t/60. for t in times], nodeB.rt, min(nanbl, nanbr)*.4, min(nalbl, nalbr)*.4)
-
-                                eicBNCSIL=eicB[lISIL:rISIL]
-                                eicBLCSIL=eicBL[lISIL:rISIL]
-
-                                folds=[eicBNCSIL[i]/eicBLCSIL[i] for i in range(len(eicBNCSIL)) if eicBLCSIL[i]>0]
-                                mb=mean(folds)
-                                sb=sd(folds)
-
-                                if ma!=None and mb!=None and sa!=None and sb!=None:
-                                    silRatio=(max([ma, mb])-min([ma, mb]))/mean([sa,sb])
-                                    allSILRatios.append(silRatio)
-
-
-                    if len(allCorrelations)>0:
+                    if len(allCorrelations)>0 and len(allSILRatios)>0:
                         if sum([co>=minPeakCorrelation for co in allCorrelations])>=minConnectionRate*len(allCorrelations) and \
-                            sum([rat<=3 for rat in allSILRatios])>=minConnectionRate*len(allSILRatios):
+                                sum([rat for rat in allSILRatios])>=minConnectionRate*len(allSILRatios):
                             nodes[nodeA.fpNum].correlationToOtherFPs[nodeB.fpNum] = True
                             nodes[nodeB.fpNum].correlationToOtherFPs[nodeA.fpNum] = True
 
-                        correlations[fpNumA][fpNumB]=mean(allCorrelations)
-                        correlations[fpNumB][fpNumA]=mean(allCorrelations)
+                        connections[fpNumA][fpNumB]=mean(allCorrelations)
+                        connections[fpNumB][fpNumA]=mean(allCorrelations)
                     else:
-                        correlations[fpNumA][fpNumB] = 0
-                        correlations[fpNumB][fpNumA] = 0
+                        connections[fpNumA][fpNumB] = 0
+                        connections[fpNumB][fpNumA] = 0
 
 
 
@@ -1081,7 +1096,7 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[], eicPPM=10., maxAn
             while len(cGroups) > 0:
                 gGroup = cGroups.pop(0)
 
-                sGroups = splitGroupWithHCA(gGroup, correlations)
+                sGroups = splitGroupWithHCA(gGroup, connections)
 
                 if len(sGroups) == 1:
                     groups.append(sGroups[0])

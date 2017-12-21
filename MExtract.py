@@ -411,9 +411,12 @@ class procAreaInFile:
             logging.error("undefined scan event", oldData[self.colInd[colIonMode]])
 
 
-
-        r = self.processAreaFor(oldData[self.colInd[colToProc + "_Area_N"]], oldData[self.colInd[colmz]],
-                                oldData[self.colInd[colrt]], ppm, scanEvent, maxRTShift, scales, snrTH, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom)
+        r = None
+        try:
+            r = self.processAreaFor(oldData[self.colInd[colToProc + "_Area_N"]], oldData[self.colInd[colmz]],
+                                    oldData[self.colInd[colrt]], ppm, scanEvent, maxRTShift, scales, snrTH, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom)
+        except Error:
+            logging.error("   Reintegration failed for feature pair (N) %s (%s %s)" % (self.forFile, oldData[self.colInd[colmz]], oldData[self.colInd[colrt]]))
 
         nFound = False
         if r is not None:
@@ -423,8 +426,12 @@ class procAreaInFile:
 
             nFound = True
 
-        r = self.processAreaFor(oldData[self.colInd[colToProc + "_Area_L"]], oldData[self.colInd[colLmz]],
-                                oldData[self.colInd[colrt]], ppm, scanEvent, maxRTShift, scales, snrTH, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom)
+        r = None
+        try:
+            r = self.processAreaFor(oldData[self.colInd[colToProc + "_Area_L"]], oldData[self.colInd[colLmz]],
+                                    oldData[self.colInd[colrt]], ppm, scanEvent, maxRTShift, scales, snrTH, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom)
+        except Error:
+            logging.error("   Reintegration failed for feature pair (L) %s (%s %s)" % (self.forFile, oldData[self.colInd[colmz]], oldData[self.colInd[colrt]]))
 
         lFound = False
         if r is not None:
@@ -850,6 +857,16 @@ def interruptIndividualFilesProcessing(selfObj, pool):
         return False # don't close progresswrapper and continue processing files
 
 def interruptBracketingOfFeaturePairs(selfObj, funcProc):
+    if QtGui.QMessageBox.question(selfObj, "MetExtract", "Are you sure you want to cancel?", QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)==QtGui.QMessageBox.Yes:
+        funcProc.terminate()
+        funcProc.join()
+
+        selfObj.terminateJobs=True
+        logging.info("Processing stopped by user")
+    else:
+        return False # don't close progresswrapper and continue processing files
+
+def interruptConvolutingOfFeaturePairs(selfObj, funcProc):
     if QtGui.QMessageBox.question(selfObj, "MetExtract", "Are you sure you want to cancel?", QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)==QtGui.QMessageBox.Yes:
         funcProc.terminate()
         funcProc.join()
@@ -2305,7 +2322,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             sett.setValue("annotateMetabolites_plusMinus", self.ui.sumFormulasPlusMinus_spinBox.value())
             sett.setValue("annotateMetabolites_checkRT", self.ui.checkRTInHits_checkBox.isChecked())
             sett.setValue("annotateMetabolites_maxRTError", self.ui.maxRTErrorInHits_spinnerBox.value())
-            sett.setVAlue("annotateMetabolites_maxPPM", self.ui.annotationMaxPPM_doubleSpinBox.value())
+            sett.setValue("annotateMetabolites_maxPPM", self.ui.annotationMaxPPM_doubleSpinBox.value())
 
             usedDBs=[]
             for entryInd in range(self.ui.dbList_listView.model().rowCount()):
@@ -2850,14 +2867,17 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     QtGui.QMessageBox.warning(self, "MetExtract", "Error during bracketing of files: '%s'" % str(ex), QtGui.QMessageBox.Ok)
                     errorCount += 1
 
+            pw.setSkipCallBack(True)
+            pw.hide()
 
             if self.terminateJobs:
-                pw.hide()
                 return
 
             # Calculate metabolite groups
             if self.ui.convoluteResults.isChecked():
                 try:
+                    pw = ProgressWrapper(1, parent=self)
+                    pw.show()
                     pw.getCallingFunction()("text")("Convoluting feature pairs\n")
 
                     runIdentificationInstance=RunIdentification(files[0],
@@ -2911,12 +2931,51 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                                 lock=None, queue=None, pID=1,
                                                                 rVersion=getRVersion(), meVersion="MetExtract (%s)" % MetExtractVersion)
 
-                    calculateMetaboliteGroups(str(self.ui.groupsSave.text()), definedGroups,
-                                              eicPPM=self.ui.wavelet_EICppm.value(), maxAnnotationTimeWindow=self.ui.maxAnnotationTimeWindow.value(),
-                                              minConnectionsInFiles=self.ui.metaboliteClusterMinConnections.value(), minConnectionRate=self.ui.minConnectionRate.value(),
-                                              minPeakCorrelation=self.ui.minCorrelation.value(),
-                                              runIdentificationInstance=runIdentificationInstance)
-                    logging.info("Metabolite groups calculated..")
+                    procProc = FuncProcess(_target=calculateMetaboliteGroups,
+                                           file=str(self.ui.groupsSave.text()), groups=definedGroups,
+                                           eicPPM=self.ui.wavelet_EICppm.value(),
+                                           maxAnnotationTimeWindow=self.ui.maxAnnotationTimeWindow.value(),
+                                           minConnectionsInFiles=self.ui.metaboliteClusterMinConnections.value(),
+                                           minConnectionRate=self.ui.minConnectionRate.value(),
+                                           minPeakCorrelation=self.ui.minCorrelation.value(),
+                                           runIdentificationInstance=runIdentificationInstance)
+                    procProc.addKwd("pwMaxSet", procProc.getQueue())
+                    procProc.addKwd("pwValSet", procProc.getQueue())
+                    procProc.addKwd("pwTextSet", procProc.getQueue())
+                    procProc.start()
+
+                    pw.setCloseCallback(closeCallBack=CallBackMethod(_target=interruptConvolutingOfFeaturePairs, selfObj=self, funcProc=procProc).getRunMethod())
+
+                    # check for status updates
+                    while procProc.isAlive():
+                        QtGui.QApplication.processEvents();
+
+                        while not (procProc.getQueue().empty()):
+                            mes = procProc.getQueue().get(block=False, timeout=1)
+
+                            # No idea why / where there are sometimes other objects than Bunch(mes, val), but they occur
+                            if isinstance(mes, Bunch) and hasattr(mes, "mes") and (
+                                hasattr(mes, "val") or hasattr(mes, "text")):
+                                pw.getCallingFunction()(mes.mes)(mes.val)
+                            elif mes == (None, None):
+                                ## I have no idea where this object comes from
+                                pass
+                            else:
+                                logging.critical("UNKNONW OBJECT IN PROCESSING QUEUE: %s" % str(mes))
+
+                        time.sleep(.5)
+
+                    # Log time used for bracketing
+                    elapsed = (time.time() - start) / 60.
+                    hours = ""
+                    if elapsed >= 60.:
+                        hours = "%d hours " % (elapsed // 60)
+                    mins = "%.2f mins" % (elapsed % 60.)
+
+                    if self.terminateJobs:
+                        return
+                    else:
+                        logging.info("Convoluting feature pairs finished (%s%s).." % (hours, mins))
 
                 except Exception as ex:
                     import traceback
@@ -2927,8 +2986,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     errorCount += 1
                 finally:
                     pw.setSkipCallBack(True)
-                    pw.hide()
 
+            pw.setSkipCallBack(True)
             pw.hide()
 
             if self.terminateJobs:
@@ -2984,7 +3043,6 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 finally:
                     pw.setSkipCallBack(True)
                     pw.hide()
-
 
 
             if self.terminateJobs:
