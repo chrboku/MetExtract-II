@@ -811,7 +811,9 @@ def getPeak(times, rt, borderleft, borderright):
 
 def calculateMetaboliteGroups(file="./results.tsv", groups=[], eicPPM=10., maxAnnotationTimeWindow=0.05,
                               minConnectionsInFiles=1, minConnectionRate=0.4, minPeakCorrelation=0.85,
-                              runIdentificationInstance=None, pwMaxSet=None, pwValSet=None, pwTextSet=None):
+                              runIdentificationInstance=None, pwMaxSet=None, pwValSet=None, pwTextSet=None, cpus=1):
+
+    logging.info("Starting convoluting feature pairs..")
 
     resDB=Bunch(conn=None, curs=None)
     resDB.conn=connect(file+getDBSuffix())
@@ -884,99 +886,69 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[], eicPPM=10., maxAn
         fileCorrelations = {}
         fileSILRatios = {}
 
+        borders={}
+        for row in resDB.curs.execute("SELECT NBorderLeft, NBorderRight, LBorderLeft, LBorderRight, file, resID FROM foundfeaturepairs"):
+            fil=str(row[4])
+            resID=int(row[5])
+            if fil not in borders.keys():
+                borders[fil]={}
+            borders[fil][resID]=(float(row[0]), float(row[1]), float(row[2]), float(row[3]))
+
+
         ## Iterate all files
         processedFiles=0
+        procObjects=[]
         for group in useGroups:
             for fi in group.files:
 
                 if fi not in fileCorrelations.keys():
-                    fileCorrelations[fi]={}
-                    fileSILRatios[fi]={}
+                    #if pwTextSet is not None: pwTextSet.put(Bunch(mes="text", val="Convoluting feature pairs in file %s" % (fi)))
+                    #if pwValSet is not None: pwValSet.put(Bunch(mes="value", val=processedFiles))
 
-                    b = fi.replace("\\", "/")
-                    fiName = b[(b.rfind("/") + 1):b.rfind(".mzXML")]
+                    s=ConvoluteFPsInFile(eicPPM, fi, maxAnnotationTimeWindow, nodes, borders)
+                    procObjects.append(s)
 
-                    if pwTextSet is not None: pwTextSet.put(Bunch(mes="text", val="Convoluting feature pairs in file %s" % (fi)))
-                    if pwValSet is not None: pwValSet.put(Bunch(mes="value", val=processedFiles))
-                    mzXML = Chromatogram()
-                    mzXML.parse_file(fi)
+                    #processedFiles += 1
 
+        from multiprocessing import Pool, Manager
+        p = Pool(processes=cpus, maxtasksperchild=1)  # only in python >=2.7; experimental
+        manager = Manager()
+        queue = manager.Queue()
 
-                    for fpNumA in nodes.keys():
-                        nodeA = nodes[fpNumA]
-                        if fpNumA not in fileCorrelations[fi].keys():
-                            fileCorrelations[fi][fpNumA] = {}
-                            fileSILRatios[fi][fpNumA] = {}
+        start=time.time()
+        # start the multiprocessing pool
+        res = p.imap_unordered(processConvoluteFPsInFile, procObjects)
 
-                        for fpNumB in nodes.keys():
-                            nodeB = nodes[fpNumB]
-                            if fpNumB not in fileCorrelations[fi].keys():
-                                fileCorrelations[fi][fpNumB] = {}
-                                fileSILRatios[fi][fpNumB] = {}
+        # wait until all subprocesses have finished re-integrating their respective LC-HRMS data file
+        loop = True
+        freeSlots = range(min(len(procObjects), cpus))
+        assignedThreads = {}
+        while loop:
+            completed = res._index
+            if completed == len(procObjects):
+                loop = False
+            else:
 
-                            if nodeA.fpNum != nodeB.fpNum and nodeA.fpNum < nodeB.fpNum and abs(nodeB.rt - nodeA.rt) <= maxAnnotationTimeWindow:
+                if pwValSet is not None: pwValSet.put(Bunch(mes="value", val=completed))
 
-                                ra = getBordersFor(resDB.curs, nodeA.fpNum, fiName)
-                                rb = getBordersFor(resDB.curs, nodeB.fpNum, fiName)
+                elapsed = (time.time() - start) / 60.
+                hours = ""
+                if elapsed >= 60.:
+                    hours = "%d hours " % (elapsed // 60)
+                mins = "%.2f mins" % (elapsed % 60.)
 
+                if pwTextSet is not None: pwTextSet.put(Bunch(mes="text", val="<p align='right' >%s%s elapsed</p>\n\n%d / %d files done (%d parallel)" % (hours, mins, completed , len(procObjects), cpus)))
 
-                                if ra != None and rb != None:
-                                    nanbl, nanbr, nalbl, nalbr = ra
-                                    nbnbl, nbnbr, nblbl, nblbr = rb
+                time.sleep(.5)
 
-                                    if nodeA.scanEvent in mzXML.getFilterLines(includeMS1=True, includeMS2=False, includePosPolarity=True, includeNegPolarity=True) and  \
-                                                    nodeB.scanEvent in mzXML.getFilterLines(includeMS1=True, includeMS2=False, includePosPolarity=True, includeNegPolarity=True):
+        p.close()
+        p.terminate()
+        p.join()
 
-                                        eicAL, times, scanIds, mzs = mzXML.getEIC(nodeA.lmz, ppm=eicPPM, filterLine=nodeA.scanEvent, removeSingles=True, intThreshold=0, useMS1=True, useMS2=False, startTime=0, endTime=1000000)
-                                        eicBL, times, scanIds, mzs = mzXML.getEIC(nodeB.lmz, ppm=eicPPM, filterLine=nodeB.scanEvent, removeSingles=True, intThreshold=0, useMS1=True, useMS2=False, startTime=0, endTime=1000000)
-
-                                        eicA, times, scanIds, mzs = mzXML.getEIC(nodeA.mz, ppm=eicPPM, filterLine=nodeA.scanEvent, removeSingles=True, intThreshold=0, useMS1=True, useMS2=False, startTime=0, endTime=1000000)
-                                        eicB, times, scanIds, mzs = mzXML.getEIC(nodeB.mz, ppm=eicPPM, filterLine=nodeB.scanEvent, removeSingles=True, intThreshold=0, useMS1=True, useMS2=False, startTime=0, endTime=1000000)
-
-                                        ## A) Test correlation of different feature pairs
-                                        try:
-                                            lI, rI = getPeak([t / 60. for t in times], mean([nodeA.rt, nodeB.rt]), min(nanbl, nbnbl), min(nanbr, nbnbr))
-
-                                            eicAC = eicAL[lI:rI]
-                                            eicBC = eicBL[lI:rI]
-
-                                            co = corr(eicAC, eicBC)
-
-                                            if not (isnan(co)) and co != None:
-                                                fileCorrelations[fi][fpNumA][fpNumB]=co
-                                        except Exception as err:
-                                            logging.error("  Error during convolution of feature pairs (Peak-correlation, Nums: %s and %s, message: %s).." % (fpNumA, fpNumB, err.message))
-
-                                        ## B) Test similarity of native:labeled ratio
-                                        try:
-                                            lISIL, rISIL = getPeak([t / 60. for t in times], nodeA.rt, min(nanbl, nanbr) * .4, min(nalbl, nalbr) * .4)
-
-                                            eicANCSIL = eicA[lISIL:rISIL]
-                                            eicALCSIL = eicAL[lISIL:rISIL]
-
-                                            folds = [eicANCSIL[i] / eicALCSIL[i] for i in range(len(eicANCSIL)) if eicALCSIL[i] > 0]
-                                            ma = mean(folds)
-                                            sa = sd(folds)
-
-                                            lISIL, rISIL = getPeak([t / 60. for t in times], nodeB.rt, min(nanbl, nanbr) * .4, min(nalbl, nalbr) * .4)
-
-                                            eicBNCSIL = eicB[lISIL:rISIL]
-                                            eicBLCSIL = eicBL[lISIL:rISIL]
-
-                                            folds = [eicBNCSIL[i] / eicBLCSIL[i] for i in range(len(eicBNCSIL)) if eicBLCSIL[i] > 0]
-                                            mb = mean(folds)
-                                            sb = sd(folds)
-
-                                            if ma != None and mb != None and sa != None and sb != None:
-
-                                                silRatioFold=(max([ma, mb]) - min([ma, mb]))
-                                                fileSILRatios[fi][fpNumA][fpNumB]=silRatioFold <= 1+max(0.2, 3*mean([sa, sb]))
-                                        except Exception as err:
-                                            logging.error(
-                                                "  Error during convolution of feature pairs (SIL-ratio, Nums: %s and %s, message: %s).." % (fpNumA, fpNumB, err.message))
-                    processedFiles+=1
-
-
+        ## fetch multiprocessing results
+        for rei, re in enumerate(res):
+            fileCorrelations[procObjects[rei].fi] = re[0]
+            fileSILRatios[procObjects[rei].fi] = re[1]
 
         ## test all feature pair pairs for co-elution and similar SIL ratio
         connections={}
@@ -990,7 +962,6 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[], eicPPM=10., maxAn
                 if fpNumB not in connections.keys():
                     connections[fpNumB]={}
 
-                #print nodeA.fpNum, nodeB.fpNum, "    ", nodeA.rt, nodeB.rt, maxAnnotationTimeWindow
                 if nodeA.fpNum!=nodeB.fpNum and nodeA.fpNum<nodeB.fpNum and abs(nodeB.rt-nodeA.rt)<=maxAnnotationTimeWindow:
 
                     ## test feature pair pair convolution in all samples
@@ -1186,3 +1157,142 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[], eicPPM=10., maxAn
         resDB.conn.commit()
         resDB.curs.close()
         resDB.conn.close()
+
+
+
+
+class ConvoluteFPsInFile:
+    def __init__(self, eicPPM, fi, maxAnnotationTimeWindow, nodes, borders):
+        self.eicPPM=eicPPM
+        self.fi=fi
+        self.maxAnnotationTimeWindow=maxAnnotationTimeWindow
+        self.nodes=nodes
+        self.borders=borders
+
+        self.fileCorrelations=None
+        self.fileSILRatios=None
+
+    def getConvolutionInFile(self):
+
+        startProc=time.time()
+
+        eicPPM=self.eicPPM
+        fi=self.fi
+        maxAnnotationTimeWindow=self.maxAnnotationTimeWindow
+        nodes=self.nodes
+        borders=self.borders
+
+        fileCorrelations = {}
+        fileSILRatios = {}
+
+        logging.info("  Convoluting feature pairs in file %s" % (fi))
+        b = fi.replace("\\", "/")
+        fiName = b[(b.rfind("/") + 1):b.rfind(".mzXML")]
+        mzXML = Chromatogram()
+        mzXML.parse_file(fi)
+        for fpNumA in nodes.keys():
+            nodeA = nodes[fpNumA]
+            if fpNumA not in fileCorrelations.keys():
+                fileCorrelations[fpNumA] = {}
+                fileSILRatios[fpNumA] = {}
+
+            for fpNumB in nodes.keys():
+                nodeB = nodes[fpNumB]
+                if fpNumB not in fileCorrelations.keys():
+                    fileCorrelations[fpNumB] = {}
+                    fileSILRatios[fpNumB] = {}
+
+                if nodeA.fpNum != nodeB.fpNum and nodeA.fpNum < nodeB.fpNum and abs(nodeB.rt - nodeA.rt) <= maxAnnotationTimeWindow:
+
+                    ra=None
+                    if fiName in borders.keys() and nodeA.fpNum in borders[fiName].keys():
+                        ra=borders[fiName][nodeA.fpNum]
+                    rb=None
+                    if fiName in borders.keys() and nodeB.fpNum in borders[fiName].keys():
+                        rb=borders[fiName][nodeB.fpNum]
+
+                    if ra != None and rb != None:
+                        nanbl, nanbr, nalbl, nalbr = ra
+                        nbnbl, nbnbr, nblbl, nblbr = rb
+
+                        if nodeA.scanEvent in mzXML.getFilterLines(includeMS1=True, includeMS2=False,
+                                                                   includePosPolarity=True, includeNegPolarity=True) and \
+                                        nodeB.scanEvent in mzXML.getFilterLines(includeMS1=True, includeMS2=False,
+                                                                                includePosPolarity=True,
+                                                                                includeNegPolarity=True):
+
+                            meanRT = mean([nodeA.rt, nodeB.rt])
+
+                            eicAL, times, scanIds, mzs = mzXML.getEIC(nodeA.lmz, ppm=eicPPM, filterLine=nodeA.scanEvent,
+                                                                      removeSingles=True, intThreshold=0, useMS1=True,
+                                                                      useMS2=False, startTime=meanRT * 60 - 120,
+                                                                      endTime=meanRT * 60 + 120)
+                            eicBL, times, scanIds, mzs = mzXML.getEIC(nodeB.lmz, ppm=eicPPM, filterLine=nodeB.scanEvent,
+                                                                      removeSingles=True, intThreshold=0, useMS1=True,
+                                                                      useMS2=False, startTime=meanRT * 60 - 120,
+                                                                      endTime=meanRT * 60 + 120)
+
+                            eicA, times, scanIds, mzs = mzXML.getEIC(nodeA.mz, ppm=eicPPM, filterLine=nodeA.scanEvent,
+                                                                     removeSingles=True, intThreshold=0, useMS1=True,
+                                                                     useMS2=False, startTime=meanRT * 60 - 120,
+                                                                     endTime=meanRT * 60 + 120)
+                            eicB, times, scanIds, mzs = mzXML.getEIC(nodeB.mz, ppm=eicPPM, filterLine=nodeB.scanEvent,
+                                                                     removeSingles=True, intThreshold=0, useMS1=True,
+                                                                     useMS2=False, startTime=meanRT * 60 - 120,
+                                                                     endTime=meanRT * 60 + 120)
+                            timesMin = [t / 60. for t in times]
+
+                            ## A) Test correlation of different feature pairs
+                            try:
+                                lI, rI = getPeak(timesMin, meanRT, min(nanbl, nbnbl), min(nanbr, nbnbr))
+
+                                eicAC = eicAL[lI:rI]
+                                eicBC = eicBL[lI:rI]
+
+                                co = corr(eicAC, eicBC)
+
+                                if not (isnan(co)) and co != None:
+                                    fileCorrelations[fpNumA][fpNumB] = co
+                            except Exception as err:
+                                logging.error(
+                                    "  Error during convolution of feature pairs (Peak-correlation, Nums: %s and %s, message: %s).." % (
+                                    fpNumA, fpNumB, err.message))
+
+                            ## B) Test similarity of native:labeled ratio
+                            try:
+                                lISIL, rISIL = getPeak(timesMin, nodeA.rt, min(nanbl, nanbr) * .4, min(nalbl, nalbr) * .4)
+
+                                eicANCSIL = eicA[lISIL:rISIL]
+                                eicALCSIL = eicAL[lISIL:rISIL]
+
+                                folds = [eicANCSIL[i] / eicALCSIL[i] for i in range(len(eicANCSIL)) if eicALCSIL[i] > 0]
+                                ma = mean(folds)
+                                sa = sd(folds)
+
+                                lISIL, rISIL = getPeak(timesMin, nodeB.rt, min(nanbl, nanbr) * .4, min(nalbl, nalbr) * .4)
+
+                                eicBNCSIL = eicB[lISIL:rISIL]
+                                eicBLCSIL = eicBL[lISIL:rISIL]
+
+                                folds = [eicBNCSIL[i] / eicBLCSIL[i] for i in range(len(eicBNCSIL)) if eicBLCSIL[i] > 0]
+                                mb = mean(folds)
+                                sb = sd(folds)
+
+                                if ma != None and mb != None and sa != None and sb != None:
+                                    silRatioFold = (max([ma, mb]) - min([ma, mb]))
+                                    fileSILRatios[fpNumA][fpNumB] = silRatioFold <= 1 + max(0.2, 3 * mean([sa, sb]))
+                            except Exception as err:
+                                logging.error(
+                                    "  Error during convolution of feature pairs (SIL-ratio, Nums: %s and %s, message: %s).." % (
+                                    fpNumA, fpNumB, err.message))
+
+        logging.info("  Finished convoluting feature pairs in file %s (%.1f minutes)" % (fi, (time.time()-startProc)/60.))
+        return (fileCorrelations, fileSILRatios)
+
+def processConvoluteFPsInFile(cif):
+    se=cif.getConvolutionInFile()
+    return se
+
+
+
+

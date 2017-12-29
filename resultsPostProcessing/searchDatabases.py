@@ -21,6 +21,11 @@ exIonMode = "Ionisation_Mode"
 exCharge = "Charge"
 
 
+import logging
+import LoggingSetup
+LoggingSetup.LoggingSetup.Instance().initLogging()
+
+
 
 class DBEntry:
     def __init__(self, dbName, num, name, sumFormula, mass, rt_min, mz, polarity, additionalInfo, hitType=""):
@@ -73,8 +78,12 @@ class DBSearch:
 
                     mass=0
                     if sumFormula!="":
-                        elems=fT.parseFormula(sumFormula)
-                        mass=fT.calcMolWeight(elems)
+                        try:
+                            elems=fT.parseFormula(sumFormula)
+                            mass=fT.calcMolWeight(elems)
+                        except Exception as ex:
+                            logging.error("DB import error: The sumformula (%s) of the entry %s could not be parsed"%(sumFormula, num))
+                            continue
 
                     dbEntry=DBEntry(dbName, num, name, sumFormula, mass, rt_min, mz, polarity, additionalInfo)
 
@@ -123,6 +132,8 @@ class DBSearch:
      ('-2H+', -2*1.007276, '-', 1)]
                       ):
         possibleHits=[]
+
+        ## search for non-charged DB entries by subtracting putative adducts from the provided mz value
         for adduct in adducts:
             if polarity==adduct[2] and charges==adduct[3]:
                 mass=mz-adduct[1]
@@ -140,6 +151,8 @@ class DBSearch:
                                 entry.hitType="Calc. Adduct: %s"%adduct[0]
                                 possibleHits.append(entry)
 
+
+        ## search for charged DB entries by the provided mz value
         ph=self._findGeneric(self.dbEntriesMZ, lambda x: x.mz, mz-mz*ppm/1000000., mz+mz*ppm/1000000.)
         if ph[0]!=-1:
             for entryi in ph:
@@ -159,12 +172,14 @@ class DBSearch:
 
     def searchDBForMass(self, mass, polarity, charges, ppm, rt_min=None, rt_error=0.1, checkXN="Exact", element="C", Xn=1, adducts=
     [('+H', 1.007276, '+', 1), ('+NH4', 18.033823, '+', 1),
-     ('+Na', 22.989218, '+', 1), ('+K', 38.963158, '+', 1),
+     ('+Na', 22.989218, '+', 1), ('+K', 38.963158, '+', 1), ('+CHOH+H', 33.033489, '+', 1),
      ('-H', -1.007276, '-', 1), ('+Na-2H', 20.974666, '-', 1),
      ('+Cl', 34.969402, '-', 1), ('+Br', 78.918885, '-', 1),
      ('-2H+', -2 * 1.007276, '-', 1)]
                       ):
         possibleHits = []
+
+        ## search for charged DB entries by adding adducts to the provided mass
         for adduct in adducts:
             if polarity == adduct[2] and charges == adduct[3]:
                 mz = mass + adduct[1]
@@ -183,6 +198,7 @@ class DBSearch:
                                 entry.hitType = "Calc. Adduct: %s" % adduct[0]
                                 possibleHits.append(entry)
 
+        ## search for non-charged DB entries by the provided mass
         ph = self._findGeneric(self.dbEntriesNeutral, lambda x: x.mass, mass - mass * ppm / 1000000., mass + mass * ppm / 1000000.)
         if ph[0]!=-1:
             for entryi in ph:
@@ -203,7 +219,7 @@ class DBSearch:
 
     def searchDB(self, mass, mz, polarity, charges, rt_min, ppm=5., rt_error=0.1, checkXN="Exact", element="C", Xn=1, adducts=
     [('+H', 1.007276, '+', 1), ('+NH4', 18.033823, '+', 1),
-     ('+Na', 22.989218, '+', 1), ('+K', 38.963158, '+', 1),
+     ('+Na', 22.989218, '+', 1), ('+K', 38.963158, '+', 1), ('+CHOH+H', 33.033489, '+', 1),
      ('-H', -1.007276, '-', 1), ('+Na-2H', 20.974666, '-', 1),
      ('+Cl', 34.969402, '-', 1), ('+Br', 78.918885, '-', 1),
      ('-2H+', -2 * 1.007276, '-', 1)]):

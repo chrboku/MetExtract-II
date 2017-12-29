@@ -74,10 +74,11 @@ def combineResults(experiments, experimentsOrder, saveToFile,
     results = {}
 
     ## read the results files
+    experimentsData={}
     for expDesc in experimentsOrder:
         expFile=experiments[expDesc]
         res = readDataMatrixToTable(expFile)
-        experiments[expDesc] = res
+        experimentsData[expDesc] = res
 
         results[expDesc]={}
         for row in res.data:
@@ -89,7 +90,7 @@ def combineResults(experiments, experimentsOrder, saveToFile,
     with open(saveToFile, "wb") as tsvFile:
         resWriter = csv.writer(tsvFile, delimiter="\t", quotechar="\"", quoting=csv.QUOTE_MINIMAL)
 
-        rowVals=["Num", "Results", "PPMDev", "RTDev"]
+        rowVals=["Num", "Results", "MeanMZ", "MeanRT", "IonisationMode", "Charge", "PPMDev", "RTDev"]
         for expDesc in experimentsOrder:
             rowVals.extend([expDesc+"_Num", expDesc+"_MZ", expDesc+"_RT", expDesc+"_Xn", expDesc+"_Charge", expDesc+"_Ionisation_Mode"])
             rowVals.extend([expDesc+"_"+t for t in importantCols])
@@ -114,6 +115,10 @@ def combineResults(experiments, experimentsOrder, saveToFile,
             if run:
                 ## find possible matching feature pairs
                 possibleHits={}
+                mzs=[]
+                rts=[]
+                ionMode=""
+                charge=0
                 for expDesc in experimentsOrder:
                     possibleHits[expDesc]=[]
                     for pHitNum, pHitRow in results[expDesc].items():
@@ -124,6 +129,10 @@ def combineResults(experiments, experimentsOrder, saveToFile,
                            ((not checkXn) or getattr(pHitRow, xnCol) == getattr(result, xnCol)):
 
                             possibleHits[expDesc].append(pHitNum)
+                            mzs.append(getattr(pHitRow, mzCol))
+                            rts.append(getattr(pHitRow, rtCol))
+                            ionMode=getattr(pHitRow, ionModeCol)
+                            charge=getattr(pHitRow, chargeCol)
 
                             minRT=min(minRT, getattr(pHitRow, rtCol))
                             maxRT=max(maxRT, getattr(pHitRow, rtCol))
@@ -131,7 +140,7 @@ def combineResults(experiments, experimentsOrder, saveToFile,
                             maxMZ=max(maxMZ, getattr(pHitRow, mzCol))
 
                 ## write matched feature pairs to new TSV file
-                rowVals = [resI, sum([len(possibleHits[j]) for j in possibleHits.keys()]), "%.5f"%((maxMZ-minMZ)*1E6/getattr(result, mzCol)), "%.2f"%(maxRT-minRT)]
+                rowVals = [resI, sum([len(possibleHits[j]) for j in possibleHits.keys()]), sum(mzs)/len(mzs), sum(rts)/len(rts), ionMode, charge, "%.5f"%((maxMZ-minMZ)*1E6/getattr(result, mzCol)), "%.2f"%(maxRT-minRT)]
                 for expDesc in experimentsOrder:
 
                     if len(possibleHits[expDesc])==0:
@@ -147,8 +156,14 @@ def combineResults(experiments, experimentsOrder, saveToFile,
                         for t in importantCols:
                             rowVals.append(getattr(results[expDesc][possibleHits[expDesc][0]], t))
                     else:
-                        rowVals.extend([",".join(possibleHits[expDesc]), "", "", "", "", ""])
-                        rowVals.extend(["" for t in importantCols])
+                        rowVals.extend([",".join([str(t) for t in possibleHits[expDesc]]),
+                                        "%f"%(sum([getattr(results[expDesc][t], mzCol) for t in possibleHits[expDesc]])/len(possibleHits[expDesc])),
+                                        ",".join(["%.2f"%getattr(results[expDesc][t], rtCol) for t in possibleHits[expDesc]]),
+                                        ",".join([str(getattr(results[expDesc][t], xnCol)) for t in possibleHits[expDesc]]),
+                                        getattr(results[expDesc][possibleHits[expDesc][0]], chargeCol),
+                                        getattr(results[expDesc][possibleHits[expDesc][0]], ionModeCol)])
+                        #rowVals.extend(["" for t in importantCols])
+                        rowVals.extend([",".join([str(getattr(results[expDesc][t], x)) for t in possibleHits[expDesc]]) for x in importantCols])
                 resWriter.writerow(rowVals)
 
                 ## remove all matched feature pairs
@@ -161,7 +176,7 @@ def combineResults(experiments, experimentsOrder, saveToFile,
         ## add processing information as comments to new file
         for expDesc in experimentsOrder:
             resWriter.writerow(["###### Experiment %s" % expDesc])
-            for comment in experiments[expDesc].comments:
+            for comment in experimentsData[expDesc].comments:
                 resWriter.writerow(["## %s" % comment])
 
         resWriter.writerow(["###### Processing combination of the processing results"])
@@ -169,6 +184,9 @@ def combineResults(experiments, experimentsOrder, saveToFile,
         b.maxPPMError = maxPPMError
         b.maxRTShift = maxRTShift
         b.checkXn = checkXn
+        for expi, expDesc in enumerate(experimentsOrder):
+            expFile = experiments[expDesc]
+            resWriter.writerow(["## Experiment %s (file: %s)"%(expDesc, expFile)])
         resWriter.writerow(["## Combination parameters %s" % ((b.dumpAsJSon().replace("\"", "'")))])
         resWriter.writerow(["## !!! IMPORTANT: Nums, OGroups and other ID values cannot be compared accross different processings!"])
 
@@ -191,12 +209,12 @@ def combineResults(experiments, experimentsOrder, saveToFile,
 if __name__ == "__main__":
 
     params = Bunch()
-    params.expA = ""
-    params.expADesc = ""
-    params.expB = ""
-    params.expBDesc = ""
-    params.expC = ""
-    params.expCDesc = ""
+    params.expA = "D:/Maria_20171219/EVAL_171206_FML_Remus_untreated_FH/EVAL_171206_FML_Remus_untreated_FH/test.tsv"
+    params.expADesc = "FML"
+    params.expB = "D:/Maria_20171219/EVAL_171206_PHE_Remus_untreated_FH/EVAL_171206_PHE_Remus_untreated_FH/test.tsv"
+    params.expBDesc = "PHE"
+    params.expC = "D:/Maria_20171219/EVAL_171206_TRP_Remus_untreated_FH/test.tsv"
+    params.expCDesc = "TRP"
     params.expD = ""
     params.expDDesc = ""
     params.expE = ""
@@ -205,9 +223,9 @@ if __name__ == "__main__":
     params.expFDesc = ""
 
     params.maxPPMError = 5
-    params.maxRTError = 0.05
+    params.maxRTError = 0.15
     params.checkXn = 1
-    params.saveResTo = ""
+    params.saveResTo = "D:/Maria_20171219/results_FML_PHE_TRP.tsv"
 
 
     ## necessary, construct QT application
@@ -269,7 +287,6 @@ if __name__ == "__main__":
 
         params.maxPPMError = float(dialog.maxPPMError)
         params.maxRTError = float(dialog.maxRTError)
-        params.checkXn = [False, True][dialog.checkXn]
         params.saveResTo = str(dialog.saveResTo)
 
         experiments={}

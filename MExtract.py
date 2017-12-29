@@ -415,8 +415,8 @@ class procAreaInFile:
         try:
             r = self.processAreaFor(oldData[self.colInd[colToProc + "_Area_N"]], oldData[self.colInd[colmz]],
                                     oldData[self.colInd[colrt]], ppm, scanEvent, maxRTShift, scales, snrTH, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom)
-        except Error:
-            logging.error("   Reintegration failed for feature pair (N) %s (%s %s)" % (self.forFile, oldData[self.colInd[colmz]], oldData[self.colInd[colrt]]))
+        except Exception as exc:
+            logging.error("   - Reintegration failed for feature pair (N) %s (%s %s) [%s]" % (self.forFile, oldData[self.colInd[colmz]], oldData[self.colInd[colrt]], exc.message))
 
         nFound = False
         if r is not None:
@@ -430,8 +430,8 @@ class procAreaInFile:
         try:
             r = self.processAreaFor(oldData[self.colInd[colToProc + "_Area_L"]], oldData[self.colInd[colLmz]],
                                     oldData[self.colInd[colrt]], ppm, scanEvent, maxRTShift, scales, snrTH, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom)
-        except Error:
-            logging.error("   Reintegration failed for feature pair (L) %s (%s %s)" % (self.forFile, oldData[self.colInd[colmz]], oldData[self.colInd[colrt]]))
+        except Exception as exc:
+            logging.error("   Reintegration failed for feature pair (L) %s (%s %s) [%s]" % (self.forFile, oldData[self.colInd[colmz]], oldData[self.colInd[colrt]], exc.message))
 
         lFound = False
         if r is not None:
@@ -452,6 +452,7 @@ class procAreaInFile:
     # re-integrate all detected feature pairs in a given LC-HRMS data file
     def processFile(self, oldData, colToProc, colmz, colrt, colLmz, colIonMode, positiveScanEvent, negativeScanEvent,
                     ppm, maxRTShift, scales, snrTH, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom):
+        startProc=time.time()
         logging.info("   Reintegration started for file %s" % self.forFile)
 
         z = 0
@@ -476,7 +477,7 @@ class procAreaInFile:
 
             self.newData.append(nDat)
 
-        logging.info("   Reintegration finished for file %s" % self.forFile)
+        logging.info("   Reintegration finished for file %s (%.1f minutes)" % (self.forFile, (time.time()-startProc)/60.))
 
     # set re-integration parameters for the current sub-process
     def setParams(self, oldDataFile, headers, colToProc, colmz, colrt, colxcount, colloading, colLmz, colIonMode,
@@ -2878,7 +2879,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 try:
                     pw = ProgressWrapper(1, parent=self)
                     pw.show()
-                    pw.getCallingFunction()("text")("Convoluting feature pairs\n")
+                    pw.getCallingFunction()("text")("Convoluting feature pairs")
 
                     runIdentificationInstance=RunIdentification(files[0],
                                                                 exOperator=str(self.ui.exOperator_LineEdit.text()),
@@ -2938,7 +2939,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                            minConnectionsInFiles=self.ui.metaboliteClusterMinConnections.value(),
                                            minConnectionRate=self.ui.minConnectionRate.value(),
                                            minPeakCorrelation=self.ui.minCorrelation.value(),
-                                           runIdentificationInstance=runIdentificationInstance)
+                                           runIdentificationInstance=runIdentificationInstance,
+                                           cpus=min(len(files), cpus))
                     procProc.addKwd("pwMaxSet", procProc.getQueue())
                     procProc.addKwd("pwValSet", procProc.getQueue())
                     procProc.addKwd("pwTextSet", procProc.getQueue())
@@ -3159,7 +3161,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                checkXN=self.checkXnInHits, element=self.processedElement, Xn=xn):
                             if hit.dbName not in hits.keys():
                                 hits[hit.dbName]=[]
-                            hits[hit.dbName].append("%s (%s): Num %s, Formula %s, Additional information: %s" % (hit.name, hit.hitType, hit.num, hit.sumFormula, hit.additionalInfo))
+                            hits[hit.dbName].append("%s (%s): Num %s, Formula %s, RT: %s, Additional information: %s" % (hit.name, hit.hitType, hit.num, hit.sumFormula, hit.rt_min, hit.additionalInfo))
 
                         for dbName in hits.keys():
                             x["DBs_"+dbName] = ",".join(hits[dbName])
@@ -3313,7 +3315,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         pw.setValueu(count, i=1)
                     pw.setText("%d MZs fetched"%numberOfMZs, i=1)
                 else:
-                    pw.setTextu("Mzs not fetched (too many; %d)"%numberOfMZs)
+                    pw.setTextu("Mzs not fetched (too many; %d)"%numberOfMZs, i=1)
                 it.addChildren(children)
                 it.setText(1, "%d"%numberOfMZs)
 

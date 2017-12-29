@@ -118,7 +118,7 @@ def generatePageFor(feature, mzXMLs, experimentalGroups, pdf, ppm=5.):
     for i, expGroup in enumerate(experimentalGroups):
         for file in expGroup.files:
             try:
-                print ("\rProcessing.. |%%-%ds| (%%d/%%d)"%(totalFiles)) % ("*"*filesDone, filesDone, totalFiles),
+                #print ("\rProcessing.. |%%-%ds| (%%d/%%d)"%(totalFiles)) % ("*"*filesDone, filesDone, totalFiles),
                 filesDone+=1
 
                 ## Native EICs
@@ -341,30 +341,6 @@ def generatePageFor(feature, mzXMLs, experimentalGroups, pdf, ppm=5.):
 
 
     pdf.drawString(3, 3, "Notes: Raw-data is shown, no processing has been performed, axis labels missing (bug in library), order/color of separated EICs corresponds to group table, names for groups in separated EICs cannot be set")
-    # ## Draw chromatogram area
-    # drawingSP = Drawing(900, 450)
-    # sc = ScatterPlot()
-    # sc.x = 10
-    # sc.y = 10
-    # sc.height = 150
-    # sc.width = 180
-    # sc.data = AreaDD
-    # for i, col in enumerate(AreaCols):
-    #     sc.lines[i].symbol = makeMarker("Circle", size=2)
-    #     sc.lines[i].symbol.fillColor = HexColor(matplotlib.colors.cnames[col.lower()])
-    #     sc.lines[i].symbol.strokeWidth = 0
-    #     sc.lines[i].symbol.strokeColor = HexColor(matplotlib.colors.cnames[col.lower()])
-    #
-    # sc.yLabel = "MZ"
-    # sc.xLabel = "RT"
-    # sc.lineLabelFormat = noLabel
-    # sc.xValueAxis.labelTextFormat = noLabel
-    # drawingSP.add(sc)
-    # renderPDF.draw(drawingSP, pdf, 820, 400)
-
-
-
-
 
 
 
@@ -381,11 +357,10 @@ def generatePageFor(feature, mzXMLs, experimentalGroups, pdf, ppm=5.):
 
 
     pdf.showPage()
-    print "\r",
 
 
 
-def generatePDF(experimentalGroups, metabolitesToPlot, saveTo, ppm=5., mzXMLs=None, pw=None):
+def generatePDF(experimentalGroups, metabolitesToPlot, saveTo, ppm=5., mzXMLs=None, pw=None, drawMetaboliteIntroPage=True):
 
     if mzXMLs is None:
         mzXMLs={}
@@ -416,26 +391,25 @@ def generatePDF(experimentalGroups, metabolitesToPlot, saveTo, ppm=5., mzXMLs=No
     done=0
     f=0
     for metabolite in metabolitesToPlot:
+        print ("\rProcessing.. |%%-%ds| (%%d/%%d)" % (len(metabolitesToPlot))) % ("*" * done, done, len(metabolitesToPlot)),
         if not done%200:
             if pdf is not None:
                 pdf.save()
             pdf = canvas.Canvas(saveTo.replace(".pdf", "_%d.pdf"%(done//50)), pagesize=pagesizes.landscape(pagesizes.A3))
-            # pdf = canvas.Canvas(saveTo, pagesize=pagesizes.A4)
         done+=1
 
-        pdf.drawString(20, 820, "Name: %s OGroup: %s  Number of features: %d" % (metabolite.name, metabolite.ogroup, len(metabolite.features)))
-        pdf.showPage()
+        if drawMetaboliteIntroPage:
+            pdf.drawString(20, 820, "Name: %s OGroup: %s Number of features: %d" % (metabolite.name, metabolite.ogroup, len(metabolite.features)))
+            pdf.showPage()
 
-        if pw!=None:
-            pw.setText("   Metabolite: %s"%(metabolite.ogroup))
+        if pw!=None: pw.setText("   Metabolite: %s"%(metabolite.ogroup))
         for feature in metabolite.features:
-            if pw!=None:
-                pw.setText(" Metabolite: %s      Num: %s, mz: %.5f, rt: %.2f"%(metabolite.ogroup, feature.num, feature.mz, feature.rt))
+            if pw!=None: pw.setText(" Metabolite: %s      Num: %s, mz: %.5f, rt: %.2f"%(metabolite.ogroup, feature.num, feature.mz, feature.rt))
             generatePageFor(feature, mzXMLs, experimentalGroups, pdf, ppm=ppm)
 
-            if pw!=None:
-                pw.setValueu(f)
+            if pw!=None: pw.setValueu(f)
             f=f+1
+
 
     ## save PDF
     pdf.save()
@@ -494,7 +468,7 @@ if __name__=="__main__" and True:
     ########################################################################################################################
     ######   Negative mode
     ########################################################################################################################
-    if True:
+    if False:
         experimentalGroups=[]
         path="E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs"
         experimentalGroups.append(Bunch(name="NHC dmalQ",
@@ -690,7 +664,7 @@ if __name__=="__main__" and True:
     ########################################################################################################################
     ######   Positive mode
     ########################################################################################################################
-    if True:
+    if False:
         experimentalGroups=[]
         path = "E:/Hanson_MetaboliteRepair_AcetylatedSamples/Experiment3/RawData/mzXMLs"
         experimentalGroups.append(Bunch(name="PHC dmalQ",
