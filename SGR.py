@@ -209,15 +209,15 @@ if __name__=="__main__":
 
 
 
-    mz=296.125299306
-    adducts=[0]
+    mz=371.098292
+    adducts=[1.007276]
 
     for add in adducts:
         print add
         m=mz-add
 
-        formsCRes=sfg.findFormulas(m, useAtoms=["C", "N", "H", "O", "P", "S", "Fe", "Cr"], atomsRange=[(1,15), (0,500), (0,10000), (0,400), [0, 10], [0, 20], [0, 1], [0, 1]],
-                                   useSevenGoldenRules=True, useSecondRule=False, ppm=3.)
+        formsCRes=sfg.findFormulas(m, useAtoms=["C", "N", "H", "O", "P", "S"], atomsRange=[(16,16), (0,500), (0,10000), (0,400), [0, 10], [0, 20]],
+                                   useSevenGoldenRules=True, useSecondRule=False, ppm=5.)
 
         from utils import Bunch, printObjectsAsTable
         from formulaTools import formulaTools

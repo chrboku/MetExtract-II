@@ -1326,7 +1326,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             qpixmap.fill(QtGui.QColor(color))
             icon = QtGui.QIcon(qpixmap)
 
-            qlwi=QListWidgetItem(icon, "%s (%d%s%s%s)"%(str(name), len(files), ", Annotate" if useForMetaboliteGrouping else "", ", Omit/%d"%minGrpFound if omitFeatures else "", ", FalsePositives" if removeAsFalsePositive else ""))
+            qlwi=QListWidgetItem(icon, "%s (%d%s%s%s)"%(str(name), len(files), ", Convolute" if useForMetaboliteGrouping else "", ", Omit/%d"%minGrpFound if omitFeatures else "", ", FalsePositives" if removeAsFalsePositive else ""))
             #qlwi.setBackgroundColor(QColor(color))
             qlwi.setData(QListWidgetItem.UserType, SampleGroup(name, files, minGrpFound, omitFeatures, useForMetaboliteGrouping, removeAsFalsePositive, color))
 
@@ -1350,9 +1350,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.showAddGroupDialog()
 
     # show an import group dialog to the user
-    def showAddGroupDialog(self, initWithFiles=[]):
+    def showAddGroupDialog(self, initWithFiles=[], initWithGroupName=""):
         tdiag = groupEdit(self, self.lastOpenDir, colors=predefinedColors)
-        if tdiag.executeDialog(groupfiles=initWithFiles, activeColor=predefinedColors[self.ui.groupsList.count()%len(predefinedColors)]) == QtGui.QDialog.Accepted:
+        if tdiag.executeDialog(groupName=initWithGroupName, groupfiles=initWithFiles, activeColor=predefinedColors[self.ui.groupsList.count()%len(predefinedColors)]) == QtGui.QDialog.Accepted:
             self.lastOpenDir = tdiag.getOpenDir()
 
             failed = defaultdict(list)
@@ -6500,7 +6500,21 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 if len(incorrectFiles)>0:
                     QtGui.QMessageBox.warning(self, "MetExtract", "You are trying to load unknown file types that are not supported: \n\n  * "+"\n  * ".join(incorrectFiles)+"\n\nPlease only load mzXML or mzML files.")
                 else:
-                    self.showAddGroupDialog(initWithFiles=links)
+
+                    if QtGui.QMessageBox.question(self, "MetExtract", "Do you want to automatically assign all files to separate groups? Everything before the last '_' character will be used as the group identifier and everything after the last '_' character will be used as the replicate identifier.", QtGui.QMessageBox.Yes | QtGui.QMessageBox.No) == QtGui.QMessageBox.Yes:
+                        sepChar="_"
+                        groups={}
+                        for link in links:
+                            gName=link[:link.rfind(sepChar)]
+                            if gName not in groups.keys():
+                                groups[gName]=[]
+                            groups[gName].append(link)
+                        for gName, files in groups.items():
+                            gName=gName.replace("\\", "/")
+                            gName=gName[(gName.rfind("/")+1):]
+                            self.showAddGroupDialog(initWithGroupName=gName, initWithFiles=files)
+                    else:
+                        self.showAddGroupDialog(initWithFiles=links)
         else:
             event.ignore()
 

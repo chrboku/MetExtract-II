@@ -19,7 +19,7 @@ class MassSpecWavelet:
     def cleanUp(self):
         r('rm(list=ls());gc();')
 
-    def getPeaksFor(self, times, eici, scales=[11, 66], snrTh=0.1, minScans=3, startIndex=None, endIndex=None):
+    def getPeaksFor(self, timesi, eici, scales=[11, 66], snrTh=0.1, minScans=3, startIndex=None, endIndex=None):
 
         snrTh=3
 
@@ -35,21 +35,26 @@ class MassSpecWavelet:
 
         # crop EIC
         eici=eici[startIndex:endIndex]
-        #times=times[startIndex:endIndex]
+        timesi=timesi[startIndex:endIndex]
 
         # add scales at begin and end of eic
         eicAdd = int(scales[1]) *2
         eic = [0 for u in range(0, eicAdd)]
+        times = [0 for u in range(0, eicAdd)]
         eic.extend(eici)
+        times.extend(timesi)
+
         eic.extend([0 for u in range(0, eicAdd)])
+        mt=max(timesi)
+        times.extend([mt for u in range(0, eicAdd)])
 
         # create R-vector of EIC
         eicRC = str([str(v) for v in eic]).replace('[', '').replace(']', '').replace('\'', '')
+        timesRC= str([str(v) for v in times]).replace('[', '').replace(']', '').replace('\'', '')
 
         # call R-MassSpecWavelet
-        try:
-            ret = r('getMajorPeaks(c(' + eicRC + '), c(' + str(scales[0]) + ', ' + str(scales[1]) + '), snrTh=' + str(
-                snrTh) + ')')
+        try:   #eic, times, scales=c(5,33), snrTh=1, eicSmoothing="None", minCorr=0.85, testCorr=TRUE
+            ret = r('getMajorPeaks(eic=c(' + eicRC + '), times=c(' + timesRC + '), scales=c(' + str(scales[0]) + ', ' + str(scales[1]) + '), snrTh=' + str(snrTh) + ')')
         except Exception as e:
             ret = []
 
