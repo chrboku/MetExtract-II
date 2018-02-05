@@ -125,18 +125,18 @@ class DBSearch:
         return -1, -1
 
     def searchDBForMZ(self, mz, polarity, charges, ppm, rt_min=None, rt_error=0.1, checkXN="Exact", element="C", Xn=1, adducts=
-    [('+H', 1.007276, '+', 1), ('+NH4', 18.033823, '+', 1),
-     ('+Na', 22.989218, '+', 1), ('+K', 38.963158, '+', 1), ('+CH3OH+H', 33.033489, '+', 1),
-     ('-H', -1.007276, '-', 1), ('+Na-2H', 20.974666, '-', 1),
-     ('+Cl', 34.969402, '-', 1), ('+Br', 78.918885, '-', 1),
-     ('-2H+', -2*1.007276, '-', 1)]
-                      ):
+    [('+H', 1.007276, '+', 1, 1), ('+NH4', 18.033823, '+', 1, 1),
+     ('+Na', 22.989218, '+', 1, 1), ('+K', 38.963158, '+', 1, 1), ('+CH3OH+H', 33.033489, '+', 1, 1),
+     ('-H', -1.007276, '-', 1, 1), ('+Na-2H', 20.974666, '-', 1, 1),
+     ('+Cl', 34.969402, '-', 1, 1), ('+Br', 78.918885, '-', 1, 1),
+     ('-2H+', -2 * 1.007276, '-', 1, 1)]):
         possibleHits=[]
 
         ## search for non-charged DB entries by subtracting putative adducts from the provided mz value
         for adduct in adducts:
             if polarity==adduct[2] and charges==adduct[3]:
-                mass=mz-adduct[1]
+                mass=(mz - adduct[1])*adduct[3]/adduct[4]
+
                 ph=self._findGeneric(self.dbEntriesNeutral, lambda x: x.mass, mass-mass*ppm/1000000., mass+mass*ppm/1000000.)
                 if ph[0]!=-1:
                     for entryi in range(ph[0], ph[1]+1):
@@ -171,18 +171,18 @@ class DBSearch:
 
 
     def searchDBForMass(self, mass, polarity, charges, ppm, rt_min=None, rt_error=0.1, checkXN="Exact", element="C", Xn=1, adducts=
-    [('+H', 1.007276, '+', 1), ('+NH4', 18.033823, '+', 1),
-     ('+Na', 22.989218, '+', 1), ('+K', 38.963158, '+', 1), ('+CH3OH+H', 33.033489, '+', 1),
-     ('-H', -1.007276, '-', 1), ('+Na-2H', 20.974666, '-', 1),
-     ('+Cl', 34.969402, '-', 1), ('+Br', 78.918885, '-', 1),
-     ('-2H+', -2 * 1.007276, '-', 1)]
-                      ):
+    [('+H', 1.007276, '+', 1, 1), ('+NH4', 18.033823, '+', 1, 1),
+     ('+Na', 22.989218, '+', 1, 1), ('+K', 38.963158, '+', 1, 1), ('+CH3OH+H', 33.033489, '+', 1, 1),
+     ('-H', -1.007276, '-', 1, 1), ('+Na-2H', 20.974666, '-', 1, 1),
+     ('+Cl', 34.969402, '-', 1, 1), ('+Br', 78.918885, '-', 1, 1),
+     ('-2H+', -2 * 1.007276, '-', 1, 1)]):
         possibleHits = []
 
         ## search for charged DB entries by adding adducts to the provided mass
         for adduct in adducts:
             if polarity == adduct[2] and charges == adduct[3]:
-                mz = mass + adduct[1]
+                mz = mass * adduct[4]/adduct[3]-adduct[1]
+
                 ph = self._findGeneric(self.dbEntriesMZ, lambda x: x.mz, mz - mz * ppm / 1000000.,
                                        mz + mz * ppm / 1000000.)
                 if ph[0]!=-1:
@@ -218,11 +218,11 @@ class DBSearch:
 
 
     def searchDB(self, mass, mz, polarity, charges, rt_min, ppm=5., rt_error=0.1, checkXN="Exact", element="C", Xn=1, adducts=
-    [('+H', 1.007276, '+', 1), ('+NH4', 18.033823, '+', 1),
-     ('+Na', 22.989218, '+', 1), ('+K', 38.963158, '+', 1), ('+CH3OH+H', 33.033489, '+', 1),
-     ('-H', -1.007276, '-', 1), ('+Na-2H', 20.974666, '-', 1),
-     ('+Cl', 34.969402, '-', 1), ('+Br', 78.918885, '-', 1),
-     ('-2H+', -2 * 1.007276, '-', 1)]):
+    [('+H', 1.007276, '+', 1, 1), ('+NH4', 18.033823, '+', 1, 1),
+     ('+Na', 22.989218, '+', 1, 1), ('+K', 38.963158, '+', 1, 1), ('+CH3OH+H', 33.033489, '+', 1, 1),
+     ('-H', -1.007276, '-', 1, 1), ('+Na-2H', 20.974666, '-', 1, 1),
+     ('+Cl', 34.969402, '-', 1, 1), ('+Br', 78.918885, '-', 1, 1),
+     ('-2H+', -2 * 1.007276, '-', 1, 1)]):
         if mass!=None:
             return self.searchDBForMass(mass, polarity, charges, ppm, rt_min, rt_error, checkXN, element, Xn, adducts)
         else:

@@ -29,6 +29,7 @@ def readDataMatrixToTable(matFile):
     res = Bunch(columns=[], data=[], comments=[])
     with open(matFile, "rb") as inF:
         for iline, line in enumerate(inF):
+            line=line.strip()
             if iline == 0:
                 res.columns = line.split("\t")
             else:
@@ -75,7 +76,7 @@ def combineResults(experiments, experimentsOrder, saveToFile,
 
     ## read the results files
     experimentsData={}
-    for expDesc in experimentsOrder:
+    for expi, expDesc in enumerate(experimentsOrder):
         expFile=experiments[expDesc]
         res = readDataMatrixToTable(expFile)
         experimentsData[expDesc] = res
@@ -83,17 +84,26 @@ def combineResults(experiments, experimentsOrder, saveToFile,
         results[expDesc]={}
         for row in res.data:
             num = getattr(row, numCol)
+            setattr(row, numCol, str(int(int(num)+(expi+1)*1E6)))
+            ogroup = getattr(row, "OGroup")
+            setattr(row, "OGroup", str(int(int(ogroup)+(expi+1)*1E6)))
 
             results[expDesc][num] = row
+
 
     ## outer join of all results
     with open(saveToFile, "wb") as tsvFile:
         resWriter = csv.writer(tsvFile, delimiter="\t", quotechar="\"", quoting=csv.QUOTE_MINIMAL)
 
-        rowVals=["Num", "Results", "MeanMZ", "MeanRT", "IonisationMode", "Charge", "PPMDev", "RTDev"]
+        ## meta-info columns and important columns
+        rowVals=["Num", "Comment", "OGroup", "Results", "MeanMZ", "MeanRT", "IonisationMode", "Charge", "PPMDev", "RTDev"]
         for expDesc in experimentsOrder:
-            rowVals.extend([expDesc+"_Num", expDesc+"_MZ", expDesc+"_RT", expDesc+"_Xn", expDesc+"_Charge", expDesc+"_Ionisation_Mode"])
-            rowVals.extend([expDesc+"_"+t for t in importantCols])
+            rowVals.extend([expDesc+"__Num", expDesc+"__MZ", expDesc+"__RT", expDesc+"__Xn", expDesc+"__Charge", expDesc+"__Ionisation_Mode"])
+            rowVals.extend([expDesc+"__"+t for t in importantCols])
+        ## all remaining columns from the different experiments
+        for expDesc in experimentsOrder:
+            for colName in experimentsData[expDesc].columns:
+                rowVals.append(expDesc+"__"+colName)
         resWriter.writerow(rowVals)
 
         resI=1
@@ -139,8 +149,8 @@ def combineResults(experiments, experimentsOrder, saveToFile,
                             minMZ=min(minMZ, getattr(pHitRow, mzCol))
                             maxMZ=max(maxMZ, getattr(pHitRow, mzCol))
 
-                ## write matched feature pairs to new TSV file
-                rowVals = [resI, sum([len(possibleHits[j]) for j in possibleHits.keys()]), sum(mzs)/len(mzs), sum(rts)/len(rts), ionMode, charge, "%.5f"%((maxMZ-minMZ)*1E6/getattr(result, mzCol)), "%.2f"%(maxRT-minRT)]
+                ## write meta-information of matched feature pairs to new TSV file
+                rowVals = [resI, "", "", sum([len(possibleHits[j]) for j in possibleHits.keys()]), sum(mzs)/len(mzs), sum(rts)/len(rts), ionMode, charge, "%.5f"%((maxMZ-minMZ)*1E6/getattr(result, mzCol)), "%.2f"%(maxRT-minRT)]
                 for expDesc in experimentsOrder:
 
                     if len(possibleHits[expDesc])==0:
@@ -156,17 +166,28 @@ def combineResults(experiments, experimentsOrder, saveToFile,
                         for t in importantCols:
                             rowVals.append(getattr(results[expDesc][possibleHits[expDesc][0]], t))
                     else:
-                        rowVals.extend([",".join([str(t) for t in possibleHits[expDesc]]),
+                        rowVals.extend([";".join([str(t) for t in possibleHits[expDesc]]),
                                         "%f"%(sum([getattr(results[expDesc][t], mzCol) for t in possibleHits[expDesc]])/len(possibleHits[expDesc])),
-                                        ",".join(["%.2f"%getattr(results[expDesc][t], rtCol) for t in possibleHits[expDesc]]),
-                                        ",".join([str(getattr(results[expDesc][t], xnCol)) for t in possibleHits[expDesc]]),
+                                        ";".join(["%.2f"%getattr(results[expDesc][t], rtCol) for t in possibleHits[expDesc]]),
+                                        ";".join([str(getattr(results[expDesc][t], xnCol)) for t in possibleHits[expDesc]]),
                                         getattr(results[expDesc][possibleHits[expDesc][0]], chargeCol),
                                         getattr(results[expDesc][possibleHits[expDesc][0]], ionModeCol)])
-                        #rowVals.extend(["" for t in importantCols])
-                        rowVals.extend([",".join([str(getattr(results[expDesc][t], x)) for t in possibleHits[expDesc]]) for x in importantCols])
+                        rowVals.extend([";".join([str(getattr(results[expDesc][t], x)) for t in possibleHits[expDesc]]) for x in importantCols])
+                ## write remaining columns of all experiments to the new TSV file
+                for expDesc in experimentsOrder:
+                    if len(possibleHits[expDesc])==0:
+                        for colName in experimentsData[expDesc].columns:
+                            rowVals.append("")
+                    elif len(possibleHits[expDesc])==1:
+                        for colName in experimentsData[expDesc].columns:
+                            rowVals.append(getattr(results[expDesc][possibleHits[expDesc][0]], colName))
+                    else:
+                        for colName in experimentsData[expDesc].columns:
+                            rowVals.append("")
+
                 resWriter.writerow(rowVals)
 
-                ## remove all matched feature pairs
+                ## remove all matched feature pairs from further data processing steps
                 for expDesc in experimentsOrder:
                     for pH in possibleHits[expDesc]:
                         del results[expDesc][pH]
@@ -201,11 +222,6 @@ def combineResults(experiments, experimentsOrder, saveToFile,
 ########################################################################################################################
 ########################################################################################################################
 #############################  Execute script and show a graphical user interface to the user
-
-
-
-
-## Combination for Benedikt. Comparison of different data evaluation parameters
 if __name__ == "__main__":
 
     params = Bunch()

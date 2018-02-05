@@ -3055,6 +3055,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         if self.ui.annotateMetabolites_CheckBox.isChecked():
             logging.info("Annotation of detected metabolites..")
 
+            useAdducts=[]
+            for adduct in self.adducts:
+                useAdducts.append([str(adduct.name), adduct.mzoffset, str(adduct.polarity), adduct.charge, adduct.mCount])
+
             pw = ProgressWrapper(1, parent=self)
             pw.show()
             pw.getCallingFunction()("text")("Annotation of detected metabolites")
@@ -3100,8 +3104,6 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                         atomsRange.append([minE, maxE])
 
-
-
                     useExactXn=str(self.ui.sumFormulasUseExactXn_ComboBox.currentText())
                     if useExactXn.lower()=="plusminus":
                         useExactXn="PlusMinus_%d"%(self.ui.sumFormulasPlusMinus_spinBox.value())
@@ -3110,7 +3112,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                                         atomsRange,
                                                                         getElementOfIsotope(str(self.ui.isotopeAText.text())),
                                                                         useExactXn,
-                                                                        ppm=self.ui.annotationMaxPPM_doubleSpinBox.value())
+                                                                        ppm=self.ui.annotationMaxPPM_doubleSpinBox.value(),
+                                                                        adducts=useAdducts)
 
                 except Exception as e:
                     import traceback
@@ -3133,6 +3136,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     dbFile = str(self.ui.dbList_listView.model().item(entryInd, 0).data().toString())
                     dbName = dbFile[dbFile.rfind("/") + 1:dbFile.rfind(".")]
                     db.addEntriesFromFile(dbName, dbFile)
+                    table.addColumn("DBs_"+dbName+"_count", "TEXT")
                     table.addColumn("DBs_"+dbName, "TEXT")
 
                 db.optimizeDB()
@@ -3158,13 +3162,15 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         for hit in self.dbs.searchDB(mass=mass, mz=mz, polarity=polarity, charges=charges,
                                                rt_min=rt_min if self.useRt else None,
                                                ppm=self.ppm, rt_error=self.rtError,
-                                               checkXN=self.checkXnInHits, element=self.processedElement, Xn=xn):
+                                               checkXN=self.checkXnInHits, element=self.processedElement, Xn=xn,
+                                               adducts=useAdducts):
                             if hit.dbName not in hits.keys():
                                 hits[hit.dbName]=[]
                             hits[hit.dbName].append("%s (%s): Num %s, Formula %s, RT: %s, Additional information: %s" % (hit.name, hit.hitType, hit.num, hit.sumFormula, hit.rt_min, hit.additionalInfo))
 
                         for dbName in hits.keys():
                             x["DBs_"+dbName] = ",".join(hits[dbName])
+                            x["DBs_" + dbName + "_count"] = len(hits[dbName])
                         return x
 
                 useExactXn=str(self.ui.sumFormulasUseExactXn_ComboBox.currentText())
@@ -3175,7 +3181,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 checkXnInHits=useExactXn, processedElement=getElementOfIsotope(str(self.ui.isotopeAText.text())))
                 table.applyFunction(x.updateDBCols, showProgress=True)
 
-                table.addComment("## Database search: checkXn %s, ppm: %.5f"%(useExactXn, self.ui.annotationMaxPPM_doubleSpinBox.value()))
+                table.addComment("## Database search: checkXn %s, ppm: %.5f, Adducts: %s"%(useExactXn, self.ui.annotationMaxPPM_doubleSpinBox.value(), str(useAdducts)))
 
                 TableUtils.saveFile(table, str(self.ui.groupsSave.text()))
             pw.hide()
@@ -6501,17 +6507,25 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     QtGui.QMessageBox.warning(self, "MetExtract", "You are trying to load unknown file types that are not supported: \n\n  * "+"\n  * ".join(incorrectFiles)+"\n\nPlease only load mzXML or mzML files.")
                 else:
 
-                    if QtGui.QMessageBox.question(self, "MetExtract", "Do you want to automatically assign all files to separate groups? Everything before the last '_' character will be used as the group identifier and everything after the last '_' character will be used as the replicate identifier.", QtGui.QMessageBox.Yes | QtGui.QMessageBox.No) == QtGui.QMessageBox.Yes:
-                        sepChar="_"
-                        groups={}
-                        for link in links:
-                            gName=link[:link.rfind(sepChar)]
-                            if gName not in groups.keys():
-                                groups[gName]=[]
-                            groups[gName].append(link)
+                    sepChar = "_"
+                    groups = {}
+                    for link in links:
+                        gName = link[:link.rfind(sepChar)]
+                        if gName not in groups.keys():
+                            groups[gName] = []
+                        groups[gName].append(link)
+
+                    gNames = {}
+                    for gName, files in groups.items():
+                        gName = gName.replace("\\", "/")
+                        gName = gName[(gName.rfind("/") + 1):]
+                        gNames[gName]=len(files)
+
+                    if QtGui.QMessageBox.question(self, "MetExtract", "Do you want to automatically assign all files to separate groups? Everything before the last '_' character will be used as the group identifier and everything after the last '_' character will be used as the replicate identifier.\n\nThe following groups will be created: \n\n"+"\n".join([u"\u2022  "+gN+" (" + str(gNames[gN]) + " files)" for gN in gNames.keys()]), QtGui.QMessageBox.Yes | QtGui.QMessageBox.No) == QtGui.QMessageBox.Yes:
+
                         for gName, files in groups.items():
-                            gName=gName.replace("\\", "/")
-                            gName=gName[(gName.rfind("/")+1):]
+                            gName = gName.replace("\\", "/")
+                            gName = gName[(gName.rfind("/") + 1):]
                             self.showAddGroupDialog(initWithGroupName=gName, initWithFiles=files)
                     else:
                         self.showAddGroupDialog(initWithFiles=links)

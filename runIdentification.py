@@ -2033,7 +2033,7 @@ class RunIdentification:
 
 
                                 # check for similar chromatographic peak profile and similar native to labeled ratio
-                                if pb >= self.minCorrelation and silRatiosFold <= 1+max(0.2, 3*silRatiosSD):
+                                if pb >= self.minCorrelation and silRatiosFold <= 1+max(0.25, 3*silRatiosSD):
                                     nodes[peakA.id].append(peakB.id)
                                     nodes[peakB.id].append(peakA.id)
 

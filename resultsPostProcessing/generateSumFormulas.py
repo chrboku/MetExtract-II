@@ -34,23 +34,6 @@ def processFile(file, columns, adducts, ppm=5., useAtoms=[], atomsRange=[], smCo
 
     table = TableUtils.TableUtils.readFile(file)
 
-    if not smCol+"_CHO" in [col.name for col in table.getColumns()]:
-        table.addColumn(smCol+"_CHO", "TEXT")
-    if not smCol + "_CHON" in [col.name for col in table.getColumns()]:
-        table.addColumn(smCol + "_CHON", "TEXT")
-    if not smCol + "_CHOP" in [col.name for col in table.getColumns()]:
-        table.addColumn(smCol + "_CHOP", "TEXT")
-    if not smCol + "_CHOS" in [col.name for col in table.getColumns()]:
-        table.addColumn(smCol + "_CHOS", "TEXT")
-    if not smCol + "_CHONP" in [col.name for col in table.getColumns()]:
-        table.addColumn(smCol + "_CHONP", "TEXT")
-    if not smCol + "_CHONS" in [col.name for col in table.getColumns()]:
-        table.addColumn(smCol + "_CHONS", "TEXT")
-    if not smCol + "_CHOPS" in [col.name for col in table.getColumns()]:
-        table.addColumn(smCol + "_CHOPS", "TEXT")
-    if not smCol + "_CHONPS" in [col.name for col in table.getColumns()]:
-        table.addColumn(smCol + "_CHONPS", "TEXT")
-
     if not smCol+"_CHO_count" in [col.name for col in table.getColumns()]:
         table.addColumn(smCol+"_CHO_count", "INTEGER")
     if not smCol + "_CHON"+"_count" in [col.name for col in table.getColumns()]:
@@ -67,6 +50,23 @@ def processFile(file, columns, adducts, ppm=5., useAtoms=[], atomsRange=[], smCo
         table.addColumn(smCol + "_CHOPS"+"_count", "INTEGER")
     if not smCol + "_CHONPS"+"_count" in [col.name for col in table.getColumns()]:
         table.addColumn(smCol + "_CHONPS"+"_count", "INTEGER")
+
+    if not smCol+"_CHO" in [col.name for col in table.getColumns()]:
+        table.addColumn(smCol+"_CHO", "TEXT")
+    if not smCol + "_CHON" in [col.name for col in table.getColumns()]:
+        table.addColumn(smCol + "_CHON", "TEXT")
+    if not smCol + "_CHOP" in [col.name for col in table.getColumns()]:
+        table.addColumn(smCol + "_CHOP", "TEXT")
+    if not smCol + "_CHOS" in [col.name for col in table.getColumns()]:
+        table.addColumn(smCol + "_CHOS", "TEXT")
+    if not smCol + "_CHONP" in [col.name for col in table.getColumns()]:
+        table.addColumn(smCol + "_CHONP", "TEXT")
+    if not smCol + "_CHONS" in [col.name for col in table.getColumns()]:
+        table.addColumn(smCol + "_CHONS", "TEXT")
+    if not smCol + "_CHOPS" in [col.name for col in table.getColumns()]:
+        table.addColumn(smCol + "_CHOPS", "TEXT")
+    if not smCol + "_CHONPS" in [col.name for col in table.getColumns()]:
+        table.addColumn(smCol + "_CHONPS", "TEXT")
 
     if not "all_"+smCol+"_count" in [col.name for col in table.getColumns()]:
         table.addColumn("all_"+smCol+"_count", "INTEGER")
@@ -122,7 +122,7 @@ def processFile(file, columns, adducts, ppm=5., useAtoms=[], atomsRange=[], smCo
             if accMass == "":
                 for adduct in self.adducts:
                     if ionMode == adduct[2] and charge==adduct[3]:
-                        ret = sfg.findFormulas(mz - adduct[1], self.ppm, useAtoms=useAtoms, atomsRange=atomsRange,
+                        ret = sfg.findFormulas((mz - adduct[1])*adduct[3]/adduct[4], self.ppm, useAtoms=useAtoms, atomsRange=atomsRange,
                                                fixed="C", useSevenGoldenRules=self.useSevenGoldenRules)
                         for e in ret:
                             #print e
@@ -170,56 +170,80 @@ def processFile(file, columns, adducts, ppm=5., useAtoms=[], atomsRange=[], smCo
                             dbe[smCol + "_CHO"].append(ent)
 
             if len(dbe[smCol + "_CHO"]) > 0:
-                x[smCol + "_CHO"] = ", ".join([h[0] + str(h[1]) for h in dbe[smCol + "_CHO"]])
+                if len(dbe[smCol + "_CHO"])>250:
+                    x[smCol + "_CHO"] = "Too many hits %d"%(len(dbe[smCol + "_CHO"]))
+                else:
+                    x[smCol + "_CHO"] = ", ".join([h[0] + str(h[1]) for h in dbe[smCol + "_CHO"]])
                 x[smCol + "_CHO_count"] = len(dbe[smCol + "_CHO"])
             else:
                 x[smCol + "_CHO"] = ""
                 x[smCol + "_CHO_count"] = 0
 
             if len(dbe[smCol + "_CHOS"]) > 0:
-                x[smCol + "_CHOS"] = ", ".join([h[0] + str(h[1]) for h in dbe[smCol + "_CHOS"]])
+                if len(dbe[smCol + "_CHOS"]) > 250:
+                    x[smCol + "_CHOS"] = "Too many hits %d" % (len(dbe[smCol + "_CHOS"]))
+                else:
+                    x[smCol + "_CHOS"] = ", ".join([h[0] + str(h[1]) for h in dbe[smCol + "_CHOS"]])
                 x[smCol + "_CHOS"+"_count"] = len(dbe[smCol + "_CHOS"])
             else:
                 x[smCol + "_CHOS"] = ""
                 x[smCol + "_CHOS"+"_count"] = 0
 
             if len(dbe[smCol + "_CHOP"]) > 0:
-                x[smCol + "_CHOP"] = ", ".join([h[0] + str(h[1]) for h in dbe[smCol + "_CHOP"]])
+                if len(dbe[smCol + "_CHOP"]) > 250:
+                    x[smCol + "_CHOP"] = "Too many hits %d" % (len(dbe[smCol + "_CHOP"]))
+                else:
+                    x[smCol + "_CHOP"] = ", ".join([h[0] + str(h[1]) for h in dbe[smCol + "_CHOP"]])
                 x[smCol + "_CHOP"+"_count"] = len(dbe[smCol + "_CHOP"])
             else:
                 x[smCol + "_CHOP"] = ""
                 x[smCol + "_CHOP"+"_count"] = 0
 
             if len(dbe[smCol + "_CHON"]) > 0:
-                x[smCol + "_CHON"] = ", ".join([h[0] + str(h[1]) for h in dbe[smCol + "_CHON"]])
+                if len(dbe[smCol + "_CHON"]) > 250:
+                    x[smCol + "_CHON"] = "Too many hits %d" % (len(dbe[smCol + "_CHON"]))
+                else:
+                    x[smCol + "_CHON"] = ", ".join([h[0] + str(h[1]) for h in dbe[smCol + "_CHON"]])
                 x[smCol + "_CHON"+"_count"] = len(dbe[smCol + "_CHON"])
             else:
                 x[smCol + "_CHON"] = ""
                 x[smCol + "_CHON"+"_count"] = 0
 
             if len(dbe[smCol + "_CHONP"]) > 0:
-                x[smCol + "_CHONP"] = ", ".join([h[0] + str(h[1]) for h in dbe[smCol + "_CHONP"]])
+                if len(dbe[smCol + "_CHONP"]) > 250:
+                    x[smCol + "_CHONP"] = "Too many hits %d" % (len(dbe[smCol + "_CHONP"]))
+                else:
+                    x[smCol + "_CHONP"] = ", ".join([h[0] + str(h[1]) for h in dbe[smCol + "_CHONP"]])
                 x[smCol + "_CHONP"+"_count"] = len(dbe[smCol + "_CHONP"])
             else:
                 x[smCol + "_CHONP"] = ""
                 x[smCol + "_CHONP"+"_count"] = 0
 
             if len(dbe[smCol + "_CHONS"]) > 0:
-                x[smCol + "_CHONS"] = ", ".join([h[0] + str(h[1]) for h in dbe[smCol + "_CHONS"]])
+                if len(dbe[smCol + "_CHONS"]) > 250:
+                    x[smCol + "_CHONS"] = "Too many hits %d" % (len(dbe[smCol + "_CHONS"]))
+                else:
+                    x[smCol + "_CHONS"] = ", ".join([h[0] + str(h[1]) for h in dbe[smCol + "_CHONS"]])
                 x[smCol + "_CHONS"+"_count"] = len(dbe[smCol + "_CHONS"])
             else:
                 x[smCol + "_CHONS"] = ""
                 x[smCol + "_CHONS"+"_count"] = 0
 
             if len(dbe[smCol + "_CHOPS"]) > 0:
-                x[smCol + "_CHOPS"] = ", ".join([h[0] + str(h[1]) for h in dbe[smCol + "_CHOPS"]])
+                if len(dbe[smCol + "_CHOPS"]) > 250:
+                    x[smCol + "_CHOPS"] = "Too many hits %d" % (len(dbe[smCol + "_CHOPS"]))
+                else:
+                    x[smCol + "_CHOPS"] = ", ".join([h[0] + str(h[1]) for h in dbe[smCol + "_CHOPS"]])
                 x[smCol + "_CHOPS"+"_count"] = len(dbe[smCol + "_CHOPS"])
             else:
                 x[smCol + "_CHOPS"] = ""
                 x[smCol + "_CHOPS"+"_count"] = 0
 
             if len(dbe[smCol + "_CHONPS"]) > 0:
-                x[smCol + "_CHONPS"] = ", ".join([h[0] + str(h[1]) for h in dbe[smCol + "_CHONPS"]])
+                if len(dbe[smCol + "_CHONPS"]) > 250:
+                    x[smCol + "_CHONPS"] = "Too many hits %d" % (len(dbe[smCol + "_CHONPS"]))
+                else:
+                    x[smCol + "_CHONPS"] = ", ".join([h[0] + str(h[1]) for h in dbe[smCol + "_CHONPS"]])
                 x[smCol + "_CHONPS"+"_count"] = len(dbe[smCol + "_CHONPS"])
             else:
                 x[smCol + "_CHONPS"] = ""
@@ -238,8 +262,9 @@ def processFile(file, columns, adducts, ppm=5., useAtoms=[], atomsRange=[], smCo
     TableUtils.TableUtils.saveFile(table, toFile)
 
 
-adductsP = [('+H', 1.007276, "+", 1), ('+NH4', 18.033823, "+", 1), ('+Na', 22.989218, "+", 1), ('+K', 38.963158, "+", 1)]
-adductsN = [('-H', -1.007276, "-", 1), ('+Na-2H', 20.974666, "-", 1), ('+Cl', 34.969402, "-", 1), ('+FA-H', 44.998201, "-", 1), ('+Hac-H', 59.013851, '-', 1), ('+Br', 78.918885, "-", 1)]
+## adduct definition (name, m/z increment, polarity, charges, number of M
+adductsP = [('+H', 1.007276, "+", 1, 1), ('+NH4', 18.033823, "+", 1, 1), ('+Na', 22.989218, "+", 1, 1), ('+K', 38.963158, "+", 1, 1)]
+adductsN = [('-H', -1.007276, "-", 1, 1), ('+Na-2H', 20.974666, "-", 1, 1), ('+Cl', 34.969402, "-", 1, 1), ('+FA-H', 44.998201, "-", 1, 1), ('+Hac-H', 59.013851, '-', 1, 1), ('+Br', 78.918885, "-", 1, 1)]
 
 import re
 
@@ -257,11 +282,11 @@ def natSort(l, key=lambda ent: ent):
 
 
 
-def annotateResultsWithSumFormulas(resultsFile, useAtoms, atomsRange, Xn, useExactXn, ppm=5.):
+def annotateResultsWithSumFormulas(resultsFile, useAtoms, atomsRange, Xn, useExactXn, ppm=5., adducts=adductsN+adductsP):
 
     processFile(resultsFile, toFile=resultsFile,
                 columns={exID: exID, exMZ: exMZ, exRT: exRT, exAccMass: exAccMass, exXCount: exXCount,
-                         exIonMode: exIonMode, exCharge: exCharge}, adducts=adductsN+adductsP, ppm=ppm,
+                         exIonMode: exIonMode, exCharge: exCharge}, adducts=adducts, ppm=ppm,
                 smCol="SFs",
                 useAtoms=deepcopy(useAtoms), atomsRange=deepcopy(atomsRange), useCn=useExactXn,
                 useSevenGoldenRules=True)
