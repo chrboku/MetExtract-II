@@ -1113,7 +1113,7 @@ class RunIdentification:
 
                                 for artShift in range(shiftFrom, shiftTo+1):
                                     peakN=eicN[lb:rb]
-                                    peakL=eicL[(lb-artShift):(rb-artShift)]
+                                    peakL=eicL[(lb + artShift):(rb + artShift)]
                                     silRatios=[peakN[i]/peakL[i] for i in range(int(len(peakN)*.25), int(len(peakN)*.75)+1) if peakL[i]>0 and peakN[i]>0]
                                     correlations.append(Bunch(correlation=corr(peakN, peakL), artificialShift=artShift, silRatios=silRatios, peakNInts=[peakN[i] for i in range(int(len(peakN)*.25), int(len(peakN)*.75)+1) if peakL[i]>0 and peakN[i]>0], peakLInts=[peakL[i] for i in range(int(len(peakN)*.25), int(len(peakN)*.75)+1) if peakL[i]>0 and peakN[i]>0]))
                                 bestFit=max(correlations, key=lambda x: x.correlation)
