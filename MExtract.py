@@ -3366,7 +3366,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                                                          "WHERE m.id==k.mzID AND k.mzbinID=%d ORDER BY m.scanid" % mzbin.id):
                             minInner = min(float(mzRes.mz), minInner)
                             maxInner = max(maxInner, mzRes.mz)
-                            xcount = int(mzRes.xcount)
+                            xcount = mzRes.xcount
                             if numberOfMZs<maxMZsFetch:
                                 dd = QtGui.QTreeWidgetItem([str(s) for s in [mzRes.mz, mzRes.xcount, mzRes.scanid, "%.2f min / %.2f sec"%(mzRes.scantime/60., mzRes.scantime), mzRes.loading, "%.1f"%mzRes.intensity]])
                                 dd.myType = "mz"
@@ -3377,7 +3377,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                         d.setText(0, "%.5f (%d)" % (mzbin.mz, countinner))
                         d.setText(1, "%.4f" % ((maxInner - minInner) * 1000000. / minInner))
-                        d.setText(2, "%d" % xcount)
+                        d.setText(2, "%s" % xcount)
                         count += 1
                         pw.setValueu(count, i=2)
                     pw.setText("%d MZBins fetched"%count, i=2)
@@ -3459,8 +3459,13 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                     assignedMZs=loads(base64.b64decode(row.assignedMZs))
 
+                    try:
+                        row.xcount=int(row.xcount)
+                    except Exception:
+                        pass  ## double labeling experiment. That's fine
+
                     xp = ChromPeakPair(NPeakCenter=int(row.NPeakCenter), LPeakScale=float(row.LPeakScale), LPeakCenter=int(row.LPeakCenter),
-                                   NPeakScale=float(row.NPeakScale), NSNR=0, NPeakArea=-1, mz=float(row.mz), lmz=float(row.lmz), xCount=int(row.xcount),
+                                   NPeakScale=float(row.NPeakScale), NSNR=0, NPeakArea=-1, mz=float(row.mz), lmz=float(row.lmz), xCount=row.xcount,
                                    NBorderLeft=float(row.NBorderLeft), NBorderRight=float(row.NBorderRight),
                                    LBorderLeft=float(row.LBorderLeft), LBorderRight=float(row.LBorderRight),
                                    NPeakCenterMin=float(row.NPeakCenterMin), LPeakCenterMin=float(row.LPeakCenterMin), eicID=int(row.eicID), massSpectrumID=int(row.massSpectrumID),
@@ -3581,7 +3586,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                         xp = ChromPeakPair(NPeakCenter=int(row.NPeakCenter), loading=int(row.Loading), LPeakScale=float(row.LPeakScale),
                                        LPeakCenter=int(row.LPeakCenter), NPeakScale=float(row.NPeakScale), NSNR=0, NPeakArea=-1,
-                                       mz=float(row.mz), lmz=float(row.lmz), xCount=int(row.xcount), NPeakCenterMin=float(row.NPeakCenterMin),
+                                       mz=float(row.mz), lmz=float(row.lmz), xCount=row.xcount, NPeakCenterMin=float(row.NPeakCenterMin),
                                        NBorderLeft=float(row.NBorderLeft), NBorderRight=float(row.NBorderRight),
                                        LBorderLeft=float(row.LBorderLeft), LBorderRight=float(row.LBorderRight),
                                        LPeakCenterMin=float(row.LPeakCenterMin), eicID=int(row.eicID), massSpectrumID=int(row.massSpectrumID),
@@ -4327,7 +4332,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     self.drawPlot(self.ui.pl1, plotIndex=0, x=times[ps:pe], y=xic[ps:pe],
                                   fill=[int(cp.NPeakCenter - cp.NBorderLeft),
                                         int(cp.NPeakCenter + cp.NBorderRight)], rearrange=len(selectedItems) == 1,
-                                  label="%.4f (%d, %s)"%(cp.mz, cp.xCount, cp.ionMode), useCol=useColi)
+                                  label="%.4f (%s, %s)"%(cp.mz, cp.xCount, cp.ionMode), useCol=useColi)
 
                     if self.ui.checkBox_showBaseline.isChecked():
                         self.drawPlot(self.ui.pl1, plotIndex=0, x=times[ps:pe], y=xic_baseline[ps:pe],
@@ -4352,15 +4357,15 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     if self.ui.showArtificialShoft_checkBox.isChecked():
                         pst=ps
                         pet=pe
-                        ps=ps-cp.artificialEICLShift
-                        pe=pe-cp.artificialEICLShift
+                        ps=ps+cp.artificialEICLShift
+                        pe=pe+cp.artificialEICLShift
 
                         if pe>len(times):
                             pe=pet
-                            pet=pet-cp.artificialEICLShift
+                            pet=pet+cp.artificialEICLShift
                         if ps<0:
                             ps=pst
-                            pst=pst+cp.artificialEICLShift
+                            pst=pst-cp.artificialEICLShift
                     else:
                         pst=ps
                         pet=pe
@@ -4420,7 +4425,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                         for row in self.currentOpenResultsFile.curs.execute(
                                     "SELECT c.id, c.eicID, c.NPeakCenterMin, c.NPeakCenter, c.mz, c.xcount, c.loading, (SELECT fg.featureName "
-                                    "FROM FeatureGroupFeatures fgf INNER JOIN FeatureGroups fg ON fgf.fGroupID=fg.id WHERE fgf.fID=c.id) AS FGroupID FROM chromPeaks c WHERE %f<=c.mz AND c.mz<=%f AND c.loading==%d and c.xcount==%d" % (cp.mz*(1-15/1000000.), cp.mz*(1+15/1000000.), cp.loading, cp.xCount)):
+                                    "FROM FeatureGroupFeatures fgf INNER JOIN FeatureGroups fg ON fgf.fGroupID=fg.id WHERE fgf.fID=c.id) AS FGroupID FROM chromPeaks c WHERE %f<=c.mz AND c.mz<=%f AND c.loading==%d and c.xcount=='%s'" % (cp.mz*(1-15/1000000.), cp.mz*(1+15/1000000.), cp.loading, cp.xCount)):
 
                             if cp.NPeakCenter!=row[3]:
                                 self.addAnnotation(self.ui.pl1, "%s\n%.5f\n%.2f min"%(str(row[7]), row[4], row[2]/60.) ,
@@ -5126,7 +5131,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                     bm = min(range(len(toDrawMzs)), key=lambda i: abs(toDrawMzs[i] - cp.mz)) + 1
                     bml = min(range(len(toDrawMzs)),
-                              key=lambda i: abs(toDrawMzs[i] - (cp.mz + mzD * cp.xCount / cp.loading))) + 1
+                              key=lambda i: abs(toDrawMzs[i] - (cp.lmz))) + 1
 
                     intLeft = toDrawInts[bm]
                     intRight = toDrawInts[bml]
@@ -5138,14 +5143,14 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         h = max(intLeft, intRight)
 
                     if self.ui.MSLabels.checkState() == QtCore.Qt.Checked:
-                        self.addAnnotation(self.ui.pl3, "mz: %.5f\nl-mz: %.5f\nd-mz: %.5f\nXn: %d Z: %s%d" % (
-                            cp.mz, cp.lmz, mzD * cp.xCount, cp.xCount, cp.ionMode,
-                            cp.loading), (cp.mz + mzD * cp.xCount / cp.loading / 2., h*1.1), (10, 120), rotation=0,
+                        self.addAnnotation(self.ui.pl3, "mz: %.5f\nl-mz: %.5f\nd-mz: %.5f\nXn: %s Z: %s%d" % (
+                            cp.mz, cp.lmz, mzD, cp.xCount, cp.ionMode,
+                            cp.loading), (cp.mz + (cp.lmz-cp.mz)/ 2., h*1.1), (10, 120), rotation=0,
                                            up=not (cp.ionMode == "-" and featuresPosSelected))
 
                     self.addArrow(self.ui.pl3, (cp.mz, toDrawInts[bm]), (cp.mz, h*1.1), drawArrowHead=True)
-                    self.addArrow(self.ui.pl3, (cp.mz, h*1.1), (cp.mz + mzD * cp.xCount / cp.loading, h*1.1),ecColor="slategrey")
-                    self.addArrow(self.ui.pl3, (cp.mz + mzD * cp.xCount / cp.loading, toDrawInts[bml]),(cp.mz + mzD * cp.xCount / cp.loading, h*1.1), drawArrowHead=True)
+                    self.addArrow(self.ui.pl3, (cp.mz, h*1.1), (cp.lmz, h*1.1),ecColor="slategrey")
+                    self.addArrow(self.ui.pl3, (cp.lmz, toDrawInts[bml]),(cp.lmz, h*1.1), drawArrowHead=True)
 
                     annotationHeight=h
 
@@ -5160,9 +5165,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
 
                         bm = min(range(len(toDrawMzs)),
-                                 key=lambda w: abs(toDrawMzs[w] - (cp.mz + 1.00335 * (cp.xCount - 1) / cp.loading))) + 1
+                                 key=lambda w: abs(toDrawMzs[w] - (cp.lmz - 1.00335  / cp.loading))) + 1
                         bml = min(range(len(toDrawMzs)),
-                                  key=lambda w: abs(toDrawMzs[w] - (cp.mz + 1.00335 * cp.xCount / cp.loading))) + 1
+                                  key=lambda w: abs(toDrawMzs[w] - (cp.lmz + 1.00335  / cp.loading))) + 1
 
                         if cp.ionMode == "-" and featuresPosSelected:
                             h = min(toDrawInts[bm], toDrawInts[bml])
@@ -5173,55 +5178,56 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         intErrN, intErrL = self.getAllowedIsotopeRatioErrorsForResult()
 
                         self.ui.pl3.twinxs[0].add_patch(patches.Rectangle((cp.mz  * (1. - annotationPPM / 1000000.),intLeft * 0), cp.mz  * (2 * annotationPPM / 1000000.), 0.01 * intLeft, edgecolor='none', facecolor='purple', alpha=0.2))
-                        self.ui.pl3.twinxs[0].add_patch(patches.Rectangle(((cp.mz+ (1.00335 * cp.xCount) / cp.loading)  * (1. - annotationPPM / 1000000.),intLeft * 0), (cp.mz + (1.00335 * cp.xCount) / cp.loading)  * (2 * annotationPPM / 1000000.), 0.01 * intLeft, edgecolor='none', facecolor='purple', alpha=0.2))
+                        self.ui.pl3.twinxs[0].add_patch(patches.Rectangle(((cp.lmz + 1.00335  / cp.loading)  * (1. - annotationPPM / 1000000.),intLeft * 0), (cp.lmz + 1.00335 / cp.loading)  * (2 * annotationPPM / 1000000.), 0.01 * intLeft, edgecolor='none', facecolor='purple', alpha=0.2))
 
                         for iso in [1, 2, 3]:
                             self.ui.pl3.twinxs[0].add_patch(patches.Rectangle(((cp.mz+ (1.00335 * iso) / cp.loading) * (1. - annotationPPM / 1000000.),intLeft * 0), (cp.mz+ (1.00335 * iso) / cp.loading) * (2 * annotationPPM / 1000000.), 0.01 * intLeft, edgecolor='none', facecolor='purple', alpha=0.2))
-                            self.ui.pl3.twinxs[0].add_patch(patches.Rectangle(((cp.mz+ (1.00335 * (cp.xCount - iso)) / cp.loading) * (1. - annotationPPM / 1000000.),intLeft * 0), (cp.mz+ (1.00335 * (cp.xCount - iso)) / cp.loading) * (2 * annotationPPM / 1000000.), 0.01 * intLeft, edgecolor='none', facecolor='purple', alpha=0.2))
-                            self.ui.pl3.twinxs[0].add_patch(patches.Rectangle(((cp.mz+ (1.00335 * (cp.xCount + iso)) / cp.loading) * (1. - annotationPPM / 1000000.), intLeft * 0), (cp.mz+ (1.00335 * (cp.xCount + iso)) / cp.loading) * (2 * annotationPPM / 1000000.), 0.01 * intLeft, edgecolor='none', facecolor='purple', alpha=0.2))
+                            self.ui.pl3.twinxs[0].add_patch(patches.Rectangle(((cp.lmz- (1.00335 * iso) / cp.loading) * (1. - annotationPPM / 1000000.),intLeft * 0), (cp.lmz- (1.00335 * iso) / cp.loading) * (2 * annotationPPM / 1000000.), 0.01 * intLeft, edgecolor='none', facecolor='purple', alpha=0.2))
+                            self.ui.pl3.twinxs[0].add_patch(patches.Rectangle(((cp.lmz+ (1.00335 * iso) / cp.loading) * (1. - annotationPPM / 1000000.), intLeft * 0), (cp.lmz+ (1.00335 * iso) / cp.loading) * (2 * annotationPPM / 1000000.), 0.01 * intLeft, edgecolor='none', facecolor='purple', alpha=0.2))
 
-                            ratioN = getNormRatio(purN, cp.xCount, iso)
-                            ratioL = getNormRatio(purL, cp.xCount, iso)
-                            self.addArrow(self.ui.pl3, (
-                                cp.mz + (1.00335 * iso) / cp.loading, intLeft * max(0, (ratioN - intErrN)-.005)),
-                                          (cp.mz + (1.00335 * iso) / cp.loading,
-                                          intLeft * max(0, (ratioN - intErrN)+.005)), linewidth=5, alpha=2,
-                                          ecColor="DarkSeaGreen")
+                            if not(isinstance(cp.xCount, basestring)):
+                                ratioN = getNormRatio(purN, cp.xCount, iso)
+                                ratioL = getNormRatio(purL, cp.xCount, iso)
+                                self.addArrow(self.ui.pl3, (
+                                    cp.mz + (1.00335 * iso) / cp.loading, intLeft * max(0, (ratioN - intErrN)-.005)),
+                                              (cp.mz + (1.00335 * iso) / cp.loading,
+                                              intLeft * max(0, (ratioN - intErrN)+.005)), linewidth=5, alpha=2,
+                                              ecColor="DarkSeaGreen")
 
-                            self.addArrow(self.ui.pl3, (
-                                cp.mz + (1.00335 * iso) / cp.loading, intLeft * max(0, (ratioN + intErrN)-.005)),
-                                          (cp.mz + (1.00335 * iso) / cp.loading,
-                                          intLeft * (ratioN + intErrN)+.005), linewidth=5, alpha=2,
-                                          ecColor="DarkSeaGreen")
-                            self.addArrow(self.ui.pl3, (
-                                cp.mz + (1.00335 * iso) / cp.loading, intLeft * max(0, (ratioN - .005))), (
-                                          cp.mz + (1.00335 * iso) / cp.loading,
-                                          intLeft * max(0, (ratioN + .005))), linewidth=5, alpha=.02,
-                                          ecColor="Orange")
+                                self.addArrow(self.ui.pl3, (
+                                    cp.mz + (1.00335 * iso) / cp.loading, intLeft * max(0, (ratioN + intErrN)-.005)),
+                                              (cp.mz + (1.00335 * iso) / cp.loading,
+                                              intLeft * (ratioN + intErrN)+.005), linewidth=5, alpha=2,
+                                              ecColor="DarkSeaGreen")
+                                self.addArrow(self.ui.pl3, (
+                                    cp.mz + (1.00335 * iso) / cp.loading, intLeft * max(0, (ratioN - .005))), (
+                                              cp.mz + (1.00335 * iso) / cp.loading,
+                                              intLeft * max(0, (ratioN + .005))), linewidth=5, alpha=.02,
+                                              ecColor="Orange")
 
-                            self.addArrow(self.ui.pl3, (cp.mz + 1.00335 * (cp.xCount - iso) / cp.loading,
-                                                        intRight * max(0, max(0, (ratioL - intErrL)-.005))), (
-                                              cp.mz + 1.00335 * (cp.xCount - iso) / cp.loading,
-                                              intRight * max(0, (ratioL - intErrL)+.005)), linewidth=5, alpha=.02,
-                                          ecColor="DarkSeaGreen")
-                            self.addArrow(self.ui.pl3, (cp.mz + 1.00335 * (cp.xCount - iso) / cp.loading,
-                                                        intRight * max(0, (ratioL + intErrL)-.005)), (
-                                              cp.mz + 1.00335 * (cp.xCount - iso) / cp.loading,
-                                              intRight * (ratioL + intErrL)+.005), linewidth=5, alpha=.02,
-                                          ecColor="DarkSeaGreen")
-                            self.addArrow(self.ui.pl3, (cp.mz + 1.00335 * (cp.xCount - iso) / cp.loading,
-                                                        intRight * max(0, (ratioL - .005))), (
-                                              cp.mz + 1.00335 * (cp.xCount - iso) / cp.loading,
-                                              intRight * max(0, (ratioL + .005))), linewidth=5,
-                                          alpha=.1, ecColor="Orange")
+                                self.addArrow(self.ui.pl3, (cp.lmz - 1.00335 *  iso / cp.loading,
+                                                            intRight * max(0, max(0, (ratioL - intErrL)-.005))), (
+                                                  cp.lmz - 1.00335 * iso / cp.loading,
+                                                  intRight * max(0, (ratioL - intErrL)+.005)), linewidth=5, alpha=.02,
+                                              ecColor="DarkSeaGreen")
+                                self.addArrow(self.ui.pl3, (cp.lmz - 1.00335 * iso / cp.loading,
+                                                            intRight * max(0, (ratioL + intErrL)-.005)), (
+                                                  cp.lmz - 1.00335 * iso / cp.loading,
+                                                  intRight * (ratioL + intErrL)+.005), linewidth=5, alpha=.02,
+                                              ecColor="DarkSeaGreen")
+                                self.addArrow(self.ui.pl3, (cp.mz + 1.00335 * (cp.xCount - iso) / cp.loading,
+                                                            intRight * max(0, (ratioL - .005))), (
+                                                  cp.mz + 1.00335 * (cp.xCount - iso) / cp.loading,
+                                                  intRight * max(0, (ratioL + .005))), linewidth=5,
+                                              alpha=.1, ecColor="Orange")
 
                         if self.ui.drawFPIsotopologues.checkState() == QtCore.Qt.Checked:
                             for iso in [1, 2, 3]:
                                 self.addArrow(self.ui.pl3, (cp.mz - (1.00335 * iso) / cp.loading, 0),
                                               (cp.mz - (1.00335 * iso) / cp.loading, intLeft * .1), linewidth=5,
                                               ecColor="yellow")
-                                self.addArrow(self.ui.pl3, (cp.mz + 1.00335 * (cp.xCount + iso) / cp.loading, 0),
-                                              (cp.mz + 1.00335 * (cp.xCount + iso) / cp.loading, intRight * .1),
+                                self.addArrow(self.ui.pl3, (cp.lmz + 1.00335 * iso / cp.loading, 0),
+                                              (cp.lmz + 1.00335 * iso / cp.loading, intRight * .1),
                                               linewidth=5, ecColor="yellow")
 
                             self.addArrow(self.ui.pl3, (cp.mz - 1.00335 / (cp.loading * 2), 0),
@@ -5231,12 +5237,12 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                           (cp.mz + 1.00335 / (cp.loading * 2), intLeft * .05), linewidth=5,
                                           ecColor="yellow")
                             self.addArrow(self.ui.pl3, (
-                                cp.mz + 1.00335 * cp.xCount / cp.loading + 1.00335 / (cp.loading * 2), 0), (
-                                              cp.mz + 1.00335 * cp.xCount / cp.loading + 1.00335 / (cp.loading * 2),
+                                cp.lmz + 1.00335 / (cp.loading * 2), 0), (
+                                              cp.lmz + 1.00335 / (cp.loading * 2),
                                               intRight * .05), linewidth=5, ecColor="yellow")
                             self.addArrow(self.ui.pl3, (
-                                cp.mz + 1.00335 * cp.xCount / cp.loading - 1.00335 / (cp.loading * 2), 0), (
-                                              cp.mz + 1.00335 * cp.xCount / cp.loading - 1.00335 / (cp.loading * 2),
+                                cp.lmz  - 1.00335 / (cp.loading * 2), 0), (
+                                              cp.lmz - 1.00335 / (cp.loading * 2),
                                               intRight * .05), linewidth=5, ecColor="yellow")
 
 
@@ -5247,10 +5253,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
 
                         for i, mz in enumerate(mzs):
-                            for inc in range(0, cp.xCount+1):
-                                if abs(mz - (cp.mz + mzD * inc / cp.loading)) * 1000000. / (cp.mz + mzD * inc / cp.loading) <= annotationPPM \
-                                        or abs(mz - (cp.mz + mzD * (cp.xCount + inc) / cp.loading)) * 1000000. / (cp.mz + mzD * (cp.xCount + inc) / cp.loading) <= annotationPPM \
-                                        or abs(mz - (cp.mz - mzD * inc / cp.loading)) * 1000000. / (cp.mz - mzD * inc / cp.loading) <= annotationPPM:
+                            for inc in range(0, int((cp.lmz-cp.mz)//1.00335484)*cp.loading):
+                                if abs(mz - (cp.mz + 1.00335484 * inc / cp.loading)) * 1000000. / (cp.mz + 1.00335484 * inc / cp.loading) <= annotationPPM \
+                                        or abs(mz - (cp.lmz + 1.00335484 * inc / cp.loading)) * 1000000. / (cp.lmz + 1.00335484 * inc / cp.loading) <= annotationPPM \
+                                        or abs(mz - (cp.lmz - 1.00335484 * inc / cp.loading)) * 1000000. / (cp.lmz - 1.00335484 * inc / cp.loading) <= annotationPPM:
                                     toDrawMzs = []
                                     toDrawInts = []
 
@@ -6128,7 +6134,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                 if types[0] == "feature":
                     for item in selectedItems:
-                        clipboard.append("%f\t%.2f\t%d\t%d\t%s\t%s\t%s\t%s\t%s" % (
+                        clipboard.append("%f\t%.2f\t%s\t%d\t%s\t%s\t%s\t%s\t%s" % (
                             item.myData.mz, item.myData.NPeakCenterMin / 60., item.myData.xCount, item.myData.loading,
                             item.myData.ionMode, "-", item.myData.tracer, item.myData.adducts, item.myData.heteroAtoms))
                 if types[0] == "featureGroup":

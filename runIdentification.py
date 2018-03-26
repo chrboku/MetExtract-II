@@ -343,11 +343,11 @@ class RunIdentification:
 
         curs.execute("DROP TABLE IF EXISTS chromPeaks")
         curs.execute(
-            "CREATE TABLE chromPeaks(id INTEGER PRIMARY KEY, tracer INTEGER, eicID INTEGER, NPeakCenter INTEGER, NPeakCenterMin REAL, NPeakScale FLOAT, NSNR REAL, NPeakArea REAL, NPeakAbundance REAL, mz REAL, lmz REAL, xcount INTEGER, xcountId INTEGER, LPeakCenter INTEGER, LPeakCenterMin REAL, LPeakScale FLOAT, LSNR REAL, LPeakArea REAL, LPeakAbundance REAL, Loading INTEGER, peaksCorr FLOAT, heteroAtoms TEXT, NBorderLeft INTEGER, NBorderRight INTEGER, LBorderLeft INTEGER, LBorderRight INTEGER, adducts TEXT, heteroAtomsFeaturePairs TEXT, massSpectrumID INTEGER, ionMode TEXT, assignedMZs INTEGER, fDesc TEXT, peaksRatio FLOAT, peaksRatioMp1 FLOAT, peaksRatioMPm1 FLOAT, isotopesRatios TEXT, mzDiffErrors TEXT, peakType TEXT, assignedName TEXT, correlationsToOthers TEXT, comments TEXT, artificialEICLShift INTEGER)")
+            "CREATE TABLE chromPeaks(id INTEGER PRIMARY KEY, tracer INTEGER, eicID INTEGER, NPeakCenter INTEGER, NPeakCenterMin REAL, NPeakScale FLOAT, NSNR REAL, NPeakArea REAL, NPeakAbundance REAL, mz REAL, lmz REAL, tmz REAL, xcount INTEGER, xcountId INTEGER, LPeakCenter INTEGER, LPeakCenterMin REAL, LPeakScale FLOAT, LSNR REAL, LPeakArea REAL, LPeakAbundance REAL, Loading INTEGER, peaksCorr FLOAT, heteroAtoms TEXT, NBorderLeft INTEGER, NBorderRight INTEGER, LBorderLeft INTEGER, LBorderRight INTEGER, adducts TEXT, heteroAtomsFeaturePairs TEXT, massSpectrumID INTEGER, ionMode TEXT, assignedMZs INTEGER, fDesc TEXT, peaksRatio FLOAT, peaksRatioMp1 FLOAT, peaksRatioMPm1 FLOAT, isotopesRatios TEXT, mzDiffErrors TEXT, peakType TEXT, assignedName TEXT, correlationsToOthers TEXT, comments TEXT, artificialEICLShift INTEGER)")
 
         curs.execute("drop table if exists allChromPeaks")
         curs.execute(
-            "CREATE TABLE allChromPeaks(id INTEGER PRIMARY KEY, tracer INTEGER, eicID INTEGER, NPeakCenter INTEGER, NPeakCenterMin REAL, NPeakScale FLOAT, NSNR REAL, NPeakArea REAL, NPeakAbundance REAL, mz REAL, lmz REAL, xcount INTEGER, xcountId INTEGER, LPeakCenter INTEGER, LPeakCenterMin REAL, LPeakScale FLOAT, LSNR REAL, LPeakArea REAL, LPeakAbundance REAL, Loading INTEGER, peaksCorr FLOAT, heteroAtoms TEXT, NBorderLeft INTEGER, NBorderRight INTEGER, LBorderLeft INTEGER, LBorderRight INTEGER, adducts TEXT, heteroAtomsFeaturePairs TEXT, ionMode TEXT, assignedMZs INTEGER, fDesc TEXT, peaksRatio FLOAT, peaksRatioMp1 FLOAT, peaksRatioMPm1 FLOAT, isotopesRatios TEXT, mzDiffErrors TEXT, peakType TEXT, assignedName TEXT, comment TEXT, comments TEXT, artificialEICLShift INTEGER)")
+            "CREATE TABLE allChromPeaks(id INTEGER PRIMARY KEY, tracer INTEGER, eicID INTEGER, NPeakCenter INTEGER, NPeakCenterMin REAL, NPeakScale FLOAT, NSNR REAL, NPeakArea REAL, NPeakAbundance REAL, mz REAL, lmz REAL, tmz REAL, xcount INTEGER, xcountId INTEGER, LPeakCenter INTEGER, LPeakCenterMin REAL, LPeakScale FLOAT, LSNR REAL, LPeakArea REAL, LPeakAbundance REAL, Loading INTEGER, peaksCorr FLOAT, heteroAtoms TEXT, NBorderLeft INTEGER, NBorderRight INTEGER, LBorderLeft INTEGER, LBorderRight INTEGER, adducts TEXT, heteroAtomsFeaturePairs TEXT, ionMode TEXT, assignedMZs INTEGER, fDesc TEXT, peaksRatio FLOAT, peaksRatioMp1 FLOAT, peaksRatioMPm1 FLOAT, isotopesRatios TEXT, mzDiffErrors TEXT, peakType TEXT, assignedName TEXT, comment TEXT, comments TEXT, artificialEICLShift INTEGER)")
 
         curs.execute("DROP TABLE IF EXISTS featureGroups")
         curs.execute(
@@ -843,11 +843,14 @@ class RunIdentification:
         mzbins['+'] = []
         mzbins['-'] = []
 
+
+        uniquexCounts=list(set([mz.xCount for mz in mzs]))
+
         # cluster each detected number of carbon atoms separately
         donei=0
-        for xCount in self.xCounts:
+        for xCount in uniquexCounts:
             if reportFunction is not None:
-                reportFunction(donei / len(self.xCounts), "Current Xn: %d" % xCount)
+                reportFunction(donei / len(uniquexCounts), "Current Xn: %s" % xCount)
             # cluster each detected number of loadings separately
             for loading in range(self.maxLoading, 0, -1):
                 for ionMode in ['+', '-']:
@@ -1011,12 +1014,14 @@ class RunIdentification:
                                           [kid.getObject().nIntensity for kid in kids])
                     meanmzLabelled = weightedMean([kid.getObject().lmz for kid in kids],
                                                 [kid.getObject().lIntensity for kid in kids])
+                    meantmz = weightedMean([kid.getObject().tmz for kid in kids],
+                                                [kid.getObject().lIntensity for kid in kids])
 
                     xcount = kids[0].getObject().xCount
-                    assert sum([kid.getObject().xCount - xcount for kid in kids]) == 0
+                    assert all([kid.getObject().xCount == xcount for kid in kids])
 
                     loading=kids[0].getObject().loading
-                    assert sum([kid.getObject().loading - loading for kid in kids]) == 0
+                    assert all([kid.getObject().loading == loading for kid in kids])
 
 
 
@@ -1060,17 +1065,17 @@ class RunIdentification:
 
                     # get EICs of M+1, M'-1 and M'+1 for the database
                     eicfirstiso, timesL, scanIdsL, mzsfirstiso = mzxml.getEIC(
-                        meanmz + 1 * self.xOffset / loading, self.chromPeakPPM,
+                        meanmz + 1.00335484 / loading, self.chromPeakPPM,
                         filterLine=scanEvent)
                     #eicfirstisoSmoothed = smoothDataSeries(times, eicfirstiso, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
 
                     eicLfirstiso, timesL, scanIdsL, mzsLfirstiso = mzxml.getEIC(
-                        meanmz + (xcount - 1) * self.xOffset / loading, self.chromPeakPPM,
+                        meanmzLabelled -1.00335484 / loading, self.chromPeakPPM,
                         filterLine=scanEvent)
                     #eicLfirstisoSmoothed = smoothDataSeries(times, eicLfirstiso, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
 
                     eicLfirstisoconjugate, timesL, scanIdsL, mzsLfirstisoconjugate = mzxml.getEIC(
-                        meanmz + (xcount + 1) * self.xOffset / loading, self.chromPeakPPM,
+                        meanmzLabelled + 1.00335484 / loading, self.chromPeakPPM,
                         filterLine=scanEvent)
                     #eicLfirstisoconjugateSmoothed = smoothDataSeries(times, eicLfirstisoconjugate, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
 
@@ -1091,7 +1096,7 @@ class RunIdentification:
 
                         if closestMatch!=-1:
                             peakL=peaksL[closestMatch]
-                            peak = ChromPeakPair(mz=meanmz, lmz=meanmzLabelled, xCount=xcount,
+                            peak = ChromPeakPair(mz=meanmz, lmz=meanmzLabelled, tmz=meantmz, xCount=xcount,
                                              loading=loading, ionMode=ionMode,
                                              NPeakCenter=peakN.peakIndex, NPeakCenterMin=times[peakN.peakIndex],
                                              NPeakScale=peakN.peakScale, NSNR=peakN.peakSNR, NPeakArea=peakN.peakArea,
@@ -1220,7 +1225,7 @@ class RunIdentification:
                                 peak.correctedXCount = adjcCount
 
                             SQLInsert(curs, "chromPeaks", id=peak.id, tracer=tracerID, eicID=peak.eicID,
-                                      mz=peak.mz, lmz=peak.lmz, xcount=peak.correctedXCount, xcountId=peak.xCount,Loading=peak.loading,ionMode=ionMode,
+                                      mz=peak.mz, lmz=peak.lmz, tmz=peak.tmz, xcount=peak.correctedXCount, xcountId=peak.xCount,Loading=peak.loading,ionMode=ionMode,
                                       NPeakCenter=peak.NPeakCenter,NPeakCenterMin=peak.NPeakCenterMin, NPeakScale=peak.NPeakScale,NSNR=peak.NSNR, NPeakArea=peak.NPeakArea, NPeakAbundance=peak.NPeakAbundance, NBorderLeft=peak.NBorderLeft, NBorderRight=peak.NBorderRight,
                                       LPeakCenter=peak.LPeakCenter,LPeakCenterMin=peak.LPeakCenterMin, LPeakScale=peak.LPeakScale, LSNR=peak.LSNR, LPeakArea=peak.LPeakArea, LPeakAbundance=peak.LPeakAbundance, LBorderLeft=peak.LBorderLeft, LBorderRight=peak.LBorderRight,
                                       peaksCorr=peak.peaksCorr,
@@ -1231,7 +1236,7 @@ class RunIdentification:
                                       peakType="patternFound", comments=base64.b64encode(dumps(peak.comments)), artificialEICLShift=peak.artificialEICLShift)
 
                             SQLInsert(curs, "allChromPeaks", id=peak.id, tracer=tracerID, eicID=peak.eicID,
-                                      mz=peak.mz, lmz=peak.lmz, xcount=peak.correctedXCount, xcountId=peak.xCount,Loading=peak.loading,ionMode=ionMode,
+                                      mz=peak.mz, lmz=peak.lmz, tmz=peak.tmz, xcount=peak.correctedXCount, xcountId=peak.xCount,Loading=peak.loading,ionMode=ionMode,
                                       NPeakCenter=peak.NPeakCenter,NPeakCenterMin=peak.NPeakCenterMin, NPeakScale=peak.NPeakScale,NSNR=peak.NSNR, NPeakArea=peak.NPeakArea, NPeakAbundance=peak.NPeakAbundance, NBorderLeft=peak.NBorderLeft, NBorderRight=peak.NBorderRight,
                                       LPeakCenter=peak.LPeakCenter,LPeakCenterMin=peak.LPeakCenterMin, LPeakScale=peak.LPeakScale, LSNR=peak.LSNR, LPeakArea=peak.LPeakArea, LPeakAbundance=peak.LPeakAbundance, LBorderLeft=peak.LBorderLeft, LBorderRight=peak.LBorderRight,
                                       peaksCorr=peak.peaksCorr,
@@ -1278,32 +1283,32 @@ class RunIdentification:
                         #same retention time
                         if abs(peakA.mz - peakB.mz) <= (peakA.mz * 2.5 * self.ppm / 1000000.):
                             #same mz value
-                            if (peakB.xCount - peakA.xCount) == 2 and peakB.loading == peakA.loading and ((peakB.LPeakArea/peakA.LPeakArea)<=0.1):
+                            if isinstance(peakA.xCount, float) and (peakB.xCount - peakA.xCount) == 2 and peakB.loading == peakA.loading and ((peakB.LPeakArea/peakA.LPeakArea)<=0.1):
                                 # incorrect matching of 18O atoms detected
                                 # e.g. a and b have 869.4153; a has C39 and b has C41; peaksRatio(a)=1.46, peaksRatio(b)=43.48
                                 # --> 1.46/43.48~0.0335 (which is in good agreement with On) and thus b has to be removed
                                 if b not in todel.keys():
                                     todel[b]=[]
                                 todel[b].append("incorrectly matched hetero atoms (most likely O) with "+str(peakA.mz)+" "+str(peakA.xCount))
-                            elif (peakB.xCount - peakA.xCount) in [1,2,3] and peakB.loading == peakA.loading:
+                            elif isinstance(peakA.xCount, float) and (peakB.xCount - peakA.xCount) in [1,2,3] and peakB.loading == peakA.loading:
                                 # different number of 1 atoms (peakA has less than peakB)
                                 if a not in todel.keys():
                                     todel[a]=[]
                                 todel[a].append("same mz but reduced number of carbon atoms with "+str(peakB.mz)+" "+str(peakB.xCount))
 
-                            if (peakA.xCount*2)==peakB.xCount and peakA.loading==peakB.loading:
+                            if isinstance(peakA.xCount, float) and (peakA.xCount*2)==peakB.xCount and peakA.loading==peakB.loading:
                                 #a is intermediate pairing of polymer
                                 if a not in todel.keys():
                                     todel[a]=[]
                                 todel[a].append("polymer mismatch with half the number of carbon atoms with "+str(peakB.mz)+" "+str(peakB.xCount))
 
-                            if (peakA.xCount*2)==peakB.xCount and peakA.loading == 1 and peakB.loading == 2:
+                            if isinstance(peakA.xCount, float) and (peakA.xCount*2)==peakB.xCount and peakA.loading == 1 and peakB.loading == 2:
                                 #a is intermediate pairing of polymer
                                 if a not in todel.keys():
                                     todel[a]=[]
                                 todel[a].append("singly charged mismatch with half the number of carbon atoms with "+str(peakB.mz)+" "+str(peakB.xCount))
 
-                            if 0<=(peakB.xCount-peakA.xCount*3)<=2 and peakA.loading == 1 and peakB.loading == 3:
+                            if isinstance(peakA.xCount, float) and 0<=(peakB.xCount-peakA.xCount*3)<=2 and peakA.loading == 1 and peakB.loading == 3:
                                 #a is intermediate pairing of polymer
                                 if a not in todel.keys():
                                     todel[a]=[]
@@ -1317,7 +1322,7 @@ class RunIdentification:
 
                         else:
                             for i in [1,2,3]:
-                                if peakA.loading == peakB.loading and abs(peakB.mz - peakA.mz - i*self.xOffset/peakA.loading) <= peakA.mz * 2.5 * self.ppm / 1000000. and (peakA.xCount - peakB.xCount) in [1,2,3]:
+                                if peakA.loading == peakB.loading and abs(peakB.mz - peakA.mz - i*self.xOffset/peakA.loading) <= peakA.mz * 2.5 * self.ppm / 1000000. and isinstance(peakA.xCount, float) and (peakA.xCount - peakB.xCount) in [1,2,3]:
                                     # b has an mz offset and a reduced number of carbon atoms (by one labelling atom)
                                     if b not in todel.keys():
                                         todel[b]=[]
@@ -1337,7 +1342,7 @@ class RunIdentification:
                 if a != b and peakA.ionMode == peakB.ionMode:
                     if abs(peakA.NPeakCenter - peakB.NPeakCenter) <= self.peakCenterError:
                         #same chrom peak
-                        if abs(peakA.mz - peakB.mz - peakA.xCount * self.xOffset / peakA.loading) <= peakA.mz * 2 * self.ppm / 1000000. and abs(peakA.xCount * 2 - peakB.xCount) <= 1:
+                        if abs(peakA.mz - peakB.mz - (peakA.lmz-peakA.mz) ) <= peakA.mz * 2 * self.ppm / 1000000. and ((isinstance(peakA.xCount, float) and abs(peakA.xCount * 2 - peakB.xCount) <= 1) or (peakA.xCount==peakB.xCount)):
                             if a not in todel.keys():
                                 todel[a]=[]
                             todel[a].append("dimer (1)"+str(peakB.mz)+" "+str(peakB.xCount))
@@ -1384,13 +1389,13 @@ class RunIdentification:
                 if pIsotope.mzOffset < 0:
                     mz = peak.mz + pIsotope.mzOffset / peak.loading  # delta m/z is negative, therefore this decreases the search m/z
                 else:
-                    mz = peak.mz + self.xOffset * peak.xCount / peak.loading + pIsotope.mzOffset / peak.loading  # delta m/z is positive
+                    mz = peak.lmz + pIsotope.mzOffset / peak.loading  # delta m/z is positive
 
                 refMz = 0
                 if pIsotope.mzOffset < 0:
                     refMz = peak.mz
                 else:
-                    refMz = peak.mz + self.xOffset * peak.xCount / peak.loading
+                    refMz = peak.lmz
 
                 scanEvent = ""
                 if peak.ionMode == "+":
@@ -1471,27 +1476,33 @@ class RunIdentification:
 
             peak.isotopeRatios=[]
             for i in range(1, self.calcIsoRatioNative+1):
-                isoRatios=findRatiosForMZs(peak.mz + self.xOffset * i / peak.loading, peak.mz,
+                isoRatios=findRatiosForMZs(peak.mz + 1.00335484 * i / peak.loading, peak.mz,
                                             int(max(peak.NPeakCenter - peak.NBorderLeft, peak.LPeakCenter - peak.LBorderLeft)),
                                             int(min(peak.NPeakCenter + peak.NBorderRight, peak.LPeakCenter + peak.LBorderRight)) + 1,
                                             mzxml, scanEvent, self.ppm)
                 observedRatioMean=weightedMean([t.ratio for t in isoRatios], [t.refInt for t in isoRatios])
                 observedRatioSD=weightedSd([t.ratio for t in isoRatios], [t.refInt for t in isoRatios])
-                theoreticalRatio=getNormRatio(self.purityN, peak.xCount, i)
+                if isinstance(peak.xCount, basestring):
+                    theoreticalRatio=-1
+                else:
+                    theoreticalRatio=getNormRatio(self.purityN, peak.xCount, i)
                 peak.isotopeRatios.append(Bunch(type="native", subs=i, observedRatioMean=observedRatioMean, observedRatioSD=observedRatioSD, theoreticalRatio=theoreticalRatio))
 
             for i in range(-1, self.calcIsoRatioLabelled-1, -1):
-                isoRatios=findRatiosForMZs(peak.mz + self.xOffset * (peak.xCount + i) / peak.loading, peak.mz + self.xOffset * peak.xCount / peak.loading,
+                isoRatios=findRatiosForMZs(peak.lmz + 1.00335484 * i / peak.loading, peak.lmz,
                                             int(max(peak.NPeakCenter - peak.NBorderLeft, peak.LPeakCenter - peak.LBorderLeft)),
                                             int(min(peak.NPeakCenter + peak.NBorderRight, peak.LPeakCenter + peak.LBorderRight)) + 1,
                                             mzxml, scanEvent, self.ppm)
                 observedRatioMean=weightedMean([t.ratio for t in isoRatios], [t.refInt for t in isoRatios])
                 observedRatioSD=weightedSd([t.ratio for t in isoRatios], [t.refInt for t in isoRatios])
-                theoreticalRatio=getNormRatio(self.purityL, peak.xCount, abs(i))
+                if isinstance(peak.xCount, basestring):
+                    theoreticalRatio = -1
+                else:
+                    theoreticalRatio=getNormRatio(self.purityL, peak.xCount, abs(i))
                 peak.isotopeRatios.append(Bunch(type="labelled", subs=abs(i), observedRatioMean=observedRatioMean, observedRatioSD=observedRatioSD, theoreticalRatio=theoreticalRatio))
             if self.metabolisationExperiment:
                 for i in range(1, self.calcIsoRatioMoiety+1):
-                    isoRatios=findRatiosForMZs(peak.mz + self.xOffset * (peak.xCount + i) / peak.loading, peak.mz + self.xOffset * peak.xCount / peak.loading,
+                    isoRatios=findRatiosForMZs(peak.lmz + i*1.00335484 / peak.loading, peak.lmz,
                                                 int(max(peak.NPeakCenter - peak.NBorderLeft, peak.LPeakCenter - peak.LBorderLeft)),
                                                 int(min(peak.NPeakCenter + peak.NBorderRight, peak.LPeakCenter + peak.LBorderRight)) + 1,
                                                 mzxml, scanEvent, self.ppm)
@@ -1501,7 +1512,7 @@ class RunIdentification:
 
 
 
-            def findMZDifferenceRelativeToXnForMZs(mzFrom, mzTo, xCount, xoffset, loading, fromScan, toScan, mzxml, scanEvent, ppm):
+            def findMZDifferenceRelativeToXnForMZs(mzFrom, mzTo, tmz, fromScan, toScan, mzxml, scanEvent, ppm):
                 diffs=[]
                 for curScanNum in range(fromScan, toScan):
                     scan = mzxml.getIthMS1Scan(curScanNum, scanEvent)
@@ -1518,11 +1529,11 @@ class RunIdentification:
                             if refBounds != -1:
                                 isoPeakMZ = scan.mz_list[refBounds]
 
-                                diffs.append((abs(isoPeakMZ-peakMZ)-xoffset*xCount/loading)*1000000./mzFrom)
+                                diffs.append((abs(isoPeakMZ-peakMZ)-tmz)*1000000./mzFrom)
 
                 return diffs
 
-            diffs=findMZDifferenceRelativeToXnForMZs(peak.mz, peak.mz + self.xOffset * peak.xCount / peak.loading, peak.xCount, self.xOffset, peak.loading,
+            diffs=findMZDifferenceRelativeToXnForMZs(peak.mz, peak.lmz, peak.lmz-peak.mz,
                                                      int(max(peak.NPeakCenter - peak.NBorderLeft, peak.LPeakCenter - peak.LBorderLeft)),
                                                      int(min(peak.NPeakCenter + peak.NBorderRight, peak.LPeakCenter + peak.LBorderRight)) + 1,
                                                      mzxml, scanEvent, self.ppm)
@@ -1891,39 +1902,41 @@ class RunIdentification:
                             else:
                                 useAtoms = self.elements.keys()
 
-                            atomsRange = []
-                            if self.labellingElement in useAtoms:
-                                if self.metabolisationExperiment:
-                                    elem = self.elements[self.labellingElement]
-                                    atomsRange.append([abs(peakA.xCount - peakB.xCount),
-                                                       abs(peakA.xCount - peakB.xCount + elem.maxCount - elem.minCount)])
-                                else:
-                                    atomsRange.append(abs(peakA.xCount - peakB.xCount))
+                            if not(isinstance(peakA.xCount, basestring)):
 
-                            for elem in self.elements.keys():
-                                if elem != self.labellingElement:
-                                    elem = self.elements[elem]
-                                    atomsRange.append([elem.minCount, elem.maxCount])
+                                atomsRange = []
+                                if self.labellingElement in useAtoms:
+                                    if self.metabolisationExperiment:
+                                        elem = self.elements[self.labellingElement]
+                                        atomsRange.append([abs(peakA.xCount - peakB.xCount),
+                                                           abs(peakA.xCount - peakB.xCount + elem.maxCount - elem.minCount)])
+                                    else:
+                                        atomsRange.append(abs(peakA.xCount - peakB.xCount))
 
-                            corrFact = abs(peakB.mz - peakA.mz)
-                            if corrFact <= 1:
-                                corrFact = 1.
-                            pFs = t.findFormulas(mzDif, ppm=self.ppm * 2. * peakA.mz / corrFact, useAtoms=useAtoms,
-                                                 atomsRange=atomsRange, fixed=self.labellingElement,
-                                                 useSevenGoldenRules=False)
+                                for elem in self.elements.keys():
+                                    if elem != self.labellingElement:
+                                        elem = self.elements[elem]
+                                        atomsRange.append([elem.minCount, elem.maxCount])
 
-                            for pF in pFs:
-                                if pa not in inSourceFragments.keys():
-                                    inSourceFragments[pa]={}
-                                if pb not in inSourceFragments[pa].keys():
-                                    inSourceFragments[pa][pb]=[]
+                                corrFact = abs(peakB.mz - peakA.mz)
+                                if corrFact <= 1:
+                                    corrFact = 1.
+                                pFs = t.findFormulas(mzDif, ppm=self.ppm * 2. * peakA.mz / corrFact, useAtoms=useAtoms,
+                                                     atomsRange=atomsRange, fixed=self.labellingElement,
+                                                     useSevenGoldenRules=False)
+
+                                for pF in pFs:
+                                    if pa not in inSourceFragments.keys():
+                                        inSourceFragments[pa]={}
+                                    if pb not in inSourceFragments[pa].keys():
+                                        inSourceFragments[pa][pb]=[]
 
 
-                                c = fT.parseFormula(pF)
-                                mw = fT.calcMolWeight(c)
-                                dif = abs(abs(peakB.mz - peakA.mz) - mw)
-                                sf = fT.flatToString(c, prettyPrintWithHTMLTags=False)
-                                inSourceFragments[pa][pb].append("%.4f-%s"%(peakB.mz, sf))
+                                    c = fT.parseFormula(pF)
+                                    mw = fT.calcMolWeight(c)
+                                    dif = abs(abs(peakB.mz - peakA.mz) - mw)
+                                    sf = fT.flatToString(c, prettyPrintWithHTMLTags=False)
+                                    inSourceFragments[pa][pb].append("%.4f-%s"%(peakB.mz, sf))
 
             if self.simplifyInSourceFragments:
                 for pa in group:
@@ -2294,7 +2307,7 @@ class RunIdentification:
         chromPeaks = []
         configTracers = {}
 
-        for chromPeak in SQLSelectAsObject(curs, "SELECT c.id AS id, g.fGroupID AS fGroupID, c.mz AS mz, c.lmz AS lmz, c.xcount AS xCount, c.Loading AS loading, "
+        for chromPeak in SQLSelectAsObject(curs, "SELECT c.id AS id, g.fGroupID AS fGroupID, c.mz AS mz, c.lmz AS lmz, c.tmz AS tmz, c.xcount AS xCount, c.Loading AS loading, "
                                                  "c.ionMode AS ionMode, c.NPeakCenter AS NPeakCenter, c.NPeakCenterMin AS NPeakCenterMin, "
                                                  "c.NPeakScale AS NPeakScale, c.NPeakArea AS NPeakArea, c.NPeakAbundance AS NPeakAbundance, c.LPeakCenter AS LPeakCenter, "
                                                  "c.LPeakCenterMin AS LPeakCenterMin, c.LPeakScale AS LPeakScale, c.LPeakArea AS LPeakArea, c.LPeakAbundance AS LPeakAbundance, "
@@ -2383,7 +2396,7 @@ class RunIdentification:
             csvFile.write("\t".join([str(x) for x in [chromPeak.id,
                                                       chromPeak.mz,
                                                       chromPeak.lmz,
-                                                      (chromPeak.lmz-chromPeak.mz-mzDelta * chromPeak.xCount / chromPeak.loading) * 1000000. / chromPeak.mz,
+                                                      (chromPeak.lmz-chromPeak.mz-chromPeak.tmz) * 1000000. / chromPeak.mz,
                                                       chromPeak.assignedMZs,
                                                       chromPeak.mzDiffErrors.mean,
                                                       chromPeak.mzDiffErrors.sd,

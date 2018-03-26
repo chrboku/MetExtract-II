@@ -479,6 +479,10 @@ class ChromPeakPair:
 
         self.artificialEICLShift = artificialEICLShift
 
+        if args.has_key("tmz"):
+            self.tmz = args["tmz"]
+            argsUsed += 1
+
         if args.has_key("peaksCorr"):
             self.peaksCorr = args["peaksCorr"]
             argsUsed += 1

@@ -215,14 +215,21 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
 
             curNum = 1
 
-            xCountshelp = []
-            a=xCounts.replace(" ", "").replace(";", ",").split(",")
-            for j in a:
-                if "-" in j:
-                    xCountshelp.extend(range(int(j[0:j.find("-")]), int(j[j.find("-")+1:len(j)])+1))
-                else:
-                    xCountshelp.append(int(j))
-            xCounts=sorted(list(set(xCountshelp)))
+
+            xCounts=set()
+            for res in results:
+                for row in res.curs.execute("SELECT DISTINCT xcount FROM chromPeaks"):
+                    xCounts.add(str(row[0]))
+            xCounts=list(xCounts)
+
+            # xCountshelp = []
+            # a=xCounts.replace(" ", "").replace(";", ",").split(",")
+            # for j in a:
+            #     if "-" in j:
+            #         xCountshelp.extend(range(int(j[0:j.find("-")]), int(j[j.find("-")+1:len(j)])+1))
+            #     else:
+            #         xCountshelp.append(int(j))
+            # xCounts=sorted(list(set(xCountshelp)))
 
             # prefetch number of bracketing steps for the progress bar
             totalThingsToDo=0
@@ -254,21 +261,21 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                 if elapsed >= 60.:
                                     hours = "%d hours " % (elapsed // 60)
                                 mins = "%.2f mins" % (elapsed % 60.)
-                                pwTextSet.put(Bunch(mes="text", val="<p align='right' >%s%s elapsed</p>\n\n\n\nProcessing \n  (Ionmode: %s, XCount: %d, Charge: %d) \n  File: %s" % (
+                                pwTextSet.put(Bunch(mes="text", val="<p align='right' >%s%s elapsed</p>\n\n\n\nProcessing \n  (Ionmode: %s, XCount: %s, Charge: %d) \n  File: %s" % (
                                                     hours, mins, ionMode, xCount, cLoading, res.fileName)))
 
                             for row in res.curs.execute(
-                                    "SELECT c.id, c.tracer, c.NPeakCenter, c.NPeakCenterMin, c.NPeakScale, c.NSNR, c.NPeakArea, c.mz, c.xcount, c.LPeakCenter, c.LPeakCenterMin, c.LPeakScale, c.LSNR, c.LPeakArea, "
+                                    "SELECT c.id, c.tracer, c.NPeakCenter, c.NPeakCenterMin, c.NPeakScale, c.NSNR, c.NPeakArea, c.mz, c.lmz, c.tmz, c.xcount, c.LPeakCenter, c.LPeakCenterMin, c.LPeakScale, c.LSNR, c.LPeakArea, "
                                     "c.Loading, (SELECT f.fGroupId FROM featureGroupFeatures f WHERE f.fID=c.id) AS fGroupId, (SELECT t.name FROM tracerConfiguration t WHERE t.id=c.tracer) AS tracerName, c.ionMode, "
                                     "c.NPeakAbundance, c.LPeakAbundance, c.NBorderLeft, c.NBorderRight, c.LBorderLeft, c.LBorderRight "
-                                    "FROM chromPeaks c WHERE c.ionMode='%s' AND c.xcount=%d and c.Loading=%d"%(ionMode, xCount, cLoading)):
+                                    "FROM chromPeaks c WHERE c.ionMode='%s' AND c.xcount='%s' and c.Loading=%d"%(ionMode, xCount, cLoading)):
                                 try:
                                     cp = ChromPeakPair(id=row[0], tracer=row[1], NPeakCenter=row[2], NPeakCenterMin=row[3],
-                                                   NPeakScale=row[4], NSNR=row[5], NPeakArea=row[6], mz=row[7], xCount=row[8],
-                                                   LPeakCenter=row[9], LPeakCenterMin=row[10], LPeakScale=row[11], LSNR=row[12],
-                                                   LPeakArea=row[13], loading=row[14], fGroupID=row[15], tracerName=row[16],
-                                                   ionMode=str(row[17]), NPeakAbundance=float(row[18]), LPeakAbundance=float(row[19]),
-                                                   NBorderLeft=float(row[20]), NBorderRight=float(row[21]), LBorderLeft=float(row[22]), LBorderRight=float(row[23]))
+                                                   NPeakScale=row[4], NSNR=row[5], NPeakArea=row[6], mz=row[7], lmz=row[8], tmz=row[9], xCount=row[10],
+                                                   LPeakCenter=row[11], LPeakCenterMin=row[12], LPeakScale=row[13], LSNR=row[14],
+                                                   LPeakArea=row[15], loading=row[16], fGroupID=row[17], tracerName=row[18],
+                                                   ionMode=str(row[19]), NPeakAbundance=float(row[20]), LPeakAbundance=float(row[21]),
+                                                   NBorderLeft=float(row[22]), NBorderRight=float(row[23]), LBorderLeft=float(row[24]), LBorderRight=float(row[25]))
 
                                     assert cp.ionMode in ionModes.keys()
                                     res.featurePairs.append(cp)
@@ -288,7 +295,7 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                             if elapsed >= 60.:
                                 hours = "%d hours " % (elapsed // 60)
                             mins = "%.2f mins" % (elapsed % 60.)
-                            pwTextSet.put(Bunch(mes="text", val="<p align='right' >%s%s elapsed</p>\n\n\n\nClustering \n  (Ionmode: %s, XCount: %d, Charge: %d)" % (hours, mins, ionMode, xCount, cLoading)))
+                            pwTextSet.put(Bunch(mes="text", val="<p align='right' >%s%s elapsed</p>\n\n\n\nClustering \n  (Ionmode: %s, XCount: %s, Charge: %d)" % (hours, mins, ionMode, xCount, cLoading)))
 
 
                             totalChromPeaks = totalChromPeaks + len(res.featurePairs)
@@ -487,6 +494,8 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
 
                                                 groupedChromPeaks = []
                                                 groupedChromPeaksAVGMz = []
+                                                groupedChromPeaksAVGLMz = []
+                                                groupedChromPeaksAVGTMz = []
                                                 groupedChromPeaksAVGTimes = []
                                                 groupedChromPeaksAVGNPeakScale = []
                                                 groupedChromPeaksAVGLPeakScale = []
@@ -494,6 +503,8 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                                 for i in range(maxGroup + 1):
                                                     groupedChromPeaks.append({})
                                                     groupedChromPeaksAVGMz.append([])
+                                                    groupedChromPeaksAVGLMz.append([])
+                                                    groupedChromPeaksAVGTMz.append([])
                                                     groupedChromPeaksAVGTimes.append([])
                                                     groupedChromPeaksAVGNPeakScale.append([])
                                                     groupedChromPeaksAVGLPeakScale.append([])
@@ -506,6 +517,8 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                                             groupedChromPeaks[aligned[j][1]][k] = []
                                                         groupedChromPeaks[aligned[j][1]][k].append((aligned[j], partChromPeaks[k][i]))
                                                         groupedChromPeaksAVGMz[aligned[j][1]].append(partChromPeaks[k][i].mz)
+                                                        groupedChromPeaksAVGLMz[aligned[j][1]].append(partChromPeaks[k][i].lmz)
+                                                        groupedChromPeaksAVGTMz[aligned[j][1]].append(partChromPeaks[k][i].tmz)
                                                         groupedChromPeaksAVGTimes[aligned[j][1]].append(partChromPeaks[k][i].NPeakCenterMin)
                                                         groupedChromPeaksAVGNPeakScale[aligned[j][1]].append(partChromPeaks[k][i].NPeakScale)
                                                         groupedChromPeaksAVGLPeakScale[aligned[j][1]].append(partChromPeaks[k][i].LPeakScale)
@@ -519,6 +532,8 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                                 for i in range(minGroup, maxGroup + 1):
                                                     if len(groupedChromPeaks[i]) > 0:
                                                         avgmz = sum(groupedChromPeaksAVGMz[i]) / len(groupedChromPeaksAVGMz[i])
+                                                        avglmz = sum(groupedChromPeaksAVGLMz[i]) / len(groupedChromPeaksAVGLMz[i])
+                                                        avgtmz = sum(groupedChromPeaksAVGTMz[i]) / len(groupedChromPeaksAVGTMz[i])
                                                         avgtime = sum(groupedChromPeaksAVGTimes[i]) / len(groupedChromPeaksAVGTimes[i])
                                                         avgNPeakScale = sum(groupedChromPeaksAVGNPeakScale[i]) / len(groupedChromPeaksAVGNPeakScale[i])
                                                         avgLPeakScale = sum(groupedChromPeaksAVGLPeakScale[i]) / len(groupedChromPeaksAVGLPeakScale[i])
@@ -529,9 +544,9 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                                         f.write("\t")
                                                         f.write(str(avgmz))
                                                         f.write("\t")
-                                                        f.write(str(avgmz + xCount * tracersDeltaMZ[tracer] / cLoading))
+                                                        f.write(str(avglmz))
                                                         f.write("\t")
-                                                        f.write(str(xCount * tracersDeltaMZ[tracer] / cLoading))
+                                                        f.write(str(avgtmz))
                                                         f.write("\t")
                                                         f.write("%.6f - %.6f"%(min(groupedChromPeaksAVGMz[i]), max(groupedChromPeaksAVGMz[i])))
                                                         f.write("\t")
@@ -541,7 +556,7 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                                         f.write("\t")
                                                         f.write("%.1f:%.1f"%(avgNPeakScale, avgLPeakScale))
                                                         f.write("\t")
-                                                        f.write("%d" % xCount)
+                                                        f.write("%s" % xCount)
                                                         f.write("\t")
                                                         f.write(str(cLoading))
                                                         f.write("\t")
@@ -561,8 +576,8 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                                         f.write("") # M
 
 
-                                                        SQLInsert(resDB.curs, "GroupResults", id=curNum, mz=avgmz, lmz=avgmz + xCount * tracersDeltaMZ[tracer] / cLoading,
-                                                                    dmz=xCount * tracersDeltaMZ[tracer] / cLoading, rt=avgtime, xn=xCount, charge=cLoading, ionisationMode=ionMode, scanEvent=scanEvent,
+                                                        SQLInsert(resDB.curs, "GroupResults", id=curNum, mz=avgmz, lmz=avglmz,
+                                                                    dmz=avgtmz, rt=avgtime, xn=xCount, charge=cLoading, ionisationMode=ionMode, scanEvent=scanEvent,
                                                                     tracer=str(tracer))
 
                                                         doublePeak = 0
@@ -688,7 +703,7 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                                 if elapsed >= 60.:
                                                     hours = "%d hours " % (elapsed // 60)
                                                 mins = "%.2f mins" % (elapsed % 60.)
-                                                pwTextSet.put(Bunch(mes="text",val="<p align='right' >%s%s elapsed</p>\n\n\n\nBracketing results\n%d feature pairs (%d individual pairs processed).. (Ionmode: %s, XCount: %d, Charge: %d)"%(hours, mins, curNum, totalChromPeaksProc, ionMode, xCount, cLoading)))
+                                                pwTextSet.put(Bunch(mes="text",val="<p align='right' >%s%s elapsed</p>\n\n\n\nBracketing results\n%d feature pairs (%d individual pairs processed).. (Ionmode: %s, XCount: %s, Charge: %d)"%(hours, mins, curNum, totalChromPeaksProc, ionMode, xCount, cLoading)))
                                     curAllMZs=[]
             if writePDF: pdf.save()
 
@@ -701,18 +716,23 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
             f.write("## MetExtract II %s\n"%(Bunch(MetExtractVersion=meVersion, RVersion=rVersion, UUID_ext=identifier).dumpAsJSon().replace("\"", "'")))
             f.write("## Individual files processing parameters %s\n"%(generalProcessingParams.dumpAsJSon().replace("\"", "'")))
             processingParams=Bunch()
-            xCountsFmt=[]
-            for xn in sorted(xCounts):
-                if xn-1 in xCounts and xn+1 in xCounts:
-                    xCountsFmt.append("-")
-                else:
-                    if xn-1 not in xCounts:
-                        xCountsFmt.append(", ")
-                    xCountsFmt.append(xn)
-            xCountsFmt.pop(0)
-            seen = set()
-            seen_add = seen.add
-            xCountsFmt = [x for x in xCountsFmt if not (x in seen or seen_add(x)) or x == ", "]
+
+            xCountsFmt = []
+            try:
+                for xn in sorted(xCounts):
+                    if xn-1 in xCounts and xn+1 in xCounts:
+                        xCountsFmt.append("-")
+                    else:
+                        if xn-1 not in xCounts:
+                            xCountsFmt.append(", ")
+                        xCountsFmt.append(xn)
+                xCountsFmt.pop(0)
+                seen = set()
+                seen_add = seen.add
+                xCountsFmt = [x for x in xCountsFmt if not (x in seen or seen_add(x)) or x == ", "]
+            except Exception:
+                xCountsFmt=xCounts
+
 
             processingParams.FPBracketing_xCounts="".join([str(t) for t in xCountsFmt])
             processingParams.FPBracketing_groupSizePPM=groupSizePPM
