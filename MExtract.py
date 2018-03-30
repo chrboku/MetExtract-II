@@ -6236,8 +6236,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         pw.close()
         ramAfter=memory_usage_psutil()
 
+    def showCustomFeature(self):
+        self.resultsExperimentChangedNew(askForFeature=True)
 
-    def resultsExperimentChangedNew(self):
+    def resultsExperimentChangedNew(self, askForFeature=False):
         if len(self.ui.resultsExperiment_TreeWidget.selectedItems())==0:
             pass
 
@@ -6252,14 +6254,34 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         plotItems = []
 
-        for item in self.ui.resultsExperiment_TreeWidget.selectedItems():
-            if item.bunchData.type == "metaboliteGroup":
-                for i in range(item.childCount()):
-                    child=item.child(i)
-                    if child.bunchData.type == "featurePair":
-                        plotItems.append(child.bunchData)
-            if item.bunchData.type == "featurePair":
-                plotItems.append(item.bunchData)
+
+#
+        if askForFeature:
+
+            availableFilterLines=set()
+            for grpInd, group in enumerate(definedGroups):
+                for i in range(len(group.files)):
+                    fi = str(group.files[i]).replace("\\", "/")
+                    for fl in self.loadedMZXMLs[fi].getFilterLines(includeMS1=True, includeMS2=False, includePosPolarity=True, includeNegPolarity=True):
+                        availableFilterLines.add(fl)
+
+            mz=float(QtGui.QInputDialog.getDouble(self, "Custom feature", "Please enter the m/z value of the native feature", decimals=8)[0])
+            lmz=float(QtGui.QInputDialog.getDouble(self, "Custom feature", "Please enter the m/z value of the labeled feature", decimals=8)[0])
+
+            rt=float(QtGui.QInputDialog.getDouble(self, "Custom feature", "Please enter the retention time (in minutes) of the feature", decimals=3)[0])
+
+            fl=str(QtGui.QInputDialog.getItem(self, "Custom feature", "Please select the filter line for this feature", list(availableFilterLines))[0])
+
+            plotItems.append(Bunch(mz=mz, lmz=lmz, rt=rt*60., scanEvent=fl))
+        else:
+            for item in self.ui.resultsExperiment_TreeWidget.selectedItems():
+                if item.bunchData.type == "metaboliteGroup":
+                    for i in range(item.childCount()):
+                        child=item.child(i)
+                        if child.bunchData.type == "featurePair":
+                            plotItems.append(child.bunchData)
+                if item.bunchData.type == "featurePair":
+                    plotItems.append(item.bunchData)
 
 
         ppm=self.ui.doubleSpinBox_resultsExperiment_EICppm.value()
@@ -7020,6 +7042,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.loadedMZXMLs=None
         self.ui.resultsExperiment_TreeWidget.itemSelectionChanged.connect(self.resultsExperimentChangedNew)
         self.ui.pushButton_exportAllAsPDF.clicked.connect(self.exportAsPDF)
+
+        self.ui.showCustomFeature_pushButton.clicked.connect(self.showCustomFeature)
 
         # fetch provided settings and show them as a menu
         try:

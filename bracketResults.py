@@ -220,7 +220,7 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
             for res in results:
                 for row in res.curs.execute("SELECT DISTINCT xcount FROM chromPeaks"):
                     xCounts.add(str(row[0]))
-            xCounts=list(xCounts)
+            xCounts=sorted(list(xCounts))
 
             # xCountshelp = []
             # a=xCounts.replace(" ", "").replace(";", ",").split(",")
@@ -271,7 +271,7 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                     "FROM chromPeaks c WHERE c.ionMode='%s' AND c.xcount='%s' and c.Loading=%d"%(ionMode, xCount, cLoading)):
                                 try:
                                     cp = ChromPeakPair(id=row[0], tracer=row[1], NPeakCenter=row[2], NPeakCenterMin=row[3],
-                                                   NPeakScale=row[4], NSNR=row[5], NPeakArea=row[6], mz=row[7], lmz=row[8], tmz=row[9], xCount=row[10],
+                                                   NPeakScale=row[4], NSNR=row[5], NPeakArea=row[6], mz=row[7], lmz=row[8], tmz=row[9], xCount=str(row[10]),
                                                    LPeakCenter=row[11], LPeakCenterMin=row[12], LPeakScale=row[13], LSNR=row[14],
                                                    LPeakArea=row[15], loading=row[16], fGroupID=row[17], tracerName=row[18],
                                                    ionMode=str(row[19]), NPeakAbundance=float(row[20]), LPeakAbundance=float(row[21]),
@@ -280,9 +280,9 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                     assert cp.ionMode in ionModes.keys()
                                     res.featurePairs.append(cp)
                                 except TypeError as err:
-                                    print "  TypeError in file %s, id %s, (Ionmode: %s, XCount: %d, Charge: %d)"%(str(res.fileName), str(row[0]), ionMode, xCount, cLoading), err.message
+                                    print "  TypeError in file %s, id %s, (Ionmode: %s, XCount: %s, Charge: %d)"%(str(res.fileName), str(row[0]), ionMode, xCount, cLoading), err.message
                                 except:
-                                    print "  some general error in file %s, id %s, (Ionmode: %s, XCount: %d, Charge: %d)"%(str(res.fileName), str(row[0]), ionMode, xCount, cLoading)
+                                    print "  some general error in file %s, id %s, (Ionmode: %s, XCount: %s, Charge: %d)"%(str(res.fileName), str(row[0]), ionMode, xCount, cLoading)
 
                             totalChromPeaks = totalChromPeaks + len(res.featurePairs)
 
@@ -407,7 +407,7 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                                     tr = 0
                                                     pdf.drawString(40, 810, "Tracer: %s IonMode: %s" % (tracer, ionMode))
                                                     pdf.drawString(40, 795, "MZ: (min: %f - max: %f (tolerated: %f ppm: %.1f)) " % (lowMZ, maxMZInGroup, minMZ, (maxMZInGroup - lowMZ) * 1000000 / lowMZ))
-                                                    pdf.drawString(40, 780, "xCount: %d Z: %d Feature pairs: %d" % (xCount, cLoading, len(partXICs)))
+                                                    pdf.drawString(40, 780, "xCount: %s Z: %d Feature pairs: %d" % (xCount, cLoading, len(partXICs)))
                                                     pdj = []
                                                     pdjm = []
                                                     for r in partXICs.keys():

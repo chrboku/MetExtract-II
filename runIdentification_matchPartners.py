@@ -209,7 +209,7 @@ def matchPartners(mzXMLData, forFile,
                                         # Requires: - a high resolution and separation of different isotoplogs (especially carbon)
                                         # EXPERIMENTAL: has not been tested with real data (not N or S labelled sample material
                                         #               was available)
-                                        if False and useCIsotopePatternValidation != 0:
+                                        if True and useCIsotopePatternValidation != 0:
                                             #region
                                             # (0.) verify that peak is M and not something else (e.g. M+1, M+1...)
                                             ## TODO improve me. Use seven golden rules or the number of carbon atoms
@@ -334,7 +334,7 @@ def matchPartners(mzXMLData, forFile,
                                         # |||                  |||
                                         # Necessary mainly for 13C-labelling with mirror-symmetric isotope patterns
                                         # NOTE: - Approach is mainly used for 13C-labelling
-                                        if False and useCIsotopePatternValidation==0:
+                                        if True and useCIsotopePatternValidation==0:
                                             # region
                                             # (0.) verify that peak is M and not something else (e.g. M+1, M+1...)
                                             ## TODO improve me. Use seven golden rules or the number of carbon atoms
@@ -477,7 +477,7 @@ def matchPartners(mzXMLData, forFile,
                                         # |||              ||||
                                         # NOTE: currently, the labeling elements must be defined in the code
                                         # NOTE: The option must be activated and the other two options must be deactivated
-                                        if True:
+                                        if False:
                                             # find M+1 peak
                                             isoM_p1 = curScan.findMZ(curPeakmz + cValidationOffset / curLoading, ppm,
                                                                      start=currentPeakIndex)
