@@ -65,32 +65,38 @@ class DBSearch:
                     for j in range(len(row)):
                         headers[row[j]]=j
                 else:
-                    num=row[headers["Num"]]
-                    name=row[headers["Name"]]
-                    sumFormula=row[headers["SumFormula"]]
-                    rt_min=float(row[headers["Rt_min"]]) if row[headers["Rt_min"]]!="" else None
-                    mz=float(row[headers["MZ"]]) if row[headers["MZ"]]!="" else None
-                    polarity=row[headers["IonisationMode"]]
-                    additionalInfo={}
-                    for header in headers.keys():
-                        if header not in ["Num", "Name", "SumFormula", "Rt_min", "MZ", "IonisationMode"]:
-                            additionalInfo[header]=row[headers[header]]
+                    try:
+                        num=row[headers["Num"]]
+                        name=row[headers["Name"]]
+                        sumFormula=row[headers["SumFormula"]]
+                        rt_min=float(row[headers["Rt_min"]]) if row[headers["Rt_min"]]!="" else None
+                        mz=float(row[headers["MZ"]]) if row[headers["MZ"]]!="" else None
+                        polarity=row[headers["IonisationMode"]]
+                        additionalInfo={}
+                        for header in headers.keys():
+                            if header not in ["Num", "Name", "SumFormula", "Rt_min", "MZ", "IonisationMode"]:
+                                additionalInfo[header]=row[headers[header]]
 
-                    mass=0
-                    if sumFormula!="":
-                        try:
-                            elems=fT.parseFormula(sumFormula)
-                            mass=fT.calcMolWeight(elems)
-                        except Exception as ex:
-                            logging.error("DB import error: The sumformula (%s) of the entry %s could not be parsed"%(sumFormula, num))
-                            continue
+                        mass=0
+                        if sumFormula!="":
+                            try:
+                                elems=fT.parseFormula(sumFormula)
+                                mass=fT.calcMolWeight(elems)
+                            except Exception as ex:
+                                logging.error("DB import error: The sumformula (%s) of the entry %s could not be parsed"%(sumFormula, num))
+                                continue
 
-                    dbEntry=DBEntry(dbName, num, name, sumFormula, mass, rt_min, mz, polarity, additionalInfo)
+                        dbEntry=DBEntry(dbName, num, name, sumFormula, mass, rt_min, mz, polarity, additionalInfo)
 
-                    if mass>0:
-                        self.dbEntriesNeutral.append(dbEntry)
-                    else:
-                        self.dbEntriesMZ.append(dbEntry)
+                        if mass>0:
+                            self.dbEntriesNeutral.append(dbEntry)
+                        else:
+                            self.dbEntriesMZ.append(dbEntry)
+                    except Exception as ex:
+                        logging.error("DB import error: Could not import row %d"%(rowi))
+                        continue
+        print "Imported DB %s (Current number of entries: %d)"%(dbName, len(self.dbEntriesMZ)+len(self.dbEntriesNeutral))
+
 
     def optimizeDB(self):
         self.dbEntriesNeutral=sorted(self.dbEntriesNeutral, key=lambda x: x.mass)

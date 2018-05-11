@@ -232,6 +232,7 @@ from copy import copy, deepcopy
 from xml.parsers.expat import ExpatError
 from optparse import OptionParser
 #from hashlib import sha256
+import csv
 
 
 #</editor-fold>
@@ -1699,10 +1700,11 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
     # EXPERIMENTAL
     def loadGroupsResultsFile(self, groupsResFile):
         try:
+            self.ui.resultsExperiment_TreeWidget.clear()
+            self.ui.resultsExperiment_TreeWidget.setHeaderLabels(["OGroup", "MZ", "RT", "Xn", "Z", "IonMode"])
+
             if os.path.exists(groupsResFile+".identified.sqlite") and os.path.isfile(groupsResFile+".identified.sqlite"):
 
-                self.ui.resultsExperiment_TreeWidget.clear()
-                self.ui.resultsExperiment_TreeWidget.setHeaderLabels(["OGroup", "MZ", "RT", "Xn", "Z", "IonMode"])
                 widths=[80,90,90,90,90,90]
                 for i in range(len(widths)):
                     self.ui.resultsExperiment_TreeWidget.setColumnWidth(i, widths[i])
@@ -1732,9 +1734,46 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     metaboliteGroupTreeItems[grpID].setText(1, "%d"%len(kids))
                     metaboliteGroupTreeItems[grpID].setText(2, "%.2f"%meanRT)
 
+            if os.path.exists(groupsResFile.replace(".tsv", ".doubleFPs.tsv")) and os.path.isfile(groupsResFile.replace(".tsv", ".doubleFPs.tsv")):
+                with open(groupsResFile.replace(".tsv", ".doubleFPs.tsv"), "rb") as fin:
+                    csvReader = csv.reader(fin, delimiter="\t")
+
+                    headers = {}
+                    for rowi, row in enumerate(csvReader):
+
+                        if rowi == 0:
+                            for celli, cell in enumerate(row):
+                                headers[cell] = celli
+
+                        elif not row[0].startswith("#"):
+                            try:
+
+                                num = row[headers["Num"]]
+                                mz = float(row[headers["MZ"]])
+                                lmz = float(row[headers["L_MZ"]])
+                                dmz = float(row[headers["D_MZ"]])
+                                rt = float(row[headers["RT"]])
+                                rtrange = row[headers["RT_Range"]]
+                                xn = row[headers["Xn"]]
+                                charge = int(row[headers["Charge"]])
+                                scanEvent = row[headers["ScanEvent"]]
+                                ionMode = row[headers["Ionisation_Mode"]]
+                                tracer= row[headers["Tracer"]]
+
+                                fp = Bunch(id=num, type="featurePair", OGroup="DFP_%s"%num, mz=mz, lmz=lmz, dmz=dmz, rt=rt*60., xn=xn, charge=charge, scanEvent=scanEvent, ionisationMode=ionMode, tracer=tracer, FOUNDINCOUNT=0)
+                                featurePair = QtGui.QTreeWidgetItem(["DFP_%s" % str(fp.id), "%.4f" % fp.mz, rtrange, str(fp.xn), str(fp.charge), str(fp.ionisationMode)])
+                                featurePair.bunchData = fp
+
+                                self.ui.resultsExperiment_TreeWidget.addTopLevelItem(featurePair)
+                                #metaboliteGroupTreeItems[fp.metaboliteGroupID].addChild(featurePair)
+
+
+                            except Exception as ex:
+                                print ex.message
+
                 ##TODO finish that
         except Exception as e:
-            logging.error("Multiple file results could not be fetched correctly")
+            logging.error("Multiple file results could not be fetched correctly: "+e.message)
             pass
 
 
@@ -3156,7 +3195,11 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         rt_min=float(x["RT"])
                         charges=int(x["Charge"])
                         polarity=x["Ionisation_Mode"]
-                        xn=int(x["Xn"])
+                        xn=0
+                        try:
+                            xn=int(x["Xn"])
+                        except:
+                            pass
 
                         hits={}
                         for hit in self.dbs.searchDB(mass=mass, mz=mz, polarity=polarity, charges=charges,
@@ -6255,7 +6298,6 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         plotItems = []
 
 
-#
         if askForFeature:
 
             availableFilterLines=set()
