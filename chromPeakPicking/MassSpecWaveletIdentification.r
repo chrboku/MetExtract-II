@@ -54,14 +54,13 @@ getMajorPeaksd<-function(eic, scales=c(5,33), snrTh=1, eicSmoothing="None"){
         scales <- c(1, seq(scales[1], scales[2], 1))
     }
 
-
     plot<-T
 
     majorPeakInfo<-1
     peakIndex<-1
 
     if(T){
-        peakInfo<-peakDetectionCWT(eic, scales=scales, SNR.Th=snrTh)
+        peakInfo<-peakDetectionCWT(eic, scales=scales, SNR.Th=snrTh, peakScaleRange = 2)
 
         majorPeakInfo = peakInfo$majorPeakInfo
         peakIndex <- majorPeakInfo$peakIndex

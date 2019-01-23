@@ -131,13 +131,13 @@ if __name__ == '__main__':
     chromatogram = Chromatogram.Chromatogram()
 
     if True:
-        chromatogram.parse_file("C:/PyMetExtract/implTest/D-GEN_Warth/GEN_24h_5uM_lysate_3_neg_067.mzXML")
-        mz = 349.00227
-        ppm = 10.
-        cn = 4
+        chromatogram.parse_file("H:/180924_463_12C13CDON_Celegans_short_polar/12C13C_DON_onRemus_Exp27.mzXML")
+        mz = 297.1331
+        ppm = 5.
+        cn = 15
         z = 1
-        scales = [2, 7]
-        dmz = 1.00628
+        scales = [2, 5]
+        dmz = 1.00335484
 
 
 

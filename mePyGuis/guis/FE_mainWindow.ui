@@ -592,6 +592,9 @@ font: 7pt;</string>
                  </item>
                  <item row="2" column="0">
                   <widget class="QCheckBox" name="scalePrecursorMZ">
+                   <property name="enabled">
+                    <bool>false</bool>
+                   </property>
                    <property name="sizePolicy">
                     <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                      <horstretch>0</horstretch>
@@ -600,6 +603,9 @@ font: 7pt;</string>
                    </property>
                    <property name="text">
                     <string>Scale to precursor mz</string>
+                   </property>
+                   <property name="checked">
+                    <bool>true</bool>
                    </property>
                   </widget>
                  </item>

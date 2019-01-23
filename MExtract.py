@@ -327,6 +327,8 @@ import HCA_general
 
 from TableUtils import TableUtils
 
+from MSMS import optimizeMSMSTargets
+
 import resultsPostProcessing.generateSumFormulas as sumFormulaGeneration
 import resultsPostProcessing.searchDatabases as searchDatabases
 
@@ -1292,7 +1294,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
     #</editor-fold>
 
     #<editor-fold desc="### add/modify/remove group functions">
-    def addGroup(self, name, files, minGrpFound, omitFeatures, useForMetaboliteGrouping, removeAsFalsePositive, color, atPos=None):
+    def addGroup(self, name, files, minGrpFound, omitFeatures, useForMetaboliteGrouping, removeAsFalsePositive, color, atPos=None, useAsMSMSTarget=False):
         self.loadedMZXMLs=None
 
         failed=defaultdict(list)
@@ -1323,13 +1325,14 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             if atPos is None:
                 atPos=self.ui.groupsList.count()
 
-            qpixmap = QtGui.QPixmap(10, 10)
+            qpixmap = QtGui.QPixmap(12,12)
             qpixmap.fill(QtGui.QColor(color))
+
             icon = QtGui.QIcon(qpixmap)
 
-            qlwi=QListWidgetItem(icon, "%s (%d%s%s%s)"%(str(name), len(files), ", Convolute" if useForMetaboliteGrouping else "", ", Omit/%d"%minGrpFound if omitFeatures else "", ", FalsePositives" if removeAsFalsePositive else ""))
+            qlwi=QListWidgetItem(icon, "%s (%d%s%s%s%s)"%(str(name), len(files), ", Convolute" if useForMetaboliteGrouping else "", ", Omit/%d"%minGrpFound if omitFeatures else "", ", FalsePositives" if removeAsFalsePositive else "", ", MSMS" if useAsMSMSTarget else ""))
             #qlwi.setBackgroundColor(QColor(color))
-            qlwi.setData(QListWidgetItem.UserType, SampleGroup(name, files, minGrpFound, omitFeatures, useForMetaboliteGrouping, removeAsFalsePositive, color))
+            qlwi.setData(QListWidgetItem.UserType, SampleGroup(name, files, minGrpFound, omitFeatures, useForMetaboliteGrouping, removeAsFalsePositive, color, useAsMSMSTarget))
 
             self.ui.groupsList.insertItem(atPos, qlwi)
         else:
@@ -1433,12 +1436,12 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         grp = self.ui.groupsList.item(selRow).data(QListWidgetItem.UserType).toPyObject()
         t = groupEdit(colors=predefinedColors)
         if t.executeDialog(groupName=grp.name, groupfiles=grp.files, minimumGroupFound=grp.minFound,
-                           omitFeatures=grp.omitFeatures, useForMetaboliteGrouping=grp.useForMetaboliteGrouping, removeAsFalsePositive=grp.removeAsFalsePositive, activeColor=grp.color) == QtGui.QDialog.Accepted:
+                           omitFeatures=grp.omitFeatures, useForMetaboliteGrouping=grp.useForMetaboliteGrouping, removeAsFalsePositive=grp.removeAsFalsePositive, activeColor=grp.color, useAsMSMSTarget=grp.useAsMSMSTarget) == QtGui.QDialog.Accepted:
 
             self.addGroup(name=t.getGroupName(), files=t.getGroupFiles(), minGrpFound=t.getMinimumGroupFound(),
                           omitFeatures=t.getOmitFeatures(), useForMetaboliteGrouping=t.getUseForMetaboliteGrouping(),
                           removeAsFalsePositive=t.getRemoveAsFalsePositive(),
-                          color=str(t.getGroupColor()), atPos=selRow)
+                          color=str(t.getGroupColor()), useAsMSMSTarget=t.getUseAsMSMSTarget(), atPos=selRow)
 
             self.ui.groupsList.takeItem(selRow+1)
 
@@ -1539,6 +1542,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     ## rename settings
                     groupFile=str(groupFile[:groupFile.rfind("/")]+"/"+text+groupFile[groupFile.rfind("/"):])
                     self.ui.groupsSave.setText(str(groupFile[:groupFile.rfind("/")]+"/results.tsv"))
+                    self.ui.msms_fileLocation.setText(str(groupFile[:groupFile.rfind("/")]+"/MSMStargets.tsv"))
 
                     doAsk=False
                     logging.info("New experiment evaluation. Name: %s"%text)
@@ -1578,6 +1582,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 grps.setValue("RemoveAsFalsePositive", group.removeAsFalsePositive)
                 grps.setValue("Color", group.color)
                 grps.setValue("UseForMetaboliteGrouping", group.useForMetaboliteGrouping)
+                grps.setValue("useAsMSMSTarget", group.useAsMSMSTarget)
                 grps.endGroup()
 
             grps.beginGroup("ExperimentResults")
@@ -1590,6 +1595,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             else:
                 grps.setValue("GroupSaveFile", resFile)
                 self.ui.groupsSave.setText(resFile)
+
+            grps.setValue("msms_fileLocation", str(self.ui.msms_fileLocation.text()).replace("\\", "/"))
 
             grps.endGroup()
 
@@ -1648,6 +1655,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 omitFeatures = True
                 useForMetaboliteGrouping = True
                 removeAsFalsePositive = False
+                useAsMSMSTarget = False
                 for kid in grps.childKeys():
                     if str(kid) == "Min_Peaks_Found":
                         minFound = grps.value(kid).toInt()[0]
@@ -1659,13 +1667,15 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         useForMetaboliteGrouping = grps.value(kid).toBool()
                     elif str(kid) == "RemoveAsFalsePositive":
                         removeAsFalsePositive = grps.value(kid).toBool()
+                    elif str(kid) == "useAsMSMSTarget":
+                        useAsMSMSTarget = grps.value(kid).toBool()
                     elif str(kid).startswith(grp):
                         if os.path.isabs(str(grps.value(kid).toString()).replace("\\", "/")):
                             kids.append(str(grps.value(kid).toString()).replace("\\", "/"))
                         else:
                             kids.append(os.path.split(str(groupFile))[0].replace("\\", "/") + "/" + str(grps.value(kid).toString()).replace("\\", "/"))
 
-                groupsToAdd.append(Bunch(name=grp, files=kids, minGrpFound=minFound, omitFeatures=omitFeatures, useForMetaboliteGrouping=useForMetaboliteGrouping, removeAsFalsePositive=removeAsFalsePositive, color=color))
+                groupsToAdd.append(Bunch(name=grp, files=kids, minGrpFound=minFound, omitFeatures=omitFeatures, useForMetaboliteGrouping=useForMetaboliteGrouping, removeAsFalsePositive=removeAsFalsePositive, color=color, useAsMSMSTarget=useAsMSMSTarget))
 
                 grps.endGroup()
                 grpi += 1
@@ -1673,7 +1683,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             for grpToAdd in natSort(groupsToAdd, key=lambda x:x.name):
                 self.addGroup(name=grpToAdd.name, files=grpToAdd.files, minGrpFound=grpToAdd.minGrpFound, omitFeatures=grpToAdd.omitFeatures,
                               useForMetaboliteGrouping=grpToAdd.useForMetaboliteGrouping, removeAsFalsePositive=grpToAdd.removeAsFalsePositive,
-                              color=grpToAdd.color)
+                              color=grpToAdd.color, useAsMSMSTarget=grpToAdd.useAsMSMSTarget)
 
             grps.beginGroup("ExperimentResults")
             if grps.contains("GroupSaveFile"):
@@ -1683,6 +1693,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     resFile = os.path.split(str(groupFile))[0] + "/" + resFile
 
                 self.ui.groupsSave.setText(resFile)
+                self.ui.msms_fileLocation.setText(grps.value("msms_fileLocation").toString())
                 self.loadGroupsResultsFile(resFile)
 
             grps.endGroup()
@@ -1699,13 +1710,18 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
     #<editor-fold desc="### group results visualisation functions">
     # EXPERIMENTAL
     def loadGroupsResultsFile(self, groupsResFile):
+
+        experimentalGroups = [t.data(QListWidgetItem.UserType).toPyObject() for t in
+                              natSort(self.ui.groupsList.findItems('*', QtCore.Qt.MatchWildcard),
+                                      key=lambda x: str(x.data(QListWidgetItem.UserType).toPyObject().name))]
+
         try:
             self.ui.resultsExperiment_TreeWidget.clear()
             self.ui.resultsExperiment_TreeWidget.setHeaderLabels(["OGroup", "MZ", "RT", "Xn", "Z", "IonMode"])
 
             if os.path.exists(groupsResFile+".identified.sqlite") and os.path.isfile(groupsResFile+".identified.sqlite"):
 
-                widths=[80,90,90,90,90,90]
+                widths=[140,90,90,90,90,90]
                 for i in range(len(widths)):
                     self.ui.resultsExperiment_TreeWidget.setColumnWidth(i, widths[i])
 
@@ -1721,10 +1737,32 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     self.ui.resultsExperiment_TreeWidget.addTopLevelItem(metaboliteGroupTreeItem)
                     metaboliteGroupTreeItems[metaboliteGroup.metaboliteGroupID]=metaboliteGroupTreeItem
 
+                fileMappingData={}
+                for fileRes in SQLSelectAsObject(self.experimentResults.curs, "SELECT 'fileResult' AS type, resID, file, areaN, areaL FROM FoundFeaturePairs"):
+                    if fileRes.resID not in fileMappingData.keys():
+                        fileMappingData[fileRes.resID]=[]
+
+                    fileMappingData[fileRes.resID].append(fileRes)
+
                 for fp in SQLSelectAsObject(self.experimentResults.curs, "SELECT 'featurePair' AS type, id, OGroup AS metaboliteGroupID, mz, lmz, dmz, rt, xn, charge, scanEvent, ionisationMode, tracer, (SELECT COUNT(*) FROM FoundFeaturePairs WHERE resID=id) AS FOUNDINCOUNT FROM GroupResults ORDER BY mz"):
                     featurePair=QtGui.QTreeWidgetItem(["%s (/%d)"%(str(fp.id), int(fp.FOUNDINCOUNT)), "%.4f"%fp.mz, "%.2f"%(fp.rt/60.), str(fp.xn), str(fp.charge), str(fp.ionisationMode)])
                     featurePair.bunchData=fp
                     metaboliteGroupTreeItems[fp.metaboliteGroupID].addChild(featurePair)
+
+                    for fileRes in fileMappingData[fp.id]:
+                        fileResNode=QtGui.QTreeWidgetItem([str(fileRes.file), str(fileRes.areaN), str(fileRes.areaL)])
+                        fileResNode.bunchData=fileRes
+
+                        color=None
+                        for sampleGroup in experimentalGroups:
+                            for file in sampleGroup.files:
+                                if str(fileRes.file) in file:
+                                    color=sampleGroup.color
+
+                        if color is not None:
+                            fileResNode.setBackgroundColor(0, QColor(color))
+
+                        featurePair.addChild(fileResNode)
 
                 for grpID in metaboliteGroupTreeItems.keys():
                     kids=[]
@@ -1804,6 +1842,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         axlimMin=100000
         axlimMax=0
 
+        definedGroups = dict([(str(t.data(QListWidgetItem.UserType).toPyObject().name), t.data(QListWidgetItem.UserType).toPyObject()) for t in
+                         natSort(self.ui.groupsList.findItems('*', QtCore.Qt.MatchWildcard),
+                                 key=lambda x: str(x.data(QListWidgetItem.UserType).toPyObject().name))])
+
         itemNum=0
         for item in plotItems:
             assert item.bunchData.type=="featurePair"
@@ -1829,10 +1871,6 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             foundIn={}
             for foundFP in SQLSelectAsObject(self.experimentResults.curs, "SELECT file AS fil, featurePairID, featureGroupID, areaN, areaL, featureType FROM FoundFeaturePairs WHERE resID=%d"%item.bunchData.id):
                 foundIn[foundFP.fil]=foundFP
-
-            definedGroups = dict([(str(t.data(QListWidgetItem.UserType).toPyObject().name), t.data(QListWidgetItem.UserType).toPyObject()) for t in
-                             natSort(self.ui.groupsList.findItems('*', QtCore.Qt.MatchWildcard),
-                                     key=lambda x: str(x.data(QListWidgetItem.UserType).toPyObject().name))])
 
             offsetCount=0
 
@@ -2189,6 +2227,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 self.ui.maxAnnotationTimeWindow.setValue(sett.value("maxAnnotationTimeWindow").toDouble()[0])
             if sett.contains("MetaboliteClusterMinConnections"):
                 self.ui.metaboliteClusterMinConnections.setValue(sett.value("MetaboliteClusterMinConnections").toInt()[0])
+            if sett.contains("useSILRatioForConvolution"):
+                self.ui.useSILRatioForConvolution.setChecked(sett.value("useSILRatioForConvolution").toBool())
             if sett.contains("minConnectionRate"):
                 self.ui.minConnectionRate.setValue(sett.value("minConnectionRate").toDouble()[0])
 
@@ -2220,6 +2260,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 self.ui.maxRTErrorInHits_spinnerBox.setValue(sett.value("annotateMetabolites_maxRTError").toDouble()[0])
             if sett.contains("annotateMetabolites_maxPPM"):
                 self.ui.annotationMaxPPM_doubleSpinBox.setValue(sett.value("annotateMetabolites_maxPPM").toDouble()[0])
+            if sett.contains("annotation_correctMassByPPM"):
+                self.ui.annotation_correctMassByPPM.setValue(sett.value("annotation_correctMassByPPM").toDouble()[0])
 
             if sett.contains("annotateMetabolites_usedDatabases"):
                 usedDBs=loads(base64.b64decode(str(sett.value("annotateMetabolites_usedDatabases").toString())))
@@ -2227,6 +2269,15 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     item = QtGui.QStandardItem("%s" % dbName)
                     item.setData(dbFile)
                     self.ui.dbList_listView.model().appendRow(item)
+
+            if sett.contains("msms_minCounts"):
+                self.ui.msms_minCounts.setValue(sett.value("msms_minCounts").toDouble()[0])
+            if sett.contains("msms_rtWindow"):
+                self.ui.msms_rtWindow.setValue(sett.value("msms_rtWindow").toDouble()[0])
+            if sett.contains("msms_maxParallelTargets"):
+                self.ui.msms_maxParallelTargets.setValue(sett.value("msms_maxParallelTargets").toInt()[0])
+            if sett.contains("msms_numberOfSamples"):
+                self.ui.msms_numberOfSamples.setValue(sett.value("msms_numberOfSamples").toInt()[0])
 
             sett.endGroup()
 
@@ -2348,6 +2399,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             sett.setValue("ConvoluteMetaboliteGroups", self.ui.convoluteResults.isChecked())
             sett.setValue("maxAnnotationTimeWindow", self.ui.maxAnnotationTimeWindow.value())
             sett.setValue("MetaboliteClusterMinConnections", self.ui.metaboliteClusterMinConnections.value())
+            sett.setValue("useSILRatioForConvolution", self.ui.useSILRatioForConvolution.checkState() == QtCore.Qt.Checked)
             sett.setValue("minConnectionRate", self.ui.minConnectionRate.value())
 
             sett.setValue("GroupIntegrateMissedPeaks", self.ui.integratedMissedPeaks.isChecked())
@@ -2363,6 +2415,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             sett.setValue("annotateMetabolites_checkRT", self.ui.checkRTInHits_checkBox.isChecked())
             sett.setValue("annotateMetabolites_maxRTError", self.ui.maxRTErrorInHits_spinnerBox.value())
             sett.setValue("annotateMetabolites_maxPPM", self.ui.annotationMaxPPM_doubleSpinBox.value())
+            sett.setValue("annotation_correctMassByPPM", self.ui.annotation_correctMassByPPM.value())
 
             usedDBs=[]
             for entryInd in range(self.ui.dbList_listView.model().rowCount()):
@@ -2370,6 +2423,11 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 dbName = dbFile[dbFile.rfind("/") + 1:dbFile.rfind(".")]
                 usedDBs.append([dbName, dbFile])
             sett.setValue("annotateMetabolites_usedDatabases", base64.b64encode(dumps(usedDBs)))
+
+            sett.setValue("msms_minCounts", self.ui.msms_minCounts.value())
+            sett.setValue("msms_rtWindow", self.ui.msms_rtWindow.value())
+            sett.setValue("msms_maxParallelTargets", self.ui.msms_maxParallelTargets.value())
+            sett.setValue("msms_numberOfSamples", self.ui.msms_numberOfSamples.value())
 
             sett.endGroup()
 
@@ -2395,14 +2453,24 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         if len(grpFile) > 0:
             self.lastOpenDir = str(grpFile).replace("\\", "/")
             self.lastOpenDir = self.lastOpenDir[:self.lastOpenDir.rfind("/")]
-        if len(grpFile) > 0:
-            self.lastOpenDir = str(grpFile).replace("\\", "/")
-            self.lastOpenDir = self.lastOpenDir[:self.lastOpenDir.rfind("/")]
 
         if len(grpFile) > 0:
             self.ui.groupsSave.setText(grpFile)
         else:
             self.ui.groupsSave.setText("./results.tsv")
+
+
+    def selectMSMSTargetFile(self):
+        msmsTargetFile = QtGui.QFileDialog.getSaveFileName(caption="Select MSMS target file", directory=self.lastOpenDir,
+                                                           filter="TSV file (*.tsv);;CSV file (*.csv);;All files (*.*)")
+        if len(msmsTargetFile) > 0:
+            self.lastOpenDir = str(msmsTargetFile).replace("\\", "/")
+            self.lastOpenDif = self.lastOpenDir[:self.lastOpenDir.rfind("/")]
+
+        if len(msmsTargetFile) > 0:
+            self.ui.msms_fileLocation.setText(msmsTargetFile)
+        else:
+            self.ui.msms_fileLocation.setText("./MSMStargets.tsv")
 
     def exitMe(self):
         QtGui.QApplication.exit()
@@ -2978,6 +3046,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                            minConnectionsInFiles=self.ui.metaboliteClusterMinConnections.value(),
                                            minConnectionRate=self.ui.minConnectionRate.value(),
                                            minPeakCorrelation=self.ui.minCorrelation.value(),
+                                           useRatio=self.ui.useSILRatioForConvolution.checkState() == QtCore.Qt.Checked,
                                            runIdentificationInstance=runIdentificationInstance,
                                            cpus=min(len(files), cpus))
                     procProc.addKwd("pwMaxSet", procProc.getQueue())
@@ -3090,6 +3159,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 pw.hide()
                 return
 
+        annotationColumns=[]
         ## annotate results
         if self.ui.annotateMetabolites_CheckBox.isChecked():
             logging.info("Annotation of detected metabolites..")
@@ -3103,8 +3173,107 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             pw.getCallingFunction()("text")("Annotation of detected metabolites")
             pw.getCallingFunction()("header")("Annotating..")
 
+            if self.ui.searchDB_checkBox.isChecked():
+                pw.getCallingFunction()("text")("Searching hits in databases..")
+                db = searchDatabases.DBSearch()
+                table = TableUtils.readFile(str(self.ui.groupsSave.text()))
+
+                dbEntries=[]
+                for entryInd in range(self.ui.dbList_listView.model().rowCount()):
+                    dbFile = str(self.ui.dbList_listView.model().item(entryInd, 0).data().toString())
+                    dbName = dbFile[dbFile.rfind("/") + 1:dbFile.rfind(".")]
+                    db.addEntriesFromFile(dbName, dbFile)
+                    table.addColumn("DBs_"+dbName+"_count", "TEXT")
+                    table.addColumn("DBs_"+dbName, "TEXT")
+
+                    annotationColumns.append("DBs_"+dbName+"_count")
+                    annotationColumns.append("DBs_" + dbName)
+
+                db.optimizeDB()
+
+                class dbSearch:
+                    def __init__(self, dbs, ppm, correctppm, rtError, useRt=True, checkXnInHits=True, processedElement="C"):
+                        self.ppm = ppm
+                        self.correctppm = correctppm
+                        self.rtError=rtError
+                        self.useRt=useRt
+                        self.checkXnInHits=checkXnInHits
+                        self.processedElement=processedElement
+                        self.dbs=dbs
+
+                        self.fT = formulaTools()
+
+                    def updateDBCols(self, x):
+                        mass=float(x["M"]) if x["M"]!="" and "," not in str(x["M"]) else None
+                        mz=float(x["MZ"])
+
+                        massO=mass
+                        mzO=mz
+                        if mass is not None:
+                            mass=mass+mass*1.*self.correctppm/1E6
+                        mz=mz+mz*1.*self.correctppm/1E6
+
+                        rt_min=float(x["RT"])
+                        charges=int(x["Charge"])
+                        polarity=x["Ionisation_Mode"]
+                        xn=0
+                        try:
+                            xn=int(x["Xn"])
+                        except:
+                            pass
+
+                        hits={}
+                        for hit in self.dbs.searchDB(mass=mass, mz=mz, polarity=polarity, charges=charges,
+                                               rt_min=rt_min if self.useRt else None,
+                                               ppm=self.ppm, rt_error=self.rtError,
+                                               checkXN=self.checkXnInHits, element=self.processedElement, Xn=xn,
+                                               adducts=useAdducts):
+                            if hit.dbName not in hits.keys():
+                                hits[hit.dbName]=[]
+
+                            hits[hit.dbName].append("%s (%s): Num %s, Formula %s, RT: %s, MassErrorPPM: %.5f, Additional information: %s" % (hit.name, hit.hitType, hit.num, hit.sumFormula, hit.rt_min, hit.matchErrorPPM, hit.additionalInfo))
+
+                        for dbName in hits.keys():
+                            x["DBs_"+dbName] = ",".join(hits[dbName])
+                            x["DBs_" + dbName + "_count"] = len(hits[dbName])
+                        return x
+
+                useExactXn=str(self.ui.sumFormulasUseExactXn_ComboBox.currentText())
+                if useExactXn.lower()=="plusminus":
+                    useExactXn="PlusMinus_%d"%(self.ui.sumFormulasPlusMinus_spinBox.value())
+
+                x = dbSearch(db, ppm=self.ui.annotationMaxPPM_doubleSpinBox.value(), correctppm=self.ui.annotation_correctMassByPPM.value(), rtError=self.ui.maxRTErrorInHits_spinnerBox.value(), useRt=self.ui.checkRTInHits_checkBox.isChecked(),
+                checkXnInHits=useExactXn, processedElement=getElementOfIsotope(str(self.ui.isotopeAText.text())))
+                table.applyFunction(x.updateDBCols, showProgress=True, pwMaxSet=pw.getCallingFunction()("max"), pwValSet=pw.getCallingFunction()("value"))
+
+                table.addComment("## Database search: checkXn %s, ppm: %.5f, correctppm: %.5f, Adducts: %s"%(useExactXn, self.ui.annotationMaxPPM_doubleSpinBox.value(), self.ui.annotation_correctMassByPPM.value(), str(useAdducts)))
+
+                TableUtils.saveFile(table, str(self.ui.groupsSave.text()))
+
+
             if self.ui.generateSumFormulas_CheckBox.isChecked():
                 pw.getCallingFunction()("text")("Generating sum formulas..")
+                pw.getCallingFunction()("value")(0)
+
+                smCol="SFs"
+                annotationColumns.append(smCol + "_CHO")
+                annotationColumns.append(smCol + "_CHOS")
+                annotationColumns.append(smCol + "_CHOP")
+                annotationColumns.append(smCol + "_CHON")
+                annotationColumns.append(smCol + "_CHONP")
+                annotationColumns.append(smCol + "_CHOPS")
+                annotationColumns.append(smCol + "_CHONS")
+                annotationColumns.append(smCol + "_CHONPS")
+                annotationColumns.append(smCol + "_CHO_count")
+                annotationColumns.append(smCol + "_CHOS_count")
+                annotationColumns.append(smCol + "_CHOP_count")
+                annotationColumns.append(smCol + "_CHON_count")
+                annotationColumns.append(smCol + "_CHONP_count")
+                annotationColumns.append(smCol + "_CHOPS_count")
+                annotationColumns.append(smCol + "_CHONS_count")
+                annotationColumns.append(smCol + "_CHONPS_count")
+                annotationColumns.append("all_"+smCol+"_count")
+
                 try:
                     fT = formulaTools()
 
@@ -3152,7 +3321,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                                         getElementOfIsotope(str(self.ui.isotopeAText.text())),
                                                                         useExactXn,
                                                                         ppm=self.ui.annotationMaxPPM_doubleSpinBox.value(),
-                                                                        adducts=useAdducts)
+                                                                        ppmCorrection=self.ui.annotation_correctMassByPPM.value(),
+                                                                        adducts=useAdducts,
+                                                                        pwMaxSet=pw.getCallingFunction()("max"),
+                                                                        pwValSet=pw.getCallingFunction()("value"))
 
                 except Exception as e:
                     import traceback
@@ -3165,69 +3337,124 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 finally:
                     pass
 
-            if self.ui.searchDB_checkBox.isChecked():
-                pw.getCallingFunction()("text")("Searching hits in databases..")
-                db = searchDatabases.DBSearch()
-                table = TableUtils.readFile(str(self.ui.groupsSave.text()))
-
-                dbEntries=[]
-                for entryInd in range(self.ui.dbList_listView.model().rowCount()):
-                    dbFile = str(self.ui.dbList_listView.model().item(entryInd, 0).data().toString())
-                    dbName = dbFile[dbFile.rfind("/") + 1:dbFile.rfind(".")]
-                    db.addEntriesFromFile(dbName, dbFile)
-                    table.addColumn("DBs_"+dbName+"_count", "TEXT")
-                    table.addColumn("DBs_"+dbName, "TEXT")
-
-                db.optimizeDB()
-
-                class dbSearch:
-                    def __init__(self, dbs, ppm, rtError, useRt=True, checkXnInHits=True, processedElement="C"):
-                        self.ppm = ppm
-                        self.rtError=rtError
-                        self.useRt=useRt
-                        self.checkXnInHits=checkXnInHits
-                        self.processedElement=processedElement
-                        self.dbs=dbs
-
-                    def updateDBCols(self, x):
-                        mass=float(x["M"]) if x["M"]!="" and "," not in str(x["M"]) else None
-                        mz=float(x["MZ"])
-                        rt_min=float(x["RT"])
-                        charges=int(x["Charge"])
-                        polarity=x["Ionisation_Mode"]
-                        xn=0
-                        try:
-                            xn=int(x["Xn"])
-                        except:
-                            pass
-
-                        hits={}
-                        for hit in self.dbs.searchDB(mass=mass, mz=mz, polarity=polarity, charges=charges,
-                                               rt_min=rt_min if self.useRt else None,
-                                               ppm=self.ppm, rt_error=self.rtError,
-                                               checkXN=self.checkXnInHits, element=self.processedElement, Xn=xn,
-                                               adducts=useAdducts):
-                            if hit.dbName not in hits.keys():
-                                hits[hit.dbName]=[]
-                            hits[hit.dbName].append("%s (%s): Num %s, Formula %s, RT: %s, Additional information: %s" % (hit.name, hit.hitType, hit.num, hit.sumFormula, hit.rt_min, hit.additionalInfo))
-
-                        for dbName in hits.keys():
-                            x["DBs_"+dbName] = ",".join(hits[dbName])
-                            x["DBs_" + dbName + "_count"] = len(hits[dbName])
-                        return x
-
-                useExactXn=str(self.ui.sumFormulasUseExactXn_ComboBox.currentText())
-                if useExactXn.lower()=="plusminus":
-                    useExactXn="PlusMinus_%d"%(self.ui.sumFormulasPlusMinus_spinBox.value())
-
-                x = dbSearch(db, ppm=self.ui.annotationMaxPPM_doubleSpinBox.value(), rtError=self.ui.maxRTErrorInHits_spinnerBox.value(), useRt=self.ui.checkRTInHits_checkBox.isChecked(),
-                checkXnInHits=useExactXn, processedElement=getElementOfIsotope(str(self.ui.isotopeAText.text())))
-                table.applyFunction(x.updateDBCols, showProgress=True)
-
-                table.addComment("## Database search: checkXn %s, ppm: %.5f, Adducts: %s"%(useExactXn, self.ui.annotationMaxPPM_doubleSpinBox.value(), str(useAdducts)))
-
-                TableUtils.saveFile(table, str(self.ui.groupsSave.text()))
             pw.hide()
+
+
+
+
+
+
+
+
+        ## Organize table a bit better
+        impCols=["Num", "OGroup", "Comment", "MZ", "RT", "Xn", "Charge", "Ionisation_Mode", "AverageAbundance_N", "AverageAbundance_L", "RelativeAbundance", "Ion", "Loss", "M", "L_MZ", "D_MZ", "MZ_Range", "RT_Range", "PeakScalesNL", "ScanEvent", "Tracer"]
+        frontCols=[]
+        endCols=[]
+        table = TableUtils.readFile(str(self.ui.groupsSave.text()))
+        table.addColumn("AverageAbundance_N", "FLOAT", defaultValue=0.)
+        table.addColumn("AverageAbundance_L", "FLOAT", defaultValue=0.)
+        table.addColumn("RelativeAbundance", "TEXT", defaultValue="")
+        for col in table.getColumns():
+            nam=str(col.name)
+
+            if nam in impCols:
+                continue
+
+            if nam in annotationColumns:
+                frontCols.append(nam)
+                continue
+
+            if nam.endswith("_Stat_fold") or nam=="doublePeak":
+                continue
+
+            endCols.append(nam)
+
+        order=[]
+        order.extend(impCols)
+        order.extend(frontCols)
+        order.extend(endCols)
+        table.addComment("## MetainformationColumns: [%s]"%(",".join(impCols)))
+        table.addComment("## AnnotationColumns: [%s]"%(",".join(annotationColumns)))
+        TableUtils.saveFile(table, str(self.ui.groupsSave.text()), cols=order)
+
+
+        filesForConvolution=[]
+        for group in definedGroups:
+            if group.useForMetaboliteGrouping:
+                for fi in group.files:
+                    fi.replace("\\", "/")
+                    filesForConvolution.append(fi[fi.rfind("/")+1:fi.rfind(".")])
+
+        ogroups=set([ogroup for ogroup in table.getData(["OGroup"])])
+        for ogroup in ogroups:
+            numsInGroup=set([ogroup for ogroup in table.getData(["Num"], where="OGroup=%d"%ogroup)])
+
+            abu={}
+            sum=0
+            for num in numsInGroup:
+                abundances=table.getData([fi+"_Area_N" for fi in filesForConvolution], where="Num=%d"%num)[0]
+                av=mean([ab for ab in abundances if ab!=""])
+                table.setData(["AverageAbundance_N"], [av], where="Num=%d"%num)
+
+                abundances=table.getData([fi+"_Area_L" for fi in filesForConvolution], where="Num=%d"%num)[0]
+                av=mean([ab for ab in abundances if ab!=""])
+                table.setData(["AverageAbundance_L"], [av], where="Num=%d"%num)
+
+                abu[num]=av
+                sum=sum+av
+
+            if len(numsInGroup)>1:
+                for num in numsInGroup:
+                    table.setData(["RelativeAbundance"], ["%.1f%%"%(abu[num]/sum*100.)], where="Num=%d"%num)
+
+        TableUtils.saveFile(table, str(self.ui.groupsSave.text()), cols=order)
+
+
+
+
+
+
+        ## Process MSMS info
+        if self.ui.generateMSMSInfo_CheckBox.isChecked():
+            ## TODO implement here bingo
+
+            inFile=str(self.ui.groupsSave.text())
+            outFile=str(self.ui.groupsSave.text()).replace(".tsv", "_MSMS.tsv")
+
+            definedGroups = [t.data(QListWidgetItem.UserType).toPyObject() for t in
+                             natSort(self.ui.groupsList.findItems('*', QtCore.Qt.MatchWildcard),
+                                     key=lambda x: str(x.data(QListWidgetItem.UserType).toPyObject().name))]
+            samplesForMSMS=[]
+            for group in definedGroups:
+                if group.useAsMSMSTarget:
+                    for i in range(len(group.files)):
+                        fi=group.files[i]
+                        fi=fi.replace("\\", "/")
+                        fi=fi[fi.rfind("/")+1:]
+                        fi=fi.replace(".mzxml", "").replace(".mzXML", "")
+                        if str.isdigit(fi[0]):
+                            fi="_"+fi
+
+                        samplesForMSMS.append(fi)
+
+
+            opt = optimizeMSMSTargets.OptimizeMSMSTargetList()
+
+            opt.readTargetsFromFile(file=inFile, samplesToUse=samplesForMSMS)
+
+            opt.getMostAbundantFileList(minCounts=self.ui.msms_minCounts.value())
+
+            opt.writeTargetsToFile(inFile, inFile)
+
+            opt.generateMSMSLists(samplesForMSMS,
+                                  fileTo=inFile,
+                                  minCounts=self.ui.msms_minCounts.value(),
+                                  numberOfFiles=self.ui.msms_numberOfSamples.value(),
+                                  rtPlusMinus=self.ui.msms_rtWindow.value(),
+                                  maxParallelTargets=self.ui.msms_maxParallelTargets.value())
+
+
+
 
         self.updateLCMSSampleSettings()
 
@@ -3308,9 +3535,6 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         self.closeCurrentOpenResultsFile()
         if self.openFileAsCurrentOpenResultsFile(b.file):
-
-
-
 
             it = QtGui.QTreeWidgetItem(["MZs"])
             self.ui.res_ExtractedData.addTopLevelItem(it)
@@ -4375,7 +4599,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     self.drawPlot(self.ui.pl1, plotIndex=0, x=times[ps:pe], y=xic[ps:pe],
                                   fill=[int(cp.NPeakCenter - cp.NBorderLeft),
                                         int(cp.NPeakCenter + cp.NBorderRight)], rearrange=len(selectedItems) == 1,
-                                  label="%.4f (%s, %s)"%(cp.mz, cp.xCount, cp.ionMode), useCol=useColi)
+                                  label="M: %.4f (%s, %s)"%(cp.mz, cp.xCount, cp.ionMode), useCol=useColi)
 
                     if self.ui.checkBox_showBaseline.isChecked():
                         self.drawPlot(self.ui.pl1, plotIndex=0, x=times[ps:pe], y=xic_baseline[ps:pe],
@@ -4417,7 +4641,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     self.drawPlot(self.ui.pl1, plotIndex=0, x=times[pst:pet], y=xicL[ps:pe],
                                   fill=[int(cp.LPeakCenter - cp.LBorderLeft),
                                         int(cp.LPeakCenter + cp.LBorderRight)], rearrange=len(selectedItems) == 1,
-                                  label=None, useCol=useColi)
+                                  label="M': %.4f (%s, %s)"%(cp.mz, cp.xCount, cp.ionMode), useCol=useColi)
 
                     if self.ui.checkBox_showBaseline.isChecked():
                         self.drawPlot(self.ui.pl1, plotIndex=0, x=times[pst:pet], y=xicL_baseline[ps:pe],
@@ -4884,7 +5108,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                     int(child.NPeakCenter - child.NBorderLeft)),
                                 min(int(child.NPeakCenter + child.NBorderRight),
                                     int(child.LPeakCenter + child.LBorderRight))], rearrange=len(selectedItems) == 1,
-                                          label="%.4f (%d, %s)"%(child.mz, child.xCount, child.ionMode), useCol=useColi)  #useCol=selIndex*2)
+                                          label="M: %.4f (%d, %s)"%(child.mz, child.xCount, child.ionMode), useCol=useColi)  #useCol=selIndex*2)
 
                             if self.ui.checkBox_showBaseline.isChecked():
                                 self.drawPlot(self.ui.pl1, plotIndex=0, x=times[ps:pe], y=xic_baseline[ps:pe], fill=[
@@ -4922,7 +5146,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                     int(child.NPeakCenter - child.NBorderLeft)),
                                 min(int(child.NPeakCenter + child.NBorderRight),
                                     int(child.LPeakCenter + child.LBorderRight))], rearrange=len(selectedItems) == 1,
-                                          label=None, useCol=useColi)
+                                          label="M': %.4f (%d, %s)"%(child.mz, child.xCount, child.ionMode), useCol=useColi)
 
                             if self.ui.showSmoothedEIC_checkBox.isChecked():
                                 self.drawPlot(self.ui.pl1, plotIndex=0, x=times[ps:pe], y=xicL_smoothed[ps:pe], fill=[
@@ -5410,12 +5634,17 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - feature pair mp1 to m ratio abs":
             peaksRatio=[]
+            text, ok = QtGui.QInputDialog.getText(self.parentWidget(), "Isotopic enrichment", "Please enter the isotopic enrichment to be used for the diagnostics plot (e.g. 0.9893)", text="0.9893")
+            isoEnr=0.9893
+            if ok:
+                text=text.replace(",", ".")
+                isoEnr=float(text)
             for row in self.currentOpenResultsFile.curs.execute("SELECT peaksRatioMp1, xcount FROM chromPeaks"):
                 peakRatio,xcount=row
                 if peakRatio==-1:
                     peaksRatio.append(-100.)
                 else:
-                    peaksRatio.append(100.*max(-100, min(100, peakRatio-getNormRatio(0.9893, xcount, 1))))
+                    peaksRatio.append(100.*max(-100, min(100, peakRatio-getNormRatio(isoEnr, xcount, 1))))
             self.ui.pl1.twinxs[0].hist(peaksRatio, [i for i in [i/10. for i in range(-1000, 1000, 25)]], normed=False, facecolor='green', alpha=0.5)
             self.ui.pl1.axes.set_title("Histogram of isotopolog ratio error - observed minus theoretical ratio for M+1 to M")
             self.ui.pl1.axes.set_xlabel("Ratio error (%)")
@@ -5425,12 +5654,17 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - feature pair mp1 to m ratio rel":
             peaksRatio=[]
+            text, ok = QtGui.QInputDialog.getText(self.parentWidget(), "Isotopic enrichment", "Please enter the isotopic enrichment to be used for the diagnostics plot (e.g. 0.9893)", text="0.9893")
+            isoEnr=0.9893
+            if ok:
+                text=text.replace(",", ".")
+                isoEnr=float(text)
             for row in self.currentOpenResultsFile.curs.execute("SELECT peaksRatioMp1, xcount FROM chromPeaks"):
                 peakRatio,xcount=row
                 if peakRatio==-1:
                     peaksRatio.append(-100.)
                 else:
-                    peaksRatio.append(max(-100, min(100, 100*(peakRatio/getNormRatio(0.9893, xcount, 1)-1))))
+                    peaksRatio.append(max(-100, min(100, 100*(peakRatio/getNormRatio(isoEnr, xcount, 1)-1))))
             self.ui.pl1.twinxs[0].hist(peaksRatio, [i for i in [i/10. for i in range(-1000, 1000, 25)]], normed=False, facecolor='green', alpha=0.5)
             self.ui.pl1.axes.set_title("Histogram of RIA  for M+1 to M")
             self.ui.pl1.axes.set_xlabel("RIA (%)")
@@ -5440,6 +5674,11 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - feature pair mp1 to m IRA vs intensity":
             peaksRatio=[]
             areas=[]
+            text, ok = QtGui.QInputDialog.getText(self.parentWidget(), "Isotopic enrichment", "Please enter the isotopic enrichment to be used for the diagnostics plot (e.g. 0.9893)", text="0.9893")
+            isoEnr=0.9893
+            if ok:
+                text=text.replace(",", ".")
+                isoEnr=float(text)
             for row in self.currentOpenResultsFile.curs.execute("SELECT peaksRatioMp1, xcount, LPeakArea FROM chromPeaks"):
                 peakRatio,xcount,area=row
                 area=log10(area)
@@ -5447,7 +5686,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     peaksRatio.append(-100.)
                     areas.append(area)
                 else:
-                    peaksRatio.append(max(-100, min(100, 100*(peakRatio/getNormRatio(0.9893, xcount, 1)-1))))
+                    peaksRatio.append(max(-100, min(100, 100*(peakRatio/getNormRatio(isoEnr, xcount, 1)-1))))
                     areas.append(area)
             self.ui.pl1.twinxs[0].plot(peaksRatio, areas, 'ro')
             self.ui.pl1.axes.set_title("RIA for M+1 to M vs peak intensity")
@@ -5457,9 +5696,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - feature pair mPp1 to mP ratio abs":
             peaksRatio=[]
-            text, ok = QtGui.QInputDialog.getText(self.parentWidget(), "Isotopic enrichment", "Please enter the isotopic enrichment to be used for the diagnostics plot (e.g. 0.986)")
+            text, ok = QtGui.QInputDialog.getText(self.parentWidget(), "Isotopic enrichment", "Please enter the isotopic enrichment to be used for the diagnostics plot (e.g. 0.986)", text="0.986")
             isoEnr=0.986
             if ok:
+                text=text.replace(",", ".")
                 isoEnr=float(text)
             for row in self.currentOpenResultsFile.curs.execute("SELECT peaksRatioMPm1, xcount FROM chromPeaks"):
                 peakRatio,xcount=row
@@ -5475,9 +5715,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - feature pair mPp1 to mP ratio rel":
             peaksRatio=[]
-            text, ok = QtGui.QInputDialog.getText(self.parentWidget(), "Isotopic enrichment", "Please enter the isotopic enrichment to be used for the diagnostics plot (e.g. 0.986)")
+            text, ok = QtGui.QInputDialog.getText(self.parentWidget(), "Isotopic enrichment", "Please enter the isotopic enrichment to be used for the diagnostics plot (e.g. 0.986)", text="0.986")
             isoEnr=0.986
             if ok:
+                text=text.replace(",", ".")
                 isoEnr=float(text)
             for row in self.currentOpenResultsFile.curs.execute("SELECT peaksRatioMPm1, xcount FROM chromPeaks"):
                 peakRatio,xcount=row
@@ -5494,9 +5735,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         elif len(selectedItems)==1 and selectedItems[0].myType == "diagnostic - feature pair mPp1 to mP IRA vs intensity":
             peaksRatio=[]
             areas=[]
-            text, ok = QtGui.QInputDialog.getText(self.parentWidget(), "Isotopic enrichment", "Please enter the isotopic enrichment to be used for the diagnostics plot (e.g. 0.986)")
+            text, ok = QtGui.QInputDialog.getText(self.parentWidget(), "Isotopic enrichment", "Please enter the isotopic enrichment to be used for the diagnostics plot (e.g. 0.986)", text="0.986")
             isoEnr=0.986
             if ok:
+                text=text.replace(",", ".")
                 isoEnr=float(text)
             for row in self.currentOpenResultsFile.curs.execute("SELECT peaksRatioMPm1, xcount, LPeakArea FROM chromPeaks"):
                 peakRatio,xcount,area=row
@@ -6270,7 +6512,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 pw.setTextu("Loading group %s\nFile %s"%(group.name, fi))
 
                 mzXML = Chromatogram()
-                mzXML.parse_file(fi) #intensityCutoff=
+                mzXML.parse_file(fi, intensityCutoff=self.ui.intensityCutoff.value()) #intensityCutoff=
                 self.loadedMZXMLs[fi] = mzXML
                 self.loadedMZXMLs[group.files[i]] = mzXML
 
@@ -6328,10 +6570,14 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         ppm=self.ui.doubleSpinBox_resultsExperiment_EICppm.value()
         borderOffset=self.ui.doubleSpinBox_resultsExperiment_PeakWidth.value()
-        rtlim=[1E6,0]
+        meanRT=[]
         intlim=[0,0]
 
+        mostAbundantFile=None
+
         for h, pi in enumerate(plotItems):
+
+            meanRT.append(pi.rt)
 
             rtBorderMin=pi.rt/60.-borderOffset
             rtBorderMax=pi.rt/60.+borderOffset
@@ -6339,6 +6585,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             for grpInd, group in enumerate(definedGroups):
                 for i in range(len(group.files)):
                     fi = str(group.files[i]).replace("\\", "/")
+                    a=fi[fi.rfind("/") + 1:fi.find(".mzXML")]
                     if pi.scanEvent in self.loadedMZXMLs[fi].getFilterLines(includeMS1=True, includeMS2=False, includePosPolarity=True, includeNegPolarity=True):
 
                         eic, times, scanIds, mzs=self.loadedMZXMLs[fi].getEIC(pi.mz, ppm=ppm, filterLine=pi.scanEvent)
@@ -6363,17 +6610,108 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         if self.ui.resultsExperimentNormaliseXICs_checkBox.isChecked():
                             maxN=maxL
 
-                        rtlim[0] = min(rtlim[0], min([pi.rt/60]+[times[j] / 60. + grpInd for j in range(len(times)) if rtBorderMin<=times[j]/60.<=rtBorderMax and eic[j]>0]))
-                        rtlim[1] = max(rtlim[1], max([pi.rt/60]+[times[j] / 60. + grpInd for j in range(len(times)) if rtBorderMin<=times[j]/60.<=rtBorderMax and eicL[j]>0]))
                         intlim[0] = min(intlim[0], min([-eicL[j]/maxL for j in range(len(eic)) if rtBorderMin <= times[j] / 60. <= rtBorderMax]))
                         intlim[1] = max(intlim[1], max([eic[j]/maxN for j in range(len(eic)) if rtBorderMin <= times[j] / 60. <= rtBorderMax]))
 
+                        scan=self.loadedMZXMLs[fi].getClosestMS1Scan(pi.rt/60., filterLine=pi.scanEvent)
+                        peakID=scan.findMZ(pi.mz, ppm=ppm)
+                        if peakID[0]!=-1:
 
-                        self.ui.resultsExperiment_plot.axes.plot([t / 60. for t in times], [e/maxN for e in eic], color=group.color)
-                        self.ui.resultsExperiment_plot.axes.plot([t / 60. for t in times], [-e/maxL for e in eicL], color=group.color)
+                            if mostAbundantFile is None or scan.intensity_list[peakID[0]]>mostAbundantFile[1]:
 
-                        self.ui.resultsExperimentSeparatedPeaks_plot.axes.plot([t / 60. + grpInd for t in times if rtBorderMin<=t/60.<=rtBorderMax], [eic[j]/maxN for j in range(len(eic)) if rtBorderMin<=times[j]/60.<=rtBorderMax], color=group.color)
-                        self.ui.resultsExperimentSeparatedPeaks_plot.axes.plot([t / 60. + grpInd for t in times if rtBorderMin<=t/60.<=rtBorderMax], [-eicL[j]/maxL for j in range(len(eicL)) if rtBorderMin<=times[j]/60.<=rtBorderMax], color=group.color)
+                                mostAbundantFile=(fi, scan.intensity_list[peakID[0]], scan, group.color)
+
+                        self.ui.resultsExperiment_plot.axes.plot([t / 60. for t in times], [e/maxN for e in eic], color=group.color, label="M: %s"%(a))
+                        self.ui.resultsExperiment_plot.axes.plot([t / 60. for t in times], [-e/maxL for e in eicL], color=group.color, label="M': %s"%(a))
+
+                        self.ui.resultsExperimentSeparatedPeaks_plot.axes.plot([t / 60. + grpInd for t in times if rtBorderMin<=t/60.<=rtBorderMax], [eic[j]/maxN for j in range(len(eic)) if rtBorderMin<=times[j]/60.<=rtBorderMax], color=group.color, label="M: %s"%(a))
+                        self.ui.resultsExperimentSeparatedPeaks_plot.axes.plot([t / 60. + grpInd for t in times if rtBorderMin<=t/60.<=rtBorderMax], [-eicL[j]/maxL for j in range(len(eicL)) if rtBorderMin<=times[j]/60.<=rtBorderMax], color=group.color, label="M': %s"%(a))
+
+
+            maxSigAbundance=0
+            if mostAbundantFile is not None:
+
+                #self.ui.resultsExperiment_plot.axes.axvline(x=pi.rt/60., color=mostAbundantFile[3])
+
+                self.ui.resultsExperimentMSScanPeaks_plot.axes.vlines(x=mostAbundantFile[2].mz_list, ymin=0, ymax=mostAbundantFile[2].intensity_list,
+                                                                      color="lightgrey")
+                intLeft=0
+                mz = pi.mz
+                peakID = mostAbundantFile[2].findMZ(mz, ppm=ppm)
+                if peakID[0] != -1:
+                    intLeft=mostAbundantFile[2].intensity_list[peakID[0]]
+
+                intRight=0
+                mz = pi.lmz
+                peakID = mostAbundantFile[2].findMZ(mz, ppm=ppm)
+                if peakID[0] != -1:
+                    intRight=mostAbundantFile[2].intensity_list[peakID[0]]
+
+
+
+                for i in [0,1,2,3,4,5,6]:
+                    mz=pi.mz+1.00335484*i
+                    peakID = mostAbundantFile[2].findMZ(mz, ppm=ppm)
+                    if peakID[0]!=-1:
+                        self.ui.resultsExperimentMSScanPeaks_plot.axes.vlines(x=mz, ymin=0, ymax=mostAbundantFile[2].intensity_list[peakID[0]],
+                                                                              color=mostAbundantFile[3], linewidth=2.0)
+                    mz=pi.mz-1.00335484*i
+                    peakID = mostAbundantFile[2].findMZ(mz, ppm=ppm)
+                    if peakID[0]!=-1:
+                        self.ui.resultsExperimentMSScanPeaks_plot.axes.vlines(x=mz, ymin=0, ymax=mostAbundantFile[2].intensity_list[peakID[0]],
+                                                                              color=mostAbundantFile[3], linewidth=2.0)
+                    mz=pi.lmz-1.00335484*i
+                    peakID = mostAbundantFile[2].findMZ(mz, ppm=ppm)
+                    if peakID[0]!=-1:
+                        self.ui.resultsExperimentMSScanPeaks_plot.axes.vlines(x=mz, ymin=0, ymax=mostAbundantFile[2].intensity_list[peakID[0]],
+                                                                              color=mostAbundantFile[3], linewidth=2.0)
+                    mz=pi.lmz+1.00335484*i
+                    peakID = mostAbundantFile[2].findMZ(mz, ppm=ppm)
+                    if peakID[0]!=-1:
+                        self.ui.resultsExperimentMSScanPeaks_plot.axes.vlines(x=mz, ymin=0, ymax=mostAbundantFile[2].intensity_list[peakID[0]],
+                                                                              color=mostAbundantFile[3], linewidth=2.0)
+
+                for i in [0,1,2,3]:
+
+                    annotationPPM=5.
+
+                    self.ui.resultsExperimentMSScanPeaks_plot.axes.add_patch(patches.Rectangle(
+                        ((pi.mz + (1.00335 * i) ) * (1. - annotationPPM / 1000000.), intLeft * 0),
+                        (pi.mz + (1.00335 * i) ) * (2 * annotationPPM / 1000000.), intLeft,
+                        edgecolor='none', facecolor='purple', alpha=0.4))
+
+                    self.ui.resultsExperimentMSScanPeaks_plot.axes.add_patch(patches.Rectangle(
+                        ((pi.lmz + (1.00335 * i) ) * (1. - annotationPPM / 1000000.), intRight * 0),
+                        (pi.lmz + (1.00335 * i) ) * (2 * annotationPPM / 1000000.), intRight,
+                        edgecolor='none', facecolor='purple', alpha=0.4))
+
+
+                    rat=getNormRatio(0.9893, 15, i)
+                    self.ui.resultsExperimentMSScanPeaks_plot.axes.add_patch(patches.Rectangle(
+                        ((pi.mz + (1.00335 * i) ) * (1. - 2*annotationPPM / 1000000.), intLeft*rat*0.98),
+                        (pi.mz + (1.00335 * i) ) * (4 * annotationPPM / 1000000.), intLeft*rat*0.04,
+                        edgecolor='none', facecolor='orange', alpha=0.8))
+
+                    rat = getNormRatio(0.993, 15, i)
+                    self.ui.resultsExperimentMSScanPeaks_plot.axes.add_patch(patches.Rectangle(
+                        ((pi.lmz + (1.00335 * i) ) * (1. - 2*annotationPPM / 1000000.), intRight * rat*0.98),
+                        (pi.lmz + (1.00335 * i) ) * (4 * annotationPPM / 1000000.), intRight*rat*0.04,
+                        edgecolor='none', facecolor='orange', alpha=0.8))
+
+                peakID = mostAbundantFile[2].findMZ(pi.mz, ppm=ppm)
+                peakID2 = mostAbundantFile[2].findMZ(pi.lmz, ppm=ppm)
+
+                if peakID[0]!=-1:
+                    maxSigAbundance=max(maxSigAbundance, mostAbundantFile[2].intensity_list[peakID[0]])
+                if peakID2[0]!=-1:
+                    maxSigAbundance=max(maxSigAbundance, mostAbundantFile[2].intensity_list[peakID2[0]])
+
+        if len(plotItems)==1:
+            pi=plotItems[0]
+            for grpInd, group in enumerate(definedGroups):
+                self.ui.resultsExperimentSeparatedPeaks_plot.axes.axvline(x=grpInd+pi.rt/60., color=group.color)
+                self.ui.resultsExperimentSeparatedPeaks_plot.axes.text(x=grpInd-0.05+pi.rt/60., y=intlim[1]*1.75, s=group.name, rotation=90, horizontalalignment='left', color=group.color, backgroundcolor="white")
+            intlim[1]=intlim[1]*1.5
 
         self.ui.resultsExperiment_plot.axes.set_title("Overlaid EICs of selected feature pairs or groups")
         self.ui.resultsExperiment_plot.axes.set_xlabel("Retention time (min)")
@@ -6382,11 +6720,12 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_xlabel("Retention time (min)")
         self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_ylabel("Intensity")
 
-        rtlim=[rtlim[0]-(rtlim[1]-rtlim[0])*0.1, rtlim[1]+(rtlim[1]-rtlim[0])*0.1]
+
+        rtlim=[mean(meanRT)/60.-borderOffset, mean(meanRT)/60.+borderOffset]
         intlim=[intlim[0]*1.1, intlim[1]*1.1]
         self.drawCanvas(self.ui.resultsExperiment_plot, xlim=rtlim, ylim=intlim)
-        self.drawCanvas(self.ui.resultsExperimentSeparatedPeaks_plot)
-        self.drawCanvas(self.ui.resultsExperimentMSScanPeaks_plot)
+        self.drawCanvas(self.ui.resultsExperimentSeparatedPeaks_plot, showLegendOverwrite=False)
+        self.drawCanvas(self.ui.resultsExperimentMSScanPeaks_plot, xlim=[pi.mz-5, pi.lmz+5], ylim=[0, maxSigAbundance])
 
 
     def exportAsPDF(self, pdfFile=None):
@@ -6397,6 +6736,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         for i in range(self.ui.resultsExperiment_TreeWidget.topLevelItemCount()):
             item=self.ui.resultsExperiment_TreeWidget.topLevelItem(i)
             features = []
+            ogrp=""
             for j in range(item.childCount()):
                 child=item.child(j)
                 features.append(Bunch(num=child.bunchData.id,
@@ -6409,8 +6749,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                       filterLine=child.bunchData.scanEvent,
                                       ionisationMode=child.bunchData.ionisationMode,
                                       comment=""))
+                ogrp=item.bunchData.metaboliteGroupID
 
-            metabolitesToPlot.append(Bunch(name="unknown_"+str(item.bunchData.metaboliteGroupID), ogroup=item.bunchData.metaboliteGroupID,
+            metabolitesToPlot.append(Bunch(name="unknown_"+str(ogrp), ogroup=ogrp,
                                            features=features))
 
         if pdfFile == None or pdfFile==False:
@@ -6591,9 +6932,11 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         gName = gName[(gName.rfind("/") + 1):]
                         gNames[gName]=len(files)
 
-                    if QtGui.QMessageBox.question(self, "MetExtract", "Do you want to automatically assign all files to separate groups? Everything before the last '_' character will be used as the group identifier and everything after the last '_' character will be used as the replicate identifier.\n\nThe following groups will be created: \n\n"+"\n".join([u"\u2022  "+gN+" (" + str(gNames[gN]) + " files)" for gN in gNames.keys()]), QtGui.QMessageBox.Yes | QtGui.QMessageBox.No) == QtGui.QMessageBox.Yes:
+                    if QtGui.QMessageBox.question(self, "MetExtract", "Do you want to automatically assign all files to separate groups? Everything before the last '_' character will be used as the group identifier and everything after the last '_' character will be used as the replicate identifier.\n\nThe following groups will be created: \n\n"+"\n".join([u"\u2022  "+gN+" (" + str(gNames[gN]) + " files)" for gN in natSort(gNames.keys())]), QtGui.QMessageBox.Yes | QtGui.QMessageBox.No) == QtGui.QMessageBox.Yes:
 
-                        for gName, files in groups.items():
+                        groupNames=natSort([gName for gName in groups.keys()])
+                        for gName in groupNames:
+                            files = groups[gName]
                             gName = gName.replace("\\", "/")
                             gName = gName[(gName.rfind("/") + 1):]
                             self.showAddGroupDialog(initWithGroupName=gName, initWithFiles=files)
@@ -6821,6 +7164,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.ui.alignChromatograms.toggled.connect(self.alignToggled)
 
         self.ui.groupsSave.setText("./results.tsv")
+        self.ui.msms_fileLocation.setText("./MSMStargets.tsv")
 
         self.ui.addGroup.clicked.connect(self.showAddGroupDialogClicked)
         self.ui.saveGroups.clicked.connect(self.saveGroupsClicked)
@@ -6837,6 +7181,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.ui.isotopeBText.setText("13C")
 
         self.ui.groupsSelectFile.clicked.connect(self.selectGroupsFile)
+
+        self.ui.msms_selectFile.clicked.connect(self.selectMSMSTargetFile)
 
         self.ui.actionIsotopic_enrichment.triggered.connect(self.showCalcIsoEnrichmentDialog)
         self.ui.actionSet_working_directory.triggered.connect(self.setWorkingDirectoryDialog)

@@ -90,6 +90,9 @@ class groupEdit(QtGui.QDialog, Ui_GroupEditor):
     def getGroupColor(self):
         return self.colors[self.colorsComboBox.currentIndex()]
 
+    def getUseAsMSMSTarget(self):
+        return bool(self.useAsMSMSTarget.checkState() == QtCore.Qt.Checked)
+
     def selectFiles(self):
         filenames = QtGui.QFileDialog.getOpenFileNames(self, caption="Select group file(s)", directory=self.initDir,
                                                        filter="mzXML (*.mzxml);;mzML (*.mzml);;group file (*.grp);;All files (*.*)")
@@ -112,7 +115,7 @@ class groupEdit(QtGui.QDialog, Ui_GroupEditor):
                         self.groupfiles.append(root + "/" + file)
 
 
-    def executeDialog(self, groupName="", groupfiles=[], minimumGroupFound=1, omitFeatures=True, useForMetaboliteGrouping=True, removeAsFalsePositive=False, activeColor="Red"):
+    def executeDialog(self, groupName="", groupfiles=[], minimumGroupFound=1, omitFeatures=True, useForMetaboliteGrouping=True, removeAsFalsePositive=False, activeColor="Red", useAsMSMSTarget=False):
 
         for file in groupfiles:
             self.groupFiles.addItem(file)
@@ -146,6 +149,11 @@ class groupEdit(QtGui.QDialog, Ui_GroupEditor):
             self.removeAsFalsePositive.setCheckState(QtCore.Qt.Checked)
         else:
             self.removeAsFalsePositive.setCheckState(QtCore.Qt.Unchecked)
+
+        if useAsMSMSTarget:
+            self.useAsMSMSTarget.setCheckState(QtCore.Qt.Checked)
+        else:
+            self.useAsMSMSTarget.setCheckState(QtCore.Qt.Unchecked)
 
         self.groupName.setFocus()
         return self.exec_()

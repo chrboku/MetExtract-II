@@ -830,7 +830,7 @@ def getPeak(times, rt, borderleft, borderright):
 
 
 def calculateMetaboliteGroups(file="./results.tsv", groups=[], eicPPM=10., maxAnnotationTimeWindow=0.05,
-                              minConnectionsInFiles=1, minConnectionRate=0.4, minPeakCorrelation=0.85,
+                              minConnectionsInFiles=1, minConnectionRate=0.4, minPeakCorrelation=0.85, useRatio=False,
                               runIdentificationInstance=None, pwMaxSet=None, pwValSet=None, pwTextSet=None, cpus=1):
 
     logging.info("Starting convoluting feature pairs..")
@@ -881,7 +881,7 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[], eicPPM=10., maxAn
             logging.info("  found double peaks: %d"%doublePeaks)
         writeCols=[]
         if doublePeaks>0:
-            TableUtils.saveFile(table, file.replace(".tsv", ".doubleFPs.tsv"), cols=writeCols, order="OGroup, MZ, Xn", where="doublePeak>0")
+            TableUtils.saveFile(table, file.replace(".tsv", ".doublePeaks.tsv"), cols=writeCols, order="OGroup, MZ, Xn", where="doublePeak>0")
 
         table.executeSQL("DELETE FROM :table: WHERE doublePeak>0")
         ## file specific columns
@@ -970,6 +970,7 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[], eicPPM=10., maxAn
             fileCorrelations[procObjects[rei].fi] = re[0]
             fileSILRatios[procObjects[rei].fi] = re[1]
 
+        logging.info("Testing SIL ratios")
         ## test all feature pair pairs for co-elution and similar SIL ratio
         connections={}
         for fpNumA in nodes.keys():
@@ -999,7 +1000,7 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[], eicPPM=10., maxAn
 
                     if len(allCorrelations)>0 and len(allSILRatios)>0:
                         if sum([co>=minPeakCorrelation for co in allCorrelations])>=minConnectionRate*len(allCorrelations) and \
-                                sum([rat for rat in allSILRatios])>=minConnectionRate*len(allSILRatios):
+                                (not useRatio or sum([rat for rat in allSILRatios])>=minConnectionRate*len(allSILRatios)):
                             nodes[nodeA.fpNum].correlationToOtherFPs[nodeB.fpNum] = True
                             nodes[nodeB.fpNum].correlationToOtherFPs[nodeA.fpNum] = True
 
@@ -1067,14 +1068,12 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[], eicPPM=10., maxAn
                     aboveThreshold = sum([corr > corrThreshold for corr in corrs])
                     aboveThresholdRKid = sum([corr > corrThreshold for corr in corrsRKid])
 
-                if (aboveThresholdLKid * 1. / len(corrs)) >= cutOffMinRatio and (
-                        aboveThreshold * 1. / len(corrs)) >= cutOffMinRatio and (
-                        aboveThresholdRKid * 1. / len(corrs)) >= cutOffMinRatio:
+                if (aboveThreshold * 1. / len(corrs)) >= cutOffMinRatio:
                     return False
                 else:
                     return True
 
-            subClusts = hc.splitTreeWithCallback(tree,CallBackMethod(_target=checkSubCluster, corrThreshold=0.85,cutOffMinRatio=0.4).getRunMethod(),recursive=False)
+            subClusts = hc.splitTreeWithCallback(tree,CallBackMethod(_target=checkSubCluster, corrThreshold=minPeakCorrelation,cutOffMinRatio=minConnectionRate).getRunMethod(),recursive=False)
 
             # convert the subclusters into arrays of feature pairs belonging to the same metabolite
             return [[leaf.getID() for leaf in subClust.getLeaves()] for subClust in subClusts]
@@ -1083,6 +1082,7 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[], eicPPM=10., maxAn
         groups = []
         done = 0
         for tGroup in tGroups:
+            print "Group", done, "with elements", len(tGroup), "of", len(tGroups)
             cGroups = [tGroup]
             while len(cGroups) > 0:
                 gGroup = cGroups.pop(0)
@@ -1110,7 +1110,7 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[], eicPPM=10., maxAn
 
             curGroup+=1
 
-
+        logging.info("Annotating ions in feature groups")
         # Annotate groups with common adducts and in-source fragments
         if runIdentificationInstance is not None:
             groups=defaultdict(list)
@@ -1155,7 +1155,8 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[], eicPPM=10., maxAn
 
         processingParams=Bunch()
         processingParams.MEConvoluting_groups=str(useGroupsForConfig).replace("'","").replace("\"","")
-        processingParams.MEConvoluting_connThreshold=minConnectionsInFiles
+        processingParams.MEConvoluting_connThreshold=minConnectionRate
+        processingParams.MEConvoluting_minPeakCorrelation=minPeakCorrelation
         table.addComment("## Convolution FPs processing parameters %s"%(processingParams.dumpAsJSon().replace("\"", "'")))
 
         writeCols=[]
@@ -1243,28 +1244,43 @@ class ConvoluteFPsInFile:
 
                             meanRT = mean([nodeA.rt, nodeB.rt])
 
-                            eicAL, times, scanIds, mzs = mzXML.getEIC(nodeA.lmz, ppm=eicPPM, filterLine=nodeA.scanEvent,
+                            eicAL, timesA, scanIdsA, mzs = mzXML.getEIC(nodeA.lmz, ppm=eicPPM, filterLine=nodeA.scanEvent,
                                                                       removeSingles=True, intThreshold=0, useMS1=True,
                                                                       useMS2=False, startTime=meanRT * 60 - 120,
                                                                       endTime=meanRT * 60 + 120)
-                            eicBL, times, scanIds, mzs = mzXML.getEIC(nodeB.lmz, ppm=eicPPM, filterLine=nodeB.scanEvent,
+                            eicBL, timesB, scanIdsB, mzs = mzXML.getEIC(nodeB.lmz, ppm=eicPPM, filterLine=nodeB.scanEvent,
                                                                       removeSingles=True, intThreshold=0, useMS1=True,
                                                                       useMS2=False, startTime=meanRT * 60 - 120,
                                                                       endTime=meanRT * 60 + 120)
 
-                            eicA, times, scanIds, mzs = mzXML.getEIC(nodeA.mz, ppm=eicPPM, filterLine=nodeA.scanEvent,
+                            eicA, timesA, scanIdsA, mzs = mzXML.getEIC(nodeA.mz, ppm=eicPPM, filterLine=nodeA.scanEvent,
                                                                      removeSingles=True, intThreshold=0, useMS1=True,
                                                                      useMS2=False, startTime=meanRT * 60 - 120,
                                                                      endTime=meanRT * 60 + 120)
-                            eicB, times, scanIds, mzs = mzXML.getEIC(nodeB.mz, ppm=eicPPM, filterLine=nodeB.scanEvent,
+                            eicB, timesB, scanIdsB, mzs = mzXML.getEIC(nodeB.mz, ppm=eicPPM, filterLine=nodeB.scanEvent,
                                                                      removeSingles=True, intThreshold=0, useMS1=True,
                                                                      useMS2=False, startTime=meanRT * 60 - 120,
                                                                      endTime=meanRT * 60 + 120)
-                            timesMin = [t / 60. for t in times]
+
+
+
+                            timesMin = [t for t in timesA]
+                            timesMin.extend([t for t in timesB])
+                            timesMin=sorted(timesMin)
+
+                            from utils import mapArrayToRefTimes
+
+                            eicAL=mapArrayToRefTimes(eicAL, timesA, timesMin)
+                            eicBL=mapArrayToRefTimes(eicBL, timesB, timesMin)
+                            eicA=mapArrayToRefTimes(eicA, timesA, timesMin)
+                            eicB=mapArrayToRefTimes(eicB, timesB, timesMin)
+
+                            timesMin=[t/60. for t in timesMin]
+
 
                             ## A) Test correlation of different feature pairs
                             try:
-                                lI, rI = getPeak(timesMin, meanRT, min(nanbl, nbnbl), min(nanbr, nbnbr))
+                                lI, rI = getPeak(timesMin, meanRT, min(nanbl, nbnbl)*2, min(nanbr, nbnbr)*2)
 
                                 eicAC = eicAL[lI:rI]
                                 eicBC = eicBL[lI:rI]
@@ -1280,7 +1296,7 @@ class ConvoluteFPsInFile:
 
                             ## B) Test similarity of native:labeled ratio
                             try:
-                                lISIL, rISIL = getPeak(timesMin, nodeA.rt, min(nanbl, nanbr) * .4, min(nalbl, nalbr) * .4)
+                                lISIL, rISIL = getPeak(timesMin, nodeA.rt, min(nanbl, nanbr) * .8, min(nalbl, nalbr) * .8)
 
                                 eicANCSIL = eicA[lISIL:rISIL]
                                 eicALCSIL = eicAL[lISIL:rISIL]
@@ -1289,7 +1305,7 @@ class ConvoluteFPsInFile:
                                 ma = mean(folds)
                                 sa = sd(folds)
 
-                                lISIL, rISIL = getPeak(timesMin, nodeB.rt, min(nanbl, nanbr) * .4, min(nalbl, nalbr) * .4)
+                                lISIL, rISIL = getPeak(timesMin, nodeB.rt, min(nanbl, nanbr) * .8, min(nalbl, nalbr) * .8)
 
                                 eicBNCSIL = eicB[lISIL:rISIL]
                                 eicBLCSIL = eicBL[lISIL:rISIL]
@@ -1299,8 +1315,11 @@ class ConvoluteFPsInFile:
                                 sb = sd(folds)
 
                                 if ma != None and mb != None and sa != None and sb != None:
-                                    silRatioFold = (max([ma, mb]) - min([ma, mb]))
-                                    fileSILRatios[fpNumA][fpNumB] = silRatioFold <= 1 + max(0.2, 3 * mean([sa, sb]))
+                                    silRatioFold = (max([ma, mb]) / min([ma, mb]))
+                                    #print ma, mb, sa, sb, max([ma, mb]), min([ma, mb])
+                                    fileSILRatios[fpNumA][fpNumB] = silRatioFold <= 1 + max(0.5, 3 * mean([sa, sb]))
+
+                                    #print fiName, nodeA.mz, nodeB.mz, meanRT, silRatioFold, co
                             except Exception as err:
                                 logging.error(
                                     "  Error during convolution of feature pairs (SIL-ratio, Nums: %s and %s, message: %s).." % (

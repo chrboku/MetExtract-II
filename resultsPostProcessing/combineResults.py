@@ -39,7 +39,10 @@ def readDataMatrixToTable(matFile):
                     d = {}
                     cells = line.split("\t")
                     for i, h in enumerate(res.columns):
-                        d[h] = cells[i]
+                        if i < len(cells):
+                            d[h] = cells[i]
+                        else:
+                            d[h] = ""
                     res.data.append(Bunch(**d))
 
     ## check column types and parse them

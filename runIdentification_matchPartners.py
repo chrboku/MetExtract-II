@@ -115,7 +115,7 @@ def matchPartners(mzXMLData, forFile,
 
     labelingElements={}
     labelingElements["C"]=Bunch(nativeIsotope="12C", labelingIsotope="13C", massNative=12.      , massLabeled=13.00335 , isotopicEnrichmentNative=0.9893, isotopicEnrichmentLabeled=0.995, minXn=1, maxXn=3)
-    labelingElements["H"]=Bunch(nativeIsotope= "1H", labelingIsotope= "2H", massNative=1.0078250, massLabeled=2.0141018, isotopicEnrichmentNative=0.9999, isotopicEnrichmentLabeled=0.96 , minXn=1, maxXn=9)
+    labelingElements["H"]=Bunch(nativeIsotope= "1H", labelingIsotope= "2H", massNative=1.0078250, massLabeled=2.0141018, isotopicEnrichmentNative=0.9999, isotopicEnrichmentLabeled=0.96 , minXn=0, maxXn=9)
 
     minLabelingAtoms=5
     maxLabelingAtoms=5
@@ -124,20 +124,22 @@ def matchPartners(mzXMLData, forFile,
     combs=[]
     for comb in tempCombs:
         ## remove implausible labeling combinations
-        if False:
-            if comb.atomsCount==5 and "C" in comb.atoms.keys() and comb.atoms["C"]==2 and "H" in comb.atoms.keys() and comb.atoms["H"]==3:
+        if True:
+            if "C" in comb.atoms.keys() and comb.atoms["C"]==1 and ("H" not in comb.atoms.keys() or ("H" in comb.atoms.keys() and comb.atoms["H"] in [1,2,3])):
                 combs.append(comb)
-            if comb.atomsCount==4 and "C" in comb.atoms.keys() and comb.atoms["C"]==2 and "H" in comb.atoms.keys() and comb.atoms["H"]==2:
+            if "C" in comb.atoms.keys() and comb.atoms["C"]==2 and ("H" not in comb.atoms.keys() or ("H" in comb.atoms.keys() and comb.atoms["H"] in [1,2,3,4,5,6])):
+                combs.append(comb)
+            if "C" in comb.atoms.keys() and comb.atoms["C"]==3 and ("H" not in comb.atoms.keys() or ("H" in comb.atoms.keys() and comb.atoms["H"] in [1,2,3,4,5,6,7,8,9])):
                 combs.append(comb)
 
-        if True:
-            if (comb.atomsCount>=2 and comb.atomsCount<=3) or (comb.atomsCount>=5 and comb.atomsCount<=12):
-                combs.append(comb)
     fT = formulaTools()
 
-    print "The following labeling configurations are used:"
-    for comb in combs:
-        print comb
+    useDoubleLabelingCombinations=False
+
+    if useDoubleLabelingCombinations:
+        print "The following labeling configurations are used:"
+        for comb in combs:
+            print comb
 
 
 
@@ -218,7 +220,7 @@ def matchPartners(mzXMLData, forFile,
                                         # Requires: - a high resolution and separation of different isotoplogs (especially carbon)
                                         # EXPERIMENTAL: has not been tested with real data (not N or S labelled sample material
                                         #               was available)
-                                        if False and useCIsotopePatternValidation != 0:
+                                        if not useDoubleLabelingCombinations and useCIsotopePatternValidation != 0:
                                             #region
                                             # (0.) verify that peak is M and not something else (e.g. M+1, M+1...)
                                             ## TODO improve me. Use seven golden rules or the number of carbon atoms
@@ -343,7 +345,7 @@ def matchPartners(mzXMLData, forFile,
                                         # |||                  |||
                                         # Necessary mainly for 13C-labelling with mirror-symmetric isotope patterns
                                         # NOTE: - Approach is mainly used for 13C-labelling
-                                        if False and useCIsotopePatternValidation==0:
+                                        if not useDoubleLabelingCombinations and useCIsotopePatternValidation==0:
                                             # region
                                             # (0.) verify that peak is M and not something else (e.g. M+1, M+1...)
                                             ## TODO improve me. Use seven golden rules or the number of carbon atoms
@@ -486,7 +488,7 @@ def matchPartners(mzXMLData, forFile,
                                         # |||              ||||
                                         # NOTE: currently, the labeling elements must be defined in the code
                                         # NOTE: The option must be activated and the other two options must be deactivated
-                                        if True:
+                                        if useDoubleLabelingCombinations:
                                             # find M+1 peak
                                             isoM_p1 = curScan.findMZ(curPeakmz + cValidationOffset / curLoading, ppm,
                                                                      start=currentPeakIndex)

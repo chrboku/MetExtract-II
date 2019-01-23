@@ -19,7 +19,7 @@ exIonMode = "Ionisation_Mode"
 exCharge = "Charge"
 
 
-def processFile(file, columns, adducts, ppm=5., useAtoms=[], atomsRange=[], smCol="sumFormula_", toFile=None, useSevenGoldenRules=True, useCn=True):
+def processFile(file, columns, adducts, ppm=5., ppmCorrection=0, useAtoms=[], atomsRange=[], smCol="sumFormula_", toFile=None, useSevenGoldenRules=True, useCn=True, pwMaxSet=None, pwValSet=None):
 
     if toFile is None:
         toFile = file.replace(".tsv", ".SFs.tsv").replace(".txt", ".SFs.txt")
@@ -51,6 +51,9 @@ def processFile(file, columns, adducts, ppm=5., useAtoms=[], atomsRange=[], smCo
     if not smCol + "_CHONPS"+"_count" in [col.name for col in table.getColumns()]:
         table.addColumn(smCol + "_CHONPS"+"_count", "INTEGER")
 
+    if not "all_"+smCol+"_count" in [col.name for col in table.getColumns()]:
+        table.addColumn("all_"+smCol+"_count", "INTEGER")
+
     if not smCol+"_CHO" in [col.name for col in table.getColumns()]:
         table.addColumn(smCol+"_CHO", "TEXT")
     if not smCol + "_CHON" in [col.name for col in table.getColumns()]:
@@ -68,14 +71,13 @@ def processFile(file, columns, adducts, ppm=5., useAtoms=[], atomsRange=[], smCo
     if not smCol + "_CHONPS" in [col.name for col in table.getColumns()]:
         table.addColumn(smCol + "_CHONPS", "TEXT")
 
-    if not "all_"+smCol+"_count" in [col.name for col in table.getColumns()]:
-        table.addColumn("all_"+smCol+"_count", "INTEGER")
 
     class formulaSearch:
-        def __init__(self, columns, adducts, ppm, useAtoms, atomsRange, useSevenGoldenRules, useCn):
+        def __init__(self, columns, adducts, ppm, ppmCorrection, useAtoms, atomsRange, useSevenGoldenRules, useCn):
             self.columns = columns
             self.adducts = adducts
             self.ppm = ppm
+            self.ppmCorrection = ppmCorrection
             self.useAtoms = useAtoms
             self.atomsRange = atomsRange
             self.useSevenGoldenRules=useSevenGoldenRules
@@ -85,6 +87,7 @@ def processFile(file, columns, adducts, ppm=5., useAtoms=[], atomsRange=[], smCo
 
             sfg = SGRGenerator()
             mz = x[self.columns[exMZ]]
+            mz = mz+mz*1.*self.ppmCorrection/1E6
             if self.columns[exAccMass] in x.keys():
                 accMass = x[self.columns[exAccMass]]
             else:
@@ -177,7 +180,7 @@ def processFile(file, columns, adducts, ppm=5., useAtoms=[], atomsRange=[], smCo
                 x[smCol + "_CHO_count"] = len(dbe[smCol + "_CHO"])
             else:
                 x[smCol + "_CHO"] = ""
-                x[smCol + "_CHO_count"] = 0
+                x[smCol + "_CHO_count"] = ""
 
             if len(dbe[smCol + "_CHOS"]) > 0:
                 if len(dbe[smCol + "_CHOS"]) > 250:
@@ -187,7 +190,7 @@ def processFile(file, columns, adducts, ppm=5., useAtoms=[], atomsRange=[], smCo
                 x[smCol + "_CHOS"+"_count"] = len(dbe[smCol + "_CHOS"])
             else:
                 x[smCol + "_CHOS"] = ""
-                x[smCol + "_CHOS"+"_count"] = 0
+                x[smCol + "_CHOS"+"_count"] = ""
 
             if len(dbe[smCol + "_CHOP"]) > 0:
                 if len(dbe[smCol + "_CHOP"]) > 250:
@@ -197,7 +200,7 @@ def processFile(file, columns, adducts, ppm=5., useAtoms=[], atomsRange=[], smCo
                 x[smCol + "_CHOP"+"_count"] = len(dbe[smCol + "_CHOP"])
             else:
                 x[smCol + "_CHOP"] = ""
-                x[smCol + "_CHOP"+"_count"] = 0
+                x[smCol + "_CHOP"+"_count"] = ""
 
             if len(dbe[smCol + "_CHON"]) > 0:
                 if len(dbe[smCol + "_CHON"]) > 250:
@@ -207,7 +210,7 @@ def processFile(file, columns, adducts, ppm=5., useAtoms=[], atomsRange=[], smCo
                 x[smCol + "_CHON"+"_count"] = len(dbe[smCol + "_CHON"])
             else:
                 x[smCol + "_CHON"] = ""
-                x[smCol + "_CHON"+"_count"] = 0
+                x[smCol + "_CHON"+"_count"] = ""
 
             if len(dbe[smCol + "_CHONP"]) > 0:
                 if len(dbe[smCol + "_CHONP"]) > 250:
@@ -217,7 +220,7 @@ def processFile(file, columns, adducts, ppm=5., useAtoms=[], atomsRange=[], smCo
                 x[smCol + "_CHONP"+"_count"] = len(dbe[smCol + "_CHONP"])
             else:
                 x[smCol + "_CHONP"] = ""
-                x[smCol + "_CHONP"+"_count"] = 0
+                x[smCol + "_CHONP"+"_count"] = ""
 
             if len(dbe[smCol + "_CHONS"]) > 0:
                 if len(dbe[smCol + "_CHONS"]) > 250:
@@ -227,7 +230,7 @@ def processFile(file, columns, adducts, ppm=5., useAtoms=[], atomsRange=[], smCo
                 x[smCol + "_CHONS"+"_count"] = len(dbe[smCol + "_CHONS"])
             else:
                 x[smCol + "_CHONS"] = ""
-                x[smCol + "_CHONS"+"_count"] = 0
+                x[smCol + "_CHONS"+"_count"] = ""
 
             if len(dbe[smCol + "_CHOPS"]) > 0:
                 if len(dbe[smCol + "_CHOPS"]) > 250:
@@ -237,7 +240,7 @@ def processFile(file, columns, adducts, ppm=5., useAtoms=[], atomsRange=[], smCo
                 x[smCol + "_CHOPS"+"_count"] = len(dbe[smCol + "_CHOPS"])
             else:
                 x[smCol + "_CHOPS"] = ""
-                x[smCol + "_CHOPS"+"_count"] = 0
+                x[smCol + "_CHOPS"+"_count"] = ""
 
             if len(dbe[smCol + "_CHONPS"]) > 0:
                 if len(dbe[smCol + "_CHONPS"]) > 250:
@@ -247,15 +250,15 @@ def processFile(file, columns, adducts, ppm=5., useAtoms=[], atomsRange=[], smCo
                 x[smCol + "_CHONPS"+"_count"] = len(dbe[smCol + "_CHONPS"])
             else:
                 x[smCol + "_CHONPS"] = ""
-                x[smCol + "_CHONPS"+"_count"] = 0
+                x[smCol + "_CHONPS"+"_count"] = ""
 
             x["all_"+smCol+"_count"] = len(dbe[smCol + "_CHO"])+len(dbe[smCol + "_CHOS"])+len(dbe[smCol + "_CHOP"])+len(dbe[smCol + "_CHON"])+len(dbe[smCol + "_CHONP"])+len(dbe[smCol + "_CHONS"])+ \
                                         len(dbe[smCol + "_CHOPS"])+ len(dbe[smCol + "_CHONPS"])
 
             return x
 
-    x = formulaSearch(columns, adducts, ppm, useAtoms, atomsRange, useSevenGoldenRules=useSevenGoldenRules, useCn=useCn)
-    table.applyFunction(x.updateSumFormulaCol, showProgress=True)
+    x = formulaSearch(columns, adducts, ppm, ppmCorrection, useAtoms, atomsRange, useSevenGoldenRules=useSevenGoldenRules, useCn=useCn)
+    table.applyFunction(x.updateSumFormulaCol, showProgress=True, pwMaxSet=pwMaxSet, pwValSet=pwValSet)
 
     table.addComment("## Sum formula generation. Adducts %s, ppm %.1f, atoms %s, atomsRange %s, seven golden rules %s, useXn %s"%(str(adducts), ppm, str(useAtoms), str(atomsRange), str(useSevenGoldenRules), str(useCn)))
 
@@ -282,11 +285,13 @@ def natSort(l, key=lambda ent: ent):
 
 
 
-def annotateResultsWithSumFormulas(resultsFile, useAtoms, atomsRange, Xn, useExactXn, ppm=5., adducts=adductsN+adductsP):
+def annotateResultsWithSumFormulas(resultsFile, useAtoms, atomsRange, Xn, useExactXn, ppm=5., ppmCorrection=0, adducts=adductsN+adductsP, pwMaxSet=None, pwValSet=None):
 
     processFile(resultsFile, toFile=resultsFile,
                 columns={exID: exID, exMZ: exMZ, exRT: exRT, exAccMass: exAccMass, exXCount: exXCount,
-                         exIonMode: exIonMode, exCharge: exCharge}, adducts=adducts, ppm=ppm,
+                         exIonMode: exIonMode, exCharge: exCharge},
+                adducts=adducts, ppm=ppm, ppmCorrection=ppmCorrection,
                 smCol="SFs",
                 useAtoms=deepcopy(useAtoms), atomsRange=deepcopy(atomsRange), useCn=useExactXn,
-                useSevenGoldenRules=True)
+                useSevenGoldenRules=True,
+                pwMaxSet=pwMaxSet, pwValSet=pwValSet)

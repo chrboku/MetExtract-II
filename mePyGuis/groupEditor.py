@@ -170,10 +170,10 @@ class Ui_GroupEditor(object):
         self.gridLayout_3.addWidget(self.groupMinimumFound, 0, 3, 1, 1)
         self.colorsComboBox = QtGui.QComboBox(GroupEditor)
         self.colorsComboBox.setObjectName(_fromUtf8("colorsComboBox"))
-        self.gridLayout_3.addWidget(self.colorsComboBox, 4, 2, 1, 2)
+        self.gridLayout_3.addWidget(self.colorsComboBox, 5, 2, 1, 2)
         self.label_7 = QtGui.QLabel(GroupEditor)
         self.label_7.setObjectName(_fromUtf8("label_7"))
-        self.gridLayout_3.addWidget(self.label_7, 4, 1, 1, 1)
+        self.gridLayout_3.addWidget(self.label_7, 5, 1, 1, 1)
         self.label_4 = QtGui.QLabel(GroupEditor)
         self.label_4.setObjectName(_fromUtf8("label_4"))
         self.gridLayout_3.addWidget(self.label_4, 0, 1, 1, 2)
@@ -188,6 +188,9 @@ class Ui_GroupEditor(object):
         self.removeAsFalsePositive = QtGui.QCheckBox(GroupEditor)
         self.removeAsFalsePositive.setObjectName(_fromUtf8("removeAsFalsePositive"))
         self.gridLayout_3.addWidget(self.removeAsFalsePositive, 3, 1, 1, 3)
+        self.useAsMSMSTarget = QtGui.QCheckBox(GroupEditor)
+        self.useAsMSMSTarget.setObjectName(_fromUtf8("useAsMSMSTarget"))
+        self.gridLayout_3.addWidget(self.useAsMSMSTarget, 4, 1, 1, 3)
         self.gridLayout_2.addLayout(self.gridLayout_3, 7, 4, 1, 1)
         self.gridLayout.addLayout(self.gridLayout_2, 0, 0, 1, 3)
 
@@ -219,9 +222,11 @@ class Ui_GroupEditor(object):
         self.label.setText(_translate("GroupEditor", "Group name", None))
         self.label_7.setText(_translate("GroupEditor", "Color", None))
         self.label_4.setText(_translate("GroupEditor", "Minimum found ", None))
+        self.omitFeatures.setToolTip(_translate("GroupEditor", "<html><head/><body><p>Feature pairs found in all groups less than &quot;Min found&quot; times are removed from the dataset. </p><p>The omit option should only be used for groups with native and labeled material and not for blanks. </p><p>If no groups uses the omit option, all features will remain in the dataset</p></body></html>", None))
         self.omitFeatures.setText(_translate("GroupEditor", "Omit features", None))
         self.useForMetaboliteGrouping.setText(_translate("GroupEditor", "Use samples for metabolite grouping", None))
         self.removeAsFalsePositive.setText(_translate("GroupEditor", "Remove (false positive)", None))
+        self.useAsMSMSTarget.setText(_translate("GroupEditor", "Use sample for MSMS targets", None))
 
 
 if __name__ == "__main__":

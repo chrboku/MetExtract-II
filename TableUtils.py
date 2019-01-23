@@ -58,6 +58,8 @@ class Table:
         assert rows is not None
 
         for row in rows:
+            if len(headers)<len(row):
+                print len(headers), len(row), row
             assert len(headers) >= len(row), "Unequal data count"
 
         if tableName is None:

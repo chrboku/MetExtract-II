@@ -46,11 +46,11 @@ class Chromatogram():
     def getMS1ScanByNum(self, scanNum):
         return self.MS1_list[scanNum]
 
-    def getClosestMS1Scan(self, scanTimeMin):
+    def getClosestMS1Scan(self, scanTimeMin, filterLine=""):
         fscan = self.MS1_list[0]
         for scan in self.MS1_list:
-            if abs(scan.retention_time / 60. - scanTimeMin) < abs(fscan.retention_time / 60. - scanTimeMin):
-                fscan = scan
+            if scan.filter_line==filterLine and abs(scan.retention_time / 60. - scanTimeMin) < abs(fscan.retention_time / 60. - scanTimeMin):
+                    fscan = scan
         return fscan
 
     def getScanByID(self, id):
@@ -88,11 +88,12 @@ class Chromatogram():
             for scan in self.MS2_list:
                 if (includePosPolarity and scan.polarity=="+") or (includeNegPolarity and scan.polarity=="-"):
                     if scan.filter_line not in filterLines.keys():
-                        filterLines[scan.filter_line]=Bunch(scanType="MS2", polarity=scan.polarity, targetStartTime=10000000, targetEndTime=0, preCursorMz=[], colisionEnergy=0)
+                        filterLines[scan.filter_line]=Bunch(scanType="MS2", polarity=scan.polarity, targetStartTime=10000000, targetEndTime=0, preCursorMz=[], colisionEnergy=0, scanTimes=[])
                     filterLines[scan.filter_line].targetStartTime=min(filterLines[scan.filter_line].targetStartTime, scan.retention_time)
                     filterLines[scan.filter_line].targetEndTime=max(filterLines[scan.filter_line].targetEndTime, scan.retention_time)
                     filterLines[scan.filter_line].preCursorMz.append(scan.precursor_mz)
                     filterLines[scan.filter_line].colisionEnergy=scan.colisionEnergy
+                    filterLines[scan.filter_line].scanTimes.append(scan.retention_time)
 
             for k, v in filterLines.items():
                 if v.scanType=="MS2":
@@ -416,6 +417,17 @@ class Chromatogram():
             mz_list = [mz_list[i] for i in range(len(intensity_list)) if intensity_list[i] > self.intensityCutoff]
             intensity_list = [intensity_list[i] for i in range(len(intensity_list)) if intensity_list[i] > self.intensityCutoff]
             assert len(mz_list) == len(intensity_list)
+
+            if self.mzFilter != None:
+
+                keep = []
+                for mzInd, mz in enumerate(mz_list):
+                    for ps, pe in self.mzFilter:
+                        if ps <= mz <= pe:
+                            keep.append(mzInd)
+                mz_list = [mz_list[i] for i in keep]
+                intensity_list = [intensity_list[i] for i in keep]
+
             curScan.mz_list=mz_list
             curScan.intensity_list=intensity_list
             curScan.peak_count=len(mz_list)
@@ -424,7 +436,7 @@ class Chromatogram():
 
         if name == "precursorMz":
             self.MS2_list[-1].precursor_mz = float(self.MS2_list[-1].precursor_mz_data)
-            self.MS2_list[-1].filter_line="%s (PreMZ: %.2f ColEn: %.1f ActMet: %s)"%(self.MS2_list[-1].filter_line, self.MS2_list[-1].precursor_mz, self.MS2_list[-1].collisionEnergy, self.MS2_list[-1].activationMethod if hasattr(self.MS2_list[-1], "activationMethod") else "-")
+            #self.MS2_list[-1].filter_line="%s (PreMZ: %.2f ColEn: %.1f ActMet: %s)"%(self.MS2_list[-1].filter_line, self.MS2_list[-1].precursor_mz, self.MS2_list[-1].collisionEnergy, self.MS2_list[-1].activationMethod if hasattr(self.MS2_list[-1], "activationMethod") else "-")
 
         self.tag_level -= 1
         self.current_tag = ''
@@ -463,12 +475,51 @@ class Chromatogram():
             for scan in self.MS1_list:
 
                 assert len(scan.mz_list) == len(scan.intensity_list) == scan.peak_count
-                if intensityCutoff<0:
-                    assert scan.peak_count == scan.peak_count_tag
+                #if intensityCutoff<0:
+                #    assert scan.peak_count == scan.peak_count_tag
 
         signals=0
         for msscan in self.MS1_list:
             signals+=len(msscan.mz_list)
+
+
+        for ionMode in ["+", "-"]:
+
+            precursors=[]
+            for msmsscan in self.MS2_list:
+                if msmsscan.polarity==ionMode:
+                    precursors.append(msmsscan.precursor_mz)
+
+            precursors=sorted(precursors)
+
+            packets=[]
+            curpack=[]
+
+            for precursorMZ in precursors:
+                if len(curpack)==0:
+                    curpack.append(precursorMZ)
+                else:
+                    mzmean=sum(curpack)/len(curpack)
+                    if abs(mzmean-precursorMZ)/precursorMZ*1E6>10:
+                        packets.append(curpack)
+                        curpack=[]
+                    curpack.append(precursorMZ)
+            if len(curpack)>0:
+                packets.append(curpack)
+
+            for curpack in packets:
+                meanmz = sum(curpack) / len(curpack)
+                #print ionMode, meanmz, (meanmz-min(curpack))/meanmz*1E6, (max(curpack)-meanmz)/meanmz*1E6, curpack
+
+            for msmsscan in self.MS2_list:
+                if msmsscan.polarity == ionMode:
+                    for curpack in packets:
+                        meanmz=sum(curpack)/len(curpack)
+                        if abs(msmsscan.precursor_mz-meanmz)/msmsscan.precursor_mz*1E6<=10:
+                            #msmsscan.precursor_mz=meanmz
+                            msmsscan.filter_line = "%s (PreMZ: %.4f [%.6f-%6f; %.1f ppm] ColEn: %.1f ActMet: %s)" % (msmsscan.filter_line, meanmz, min(curpack), max(curpack), (max(curpack)-min(curpack))/meanmz*1E6, msmsscan.collisionEnergy, msmsscan.activationMethod if hasattr(msmsscan, "activationMethod") else "-")
+
+
 
 
     def parseMzMLFile(self, filename_xml, intensityCutoff, ignoreCharacterData):
@@ -571,7 +622,8 @@ class Chromatogram():
 
 
 
-    def parse_file(self, filename_xml, intensityCutoff=-1, ignoreCharacterData=False):
+    def parse_file(self, filename_xml, intensityCutoff=-1, ignoreCharacterData=False, mzFilter=None):
+        self.mzFilter=mzFilter
         if filename_xml.lower().endswith(".mzxml"):
             return self.parseMZXMLFile(filename_xml, intensityCutoff, ignoreCharacterData)
         elif filename_xml.lower().endswith(".mzml"):
@@ -641,12 +693,15 @@ class Chromatogram():
 if __name__=="__main__":
     f="F:/MaxPlanck_FrederikDethloff/exp4/POS/pos-MF-1_25_01_4001.mzXML"
     f="E:/___Backup/Publications/Manuscripts/MetExtractII/_assets/geoRge/MTBLS213_20170613_073311/CELL_Glc13_05mM_Normo_01.mzXML"
+    f="H:/20181016_472_Alternaria_ExperimentForDFGProposal/FTICRMS/F_negNS300147444mL1zu109_000001.mzXML"
 
     t=Chromatogram()
     t.parse_file(f)
 
-    for i in t.getFilterLines(includeMS2=False):
+    for i in t.getFilterLinesPerPolarity(includeMS1=False, includeMS2=True):
         print i
+        for j in i:
+            print "   ", j
 
     print t.getPolarities()
 
@@ -654,20 +709,17 @@ if __name__=="__main__":
     x.parse_file(f)
 
 
-    import matplotlib.pyplot as plt
-
-
-    TIC, times, scanIds=t.getTIC()
-    plt.plot(times, TIC)
-
-
-    TIC, times, scanIds=x.getTIC()
-    plt.plot(times, [t*1 for t in TIC])
 
 
     scan=x.getMS1ScanByNum(0)
+    print scan.retention_time/60
+
 
     for mz, inte in zip(scan.mz_list, scan.intensity_list):
         print mz, inte
+
+    import matplotlib.pyplot as plt
+
+    plt.vlines(x=scan.mz_list, ymin=0, ymax=scan.intensity_list)
 
     plt.show()

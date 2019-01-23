@@ -383,10 +383,10 @@ font: 7pt;</string>
          </property>
         </widget>
        </item>
-       <item row="4" column="2" colspan="2">
+       <item row="5" column="2" colspan="2">
         <widget class="QComboBox" name="colorsComboBox"/>
        </item>
-       <item row="4" column="1">
+       <item row="5" column="1">
         <widget class="QLabel" name="label_7">
          <property name="text">
           <string>Color</string>
@@ -402,6 +402,9 @@ font: 7pt;</string>
        </item>
        <item row="1" column="1" colspan="3">
         <widget class="QCheckBox" name="omitFeatures">
+         <property name="toolTip">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Feature pairs found in all groups less than &amp;quot;Min found&amp;quot; times are removed from the dataset. &lt;/p&gt;&lt;p&gt;The omit option should only be used for groups with native and labeled material and not for blanks. &lt;/p&gt;&lt;p&gt;If no groups uses the omit option, all features will remain in the dataset&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         </property>
          <property name="text">
           <string>Omit features</string>
          </property>
@@ -424,6 +427,13 @@ font: 7pt;</string>
         <widget class="QCheckBox" name="removeAsFalsePositive">
          <property name="text">
           <string>Remove (false positive)</string>
+         </property>
+        </widget>
+       </item>
+       <item row="4" column="1" colspan="3">
+        <widget class="QCheckBox" name="useAsMSMSTarget">
+         <property name="text">
+          <string>Use sample for MSMS targets</string>
          </property>
         </widget>
        </item>

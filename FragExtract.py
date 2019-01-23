@@ -569,6 +569,9 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
             scanEventsMS2=mzxml.getFilterLinesExtended(includeMS1=False, includeMS2=True, includePosPolarity=True, includeNegPolarity=True)
             sortedScanEventsMS2=sorted(scanEventsMS2.keys())
             scanEventsMS1=mzxml.getFilterLines(includeMS1=True, includeMS2=False, includePosPolarity=True, includeNegPolarity=True)
+            scanEventsMS1PerPolarity=mzxml.getFilterLinesPerPolarity(includeMS1=True, includeMS2=False)
+
+
 
             if len(scanEventsMS2)<2:
                 QtGui.QMessageBox.critical(self, "FragExtract", "Error: At least two MSMS scan events are required for FragExtract. File will be skipped", QtGui.QMessageBox.Ok)
@@ -589,18 +592,38 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
             matches=[]
 
             if len(t)>2:
-                for i in range(len(t)-1):
-                    km, vm = t[i]
-                    kmp, vmp = t[i+1]
-
-                    if vm.polarity == vmp.polarity:
-                        if abs(vm.targetStartTime-vmp.targetStartTime)<30:
+                for i in range(len(t)):
+                    for j in range(len(t)):
+                        km, vm = t[i]
+                        kmp, vmp = t[j]
+                        if vm.preCursorMz<vmp.preCursorMz:
                             cn=round((vmp.preCursorMz-vm.preCursorMz)/1.00335, 0)
-                            if cn>0 and ((vmp.preCursorMz-vm.preCursorMz-cn*1.00335)*1000000./vmp.preCursorMz)<=50:
-                                matches.append(Bunch(M=km, Mp=kmp, cn=cn, nativeMz=vm.preCursorMz, startRt=vmp.targetStartTime, endRt=vm.targetEndTime))
+
+                            #print vm.preCursorMz, vm.polarity, vm.scanTimes
+                            if vm.polarity == vmp.polarity and cn>0 and (vmp.preCursorMz-vm.preCursorMz)>1 and (abs(vmp.preCursorMz-vm.preCursorMz-cn*1.00335)*1000000./vmp.preCursorMz)<=10:
+
+                                #print "   ", vmp.preCursorMz, vm.polarity, cn
+                                for irt in vm.scanTimes:
+                                    bestMatch=None
+                                    bestMatchDiff=1000000
+                                    for jrt in vmp.scanTimes:
+                                        if jrt>=irt and abs(jrt-irt)<=12:
+
+                                            if abs(jrt-irt)<bestMatchDiff:
+                                                bestMatch=jrt
+                                                bestMatchDiff=abs(jrt-irt)
 
 
-            for i in range(addMultipleTimes):
+                                    if bestMatch != None:
+                                        jrt=bestMatch
+                                        #print "       ", irt, jrt
+
+                                        b=Bunch(M=km, Mp=kmp, cn=cn, nativeMz=vm.preCursorMz, labelledMz=vmp.preCursorMz, startRt=irt, endRt=jrt, polarity=vm.polarity)
+                                        matches.append(b)
+                                        #print "       ", b
+
+
+            for i in range(len(matches)):
                 obj=Bunch(targetName="", parentSumFormula="", lcmsmsFileName=mzXMLFile,
                           scanEventIndexM=0, scanEventIndexMp=0, scanEventIndexFullScan=0,
                           nativeMZ=0, charge=1,
@@ -611,10 +634,12 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 if tryMatchTargets and i < len(matches):
                     obj.scanEventIndexM=sortedScanEventsMS2.index(matches[i].M)
                     obj.scanEventIndexMp=sortedScanEventsMS2.index(matches[i].Mp)
+                    obj.scanEventIndexFullScan=obj.MS1ScanEvents.index(list(scanEventsMS1PerPolarity[matches[i].polarity])[0])
                     obj.nativeMZ=matches[i].nativeMz
                     obj.cNMetabolite=matches[i].cn
-                    obj.rtMin=matches[i].startRt/60.
-                    obj.rtMax=matches[i].endRt/60.
+                    obj.rtMin=matches[i].startRt/60.-0.3
+                    obj.rtMax=matches[i].endRt/60.+0.3
+                    obj.usedAdduct="[M+H]+" if matches[i].polarity=="+" else "[M-H]-"
 
                 self.MSMSTargetModel.insertRows(len(self.MSMSTargetModel._data), 1, object=obj)
 
@@ -1305,18 +1330,39 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
         nativeSpectraCleaned=[spec for spec in
                        SQLSelectAsObject(self.curFileSQLiteConnection.curs,
                                          selectStatement="SELECT mzs, ints, annos, type FROM MSSpectra WHERE forTarget=%d AND type='native_cleaned'"%id)][0]
+        labelledSpectraCleaned=[spec for spec in
+                       SQLSelectAsObject(self.curFileSQLiteConnection.curs,
+                                         selectStatement="SELECT mzs, ints, annos, type FROM MSSpectra WHERE forTarget=%d AND type='labelled_cleaned'"%id)][0]
+
         if len(nativeSpectraCleaned.mzs)>0:
             nativeSpectraCleaned.mzs=[float(mz) for mz in nativeSpectraCleaned.mzs.split(",")]
         else:
             nativeSpectraCleaned.mzs=[]
+
         if len(nativeSpectraCleaned.ints)>0:
             nativeSpectraCleaned.ints=[float(i) for i in nativeSpectraCleaned.ints.split(",")]
         else:
             nativeSpectraCleaned.ints=[]
+
         if len(nativeSpectraCleaned.annos)>0:
             nativeSpectraCleaned.annos=pickle.loads(base64.b64decode(nativeSpectraCleaned.annos))
         else:
             nativeSpectraCleaned.annos=[]
+
+        if len(labelledSpectraCleaned.mzs)>0:
+            labelledSpectraCleaned.mzs=[float(mz) for mz in labelledSpectraCleaned.mzs.split(",")]
+        else:
+            labelledSpectraCleaned.mzs=[]
+
+        if len(labelledSpectraCleaned.ints)>0:
+            labelledSpectraCleaned.ints=[float(i) for i in labelledSpectraCleaned.ints.split(",")]
+        else:
+            labelledSpectraCleaned.ints=[]
+
+        if len(labelledSpectraCleaned.annos)>0:
+            labelledSpectraCleaned.annos=pickle.loads(base64.b64decode(labelledSpectraCleaned.annos))
+        else:
+            labelledSpectraCleaned.annos=[]
 
         if self.plotNativeScanCheckbox.checkState()==QtCore.Qt.Checked:
             self.pl1.twinxs[0].vlines(x=[target.precursorMZ], ymin=[0], ymax=[125], color="Firebrick", linestyle='--')
@@ -1335,70 +1381,84 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
             self.pl1.twinxs[0].vlines(x=nativeSpectraCleaned.mzs, ymin=[0 for mz in nativeSpectraCleaned.mzs], ymax=nativeSpectraCleaned.ints,
                                       color=(148/255.,32/255.,146/255.), linewidth=2, alpha=1 if highlightCleandPeak is None else 0.5)
             self.pl1.twinxs[0].vlines(x=[nativeSpectraCleaned.mzs[i]+nativeSpectraCleaned.annos[i].Cn*1.00335 for i in range(len(nativeSpectraCleaned.mzs))],
-                                      ymin=[0 for mz in nativeSpectraCleaned.mzs], ymax=[-i for i in nativeSpectraCleaned.ints],
-                                      color=(148/255.,32/255.,146/255.), linewidth=2, alpha=1 if highlightCleandPeak is None else 0.5)
+                                      ymin=[-i+.5 for i in nativeSpectraCleaned.ints], ymax=[-i-.5 for i in nativeSpectraCleaned.ints],
+                                      color=(148/255.,32/255.,146/255.), linewidth=4, alpha=1 if highlightCleandPeak is None else 0.5)
 
             if highlightCleandPeak is not None:
                 self.pl1.twinxs[0].vlines(x=nativeSpectraCleaned.mzs[highlightCleandPeak],
                                           ymin=0, ymax=nativeSpectraCleaned.ints[highlightCleandPeak],
                                           color=(148/255.,32/255.,146/255.), linewidth=2)
                 self.pl1.twinxs[0].vlines(x=nativeSpectraCleaned.mzs[highlightCleandPeak]+nativeSpectraCleaned.annos[highlightCleandPeak].Cn*1.00335,
-                                          ymin=0, ymax=-nativeSpectraCleaned.ints[highlightCleandPeak],
+                                          ymin=-nativeSpectraCleaned.ints[highlightCleandPeak]-.5, ymax=-nativeSpectraCleaned.ints[highlightCleandPeak]+.5,
                                           color=(148/255.,32/255.,146/255.), linewidth=2)
+
+        if self.plotCleanedScanCheckBox.checkState()==QtCore.Qt.Checked:
+            self.pl1.twinxs[0].vlines(x=labelledSpectraCleaned.mzs, ymin=[0 for mz in labelledSpectraCleaned.mzs], ymax=[-i for i in labelledSpectraCleaned.ints],
+                                      color=(148/255.,32/255.,146/255.), linewidth=2, alpha=1 if highlightCleandPeak is None else 0.5)
+            self.pl1.twinxs[0].vlines(x=[labelledSpectraCleaned.mzs[i]-labelledSpectraCleaned.annos[i].Cn*1.00335 for i in range(len(labelledSpectraCleaned.mzs))],
+                                      ymin=[i+.5 for i in labelledSpectraCleaned.ints], ymax=[i-.5 for i in labelledSpectraCleaned.ints],
+                                      color=(148/255.,32/255.,146/255.), linewidth=4, alpha=1 if highlightCleandPeak is None else 0.5)
+
 
         for index in range(len(nativeSpectraCleaned.annos)):
             if index==highlightCleandPeak:
-                self.pl1.twinxs[0].text(x=nativeSpectraCleaned.mzs[index], y=nativeSpectraCleaned.ints[index]+2.5, s="%d"%index,
-                                        color="black")
-                self.pl1.twinxs[0].text(x=nativeSpectraCleaned.mzs[index]+nativeSpectraCleaned.annos[index].Cn*1.00335, y=-nativeSpectraCleaned.ints[index]-13., s="%d"%index,
-                                        color="black")
+                self.pl1.twinxs[0].text(x=nativeSpectraCleaned.mzs[index], y=nativeSpectraCleaned.ints[index]+1, s="%d"%index,
+                                        color="black", horizontalalignment="center")
+                self.pl1.twinxs[0].text(x=labelledSpectraCleaned.mzs[index], y=-labelledSpectraCleaned.ints[index]-1, s="%d"%index,
+                                        color="black", horizontalalignment="center")
             else:
-                self.pl1.twinxs[0].text(x=nativeSpectraCleaned.mzs[index], y=nativeSpectraCleaned.ints[index]+2.5, s="%d"%index,
-                                        color="lightgrey")
-                self.pl1.twinxs[0].text(x=nativeSpectraCleaned.mzs[index]+nativeSpectraCleaned.annos[index].Cn*1.00335484, y=-nativeSpectraCleaned.ints[index]-13., s="%d"%index,
-                                        color="lightgrey")
+                self.pl1.twinxs[0].text(x=nativeSpectraCleaned.mzs[index], y=nativeSpectraCleaned.ints[index]+1, s="%d"%index,
+                                        color="lightgrey", horizontalalignment="center")
+                self.pl1.twinxs[0].text(x=labelledSpectraCleaned.mzs[index], y=-labelledSpectraCleaned.ints[index]-1, s="%d"%index,
+                                        color="lightgrey", horizontalalignment="center")
 
         eics=[eic for eic in
               SQLSelectAsObject(self.curFileSQLiteConnection.curs,
                                 selectStatement="SELECT intensityList, timesList, forMZ, type FROM EICs WHERE forTarget=%d"%id)]
 
-        for eic in eics:
-            times=[float(f) for f in eic.timesList.split(",")]
-            intensities=[float(f) for f in eic.intensityList.split(",")]
+        try:
+            for eic in eics:
+                times=[float(f) for f in eic.timesList.split(",")]
+                intensities=[float(f) for f in eic.intensityList.split(",")]
 
-            times=[t/60. for t in times]
+                times=[t/60. for t in times]
 
-            m=max(intensities)
-            if m==0:
-                m=1
-            intensities=[i/m for i in intensities]
+                m=max(intensities)
+                if m==0:
+                    m=1
+                intensities=[i/m for i in intensities]
 
-            if eic.type=="Labeled":
-                intensities=[-i for i in intensities]
+                if eic.type=="Labeled":
+                    intensities=[-i for i in intensities]
 
-            col="lightgrey"
-            linewidth=1
+                col="lightgrey"
+                linewidth=1
 
-            self.pl2.twinxs[0].plot(times, intensities, color=col, linewidth=linewidth)
-
-        for eic in eics:
-            times=[float(f) for f in eic.timesList.split(",")]
-            intensities=[float(f) for f in eic.intensityList.split(",")]
-
-            times=[t/60. for t in times]
-
-            m=max(intensities)
-            if m==0:
-                m=1
-            intensities=[i/m for i in intensities]
-
-            if eic.type=="Labeled":
-                intensities=[-i for i in intensities]
-
-            if highlightCleandPeak is not None and abs(nativeSpectraCleaned.mzs[highlightCleandPeak]-eic.forMZ)<=0.0001:
-                col=(148/255.,32/255.,146/255.)
-                linewidth=2
                 self.pl2.twinxs[0].plot(times, intensities, color=col, linewidth=linewidth)
+        except:
+            print eic.timesList, eic.intensityList
+
+        try:
+            for eic in eics:
+                times=[float(f) for f in eic.timesList.split(",")]
+                intensities=[float(f) for f in eic.intensityList.split(",")]
+
+                times=[t/60. for t in times]
+
+                m=max(intensities)
+                if m==0:
+                    m=1
+                intensities=[i/m for i in intensities]
+
+                if eic.type=="Labeled":
+                    intensities=[-i for i in intensities]
+
+                if highlightCleandPeak is not None and abs(nativeSpectraCleaned.mzs[highlightCleandPeak]-eic.forMZ)<=0.0001:
+                    col=(148/255.,32/255.,146/255.)
+                    linewidth=2
+                    self.pl2.twinxs[0].plot(times, intensities, color=col, linewidth=linewidth)
+        except:
+            print eic.timesList, eic.intensityList
 
         ma=max(target.eicFS)
         ma=ma if ma > 0 else 1

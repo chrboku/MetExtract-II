@@ -279,11 +279,11 @@ class ProcessTarget:
             elif mes == "start" or mes == "end" or mes == "failed":
                 self.queue.put(Bunch(pid=forPID, mes=mes))
 
-    def findClosestScanTo(self, times, startTime):
+    def findClosestScanTo(self, times, startTime, minRT, maxRT):
         bestMatch=-1
         bestMatchRTDiff=100000
         for i in range(len(times)):
-            if abs(times[i]-startTime)<bestMatchRTDiff:
+            if minRT<=times[i]<=maxRT and abs(times[i]-startTime)<bestMatchRTDiff:
                 bestMatch=i
                 bestMatchRTDiff=abs(times[i]-startTime)
 
@@ -302,6 +302,8 @@ class ProcessTarget:
         else:
             minInt=minVal
             maxInt=max([msScan.intensity_list[index] for index in range(len(msScan.intensity_list)) if precursorMZ*(1.-ppm/1000000.)<=msScan.mz_list[index]<=precursorMZ*(1.+ppm/1000000.)])
+
+        maxInt=msScan.precursor_intensity
 
         for i in range(len(msScan.intensity_list)):
             msScan.intensity_list[i]=minVal+(maxVal-minVal)*msScan.intensity_list[i]*1./(maxInt-minInt)
@@ -329,8 +331,8 @@ class ProcessTarget:
                 eic[i]=0
         maxIntFullScanIndex=max(zip(range(len(eic)), eic), key=lambda x:x[1])[0]
 
-        maxIntMS2NativeIndex=self.findClosestScanTo(timesMS2Native, timesFS[maxIntFullScanIndex])
-        maxIntMS2LabelledIndex=self.findClosestScanTo(timesMS2Labelled, timesFS[maxIntFullScanIndex])
+        maxIntMS2NativeIndex=self.findClosestScanTo(timesMS2Native, timesFS[maxIntFullScanIndex], minRT*60., maxRT*60.)
+        maxIntMS2LabelledIndex=self.findClosestScanTo(timesMS2Labelled, timesFS[maxIntFullScanIndex], minRT*60., maxRT*60.)
 
 
         ######################################
@@ -402,6 +404,7 @@ class ProcessTarget:
         for i in range(len(scanMS2Native.mz_list)):
             bestMatch=Bunch(nInd=-1, lInd=-1, Cn=-1)
             bestRat=10000.
+            bestRationNonAbs=0
             for j in range(len(scanMS2Labelled.mz_list)):
 
 
@@ -433,12 +436,13 @@ class ProcessTarget:
                                     if abs(lInt-nInt)<bestRat:
                                         bestMatch=Bunch(nInd=i, lInd=j, Cn=n)
                                         bestRat=abs(lInt-nInt)
+                                        bestRatio=lInt-nInt
                                         if ppmDiff < 200 and _debug: print " ***",
                             if ppmDiff < 200 and _debug: print ""
 
             if bestMatch.nInd!=-1:
                 retMS.newAnnotationForPeakInScan(nativeIndex=bestMatch.nInd,labelledIndex=bestMatch.lInd,
-                                                 anno=Bunch(Cn=bestMatch.Cn, NIndex=bestMatch.nInd, LIndex=bestMatch.lInd, ratioError=bestRat))
+                                                 anno=Bunch(Cn=bestMatch.Cn, NIndex=bestMatch.nInd, LIndex=bestMatch.lInd, ratioError=bestRatio))
 
         return retMS
     def calculateOptimalMatch(self, scanMS2Native, scanMS2Labelled, matchingPPM, maxRelError, maxCn, charge, isotopeOffset=1.00335):
@@ -762,10 +766,10 @@ class ProcessTarget:
 
         data=[]
 
-        data.append(["Num", "mz", "relInt", "Cn", "sumFormula", "deviation [ppm]", "Adduct", "NeutralLoss"])
-        widths=[40,60,30,30,80,50,80]
+        data.append(["Num", "mz", "relInt", "RatioDifference", "Cn", "sumFormula", "deviation [ppm]", "Adduct", "NeutralLoss"])
+        widths=[30,50,40,60,20,80,80,30,100]
         for index in range(len(annotatedSpectrum.mzs)):
-            b = Bunch(index=index, mz=annotatedSpectrum.mzs[index], relInt=annotatedSpectrum.ints[index],
+            b = Bunch(index=index, mz=annotatedSpectrum.mzs[index], relInt=annotatedSpectrum.ints[index], ratioDifference=annotatedSpectrum.annos[index].ratioError,
                       Cn=annotatedSpectrum.annos[index].Cn, sumFormulas=annotatedSpectrum.annos[index].generatedSumFormulas)
 
             totSumForms=0
@@ -774,7 +778,7 @@ class ProcessTarget:
                 if len(val)==0:
                     del b.sumFormulas[key]
 
-            dl=[str(b.index), "%.4f"%b.mz, "%.1f"%b.relInt, "%d"%b.Cn]
+            dl=[str(b.index+1), "%.4f"%b.mz, "%.1f"%b.relInt, "%.1f"%b.ratioDifference, "%d"%b.Cn]
 
             if totSumForms==0:
                 dl.extend(["","","",""])
@@ -805,8 +809,8 @@ class ProcessTarget:
                  ('ALIGN', (0, 0), (-1, -1), 'LEFT')]
         table = Table(data, colWidths=widths, style=style)
 
-        table.wrapOn(pdf, 2 * len(data), 2 * len(data))
-        table.drawOn(pdf, 50, currentHeight-30-len(data)*9)
+        table.wrapOn(pdf, 2 * len(data), 1100)
+        table.drawOn(pdf, 20, currentHeight-10-len(data)*9)
 
         ## Plot MSMS spectra - native MSMS
         drawing = Drawing(500, 260)
@@ -844,10 +848,10 @@ class ProcessTarget:
 
         ## matched fragment peaks
         for mz, it, anno in zip(annotatedSpectrum.mzs, annotatedSpectrum.ints, annotatedSpectrum.annos):
-            dd.append([(mz, 0), (mz, it)])
+            dd.append([(mz, it-0.5), (mz, it+0.5)])
             colors.append(Color(178 / 255., 34 / 255., 34 / 255.))
             strokeWidth.append(1.2)
-            dd.append([(mz+1.00335*anno.Cn/target.chargeCount, 0), (mz+1.00335*anno.Cn/target.chargeCount, -it)])
+            dd.append([(mz+1.00335*anno.Cn/target.chargeCount, -(it-0.5)), (mz+1.00335*anno.Cn/target.chargeCount, -(it+0.5))])
             colors.append(Color(178 / 255., 34 / 255., 34 / 255.))
             strokeWidth.append(1.2)
 
@@ -897,23 +901,26 @@ class ProcessTarget:
         colors.append(Color(94 / 255., 158 / 255., 158 / 255.))
         strokeWidth.append(.7)
 
-        for eic in eics:
-            times=[float(f) for f in eic.timesList.split(",")]
-            intensities=[float(f) for f in eic.intensityList.split(",")]
+        try:
+            for eic in eics:
+                times=[float(f) for f in eic.timesList.split(",")]
+                intensities=[float(f) for f in eic.intensityList.split(",")]
 
-            times=[t/60. for t in times]
+                times=[t/60. for t in times]
 
-            m=max(intensities)
-            if m==0:
-                m=1
-            intensities=[i/m for i in intensities]
+                m=max(intensities)
+                if m==0:
+                    m=1
+                intensities=[i/m for i in intensities]
 
-            if eic.type=="Labeled":
-                intensities=[-i for i in intensities]
+                if eic.type=="Labeled":
+                    intensities=[-i for i in intensities]
 
-            dd.append(zip(times, intensities))
-            colors.append(Color(47 / 255., 79 / 255., 79 / 255.))
-            strokeWidth.append(.35)
+                dd.append(zip(times, intensities))
+                colors.append(Color(47 / 255., 79 / 255., 79 / 255.))
+                strokeWidth.append(.35)
+        except:
+            print eic.timesList, eic.intensityList
 
         lp.data = dd
         lp.joinedLines = 1
@@ -1063,7 +1070,7 @@ class ProcessTarget:
             target.scanRTNativeRaw=0.
             target.scanRTLabeledRaw=0.
             createTableFromBunch("Targets", target, cursor=curs, primaryKeys=["id"], autoIncrements=["id"], ifNotExists=True)
-            createTableFromBunch("MSSpectra", Bunch(id=int, forTarget=int, mzs=str, ints=str, annos=str, scanTime=float, scanID=str, type=str), cursor=curs,
+            createTableFromBunch("MSSpectra", Bunch(id=int, forTarget=int, mzs=str, ints=str, annos=str, scanTime=float, scanID=str, type=str, precursorIntensity=float), cursor=curs,
                                  primaryKeys=["id"], autoIncrements=["id"], ifNotExists=True)
             createTableFromBunch("EICs", Bunch(id=int, forTarget=int, forMZ=float, type=str, timesList=str, intensityList=str), cursor=curs, primaryKeys=["id"], autoIncrements=["id"], ifNotExists=True)
             conn.commit()
@@ -1159,8 +1166,25 @@ class ProcessTarget:
         # endregion
 
         # region 5. Processing step: scale MS scans
-        scanMS2Native=self.scaleMSScan(scanMS2Native, maxMZ=target.precursorMZ+0.5, precursorMZ=target.precursorMZ, ppm=self.matchingPPM)
-        scanMS2Labelled=self.scaleMSScan(scanMS2Labelled, maxMZ=target.precursorMZ+self.labellingOffset*target.Cn/target.chargeCount+.5, precursorMZ=target.precursorMZ+self.labellingOffset*target.Cn/target.chargeCount, ppm=self.matchingPPM)
+
+        try:
+            scanMS2Native=self.scaleMSScan(scanMS2Native, maxMZ=target.precursorMZ+0.5, precursorMZ=target.precursorMZ, ppm=self.matchingPPM)
+            scanMS2Labelled=self.scaleMSScan(scanMS2Labelled, maxMZ=target.precursorMZ+self.labellingOffset*target.Cn/target.chargeCount+.5, precursorMZ=target.precursorMZ+self.labellingOffset*target.Cn/target.chargeCount, ppm=self.matchingPPM)
+            scaledTo="PrecursorMZs"
+        except Exception as e:
+            print "Scaling to precursor not possible. Scaling will be perfomred to max intensive peak"
+            self.scalePrecursorMZ=False
+            try:
+                scanMS2Native = self.scaleMSScan(scanMS2Native, maxMZ=target.precursorMZ + 0.5,
+                                                 precursorMZ=target.precursorMZ, ppm=self.matchingPPM)
+                scanMS2Labelled = self.scaleMSScan(scanMS2Labelled,
+                                                   maxMZ=target.precursorMZ + self.labellingOffset * target.Cn / target.chargeCount + .5,
+                                                   precursorMZ=target.precursorMZ + self.labellingOffset * target.Cn / target.chargeCount,
+                                                   ppm=self.matchingPPM)
+                scaledTo = "MaxIntensivePeaks"
+            except Exception as e:
+                print "No scaling possible"
+
 
         assert maxIntFullScanTime==scanFS.retention_time and maxIntMS2NativeTime==scanMS2Native.retention_time and maxIntMS2LabelledTime==scanMS2Labelled.retention_time
         assert isinstance(scanMS2Native, MS2Scan) and isinstance(scanMS2Labelled, MS2Scan)
@@ -1169,13 +1193,15 @@ class ProcessTarget:
         # region write native spectra to results db
         writeObjectAsSQLInsert(curs, "MSSpectra", Bunch(forTarget=target.id, mzs=",".join([str(mz) for mz in scanMS2Native.mz_list]),
                                                         ints=",".join([str(i) for i in scanMS2Native.intensity_list]),
-                                                        scanTime=scanMS2Native.retention_time, scanID=str(maxIntMS2NativeID), type="native_raw"),
-                               writeFields=["forTarget", "mzs", "ints", "scanTime", "type"])
+                                                        scanTime=scanMS2Native.retention_time, scanID=str(maxIntMS2NativeID), type="native_raw",
+                                                        precursorIntensity=scanMS2Native.precursor_intensity),
+                               writeFields=["forTarget", "mzs", "ints", "scanTime", "type", "precursorIntensity"])
         # write labelled spectra to results db
         writeObjectAsSQLInsert(curs, "MSSpectra", Bunch(forTarget=target.id, mzs=",".join([str(mz) for mz in scanMS2Labelled.mz_list]),
                                                         ints=",".join([str(i) for i in scanMS2Labelled.intensity_list]),
-                                                        scanTime=scanMS2Labelled.retention_time, scanID=str(maxIntMS2LabelledID), type="labelled_raw"),
-                               writeFields=["forTarget", "mzs", "ints", "scanTime", "type"])
+                                                        scanTime=scanMS2Labelled.retention_time, scanID=str(maxIntMS2LabelledID), type="labelled_raw",
+                                                        precursorIntensity=scanMS2Labelled.precursor_intensity),
+                               writeFields=["forTarget", "mzs", "ints", "scanTime", "type", "precursorIntensity"])
 
         curs.execute("UPDATE Targets SET scanRTNativeRaw=?, scanRTLabeledRaw=?, scanIDNativeRaw=?, scanIDLabelledRaw=? WHERE id=?", (scanMS2Native.retention_time, scanMS2Labelled.retention_time, maxIntMS2NativeID, maxIntMS2LabelledID, target.id))
         target.scanIDNativeRaw=str(maxIntMS2NativeID)

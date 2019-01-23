@@ -685,8 +685,7 @@ def corr(a, b):
     #    return -1
 
     try:
-        rxy = (sum([(a[i] - meana) * (b[i] - meanb) for i in range(n)])) / (
-            sqrt(sum([pow(a[i] - meana, 2) for i in range(n)])) * sqrt(sum([pow(b[i] - meanb, 2) for i in range(n)])))
+        rxy = (sum([(a[i] - meana) * (b[i] - meanb) for i in range(n)])) / ( sqrt(sum([pow(a[i] - meana, 2) for i in range(n)])) * sqrt(sum([pow(b[i] - meanb, 2) for i in range(n)])))
         return rxy
     except:
         return -1
@@ -789,7 +788,7 @@ def getXCombinations(elements, startTupleSize=2, endTupleSize=-1):
 
 # HELPER CLASS for storing a defined group
 class SampleGroup:
-    def __init__(self, name, files, minFound, omitFeatures, useForMetaboliteGrouping, removeAsFalsePositive, color):
+    def __init__(self, name, files, minFound, omitFeatures, useForMetaboliteGrouping, removeAsFalsePositive, color, useAsMSMSTarget):
         self.name = name
         self.files = files
         self.minFound = minFound
@@ -797,6 +796,7 @@ class SampleGroup:
         self.useForMetaboliteGrouping = useForMetaboliteGrouping
         self.removeAsFalsePositive = removeAsFalsePositive
         self.color = color
+        self.useAsMSMSTarget = useAsMSMSTarget
 
 
 
