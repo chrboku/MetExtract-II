@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>2255</width>
-    <height>1230</height>
+    <width>2077</width>
+    <height>1237</height>
    </rect>
   </property>
   <property name="acceptDrops">
@@ -61,7 +61,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>2</number>
+       <number>1</number>
       </property>
       <widget class="QWidget" name="inputTab">
        <attribute name="title">
@@ -80,7 +80,7 @@
            <enum>Qt::Vertical</enum>
           </property>
           <property name="sizeType">
-           <enum>QSizePolicy::Expanding</enum>
+           <enum>QSizePolicy::Ignored</enum>
           </property>
           <property name="sizeHint" stdset="0">
            <size>
@@ -90,16 +90,13 @@
           </property>
          </spacer>
         </item>
-        <item row="2" column="0" colspan="2">
-         <widget class="QLabel" name="version">
-          <property name="styleSheet">
-           <string notr="true">color:grey;</string>
-          </property>
-          <property name="text">
-           <string>TextLabel</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignBottom|Qt::AlignRight|Qt::AlignTrailing</set>
+        <item row="0" column="1" rowspan="2">
+         <widget class="QWidget" name="ticVisualisationWidget" native="true">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
           </property>
          </widget>
         </item>
@@ -237,22 +234,6 @@ font: 7pt;</string>
                <bool>true</bool>
               </property>
              </widget>
-            </item>
-            <item>
-             <spacer name="verticalSpacer_15">
-              <property name="orientation">
-               <enum>Qt::Vertical</enum>
-              </property>
-              <property name="sizeType">
-               <enum>QSizePolicy::Minimum</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>0</width>
-                <height>0</height>
-               </size>
-              </property>
-             </spacer>
             </item>
            </layout>
           </item>
@@ -454,6 +435,9 @@ font: 7pt;</string>
               <property name="orientation">
                <enum>Qt::Vertical</enum>
               </property>
+              <property name="sizeType">
+               <enum>QSizePolicy::Minimum</enum>
+              </property>
               <property name="sizeHint" stdset="0">
                <size>
                 <width>0</width>
@@ -594,6 +578,9 @@ font: 7pt;</string>
               <property name="orientation">
                <enum>Qt::Vertical</enum>
               </property>
+              <property name="sizeType">
+               <enum>QSizePolicy::Minimum</enum>
+              </property>
               <property name="sizeHint" stdset="0">
                <size>
                 <width>20</width>
@@ -653,7 +640,7 @@ font: 7pt;</string>
           <item row="9" column="4">
            <widget class="QListWidget" name="groupsList">
             <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="MinimumExpanding">
+             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
               <horstretch>0</horstretch>
               <verstretch>0</verstretch>
              </sizepolicy>
@@ -756,17 +743,23 @@ font: 7pt;</string>
             </item>
            </layout>
           </item>
+          <item row="14" column="2">
+           <spacer name="verticalSpacer_14">
+            <property name="orientation">
+             <enum>Qt::Vertical</enum>
+            </property>
+            <property name="sizeType">
+             <enum>QSizePolicy::Expanding</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>1</width>
+              <height>40</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
          </layout>
-        </item>
-        <item row="0" column="1" rowspan="2">
-         <widget class="QWidget" name="ticVisualisationWidget" native="true">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-         </widget>
         </item>
        </layout>
       </widget>
@@ -884,8 +877,8 @@ font: 7pt;</string>
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1209</width>
-             <height>1168</height>
+             <width>1252</width>
+             <height>1162</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -1536,7 +1529,7 @@ font: 7pt;</string>
                         <property name="spacing">
                          <number>2</number>
                         </property>
-                        <item row="0" column="2">
+                        <item row="0" column="3">
                          <widget class="QGroupBox" name="saveMZXML">
                           <property name="title">
                            <string>mzXML</string>
@@ -1592,7 +1585,7 @@ font: 7pt;</string>
                           </layout>
                          </widget>
                         </item>
-                        <item row="0" column="1">
+                        <item row="0" column="2">
                          <widget class="QCheckBox" name="savePDF">
                           <property name="text">
                            <string>PDF</string>
@@ -1615,6 +1608,16 @@ font: 7pt;</string>
                           </property>
                           <property name="tristate">
                            <bool>false</bool>
+                          </property>
+                         </widget>
+                        </item>
+                        <item row="0" column="1">
+                         <widget class="QCheckBox" name="saveFeatureML">
+                          <property name="text">
+                           <string>FeatureML (basic)</string>
+                          </property>
+                          <property name="checked">
+                           <bool>true</bool>
                           </property>
                          </widget>
                         </item>
@@ -2165,6 +2168,50 @@ font: 7pt;</string>
                             </item>
                             <item row="3" column="1">
                              <widget class="QSpinBox" name="smoothingPolynom_spinner"/>
+                            </item>
+                            <item row="4" column="0">
+                             <widget class="QLabel" name="label_13">
+                              <property name="text">
+                               <string>EIC M' artificial shift (scans)</string>
+                              </property>
+                             </widget>
+                            </item>
+                            <item row="4" column="1">
+                             <layout class="QHBoxLayout" name="horizontalLayout_2">
+                              <item>
+                               <widget class="QSpinBox" name="spinBox_artificialMPshift_start">
+                                <property name="minimum">
+                                 <number>-99</number>
+                                </property>
+                                <property name="maximum">
+                                 <number>0</number>
+                                </property>
+                               </widget>
+                              </item>
+                              <item>
+                               <widget class="QLabel" name="label_14">
+                                <property name="sizePolicy">
+                                 <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
+                                  <horstretch>0</horstretch>
+                                  <verstretch>0</verstretch>
+                                 </sizepolicy>
+                                </property>
+                                <property name="text">
+                                 <string>-</string>
+                                </property>
+                               </widget>
+                              </item>
+                              <item>
+                               <widget class="QSpinBox" name="spinBox_artificialMPshift_stop">
+                                <property name="minimum">
+                                 <number>-100</number>
+                                </property>
+                                <property name="maximum">
+                                 <number>100</number>
+                                </property>
+                               </widget>
+                              </item>
+                             </layout>
                             </item>
                            </layout>
                           </widget>
@@ -3274,8 +3321,8 @@ p, li { white-space: pre-wrap; }
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>2225</width>
-             <height>1186</height>
+             <width>1722</width>
+             <height>878</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_15">
@@ -3539,156 +3586,274 @@ p, li { white-space: pre-wrap; }
                   </property>
                   <widget class="QWidget" name="tab">
                    <attribute name="title">
-                    <string>EICs</string>
+                    <string>EICs and Mass spectra</string>
                    </attribute>
-                   <layout class="QGridLayout" name="gridLayout_19">
+                   <layout class="QGridLayout" name="gridLayout_128">
                     <item row="0" column="0">
-                     <layout class="QHBoxLayout" name="horizontalLayout_10">
-                      <item>
-                       <widget class="QCheckBox" name="autoZoomPlot">
-                        <property name="text">
-                         <string>Autozoom</string>
-                        </property>
-                        <property name="checked">
-                         <bool>true</bool>
-                        </property>
-                       </widget>
-                      </item>
-                      <item>
-                       <widget class="QCheckBox" name="negEIC">
-                        <property name="text">
-                         <string>Negative EIC</string>
-                        </property>
-                        <property name="checked">
-                         <bool>true</bool>
-                        </property>
-                       </widget>
-                      </item>
-                      <item>
-                       <widget class="QCheckBox" name="plotAddLabels">
-                        <property name="text">
-                         <string>Labels</string>
-                        </property>
-                        <property name="checked">
-                         <bool>true</bool>
-                        </property>
-                       </widget>
-                      </item>
-                      <item>
-                       <widget class="QCheckBox" name="plotMarkArea">
-                        <property name="text">
-                         <string>Area</string>
-                        </property>
-                        <property name="checked">
-                         <bool>false</bool>
-                        </property>
-                       </widget>
-                      </item>
-                      <item>
-                       <widget class="QCheckBox" name="scaleFeatures">
-                        <property name="text">
-                         <string>Normalise</string>
-                        </property>
-                        <property name="checked">
-                         <bool>true</bool>
-                        </property>
-                       </widget>
-                      </item>
-                      <item>
-                       <widget class="QCheckBox" name="scaleLabelledFeatures">
-                        <property name="text">
-                         <string>Normalise separately</string>
-                        </property>
-                       </widget>
-                      </item>
-                      <item>
-                       <widget class="QCheckBox" name="showIsotopologues">
-                        <property name="text">
-                         <string>Isotopologues</string>
-                        </property>
-                       </widget>
-                      </item>
-                      <item>
-                       <widget class="QCheckBox" name="showSmoothedEIC_checkBox">
-                        <property name="text">
-                         <string>Show smoothed signal</string>
-                        </property>
-                       </widget>
-                      </item>
-                      <item>
-                       <widget class="QCheckBox" name="flattenXIC">
-                        <property name="text">
-                         <string>Crop</string>
-                        </property>
-                       </widget>
-                      </item>
-                      <item>
-                       <widget class="QCheckBox" name="showLegend">
-                        <property name="text">
-                         <string>Legend</string>
-                        </property>
-                        <property name="checked">
-                         <bool>true</bool>
-                        </property>
-                       </widget>
-                      </item>
-                      <item>
-                       <widget class="QLabel" name="label_35">
-                        <property name="text">
-                         <string/>
-                        </property>
-                       </widget>
-                      </item>
-                      <item>
-                       <widget class="Line" name="line_19">
-                        <property name="orientation">
-                         <enum>Qt::Vertical</enum>
-                        </property>
-                       </widget>
-                      </item>
-                      <item>
-                       <widget class="QCheckBox" name="showDiagnostics">
-                        <property name="text">
-                         <string>Diagnostics</string>
-                        </property>
-                       </widget>
-                      </item>
-                      <item>
-                       <widget class="QCheckBox" name="setPeakCentersToZero">
-                        <property name="text">
-                         <string>Set peak centers to 0</string>
-                        </property>
-                       </widget>
-                      </item>
-                      <item>
-                       <spacer name="horizontalSpacer_9">
-                        <property name="orientation">
-                         <enum>Qt::Horizontal</enum>
-                        </property>
-                        <property name="sizeHint" stdset="0">
-                         <size>
-                          <width>40</width>
-                          <height>20</height>
-                         </size>
-                        </property>
-                       </spacer>
-                      </item>
-                     </layout>
-                    </item>
-                    <item row="1" column="0">
-                     <widget class="QWidget" name="visualizationWidget" native="true">
-                      <property name="sizePolicy">
-                       <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
-                        <horstretch>0</horstretch>
-                        <verstretch>0</verstretch>
-                       </sizepolicy>
+                     <widget class="QSplitter" name="splitter1">
+                      <property name="frameShape">
+                       <enum>QFrame::NoFrame</enum>
                       </property>
-                      <property name="minimumSize">
-                       <size>
-                        <width>700</width>
-                        <height>500</height>
-                       </size>
+                      <property name="orientation">
+                       <enum>Qt::Vertical</enum>
                       </property>
+                      <property name="opaqueResize">
+                       <bool>true</bool>
+                      </property>
+                      <property name="childrenCollapsible">
+                       <bool>false</bool>
+                      </property>
+                      <widget class="QWidget" name="widget" native="true">
+                       <layout class="QGridLayout" name="gridLayout_19">
+                        <item row="0" column="0">
+                         <layout class="QHBoxLayout" name="horizontalLayout_10">
+                          <item>
+                           <widget class="QCheckBox" name="autoZoomPlot">
+                            <property name="text">
+                             <string>Autozoom</string>
+                            </property>
+                            <property name="checked">
+                             <bool>true</bool>
+                            </property>
+                           </widget>
+                          </item>
+                          <item>
+                           <widget class="QCheckBox" name="negEIC">
+                            <property name="text">
+                             <string>Negative EIC</string>
+                            </property>
+                            <property name="checked">
+                             <bool>true</bool>
+                            </property>
+                           </widget>
+                          </item>
+                          <item>
+                           <widget class="QCheckBox" name="plotAddLabels">
+                            <property name="text">
+                             <string>Labels</string>
+                            </property>
+                            <property name="checked">
+                             <bool>true</bool>
+                            </property>
+                           </widget>
+                          </item>
+                          <item>
+                           <widget class="QCheckBox" name="plotMarkArea">
+                            <property name="text">
+                             <string>Area</string>
+                            </property>
+                            <property name="checked">
+                             <bool>false</bool>
+                            </property>
+                           </widget>
+                          </item>
+                          <item>
+                           <widget class="QCheckBox" name="showArtificialShoft_checkBox">
+                            <property name="text">
+                             <string>Show artificial M' EIC shift</string>
+                            </property>
+                           </widget>
+                          </item>
+                          <item>
+                           <widget class="QCheckBox" name="scaleFeatures">
+                            <property name="text">
+                             <string>Normalise</string>
+                            </property>
+                            <property name="checked">
+                             <bool>true</bool>
+                            </property>
+                           </widget>
+                          </item>
+                          <item>
+                           <widget class="QCheckBox" name="scaleLabelledFeatures">
+                            <property name="text">
+                             <string>Normalise separately</string>
+                            </property>
+                           </widget>
+                          </item>
+                          <item>
+                           <widget class="QCheckBox" name="showIsotopologues">
+                            <property name="text">
+                             <string>Isotopologues</string>
+                            </property>
+                           </widget>
+                          </item>
+                          <item>
+                           <widget class="QCheckBox" name="showSmoothedEIC_checkBox">
+                            <property name="text">
+                             <string>Show smoothed signal</string>
+                            </property>
+                           </widget>
+                          </item>
+                          <item>
+                           <widget class="QCheckBox" name="flattenXIC">
+                            <property name="text">
+                             <string>Crop</string>
+                            </property>
+                           </widget>
+                          </item>
+                          <item>
+                           <widget class="QCheckBox" name="showLegend">
+                            <property name="text">
+                             <string>Legend</string>
+                            </property>
+                            <property name="checked">
+                             <bool>true</bool>
+                            </property>
+                           </widget>
+                          </item>
+                          <item>
+                           <widget class="QLabel" name="label_35">
+                            <property name="text">
+                             <string/>
+                            </property>
+                           </widget>
+                          </item>
+                          <item>
+                           <widget class="Line" name="line_19">
+                            <property name="orientation">
+                             <enum>Qt::Vertical</enum>
+                            </property>
+                           </widget>
+                          </item>
+                          <item>
+                           <widget class="QCheckBox" name="showDiagnostics">
+                            <property name="text">
+                             <string>Diagnostics</string>
+                            </property>
+                           </widget>
+                          </item>
+                          <item>
+                           <widget class="QCheckBox" name="setPeakCentersToZero">
+                            <property name="text">
+                             <string>Set peak centers to 0</string>
+                            </property>
+                           </widget>
+                          </item>
+                          <item>
+                           <spacer name="horizontalSpacer_9">
+                            <property name="orientation">
+                             <enum>Qt::Horizontal</enum>
+                            </property>
+                            <property name="sizeHint" stdset="0">
+                             <size>
+                              <width>40</width>
+                              <height>20</height>
+                             </size>
+                            </property>
+                           </spacer>
+                          </item>
+                         </layout>
+                        </item>
+                        <item row="1" column="0">
+                         <widget class="QWidget" name="visualizationWidget" native="true">
+                          <property name="sizePolicy">
+                           <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+                            <horstretch>0</horstretch>
+                            <verstretch>0</verstretch>
+                           </sizepolicy>
+                          </property>
+                          <property name="minimumSize">
+                           <size>
+                            <width>700</width>
+                            <height>350</height>
+                           </size>
+                          </property>
+                         </widget>
+                        </item>
+                       </layout>
+                      </widget>
+                      <widget class="QWidget" name="widget" native="true">
+                       <layout class="QGridLayout" name="gridLayout_29">
+                        <item row="1" column="0">
+                         <layout class="QHBoxLayout" name="horizontalLayout_7">
+                          <item>
+                           <widget class="QCheckBox" name="MSLabels">
+                            <property name="text">
+                             <string>Labels</string>
+                            </property>
+                            <property name="checked">
+                             <bool>true</bool>
+                            </property>
+                           </widget>
+                          </item>
+                          <item>
+                           <widget class="QCheckBox" name="MSIsos">
+                            <property name="text">
+                             <string>Isotopologues</string>
+                            </property>
+                            <property name="checked">
+                             <bool>true</bool>
+                            </property>
+                           </widget>
+                          </item>
+                          <item>
+                           <widget class="QCheckBox" name="drawFPIsotopologues">
+                            <property name="text">
+                             <string>M-1, M'+1</string>
+                            </property>
+                            <property name="checked">
+                             <bool>true</bool>
+                            </property>
+                           </widget>
+                          </item>
+                          <item>
+                           <widget class="Line" name="line_10">
+                            <property name="orientation">
+                             <enum>Qt::Vertical</enum>
+                            </property>
+                           </widget>
+                          </item>
+                          <item>
+                           <widget class="QLabel" name="label_8">
+                            <property name="text">
+                             <string>Isotopolog deviation (ppm)</string>
+                            </property>
+                           </widget>
+                          </item>
+                          <item>
+                           <widget class="QDoubleSpinBox" name="doubleSpinBox_isotopologAnnotationPPM">
+                            <property name="decimals">
+                             <number>1</number>
+                            </property>
+                            <property name="value">
+                             <double>5.000000000000000</double>
+                            </property>
+                           </widget>
+                          </item>
+                          <item>
+                           <spacer name="horizontalSpacer_25">
+                            <property name="orientation">
+                             <enum>Qt::Horizontal</enum>
+                            </property>
+                            <property name="sizeHint" stdset="0">
+                             <size>
+                              <width>40</width>
+                              <height>20</height>
+                             </size>
+                            </property>
+                           </spacer>
+                          </item>
+                         </layout>
+                        </item>
+                        <item row="0" column="0">
+                         <widget class="QWidget" name="visualizationWidget3" native="true">
+                          <property name="sizePolicy">
+                           <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+                            <horstretch>0</horstretch>
+                            <verstretch>0</verstretch>
+                           </sizepolicy>
+                          </property>
+                          <property name="minimumSize">
+                           <size>
+                            <width>700</width>
+                            <height>350</height>
+                           </size>
+                          </property>
+                         </widget>
+                        </item>
+                       </layout>
+                      </widget>
                      </widget>
                     </item>
                    </layout>
@@ -3700,94 +3865,6 @@ p, li { white-space: pre-wrap; }
                    <layout class="QGridLayout" name="gridLayout_28">
                     <item row="0" column="0">
                      <widget class="QWidget" name="visualizationWidget2" native="true">
-                      <property name="sizePolicy">
-                       <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
-                        <horstretch>0</horstretch>
-                        <verstretch>0</verstretch>
-                       </sizepolicy>
-                      </property>
-                     </widget>
-                    </item>
-                   </layout>
-                  </widget>
-                  <widget class="QWidget" name="tab_3">
-                   <attribute name="title">
-                    <string>Mass spectra</string>
-                   </attribute>
-                   <layout class="QGridLayout" name="gridLayout_29">
-                    <item row="0" column="0">
-                     <layout class="QHBoxLayout" name="horizontalLayout_7">
-                      <item>
-                       <widget class="QCheckBox" name="MSLabels">
-                        <property name="text">
-                         <string>Labels</string>
-                        </property>
-                        <property name="checked">
-                         <bool>true</bool>
-                        </property>
-                       </widget>
-                      </item>
-                      <item>
-                       <widget class="QCheckBox" name="MSIsos">
-                        <property name="text">
-                         <string>Isotopologues</string>
-                        </property>
-                        <property name="checked">
-                         <bool>true</bool>
-                        </property>
-                       </widget>
-                      </item>
-                      <item>
-                       <widget class="QCheckBox" name="drawFPIsotopologues">
-                        <property name="text">
-                         <string>M-1, M'+1</string>
-                        </property>
-                        <property name="checked">
-                         <bool>true</bool>
-                        </property>
-                       </widget>
-                      </item>
-                      <item>
-                       <widget class="Line" name="line_10">
-                        <property name="orientation">
-                         <enum>Qt::Vertical</enum>
-                        </property>
-                       </widget>
-                      </item>
-                      <item>
-                       <widget class="QLabel" name="label_8">
-                        <property name="text">
-                         <string>Isotopolog deviation (ppm)</string>
-                        </property>
-                       </widget>
-                      </item>
-                      <item>
-                       <widget class="QDoubleSpinBox" name="doubleSpinBox_isotopologAnnotationPPM">
-                        <property name="decimals">
-                         <number>1</number>
-                        </property>
-                        <property name="value">
-                         <double>5.000000000000000</double>
-                        </property>
-                       </widget>
-                      </item>
-                      <item>
-                       <spacer name="horizontalSpacer_25">
-                        <property name="orientation">
-                         <enum>Qt::Horizontal</enum>
-                        </property>
-                        <property name="sizeHint" stdset="0">
-                         <size>
-                          <width>40</width>
-                          <height>20</height>
-                         </size>
-                        </property>
-                       </spacer>
-                      </item>
-                     </layout>
-                    </item>
-                    <item row="1" column="0">
-                     <widget class="QWidget" name="visualizationWidget3" native="true">
                       <property name="sizePolicy">
                        <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
                         <horstretch>0</horstretch>
@@ -3899,7 +3976,7 @@ p, li { white-space: pre-wrap; }
              <x>0</x>
              <y>0</y>
              <width>1248</width>
-             <height>603</height>
+             <height>597</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_40">
@@ -3961,7 +4038,7 @@ p, li { white-space: pre-wrap; }
             <item row="1" column="1">
              <widget class="QTabWidget" name="tabWidget_3">
               <property name="currentIndex">
-               <number>2</number>
+               <number>0</number>
               </property>
               <widget class="QWidget" name="tab_5">
                <attribute name="title">
@@ -3983,33 +4060,6 @@ p, li { white-space: pre-wrap; }
                    </size>
                   </property>
                  </widget>
-                </item>
-                <item row="0" column="0">
-                 <layout class="QHBoxLayout" name="horizontalLayout_12">
-                  <item>
-                   <widget class="QCheckBox" name="resultsExperimentNormaliseXICs_checkBox">
-                    <property name="text">
-                     <string>Normalise to labeled features</string>
-                    </property>
-                    <property name="checked">
-                     <bool>true</bool>
-                    </property>
-                   </widget>
-                  </item>
-                  <item>
-                   <spacer name="horizontalSpacer_22">
-                    <property name="orientation">
-                     <enum>Qt::Horizontal</enum>
-                    </property>
-                    <property name="sizeHint" stdset="0">
-                     <size>
-                      <width>40</width>
-                      <height>20</height>
-                     </size>
-                    </property>
-                   </spacer>
-                  </item>
-                 </layout>
                 </item>
                </layout>
               </widget>
@@ -4035,6 +4085,33 @@ p, li { white-space: pre-wrap; }
               </widget>
              </widget>
             </item>
+            <item row="0" column="1">
+             <layout class="QHBoxLayout" name="horizontalLayout_12">
+              <item>
+               <widget class="QCheckBox" name="resultsExperimentNormaliseXICs_checkBox">
+                <property name="text">
+                 <string>Normalise to labeled features</string>
+                </property>
+                <property name="checked">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="horizontalSpacer_22">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </item>
            </layout>
           </widget>
          </widget>
@@ -4059,6 +4136,25 @@ p, li { white-space: pre-wrap; }
       </property>
      </widget>
     </item>
+    <item row="2" column="1">
+     <widget class="QLabel" name="version">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
+      <property name="styleSheet">
+       <string notr="true">color:grey;</string>
+      </property>
+      <property name="text">
+       <string>TextLabel</string>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignBottom|Qt::AlignRight|Qt::AlignTrailing</set>
+      </property>
+     </widget>
+    </item>
    </layout>
   </widget>
   <widget class="QMenuBar" name="menuBar">
@@ -4066,7 +4162,7 @@ p, li { white-space: pre-wrap; }
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>2255</width>
+     <width>2077</width>
      <height>21</height>
     </rect>
    </property>
@@ -4099,6 +4195,8 @@ p, li { white-space: pre-wrap; }
      <string>Tools</string>
     </property>
     <addaction name="actionIsotopic_enrichment"/>
+    <addaction name="separator"/>
+    <addaction name="actionSet_working_directory"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuTools"/>
@@ -4132,6 +4230,11 @@ p, li { white-space: pre-wrap; }
   <action name="actionIsotopic_enrichment">
    <property name="text">
     <string>Isotopic enrichment</string>
+   </property>
+  </action>
+  <action name="actionSet_working_directory">
+   <property name="text">
+    <string>Set working directory</string>
    </property>
   </action>
  </widget>

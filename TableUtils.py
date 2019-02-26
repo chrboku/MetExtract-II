@@ -515,7 +515,10 @@ class TableUtilsCSV:
 
 
 from openpyxl import Workbook, load_workbook
-from openpyxl.cell import get_column_letter
+try:
+    from openpyxl.cell import get_column_letter
+except:
+    from openpyxl.utils import get_column_letter
 
 # read / write data table from / to an excel file
 class TableUtilsXLS:

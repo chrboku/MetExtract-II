@@ -23,11 +23,18 @@ def setLabelBackground(qlabel, colorName=None, r=255, g=0, b=0, alpha=255):
 
 # a dialog for showing the progress of individual calculations each having individual subtasks
 class ProgressWrapper(QtGui.QDialog):
+
+    ## Disable closing of dialog with the ESC key
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Escape:
+            pass
+
     def __init__(self, pwCount=1, showProgressBars=True, showLog=False, showIndProgress=False, indGroups={},
                  indProgColumns=15, parent=None, closeCallback=None, skipCallBack=False):
         super(ProgressWrapper, self).__init__(parent)
         self.setModal(True)
         self.setWindowTitle("Progress Wrapper")
+
 
         l = QtGui.QGridLayout(self)
 

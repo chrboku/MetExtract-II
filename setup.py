@@ -89,7 +89,7 @@ from utils import get_main_dir
 if "R_HOME" in os.environ.keys():
     __RHOMEENVVAR=os.environ["R_HOME"]
 
-
+os.environ["R_USER"]=get_main_dir()+"/Ruser"
 # try to load r configuration file (does not require any environment variables or registry keys)
 if not loadRConfFile(path=get_main_dir()) or not checkR():
     os.environ["R_HOME"]=get_main_dir()+"/R"
@@ -205,16 +205,17 @@ def mergeDirs (root_src_dir, root_dst_dir):
             if os.path.exists(dst_file):
                 os.remove(dst_file)
             shutil.move(src_file, dst_dir)
-
+import openpyxl
 # create executable compilation
 print "###################################################"
 print "########## Packing MetExtractII_Main"
 print "###################################################"
 setup(console=[{"script": "MetExtractII_Main.py"}],
       options={"py2exe": {
-                 "includes": ["sip", "matplotlib.backends.backend_tkagg"],  # use this line if above does not work
+                 "includes": ["sip", "matplotlib.backends.backend_tkagg", 'scipy', 'scipy.integrate', 'scipy.special.*','scipy.linalg.*', 'scipy.sparse.csgraph._validation'],  # use this line if above does not work
                  "dll_excludes": ["MSVCP90.dll"],
-                 "excludes": ["_gtkagg", "_tkagg"]
+                 "excludes": ["_gtkagg", "_tkagg"],
+                 "packages": ["FileDialog", "openpyxl", 'reportlab','reportlab.graphics.charts','reportlab.graphics.samples','reportlab.graphics.widgets','reportlab.graphics.barcode','reportlab.graphics','reportlab.lib','reportlab.pdfbase','reportlab.pdfgen','reportlab.platypus']
       }})
 shutil.copytree("./dist", "./dist_MetExtract_Main")
 #rmtree("./build/")
@@ -224,9 +225,11 @@ print "########## Packing FragExtract"
 print "###################################################"
 setup(console=[{"script": "FragExtract.py"}],
       options={"py2exe": {
-                 "includes": ["sip", "matplotlib.backends.backend_tkagg"],
+                 "includes": ["sip", "matplotlib.backends.backend_tkagg", 'scipy', 'scipy.integrate', 'scipy.special.*','scipy.linalg.*', 'scipy.sparse.csgraph._validation'],
                  "dll_excludes": ["MSVCP90.dll"],
-                 "excludes": ["_gtkagg", "_tkagg"]}},
+                 "excludes": ["_gtkagg", "_tkagg"],
+                 "packages": ["FileDialog", "openpyxl", 'reportlab','reportlab.graphics.charts','reportlab.graphics.samples','reportlab.graphics.widgets','reportlab.graphics.barcode','reportlab.graphics','reportlab.lib','reportlab.pdfbase','reportlab.pdfgen','reportlab.platypus']
+      }},
       data_files=data_files,
       requires=['matplotlib'])
 shutil.copytree("./dist", "./dist_FragExtract")
@@ -237,9 +240,11 @@ print "########## Packing MExtract"
 print "###################################################"
 setup(console=[{"script": "MExtract.py"}],
       options={"py2exe": {
-                 "includes": ["sip", "matplotlib.backends.backend_tkagg"],
+                 "includes": ["sip", "matplotlib.backends.backend_tkagg", 'scipy', 'scipy.integrate', 'scipy.special.*','scipy.linalg.*', 'scipy.sparse.csgraph._validation'],
                  "dll_excludes": ["MSVCP90.dll"],
-                 "excludes": ["_gtkagg", "_tkagg"]}},
+                 "excludes": ["_gtkagg", "_tkagg"],
+                 "packages": ["FileDialog", "openpyxl", 'reportlab','reportlab.graphics.charts','reportlab.graphics.samples','reportlab.graphics.widgets','reportlab.graphics.barcode','reportlab.graphics','reportlab.lib','reportlab.pdfbase','reportlab.pdfgen','reportlab.platypus']
+      }},
       data_files=data_files,
       requires=['matplotlib'])
 shutil.copytree("./dist", "./dist_MExtract")
@@ -419,7 +424,7 @@ rmtree("./BootstrapKnitr_Template")
 
 print "BootstrapKnitr_Template zipped"
 
-copy("./../distribution/R-2.15.2-win.exe", "./distribute/R-2.15.2-win.exe")
+copy("./../distribution/R-3.3.2-win.exe", "./distribute/R-3.3.2-win.exe")
 
 print "R 2.15.2 copied"
 

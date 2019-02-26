@@ -39,6 +39,7 @@ class groupEdit(QtGui.QDialog, Ui_GroupEditor):
         self.dialogFinished.setFocus(True)
 
         self.groupName.setValidator(QtGui.QRegExpValidator(QtCore.QRegExp("[0-9a-zA-Z_]*")))
+        self.setAcceptDrops(True)
 
     def removeSel(self):
         todel = []
@@ -103,7 +104,7 @@ class groupEdit(QtGui.QDialog, Ui_GroupEditor):
             self.initDir = foldername.replace("\\", "/")
             for root, dirs, files in os.walk(foldername):
                 for file in files:
-                    if file.lower().endswith(".mzxml"):
+                    if file.lower().endswith(".mzxml") or file.lower().endswith(".mzml"):
                         self.groupFiles.addItem(root + "/" + file)
                         self.groupfiles.append(root + "/" + file)
 
@@ -140,6 +141,29 @@ class groupEdit(QtGui.QDialog, Ui_GroupEditor):
             self.useForMetaboliteGrouping.setCheckState(QtCore.Qt.Unchecked)
         self.groupName.setFocus()
         return self.exec_()
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls:
+            event.accept()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        if event.mimeData().hasUrls:
+            event.setDropAction(QtCore.Qt.CopyAction)
+            event.accept()
+
+            links = []
+            for url in event.mimeData().urls():
+                links.append(str(url.toLocalFile()).replace("\\", "/"))
+
+            for link in links:
+                if link.lower().endswith(".mzxml") or link.lower().endswith(".mzml"):
+                    self.groupFiles.addItem(link)
+                    self.groupfiles.append(link)
+
+        else:
+            event.ignore()
 
 
 if __name__ == "__main__":

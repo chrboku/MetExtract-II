@@ -27,6 +27,7 @@ import time
 
 import HCA_general
 
+import exportAsFeatureML
 
 
 
@@ -141,10 +142,12 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
         with open(file, "wb") as f:
             # initialise TSV results file
 
-            f.write("Num\tMZ\tL_MZ\tD_MZ\tMZ_Range\tRT\tRT_Range\tXn\tCharge\tScanEvent\tIonisation_Mode\tTracer\tOGroup\tIon\tLoss\tM")
+            f.write("Num\tComment\tMZ\tL_MZ\tD_MZ\tMZ_Range\tRT\tRT_Range\tXn\tCharge\tScanEvent\tIonisation_Mode\tTracer\tOGroup\tIon\tLoss\tM")
             for res in results:
                 f.write("\t" + res.fileName + "_Area_N")
                 f.write("\t" + res.fileName + "_Area_L")
+                f.write("\t" + res.fileName + "_Abundance_N")
+                f.write("\t" + res.fileName + "_Abundance_L")
                 f.write("\t" + res.fileName + "_FID")
                 f.write("\t" + res.fileName + "_GroupID")
                 f.write("\t" + res.fileName + "_CorrelatesTo")
@@ -208,7 +211,7 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
             curNum = 1
 
             xCountshelp = []
-            a=xCounts.replace(" ", "").split(",")
+            a=xCounts.replace(" ", "").replace(";", ",").split(",")
             for j in a:
                 if "-" in j:
                     xCountshelp.extend(range(int(j[0:j.find("-")]), int(j[j.find("-")+1:len(j)])+1))
@@ -250,14 +253,15 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                                     hours, mins, ionMode, xCount, cLoading, res.fileName)))
 
                             for row in res.curs.execute(
-                                    "SELECT c.id, c.tracer, c.NPeakCenter, c.NPeakCenterMin, c.NPeakScale, c.NSNR, c.NPeakArea, c.mz, c.xcount, c.LPeakCenter, c.LPeakCenterMin, c.LPeakScale, c.LSNR, c.LPeakArea, c.Loading, (SELECT f.fGroupId FROM featureGroupFeatures f WHERE f.fID=c.id) AS fGroupId, (SELECT t.name FROM tracerConfiguration t WHERE t.id=c.tracer) AS tracerName, c.ionMode, c.correlationsToOthers "
+                                    "SELECT c.id, c.tracer, c.NPeakCenter, c.NPeakCenterMin, c.NPeakScale, c.NSNR, c.NPeakArea, c.mz, c.xcount, c.LPeakCenter, c.LPeakCenterMin, c.LPeakScale, c.LSNR, c.LPeakArea, c.Loading, (SELECT f.fGroupId FROM featureGroupFeatures f WHERE f.fID=c.id) AS fGroupId, (SELECT t.name FROM tracerConfiguration t WHERE t.id=c.tracer) AS tracerName, c.ionMode, c.correlationsToOthers, c.NPeakAbundance, c.LPeakAbundance "
                                     "FROM chromPeaks c WHERE c.ionMode='%s' AND c.xcount=%d and c.Loading=%d"%(ionMode, xCount, cLoading)):
                                 try:
                                     cp = ChromPeakPair(id=row[0], tracer=row[1], NPeakCenter=row[2], NPeakCenterMin=row[3],
                                                    NPeakScale=row[4], NSNR=row[5], NPeakArea=row[6], mz=row[7], xCount=row[8],
                                                    LPeakCenter=row[9], LPeakCenterMin=row[10], LPeakScale=row[11], LSNR=row[12],
                                                    LPeakArea=row[13], loading=row[14], fGroupID=row[15], tracerName=row[16],
-                                                   ionMode=str(row[17]), correlationsToOthers=loads(base64.b64decode(str(row[18]))))
+                                                   ionMode=str(row[17]), correlationsToOthers=loads(base64.b64decode(str(row[18]))),
+                                                   NPeakAbundance=float(row[19]), LPeakAbundance=float(row[20]))
 
                                     assert cp.ionMode in ionModes.keys()
                                     res.featurePairs.append(cp)
@@ -490,6 +494,8 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
 
                                                 f.write(str(curNum))
                                                 f.write("\t")
+                                                f.write("")
+                                                f.write("\t")
                                                 f.write(str(avgmz))
                                                 f.write("\t")
                                                 f.write(str(avgmz + xCount * tracersDeltaMZ[tracer] / cLoading))
@@ -546,7 +552,7 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                                                 appe = True
                                                             toapp = toapp + str(peak[1].NPeakArea / peak[1].LPeakArea)
 
-                                                        #12C Area
+                                                        # Area of native, monoisotopic isotopolog
                                                         appe = False
                                                         for peak in groupedChromPeaks[i][res]:
                                                             if appe:
@@ -556,7 +562,7 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                                             f.write(str(peak[1].NPeakArea))
 
                                                         f.write("\t")
-                                                        #13C Area
+                                                        # Area of labeled isotopolog
                                                         appe = False
                                                         for peak in groupedChromPeaks[i][res]:
                                                             if appe:
@@ -566,7 +572,27 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                                             f.write(str(peak[1].LPeakArea))
 
                                                         f.write("\t")
-                                                        #Feature ID
+                                                        # Abundance of native, monoisotopic isotopolog
+                                                        appe = False
+                                                        for peak in groupedChromPeaks[i][res]:
+                                                            if appe:
+                                                                f.write(";")
+                                                            else:
+                                                                appe = True
+                                                            f.write(str(peak[1].NPeakAbundance))
+
+                                                        f.write("\t")
+                                                        # Abundance of labeled isotopolog
+                                                        appe = False
+                                                        for peak in groupedChromPeaks[i][res]:
+                                                            if appe:
+                                                                f.write(";")
+                                                            else:
+                                                                appe = True
+                                                            f.write(str(peak[1].LPeakAbundance))
+
+                                                        f.write("\t")
+                                                        # Feature ID
                                                         appe = False
                                                         for peak in groupedChromPeaks[i][res]:
                                                             if appe:
@@ -576,7 +602,7 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                                             f.write("%d" % peak[1].id)
 
                                                         f.write("\t")
-                                                        #Group ID
+                                                        # Group ID
                                                         appe = False
                                                         for peak in groupedChromPeaks[i][res]:
                                                             if appe:
@@ -586,7 +612,7 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                                             f.write("%d" % peak[1].fGroupID)
 
                                                         f.write("\t")
-                                                        #CorrelatesTo
+                                                        # CorrelatesTo
                                                         appe = False
                                                         for peak in groupedChromPeaks[i][res]:
                                                             if appe:
@@ -596,7 +622,7 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                                             f.write("%s" % str(peak[1].correlationsToOthers))
 
                                                     else:
-                                                        f.write("\t\t\t\t")
+                                                        f.write("\t\t\t\t\t\t")
                                                 f.write(toapp)
                                                 f.write("\t%d" % doublePeak)
                                                 f.write("\n")
@@ -657,7 +683,7 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
             if align: processingParams.FPBracketing_nPolynom=nPolynom
             f.write("## Bracketing files processing parameters %s\n"%(processingParams.dumpAsJSon().replace("\"", "'")))
 
-
+        exportAsFeatureML.convertMEMatrixToFeatureMLSepPolarities(file)
 
     except Exception as ex:
         import traceback

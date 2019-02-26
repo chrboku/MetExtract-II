@@ -15,7 +15,9 @@ import os
 import os.path
 import pickle
 import base64
-from sumFormula import sumFormulaGenerator
+from time import sleep
+
+from SGR import SGRGenerator
 from formulaTools import formulaTools
 
 from MSScan import MS2Scan
@@ -303,8 +305,8 @@ class ProcessTarget:
         return msScan
 
     def selectMSMSScansForProcessing(self, mzxml, Cn, minRT, maxRT, nativeMZ, metaboliteCharge, fullScanEvent, nativeMS2ScanEvent, labelledMS2ScanEvent):
-        eic, timesFS, scanIDsFS=mzxml.getEIC(nativeMZ, ppm=self.fullScanEICppm, filterLine=fullScanEvent)
-        eicL, timesFS, scanIDsFS=mzxml.getEIC(nativeMZ+self.labellingOffset*Cn/metaboliteCharge, ppm=self.fullScanEICppm, filterLine=fullScanEvent)
+        eic, timesFS, scanIDsFS, mzs=mzxml.getEIC(nativeMZ, ppm=self.fullScanEICppm, filterLine=fullScanEvent)
+        eicL, timesFS, scanIDsFS, mzs=mzxml.getEIC(nativeMZ+self.labellingOffset*Cn/metaboliteCharge, ppm=self.fullScanEICppm, filterLine=fullScanEvent)
 
         TIC, timesMS2Native, scanIdsMS2Native=mzxml.getTIC(filterLine=nativeMS2ScanEvent, useMS2=True)
         TICL, timesMS2Labelled, scanIdsMS2Labelled=mzxml.getTIC(filterLine=labelledMS2ScanEvent, useMS2=True)
@@ -343,7 +345,8 @@ class ProcessTarget:
 
         return (maxIntFullScanIndex, maxIntMS2NativeIndex, maxIntMS2LabelledIndex,
                 timesFS[maxIntFullScanIndex], timesMS2Native[maxIntMS2NativeIndex], timesMS2Labelled[maxIntMS2LabelledIndex],
-                scanIDsFS[maxIntFullScanIndex], scanIdsMS2Native[maxIntMS2NativeIndex], scanIdsMS2Labelled[maxIntMS2LabelledIndex])
+                scanIDsFS[maxIntFullScanIndex], scanIdsMS2Native[maxIntMS2NativeIndex], scanIdsMS2Labelled[maxIntMS2LabelledIndex],
+                eic, eicL, timesFS)
 
     def removePeaksBelowThreshold(self, msScan, intThreshold):
         usePeaks=[]
@@ -403,7 +406,7 @@ class ProcessTarget:
                 if self.useZeroLabelingAtoms:
                     atoms.insert(0, 0)
 
-                _debug=True
+                _debug=False
 
                 if nMz<(lMz+1):
 
@@ -464,7 +467,7 @@ class ProcessTarget:
         return scanAnnotated
 
     def annotatePeaksWithSumFormulas(self, adductObj, scanAnnotated, useAtoms, atomsRange, fixed, ppm, useSevenGoldenRules=True):
-        sfg=sumFormulaGenerator()
+        sfg=SGRGenerator()
         ft=formulaTools()
 
         for annotation in scanAnnotated.peakAnnotations:
@@ -523,7 +526,7 @@ class ProcessTarget:
 
 
     def calcParentSumFormulas(self, nativeMZ, Cn, adductObj, useAtoms, atomsRange, fixed, ppm, useSevenGoldenRules=True):
-        sfg=sumFormulaGenerator()
+        sfg=SGRGenerator()
 
         mParent=nativeMZ-adductObj.mzoffset/adductObj.charge
 
@@ -698,8 +701,8 @@ class ProcessTarget:
         currentHeight=writeKeyValuePair("MS scan event", target.scanEventMS1, pdf, currentHeight)
         currentHeight=writeKeyValuePair("Native MS/MS scan event", target.scanEventMS2Native, pdf, currentHeight)
         currentHeight=writeKeyValuePair("Labelled MS/MS scan event", target.scanEventMS2Labelled, pdf, currentHeight)
-        currentHeight=writeKeyValuePair("Selected native MS/MS scan id", str(target.scanIDNativeRaw), pdf, currentHeight)
-        currentHeight=writeKeyValuePair("Selected labelled MS/MS scan id", str(target.scanIDLabelledRaw), pdf, currentHeight)
+        currentHeight=writeKeyValuePair("Native MS/MS scan time / id", "%.2f / %s"%(target.scanRTNativeRaw/60., str(target.scanIDNativeRaw)), pdf, currentHeight)
+        currentHeight=writeKeyValuePair("Labeled MS/MS scan time / id", "%.2f / %s"%(target.scanRTLabeledRaw/60., str(target.scanIDLabelledRaw)), pdf, currentHeight)
 
         pdf.line(50, currentHeight + 20 - 4, 540, currentHeight + 20 - 4); currentHeight-=10
 
@@ -873,6 +876,17 @@ class ProcessTarget:
         colors=[]
         strokeWidth=[]
 
+        ma = max(target.eicFS)
+        ma = ma if ma > 0 else 1
+        dd.append(zip([t / 60. for t in target.timesFS], [i / ma for i in target.eicFS]))
+        colors.append(Color(94 / 255., 158 / 255., 158 / 255.))
+        strokeWidth.append(.7)
+        ma = max(target.eicLFS)
+        ma = ma if ma > 0 else 1
+        dd.append(zip([t / 60. for t in target.timesFS], [-i / ma for i in target.eicLFS]))
+        colors.append(Color(94 / 255., 158 / 255., 158 / 255.))
+        strokeWidth.append(.7)
+
         for eic in eics:
             times=[float(f) for f in eic.timesList.split(",")]
             intensities=[float(f) for f in eic.intensityList.split(",")]
@@ -900,6 +914,7 @@ class ProcessTarget:
         drawing.add(lp)
         renderPDF.draw(drawing, pdf, 15 , 25)
         pdf.drawString(470, 295, "EICs")
+
 
         pdf.save()
 
@@ -929,6 +944,11 @@ class ProcessTarget:
             #endregion
 
             target=self.targets[0]
+            target.eicFS=""
+            target.eicLFS=""
+            target.timesFS=""
+            target.scanRTNativeRaw=0.
+            target.scanRTLabeledRaw=0.
             createTableFromBunch("Targets", target, cursor=curs, primaryKeys=["id"], autoIncrements=["id"], ifNotExists=True)
             createTableFromBunch("MSSpectra", Bunch(id=int, forTarget=int, mzs=str, ints=str, annos=str, scanTime=float, scanID=str, type=str), cursor=curs,
                                  primaryKeys=["id"], autoIncrements=["id"], ifNotExists=True)
@@ -947,6 +967,7 @@ class ProcessTarget:
                 self._process(chromatogram, target, conn, curs)
 
                 self.postMessageToProgressWrapper("end", forPID=target.pID)
+                sleep(2)
 
         except Exception as ex:
             import traceback
@@ -994,8 +1015,17 @@ class ProcessTarget:
         # region 3. Processing step: select the most abundant FullScan and select the two following MS2 scans
         t=self.selectMSMSScansForProcessing(chromatogram, target.Cn, target.startRT, target.stopRT, target.precursorMZ, target.chargeCount, fullScanEventString, nativeScanEventString, labelledScanEventString)
         maxIntFullScanIndex, maxIntMS2NativeIndex, maxIntMS2LabelledIndex, \
-            maxIntFullScanTime, maxIntMS2NativeTime, maxIntMS2LabelledTime,\
-            maxIntFullScanID, maxIntMS2NativeID, maxIntMS2LabelledID=t
+            maxIntFullScanTime, maxIntMS2NativeTime, maxIntMS2LabelledTime, \
+            maxIntFullScanID, maxIntMS2NativeID, maxIntMS2LabelledID, \
+            eicFS, eicLFS, timesFS=t
+
+        startInd=min(range(len(timesFS)), key=lambda x: abs(timesFS[x]/60.-target.startRT))
+        stopInd = min(range(len(timesFS)), key=lambda x: abs(timesFS[x]/60. - target.stopRT))
+        target.eicFS=eicFS[startInd:stopInd]
+        target.eicLFS=eicLFS[startInd:stopInd]
+        target.timesFS=timesFS[startInd:stopInd]
+
+        curs.execute("UPDATE Targets SET eicFS=?, eicLFS=?, timesFS=? WHERE id=?", (base64.b64encode(pickle.dumps(target.eicFS)), base64.b64encode(pickle.dumps(target.eicLFS)), base64.b64encode(pickle.dumps(target.timesFS)), target.id))
 
         scanFS=deepcopy(chromatogram.getScanByID(maxIntFullScanID))
         scanMS2Native=deepcopy(chromatogram.getScanByID(maxIntMS2NativeID))
@@ -1034,9 +1064,11 @@ class ProcessTarget:
                                                         scanTime=scanMS2Labelled.retention_time, scanID=str(maxIntMS2LabelledID), type="labelled_raw"),
                                writeFields=["forTarget", "mzs", "ints", "scanTime", "type"])
 
-        curs.execute("UPDATE Targets SET scanIDNativeRaw='%s', scanIDLabelledRaw='%s' WHERE id=%d"%(str(maxIntMS2NativeID), str(maxIntMS2LabelledID), target.id))
+        curs.execute("UPDATE Targets SET scanRTNativeRaw=?, scanRTLabeledRaw=?, scanIDNativeRaw=?, scanIDLabelledRaw=? WHERE id=?", (scanMS2Native.retention_time, scanMS2Labelled.retention_time, maxIntMS2NativeID, maxIntMS2LabelledID, target.id))
         target.scanIDNativeRaw=str(maxIntMS2NativeID)
         target.scanIDLabelledRaw=str(maxIntMS2LabelledID)
+        target.scanRTNativeRaw=scanMS2Native.retention_time
+        target.scanRTLabeledRaw=scanMS2Labelled.retention_time
 
         conn.commit() 
         # endregion
@@ -1127,8 +1159,8 @@ class ProcessTarget:
             mz=scanMS2Annotated.nativeMz_list[i]
             mzL=scanMS2Annotated.labelledMz_list[i]
 
-            eicN, timesN, scanIdsN=chromatogram.getEIC(mz=mz,  ppm=self.matchingPPM, filterLine=nativeScanEventString, removeSingles=False, useMS1=False, useMS2=True)
-            eicL, timesL, scanIdsL=chromatogram.getEIC(mz=mzL, ppm=self.matchingPPM, filterLine=labelledScanEventString, removeSingles=False, useMS1=False, useMS2=True)
+            eicN, timesN, scanIdsN, mzs=chromatogram.getEIC(mz=mz,  ppm=self.matchingPPM, filterLine=nativeScanEventString, removeSingles=False, useMS1=False, useMS2=True)
+            eicL, timesL, scanIdsL, mzs=chromatogram.getEIC(mz=mzL, ppm=self.matchingPPM, filterLine=labelledScanEventString, removeSingles=False, useMS1=False, useMS2=True)
 
 
 
