@@ -97,7 +97,7 @@ class OptimizeMSMSTargetList:
         TableUtils.saveFile(table, fType="tsv", file=toFile)
 
 
-    def generateMSMSLists(self, samplesToUse, fileTo, minCounts=1, rtPlusMinus=0.25, maxParallelTargets=5, numberOfFiles=2, noffsprings=20, permCount=5, ngenerations=500, showDebugPlot=False):
+    def generateMSMSLists(self, samplesToUse, fileTo, minCounts=1000000, rtPlusMinus=0.25, maxParallelTargets=5, numberOfFiles=2, noffsprings=20, permCount=5, ngenerations=500, showDebugPlot=False, pwSetText=None, pwSetMax=None, pwSetValue=None):
 
         useTargets={}
 
@@ -154,6 +154,8 @@ class OptimizeMSMSTargetList:
 
         startProc = time.time()
 
+        if pwSetMax is not None:
+            pwSetMax(ngenerations)
         for geni in range(ngenerations):
 
             curPermCount=int(permCount*1.*(ngenerations-geni)/ngenerations)
@@ -161,7 +163,11 @@ class OptimizeMSMSTargetList:
 
             score=self.calculateScore(mat, matRowNames, matColNames, useTargets,
                                       minCounts=minCounts, rtPlusMinus=rtPlusMinus, maxParallelTargets=maxParallelTargets, numberOfFiles=numberOfFiles)
-            print "generation:",geni, "current score: %.2E"%score, "(after %.1f minutes)"%((time.time() - startProc) / 60.)
+            print "Generation:", "%s(/%d)"%(geni, ngenerations), "current score: %.2E"%score, "(after %.1f minutes)"%((time.time() - startProc) / 60.)
+            if pwSetText is not None:
+                pwSetText(" ".join(["Generation:", "%s(/%d)"%(geni, ngenerations), "current score: %.2E"%score, "(after %.1f minutes)"%((time.time() - startProc) / 60.)]))
+            if pwSetValue is not None:
+                pwSetValue(geni)
 
             bestOffspring=None
             bestOffspringScore=-10000000000000000000000
@@ -262,7 +268,6 @@ class OptimizeMSMSTargetList:
                 score=score-20*minCounts
         if True:
             for samplei in range(len(matColNames)):
-                sampleName=matColNames[samplei]
                 for matRowi in range(len(matRowNames)):
                     targetiRT = useTargets[matRowNames[matRowi]].rt
                     targetiOverlaps=0

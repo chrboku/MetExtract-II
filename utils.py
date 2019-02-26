@@ -1144,7 +1144,7 @@ def createTableFromBunch(tableName, bunchObject, cursor, useAttrs=None, primaryK
 
 
 
-def printAsTable(heads, data, printInExcelFormat=False, excelSep="\t"):
+def printAsTable(heads, data, printInExcelFormat=False, excelSep="\t", sepEach=15):
     widths = [0 for i in range(len(heads))]
     for i in range(len(heads)):
         widths[i] = len(heads[i])
@@ -1168,7 +1168,7 @@ def printAsTable(heads, data, printInExcelFormat=False, excelSep="\t"):
     for row in data:
         print row_format.format(*row)
         j += 1
-        if j == 15 and not printInExcelFormat:
+        if j == sepEach and not printInExcelFormat:
             print hrow
             j = 0
 

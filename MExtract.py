@@ -2278,6 +2278,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 self.ui.msms_maxParallelTargets.setValue(sett.value("msms_maxParallelTargets").toInt()[0])
             if sett.contains("msms_numberOfSamples"):
                 self.ui.msms_numberOfSamples.setValue(sett.value("msms_numberOfSamples").toInt()[0])
+            if sett.contains("msms_nOffsprings"):
+                self.ui.nOffsprings.setValue(sett.value("msms_nOffpsrings").toInt()[0])
+            if sett.contains("msms_nGenerations"):
+                self.ui.nGenerations.setValue(sett.value("msms_nGenerations").toInt()[0])
 
             sett.endGroup()
 
@@ -2428,6 +2432,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             sett.setValue("msms_rtWindow", self.ui.msms_rtWindow.value())
             sett.setValue("msms_maxParallelTargets", self.ui.msms_maxParallelTargets.value())
             sett.setValue("msms_numberOfSamples", self.ui.msms_numberOfSamples.value())
+            sett.setValue("msms_nGenerations", self.ui.nGenerations.value())
+            sett.setValue("msms_nOffsprings", self.ui.nOffsprings.value())
 
             sett.endGroup()
 
@@ -3234,7 +3240,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             hits[hit.dbName].append("%s (%s): Num %s, Formula %s, RT: %s, MassErrorPPM: %.5f, Additional information: %s" % (hit.name, hit.hitType, hit.num, hit.sumFormula, hit.rt_min, hit.matchErrorPPM, hit.additionalInfo))
 
                         for dbName in hits.keys():
-                            x["DBs_"+dbName] = ",".join(hits[dbName])
+                            x["DBs_"+dbName] = "\"%s\""%(",".join(hits[dbName]))
                             x["DBs_" + dbName + "_count"] = len(hits[dbName])
                         return x
 
@@ -3416,7 +3422,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         ## Process MSMS info
         if self.ui.generateMSMSInfo_CheckBox.isChecked():
-            ## TODO implement here bingo
+            pw = ProgressWrapper(1, parent=self)
+            pw.show()
+            pw.getCallingFunction()("text")("Preparing MSMS import and list generation")
 
             inFile=str(self.ui.groupsSave.text())
             outFile=str(self.ui.groupsSave.text()).replace(".tsv", "_MSMS.tsv")
@@ -3451,9 +3459,14 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                   minCounts=self.ui.msms_minCounts.value(),
                                   numberOfFiles=self.ui.msms_numberOfSamples.value(),
                                   rtPlusMinus=self.ui.msms_rtWindow.value(),
-                                  maxParallelTargets=self.ui.msms_maxParallelTargets.value())
+                                  maxParallelTargets=self.ui.msms_maxParallelTargets.value(),
+                                  noffsprings=self.ui.nOffsprings.value(),
+                                  ngenerations=self.ui.nGenerations.value(),
+                                  pwSetText=pw.getCallingFunction()("text"),
+                                  pwSetMax=pw.getCallingFunction()("max"),
+                                  pwSetValue=pw.getCallingFunction()("value"))
 
-
+            pw.hide()
 
 
         self.updateLCMSSampleSettings()

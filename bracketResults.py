@@ -479,14 +479,14 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                                 aligned = [(x[0][0], int(x[0][1])) for x in aligned]
 
                                                 if writePDF:
-                                                    u = 800
+                                                    uz = 800
                                                     o = 0
                                                     for peak in peaks:
                                                         for p in peak:
-                                                            pdf.drawString(40, u, "%35s: %d %.2f -> %d %d" % (
+                                                            pdf.drawString(40, uz, "%35s: %d %.2f -> %d %d" % (
                                                                            do[o][(1 + do[o].rfind("/")):], int(p.NPeakCenter),
                                                                            p.NPeakCenterMin / 60., int(aligned[o][0]), aligned[o][1]))
-                                                        u -= 20
+                                                        uz -= 20
                                                         o += 1
 
                                                 maxGroup = max(aligned, key=itemgetter(1))[1]

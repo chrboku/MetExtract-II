@@ -69,7 +69,7 @@ class DBSearch:
                 else:
                     try:
                         num=row[headers["Num"]].strip()
-                        name=row[headers["Name"]].strip()
+                        name=row[headers["Name"]].strip().replace("\"","DOURBLEPRIME").replace("'", "PRIME").replace("\t", "TAB").replace("\n","RETTURN").replace("\r","CarrRETURN").replace("#","HASH")
                         sumFormula=row[headers["SumFormula"]].strip()
                         rt_min=float(row[headers["Rt_min"]]) if row[headers["Rt_min"]]!="" else None
                         mz=float(row[headers["MZ"]]) if row[headers["MZ"]]!="" else None

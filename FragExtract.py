@@ -46,6 +46,8 @@ import formulaTools
 import os.path
 import os
 
+import re
+
 import sqlite3
 from utils import SQLSelectAsObject, CallBackMethod
 
@@ -147,6 +149,14 @@ class MSMSTargetModel(QtCore.QAbstractTableModel):
     def __init__(self, data=[]):
         QtCore.QAbstractTableModel.__init__(self)
         self._data=data
+        self.MScansDelegate=None
+        self.MpScansDelegate=None
+
+    def setMScansDelectate(self, delegate):
+        self.MScansDelegate=delegate
+    def setMpScansDelegate(self, delegate):
+        self.MpScansDelegate=delegate
+
 
     def rowCount(self, parent=QtCore.QModelIndex()): return len(self._data)
     def columnCount(self, parent=QtCore.QModelIndex()): return 11
@@ -155,8 +165,8 @@ class MSMSTargetModel(QtCore.QAbstractTableModel):
     def data(self, index, role=QtCore.Qt.DisplayRole):
         if role == QtCore.Qt.BackgroundColorRole and index.column() in range(8):
             cols=["#A4D3EE","white"]
-            if index.row() in range(8):
-                return QtGui.QBrush(QtGui.QColor(cols[1]))
+            #if index.row() in range(8):
+            #    return QtGui.QBrush(QtGui.QColor(cols[1]))
 
             prevNames=list(set([self._data[i].lcmsmsFileName for i in range(index.row()+1)]))
             return QtGui.QBrush(QtGui.QColor(cols[len(prevNames)%len(cols)]))
@@ -201,7 +211,36 @@ class MSMSTargetModel(QtCore.QAbstractTableModel):
         elif index.column()==3:
             s=str(value.toString())
             if is_float(s):
-                self._data[index.row()].nativeMZ=float(s)
+                mz=float(s)
+                lmz=self._data[index.row()].cNMetabolite*1.00335484+mz
+                self._data[index.row()].nativeMZ=mz
+
+                update=False
+                if self._data[index.row()].scanEventIndexM<=0:
+                    for sei, se in enumerate(self._data[index.row()].MS2ScanEvents):
+                        try:
+                            precurs=float(re.search("PreMZ: ([0-9]*\.[0-9]*) ", se).group(1))
+                            ppm=abs(precurs-mz)*1E6/mz
+                            if ppm<=10:
+                                self._data[index.row()].scanEventIndexM=sei
+                                update=True
+                        except:
+                            pass
+
+                if self._data[index.row()].scanEventIndexMp <= 0:
+                    for sei, se in enumerate(self._data[index.row()].MS2ScanEvents):
+                        try:
+                            precurs=float(re.search("PreMZ: ([0-9]*\.[0-9]*) ", se).group(1))
+                            ppm=abs(precurs-lmz)*1E6/lmz
+                            if ppm<=10:
+                                self._data[index.row()].scanEventIndexMp=sei
+                                update=True
+                        except:
+                            pass
+
+                if update:
+                    self.dataChanged.emit(self.createIndex(0, 0),
+                                          self.createIndex(self.rowCount(0), self.columnCount(0)))
                 return True
             else:
                 return False
@@ -273,12 +312,10 @@ class MSMSTargetModel(QtCore.QAbstractTableModel):
         return True
 
     def flags(self, index):
-        if index.column() == 0:
-            return QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEditable
-        elif index.column() in range(3,13) or index.column() in range(2):
-            return QtCore.Qt.ItemIsEditable | QtCore.Qt.ItemIsEnabled
-        else:
+        if index.column() == 2:
             return QtCore.Qt.ItemIsEnabled
+        else:
+            return QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEditable
 
 
 
@@ -489,21 +526,33 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.resultsTreeWidget.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.resultsTreeWidget.customContextMenuRequested.connect(self.showResultsPopup)
 
+
     def showTargetPopup(self, position):
         menu = QtGui.QMenu()
-        quitAction = menu.addAction("Delete")
-        copyAction = menu.addAction("Duplicate")
+        quitAction = menu.addAction("Delete target")
+        copyAction = menu.addAction("Duplicate target")
+        none = menu.addSeparator()
+        pasteAction = menu.addAction("Paste in row")
+
         action = menu.exec_(self.processFilesTable.mapToGlobal(position))
 
         if action == quitAction:
-            for index in self.processFilesTable.selectedIndexes():
-                self.MSMSTargetModel.removeRows(index.row(), 1)
+            index=self.processFilesTable.indexAt(position)
+            self.MSMSTargetModel.removeRows(index.row(), 1)
 
         if action == copyAction:
             for index in self.processFilesTable.selectedIndexes():
                 newObj=deepcopy(self.MSMSTargetModel._data[index.row()])
                 newObj.targetName="Copy of %s"%newObj.targetName
                 self.MSMSTargetModel.insertRows(index.row(), 1, object=newObj, atPos=index.row())
+
+        if action == pasteAction:
+            selIndex=self.processFilesTable.indexAt(position)
+
+            text=pyperclip.paste().replace("\r","").strip()
+
+            for ti, t in enumerate(text.split("\n")):
+                self.MSMSTargetModel.setData(selIndex.sibling(selIndex.row()+ti, selIndex.column()), QtCore.QVariant(t))
 
     
     
@@ -591,64 +640,80 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
             matches=[]
 
-            if len(t)>2:
-                for i in range(len(t)):
-                    for j in range(len(t)):
-                        km, vm = t[i]
-                        kmp, vmp = t[j]
-                        if vm.preCursorMz<vmp.preCursorMz:
-                            cn=round((vmp.preCursorMz-vm.preCursorMz)/1.00335, 0)
+            if tryMatchTargets:
 
-                            #print vm.preCursorMz, vm.polarity, vm.scanTimes
-                            if vm.polarity == vmp.polarity and cn>0 and (vmp.preCursorMz-vm.preCursorMz)>1 and (abs(vmp.preCursorMz-vm.preCursorMz-cn*1.00335)*1000000./vmp.preCursorMz)<=10:
+                if len(t)>2:
+                    for i in range(len(t)):
+                        for j in range(len(t)):
+                            km, vm = t[i]
+                            kmp, vmp = t[j]
+                            if vm.preCursorMz<vmp.preCursorMz:
+                                cn=round((vmp.preCursorMz-vm.preCursorMz)/1.00335, 0)
 
-                                #print "   ", vmp.preCursorMz, vm.polarity, cn
-                                for irt in vm.scanTimes:
-                                    bestMatch=None
-                                    bestMatchDiff=1000000
-                                    for jrt in vmp.scanTimes:
-                                        if jrt>=irt and abs(jrt-irt)<=12:
+                                #print vm.preCursorMz, vm.polarity, vm.scanTimes
+                                if vm.polarity == vmp.polarity and cn>0 and (vmp.preCursorMz-vm.preCursorMz)>1 and (abs(vmp.preCursorMz-vm.preCursorMz-cn*1.00335)*1000000./vmp.preCursorMz)<=10:
 
-                                            if abs(jrt-irt)<bestMatchDiff:
-                                                bestMatch=jrt
-                                                bestMatchDiff=abs(jrt-irt)
+                                    #print "   ", vmp.preCursorMz, vm.polarity, cn
+                                    for irt in vm.scanTimes:
+                                        bestMatch=None
+                                        bestMatchDiff=1000000
+                                        for jrt in vmp.scanTimes:
+                                            if jrt>=irt and abs(jrt-irt)<=12:
 
-
-                                    if bestMatch != None:
-                                        jrt=bestMatch
-                                        #print "       ", irt, jrt
-
-                                        b=Bunch(M=km, Mp=kmp, cn=cn, nativeMz=vm.preCursorMz, labelledMz=vmp.preCursorMz, startRt=irt, endRt=jrt, polarity=vm.polarity)
-                                        matches.append(b)
-                                        #print "       ", b
+                                                if abs(jrt-irt)<bestMatchDiff:
+                                                    bestMatch=jrt
+                                                    bestMatchDiff=abs(jrt-irt)
 
 
-            for i in range(len(matches)):
-                obj=Bunch(targetName="", parentSumFormula="", lcmsmsFileName=mzXMLFile,
-                          scanEventIndexM=0, scanEventIndexMp=0, scanEventIndexFullScan=0,
-                          nativeMZ=0, charge=1,
-                          MS2ScanEvents=sortedScanEventsMS2,
-                          MS1ScanEvents=sorted(list(scanEventsMS1)), cNMetabolite=-1,
-                          rtMin=0, rtMax=0, usedAdduct="[M+H]+")
+                                        if bestMatch != None:
+                                            jrt=bestMatch
+                                            #print "       ", irt, jrt
 
-                if tryMatchTargets and i < len(matches):
-                    obj.scanEventIndexM=sortedScanEventsMS2.index(matches[i].M)
-                    obj.scanEventIndexMp=sortedScanEventsMS2.index(matches[i].Mp)
-                    obj.scanEventIndexFullScan=obj.MS1ScanEvents.index(list(scanEventsMS1PerPolarity[matches[i].polarity])[0])
-                    obj.nativeMZ=matches[i].nativeMz
-                    obj.cNMetabolite=matches[i].cn
-                    obj.rtMin=matches[i].startRt/60.-0.3
-                    obj.rtMax=matches[i].endRt/60.+0.3
-                    obj.usedAdduct="[M+H]+" if matches[i].polarity=="+" else "[M-H]-"
+                                            b=Bunch(M=km, Mp=kmp, cn=cn, nativeMz=vm.preCursorMz, labelledMz=vmp.preCursorMz, startRt=irt, endRt=jrt, polarity=vm.polarity)
+                                            matches.append(b)
+                                            #print "       ", b
 
-                self.MSMSTargetModel.insertRows(len(self.MSMSTargetModel._data), 1, object=obj)
 
-                self.processFilesTable.openPersistentEditor(self.MSMSTargetModel.index(self.MSMSTargetModel.rowCount()-1, 8))
-                self.processFilesTable.openPersistentEditor(self.MSMSTargetModel.index(self.MSMSTargetModel.rowCount()-1, 9))
-                self.processFilesTable.openPersistentEditor(self.MSMSTargetModel.index(self.MSMSTargetModel.rowCount()-1, 10))
+                for i in range(len(matches)):
+                    obj=Bunch(targetName="", parentSumFormula="", lcmsmsFileName=mzXMLFile,
+                              scanEventIndexM=0, scanEventIndexMp=0, scanEventIndexFullScan=0,
+                              nativeMZ=0, charge=1,
+                              MS2ScanEvents=sortedScanEventsMS2,
+                              MS1ScanEvents=sorted(list(scanEventsMS1)), cNMetabolite=-1,
+                              rtMin=0, rtMax=0, usedAdduct="[M+H]+")
 
-            curFi += 1
-            pw.getCallingFunction()("value")(curFi)
+                    if tryMatchTargets and i < len(matches):
+                        obj.scanEventIndexM=sortedScanEventsMS2.index(matches[i].M)
+                        obj.scanEventIndexMp=sortedScanEventsMS2.index(matches[i].Mp)
+                        obj.scanEventIndexFullScan=obj.MS1ScanEvents.index(list(scanEventsMS1PerPolarity[matches[i].polarity])[0])
+                        obj.nativeMZ=matches[i].nativeMz
+                        obj.cNMetabolite=matches[i].cn
+                        obj.rtMin=matches[i].startRt/60.-0.3
+                        obj.rtMax=matches[i].endRt/60.+0.3
+                        obj.usedAdduct="[M+H]+" if matches[i].polarity=="+" else "[M-H]-"
+
+                    self.MSMSTargetModel.insertRows(len(self.MSMSTargetModel._data), 1, object=obj)
+
+                    self.processFilesTable.openPersistentEditor(self.MSMSTargetModel.index(self.MSMSTargetModel.rowCount()-1, 8))
+                    self.processFilesTable.openPersistentEditor(self.MSMSTargetModel.index(self.MSMSTargetModel.rowCount()-1, 9))
+                    self.processFilesTable.openPersistentEditor(self.MSMSTargetModel.index(self.MSMSTargetModel.rowCount()-1, 10))
+
+                curFi += 1
+                pw.getCallingFunction()("value")(curFi)
+            else:
+                for i in range(addMultipleTimes):
+                    obj=Bunch(targetName="", parentSumFormula="", lcmsmsFileName=mzXMLFile,
+                              scanEventIndexM=0, scanEventIndexMp=0, scanEventIndexFullScan=0,
+                              nativeMZ=-1.1, charge=1,
+                              MS2ScanEvents=sortedScanEventsMS2,
+                              MS1ScanEvents=sorted(list(scanEventsMS1)), cNMetabolite=-1,
+                              rtMin=-1.1, rtMax=-1.1, usedAdduct="")
+
+                    self.MSMSTargetModel.insertRows(len(self.MSMSTargetModel._data), 1, object=obj)
+
+                    self.processFilesTable.openPersistentEditor(self.MSMSTargetModel.index(self.MSMSTargetModel.rowCount()-1, 8))
+                    self.processFilesTable.openPersistentEditor(self.MSMSTargetModel.index(self.MSMSTargetModel.rowCount()-1, 9))
+                    self.processFilesTable.openPersistentEditor(self.MSMSTargetModel.index(self.MSMSTargetModel.rowCount()-1, 10))
         pw.hide()
 
         self.updateResultsView()

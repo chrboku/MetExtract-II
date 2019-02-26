@@ -92,7 +92,7 @@ def matchPartners(mzXMLData, forFile,
                   minRatio, maxRatio, reportFunction=None, writeExtendedDiagnostics=True):
     scanRTRange = stopTime - startTime
 
-    cValidationOffset = 1.00335   # mass difference between 12C and 13C
+    cValidationOffset = 1.00335484   # mass difference between 12C and 13C
 
     detectedIonPairs = []
 
@@ -302,7 +302,6 @@ def matchPartners(mzXMLData, forFile,
                                                             ratioL=None
                                                         else:
                                                             ratioL=isoLabPeakIntensity/labPeakIntensity
-
                                                         # 2. check if the observed M'+1/M' ratio and the M+1/M ratio are approximately equal
                                                         if (ratioN!=None and ratioL!=None) and abs(ratioN-ratioL)<=intensityErrorL:
                                                             curPeakDetectedIonPairs.append(

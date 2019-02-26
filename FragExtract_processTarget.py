@@ -1294,24 +1294,26 @@ class ProcessTarget:
                                                         scanTime=scanMS2Labelled.retention_time, type="labelled_cleaned"),
                                writeFields=["forTarget", "mzs", "ints", "annos", "scanTime", "type"])
 
-        ## for some reason that I have not figured out yet the webservice must be initialized here
-        self.massbankClient = PyMassBankSearchTool()
-        matches=self.massbankClient.searchForMSMSSpectra(mzValues=scanMS2Annotated.nativeMz_list, intensityValues=scanMS2Annotated.nativeIntensity_list,
-                                                    ionMode=scanMS2Native.polarity, tolerance=self.massBankPPMError, cutoff=self.massBankMinRelAbundance,
-                                                    maxNumResults=self.massBankHitsToLoad, minimalScore=self.massBankMinimalScore)
-
-        dummy=Bunch(title="", score=0., id="", formula="", exactMass=0., forTarget=1,   mzs="", relInts="")
+        dummy = Bunch(title="", score=0., id="", formula="", exactMass=0., forTarget=1, mzs="", relInts="")
         createTableFromBunch("MassBankHits", dummy, cursor=curs, ifNotExists=True)
 
+        try:
+            ## for some reason that I have not figured out yet the webservice must be initialized here
+            self.massbankClient = PyMassBankSearchTool()
+            matches=self.massbankClient.searchForMSMSSpectra(mzValues=scanMS2Annotated.nativeMz_list, intensityValues=scanMS2Annotated.nativeIntensity_list,
+                                                        ionMode=scanMS2Native.polarity, tolerance=self.massBankPPMError, cutoff=self.massBankMinRelAbundance,
+                                                        maxNumResults=self.massBankHitsToLoad, minimalScore=self.massBankMinimalScore)
 
-        if matches.numResults > 0:
-            for match in matches.matchedSubstances:
-                match.forTarget=target.id
-                mzs, relInts=self.massbankClient.getMSMSSpectraForRecordID(match.id)
-                match.mzs=";".join([str(d) for d in mzs])
-                match.relInts=";".join([str(d) for d in relInts])
-                writeObjectAsSQLInsert(curs, "MassBankHits", match, writeFields=["title", "score", "id", "formula", "exactMass", "forTarget", "mzs", "relInts"])
-        target.matches=matches
+            if matches.numResults > 0:
+                for match in matches.matchedSubstances:
+                    match.forTarget=target.id
+                    mzs, relInts=self.massbankClient.getMSMSSpectraForRecordID(match.id)
+                    match.mzs=";".join([str(d) for d in mzs])
+                    match.relInts=";".join([str(d) for d in relInts])
+                    writeObjectAsSQLInsert(curs, "MassBankHits", match, writeFields=["title", "score", "id", "formula", "exactMass", "forTarget", "mzs", "relInts"])
+            target.matches=matches
+        except:
+            target.matches=Bunch(numResults=0)
 
 
         for i in range(len(scanMS2Annotated.nativeMz_list)):
