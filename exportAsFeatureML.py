@@ -17,7 +17,7 @@ def writeFeatureListToFeatureML(features, toFile, ppmPM=5, rtPM=0.25*60):
     fileLineArray.append('		<processingAction name="Feature pair detection" />')
     #fileLineArray.append('		<UserParam type="string" name="parameter: key" value="value"/>')
     fileLineArray.append('	</dataProcessing>')
-    fileLineArray.append('	<featureList count="%d">")'%(len(features)))
+    fileLineArray.append('	<featureList count="%d">'%(len(features)))
 
     for feature in features:
         num    =feature.id

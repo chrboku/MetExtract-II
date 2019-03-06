@@ -335,6 +335,76 @@ import resultsPostProcessing.searchDatabases as searchDatabases
 import pyperclip
 
 
+from SGR import SGRGenerator
+from SqliteCache import SqliteCache
+sfCache=SqliteCache(get_main_dir()+"/sfcache.db")
+if __name__=="__main__":
+    logging.info("Using sum formula generation cache at"+ get_main_dir()+"/sfcache.db")
+    logging.info("")
+
+
+def getCallStr(m, ppm, useAtoms, atomsRange, fixed, useSGR):
+    return "sfg.findFormulas(%.5f, useAtoms=%s," \
+           "atomsRange=%s, fixed='%s'" \
+           "useSevenGoldenRules=%s, useSecondRule=True, ppm=%.2f))" % (m, str(useAtoms), str(atomsRange), fixed, useSGR, ppm)
+
+def genSFs(m, ppm, useAtoms, atomsRange, fixed, useSGR):
+    sfg=SGRGenerator()
+    sfs = sfg.findFormulas(m, useAtoms=useAtoms,
+                            atomsRange=atomsRange,
+                            useSevenGoldenRules=useSGR, useSecondRule=True, ppm=ppm)
+    return sfs
+
+
+
+counter=None
+def calcSumFormulas(args):
+    global counter
+    m=args.m
+    ppm=args.ppm
+    useAtoms=args.useAtoms
+    atomsRange=args.atomsRange
+    fixed=args.fixed
+    useSGR=args.useSGR
+    lock=args.lock
+    counter=args.counter
+
+    callStr=getCallStr(m, ppm, useAtoms, atomsRange, fixed, useSGR)
+
+    if lock is not None: lock.acquire()
+    sfs = sfCache.get(callStr)
+    if lock is not None: lock.release()
+
+    if sfs is None:
+        sfs=genSFs(m, ppm, useAtoms, atomsRange, fixed, useSGR)
+
+        if lock is not None: lock.acquire()
+        sfCache.set(callStr, sfs)
+        print "\rNew SF calculated          ", counter.value, "done..", callStr,
+        counter.value=counter.value+1
+        if lock is not None: lock.release()
+    else:
+        if lock is not None: lock.acquire()
+        print "\rFetched result from cache  ", counter.value, "done..", callStr,
+        counter.value=counter.value+1
+        if lock is not None: lock.release()
+
+    return sfs
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 def memory_usage_psutil():
     # return the memory usage in MB
     import psutil
@@ -3330,7 +3400,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                                         ppmCorrection=self.ui.annotation_correctMassByPPM.value(),
                                                                         adducts=useAdducts,
                                                                         pwMaxSet=pw.getCallingFunction()("max"),
-                                                                        pwValSet=pw.getCallingFunction()("value"))
+                                                                        pwValSet=pw.getCallingFunction()("value"),
+                                                                        nCores=min(len(files), cpus))
 
                 except Exception as e:
                     import traceback

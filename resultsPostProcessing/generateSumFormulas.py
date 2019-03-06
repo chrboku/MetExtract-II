@@ -3,10 +3,13 @@ sys.path.append("C:/PyMetExtract/PyMetExtract")
 
 from SGR import SGRGenerator
 
+from utils import Bunch
 
 import TableUtils
 
 from copy import deepcopy
+
+import multiprocessing
 
 
 
@@ -19,7 +22,7 @@ exIonMode = "Ionisation_Mode"
 exCharge = "Charge"
 
 
-def processFile(file, columns, adducts, ppm=5., ppmCorrection=0, useAtoms=[], atomsRange=[], smCol="sumFormula_", toFile=None, useSevenGoldenRules=True, useCn=True, pwMaxSet=None, pwValSet=None):
+def processFile(file, columns, adducts, ppm=5., ppmCorrection=0, useAtoms=[], atomsRange=[], smCol="sumFormula_", toFile=None, useSevenGoldenRules=True, useCn=True, pwMaxSet=None, pwValSet=None, nCores=1):
 
     if toFile is None:
         toFile = file.replace(".tsv", ".SFs.tsv").replace(".txt", ".SFs.txt")
@@ -73,7 +76,7 @@ def processFile(file, columns, adducts, ppm=5., ppmCorrection=0, useAtoms=[], at
 
 
     class formulaSearch:
-        def __init__(self, columns, adducts, ppm, ppmCorrection, useAtoms, atomsRange, useSevenGoldenRules, useCn):
+        def __init__(self, columns, adducts, ppm, ppmCorrection, useAtoms, atomsRange, useSevenGoldenRules, useCn, lock=None, counter=None):
             self.columns = columns
             self.adducts = adducts
             self.ppm = ppm
@@ -83,9 +86,13 @@ def processFile(file, columns, adducts, ppm=5., ppmCorrection=0, useAtoms=[], at
             self.useSevenGoldenRules=useSevenGoldenRules
             self.useCn=useCn
 
-        def updateSumFormulaCol(self, x):
+            self.lock=lock
+            self.counter=counter
 
-            sfg = SGRGenerator()
+            self.calcObjects=[]
+
+        def generateSumFormulaCalcObjects(self, x):
+
             mz = x[self.columns[exMZ]]
             mz = mz+mz*1.*self.ppmCorrection/1E6
             if self.columns[exAccMass] in x.keys():
@@ -125,8 +132,90 @@ def processFile(file, columns, adducts, ppm=5., ppmCorrection=0, useAtoms=[], at
             if accMass == "":
                 for adduct in self.adducts:
                     if ionMode == adduct[2] and charge==adduct[3]:
-                        ret = sfg.findFormulas((mz - adduct[1])*adduct[3]/adduct[4], self.ppm, useAtoms=useAtoms, atomsRange=atomsRange,
-                                               fixed="C", useSevenGoldenRules=self.useSevenGoldenRules)
+
+                        calcObj=Bunch(m=(mz - adduct[1])*adduct[3]/adduct[4],
+                                      ppm=self.ppm,
+                                      useAtoms=useAtoms,
+                                      atomsRange=atomsRange,
+                                      fixed="C",
+                                      useSGR=self.useSevenGoldenRules,
+                                      lock=self.lock,
+                                      counter=self.counter)
+                        self.calcObjects.append(calcObj)
+
+            else:
+                for m in str(accMass).split(","):
+                    m = m.replace("\"", "")
+                    m = m.strip()
+
+                    calcObj=Bunch(m=float(m),
+                                  ppm=self.ppm,
+                                  useAtoms=useAtoms,
+                                  atomsRange=atomsRange,
+                                  fixed="C",
+                                  useSGR=self.useSevenGoldenRules,
+                                  lock=self.lock,
+                                  counter=self.counter)
+                    self.calcObjects.append(calcObj)
+
+            return {}
+
+
+
+        def updateSumFormulaCol(self, x):
+
+            mz = x[self.columns[exMZ]]
+            mz = mz+mz*1.*self.ppmCorrection/1E6
+            if self.columns[exAccMass] in x.keys():
+                accMass = x[self.columns[exAccMass]]
+            else:
+                accMass=""
+
+            xCount = int(x[self.columns[exXCount]])
+            atomsRange = deepcopy(self.atomsRange)
+            charge = x[self.columns[exCharge]]
+            ionMode = x[self.columns[exIonMode]]
+
+            if self.useCn.lower()=="exact":
+                atomsRange[0] = xCount
+            elif self.useCn.lower()=="don't use":
+                pass
+            elif self.useCn.lower()=="min" or self.useCn.lower()=="minimum":
+                atomsRange[0]=(xCount, atomsRange[0][1])
+            elif self.useCn.lower().startswith("plusminus"):
+                g=2
+                if len("plusminus_")<len(self.useCn):
+                    g=int(self.useCn[len("plusminus_"):])
+
+                atomsRange[0]=(xCount-g, xCount+g)
+
+            #print "--------"
+            dbe = {}
+            dbe[smCol + "_CHO"] = []
+            dbe[smCol + "_CHOS"] = []
+            dbe[smCol + "_CHOP"] = []
+            dbe[smCol + "_CHON"] = []
+            dbe[smCol + "_CHONP"] = []
+            dbe[smCol + "_CHOPS"] = []
+            dbe[smCol + "_CHONS"] = []
+            dbe[smCol + "_CHONPS"] = []
+
+            if accMass == "":
+                for adduct in self.adducts:
+                    if ionMode == adduct[2] and charge==adduct[3]:
+
+                        #ret = sfg.findFormulas((mz - adduct[1])*adduct[3]/adduct[4], self.ppm, useAtoms=useAtoms, atomsRange=atomsRange,
+                        #                       fixed="C", useSevenGoldenRules=self.useSevenGoldenRules)
+
+                        ret=calcSumFormulas(Bunch(m=(mz - adduct[1])*adduct[3]/adduct[4],
+                                              ppm=self.ppm,
+                                              useAtoms=useAtoms,
+                                              atomsRange=atomsRange,
+                                              fixed="C",
+                                              useSGR=self.useSevenGoldenRules,
+                                              lock=self.lock,
+                                              counter=self.counter))
+
                         for e in ret:
                             #print e
                             ent = ["[M" + adduct[0] + "]: ", e]
@@ -150,8 +239,18 @@ def processFile(file, columns, adducts, ppm=5., ppmCorrection=0, useAtoms=[], at
                 for m in str(accMass).split(","):
                     m = m.replace("\"", "")
                     m = m.strip()
-                    ret = sfg.findFormulas(float(m), self.ppm, useAtoms=useAtoms, atomsRange=atomsRange, fixed="C",
-                                           useSevenGoldenRules=self.useSevenGoldenRules)
+                    #ret = sfg.findFormulas(float(m), self.ppm, useAtoms=useAtoms, atomsRange=atomsRange, fixed="C",
+                    #                       useSevenGoldenRules=self.useSevenGoldenRules)
+
+                    ret = calcSumFormulas(Bunch(m=float(m),
+                                  ppm=self.ppm,
+                                  useAtoms=useAtoms,
+                                  atomsRange=atomsRange,
+                                  fixed="C",
+                                  useSGR=self.useSevenGoldenRules,
+                                  lock=self.lock,
+                                  counter=self.counter))
+
                     for e in ret:
                         #print e
                         ent = ["[M]: ", e]
@@ -257,7 +356,45 @@ def processFile(file, columns, adducts, ppm=5., ppmCorrection=0, useAtoms=[], at
 
             return x
 
-    x = formulaSearch(columns, adducts, ppm, ppmCorrection, useAtoms, atomsRange, useSevenGoldenRules=useSevenGoldenRules, useCn=useCn)
+
+
+
+
+
+
+
+
+
+
+
+
+    m = multiprocessing.Manager()
+    lock = m.Lock()
+    counter = m.Value("i", 0)
+
+
+
+    x = formulaSearch(columns, adducts, ppm, ppmCorrection, useAtoms, atomsRange, useSevenGoldenRules=useSevenGoldenRules, useCn=useCn, lock=lock, counter=counter)
+
+    table.applyFunction(x.generateSumFormulaCalcObjects, showProgress=False, pwMaxSet=None, pwValSet=None)
+
+
+
+
+    calcSFs=x.calcObjects
+
+
+    from MExtract import getCallStr, genSFs, calcSumFormulas
+
+    pool = multiprocessing.Pool(processes=nCores, maxtasksperchild=1)
+    pool.map(calcSumFormulas, calcSFs)
+    pool.close()
+    pool.join()
+
+
+
+
+
     table.applyFunction(x.updateSumFormulaCol, showProgress=True, pwMaxSet=pwMaxSet, pwValSet=pwValSet)
 
     table.addComment("## Sum formula generation. Adducts %s, ppm %.1f, atoms %s, atomsRange %s, seven golden rules %s, useXn %s"%(str(adducts), ppm, str(useAtoms), str(atomsRange), str(useSevenGoldenRules), str(useCn)))
@@ -285,7 +422,7 @@ def natSort(l, key=lambda ent: ent):
 
 
 
-def annotateResultsWithSumFormulas(resultsFile, useAtoms, atomsRange, Xn, useExactXn, ppm=5., ppmCorrection=0, adducts=adductsN+adductsP, pwMaxSet=None, pwValSet=None):
+def annotateResultsWithSumFormulas(resultsFile, useAtoms, atomsRange, Xn, useExactXn, ppm=5., ppmCorrection=0, adducts=adductsN+adductsP, pwMaxSet=None, pwValSet=None, nCores=1):
 
     processFile(resultsFile, toFile=resultsFile,
                 columns={exID: exID, exMZ: exMZ, exRT: exRT, exAccMass: exAccMass, exXCount: exXCount,
@@ -294,4 +431,4 @@ def annotateResultsWithSumFormulas(resultsFile, useAtoms, atomsRange, Xn, useExa
                 smCol="SFs",
                 useAtoms=deepcopy(useAtoms), atomsRange=deepcopy(atomsRange), useCn=useExactXn,
                 useSevenGoldenRules=True,
-                pwMaxSet=pwMaxSet, pwValSet=pwValSet)
+                pwMaxSet=pwMaxSet, pwValSet=pwValSet, nCores=nCores)
