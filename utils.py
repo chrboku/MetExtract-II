@@ -817,14 +817,14 @@ class SampleGroup:
 def is_int(s):
     try:
         int(s)
-    except ValueError:
+    except Exception:
         return False
 
     return True
 def is_float(s):
     try:
         float(s)
-    except ValueError:
+    except Exception :
         return False
 
     return True

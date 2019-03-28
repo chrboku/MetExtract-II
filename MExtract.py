@@ -3437,7 +3437,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             if nam in impCols:
                 continue
 
-            if nam in annotationColumns:
+            if nam in annotationColumns or nam.startswith("DBs_") or nam.startswith("SFs_"):
                 frontCols.append(nam)
                 continue
 

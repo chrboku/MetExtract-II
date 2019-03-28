@@ -42,6 +42,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 
 from PyMassBankSearchTool import PyMassBankSearchTool
 
+import numpy as np
 
 
 
@@ -88,35 +89,15 @@ class TTR(Flowable):  #TableTextRotate
 
 
 
-from collections import defaultdict as ddict
-from math import sqrt
-def similarity(spec1, spec2):
+def similarity(a,b):
 
-    vector1 = ddict(int)
-    vector2 = ddict(int)
-    mzs = set()
-    for mz, i in spec1:
-        vector1[round(mz,1)] += i
-        mzs.add(round(mz,1))
-    for mz, i in spec2:
-        vector2[round(mz,1)] += i
-        mzs.add(round(mz,1))
+    assert len(a)==len(b)
 
-    z = 0
-    n_v1 = 0
-    n_v2 = 0
+    dotP = np.dot(a, b)
+    norm_a = np.linalg.norm(a)
+    norm_b = np.linalg.norm(b)
 
-    for mz in mzs:
-        int1 = vector1[mz]
-        int2 = vector2[mz]
-        z += int1*int2
-        n_v1 += int1*int1
-        n_v2 += int2*int2
-    try:
-        cosine = z / (sqrt(n_v1) * sqrt(n_v2))
-    except:
-        cosine = 0.0
-    return cosine
+    return dotP / (norm_a*norm_b)
 
 
 class AnnotatedMSMSSpectra:
@@ -141,6 +122,7 @@ class AnnotatedMSMSSpectra:
             getInd=lambda x:x.LIndex
 
         return [anno for anno in self.peakAnnotations if getInd(anno)==index]
+
     def delAnnotationsForPeakInScan(self, native=False, labelled=False, index=-1):
         if self.hasAnnotationForPeakInScan(native=native, labelled=labelled, index=index):
             todel=[]
@@ -164,6 +146,7 @@ class AnnotatedMSMSSpectra:
 
         c=self.getAnnotationsForPeakInScan(native=native, labelled=labelled, index=index)
         return len(self.getAnnotationsForPeakInScan(native=native, labelled=labelled, index=index))>0
+
     def newAnnotationForPeakInScan(self, nativeIndex=None, labelledIndex=None, anno=None):
         if anno==None:
             anno=Bunch()
@@ -208,7 +191,7 @@ class AnnotatedMSMSSpectra:
 
 
 class ProcessTarget:
-    def __init__(self, targets, chromatogramFile,
+    def __init__(self, targets, chromatogramFileNative, chromatogramFileLabeled,
                  fullScanEICppm, fullScanThreshold, minMSMSPeakIntensityScaled, scalePrecursorMZ,
                  minXn, useZeroLabelingAtoms, useTracExtractAnnotation,
                  labellingOffset, matchingPPM, maxRelError, annotationElements, annotationPPM, useParentFragmentConsistencyRule,
@@ -217,8 +200,8 @@ class ProcessTarget:
                  lock, queue, pID, feVersion):
 
         self.targets=targets
-        self.chromatogramFile=chromatogramFile
-
+        self.chromatogramNativeFile=chromatogramFileNative
+        self.chromatogramLabeledFile = chromatogramFileLabeled
 
         self.labellingOffset=labellingOffset
         self.fullScanEICppm=fullScanEICppm
@@ -310,18 +293,20 @@ class ProcessTarget:
 
         return msScan
 
+    def scaleMSScanBy(self, intensity_list, by=1.):
+        newInts=[i*by for i in intensity_list]
+        return newInts
+
     def removePeaksAboveMZ(self, msScan, maxMZ):
         msScan.intensity_list=[msScan.intensity_list[i] for i in range(len(msScan.mz_list)) if msScan.mz_list[i]<=maxMZ]
         msScan.mz_list=[msScan.mz_list[i] for i in range(len(msScan.mz_list)) if msScan.mz_list[i]<=maxMZ]
         return msScan
 
-    def selectMSMSScansForProcessing(self, mzxml, Cn, minRT, maxRT, nativeMZ, metaboliteCharge, fullScanEvent, nativeMS2ScanEvent, labelledMS2ScanEvent):
-        eic, timesFS, scanIDsFS, mzs=mzxml.getEIC(nativeMZ, ppm=self.fullScanEICppm, filterLine=fullScanEvent)
-        eicL, timesFS, scanIDsFS, mzs=mzxml.getEIC(nativeMZ+self.labellingOffset*Cn/metaboliteCharge, ppm=self.fullScanEICppm, filterLine=fullScanEvent)
+    def selectMSMSScansForProcessing(self, mzxmlNative, mzxmlLabeled, Cn, minRT, maxRT, nativeMZ, metaboliteCharge, fullScanEventNative, fullScanEventLabeled, nativeMS2ScanEvent, labelledMS2ScanEvent):
+        eic, timesFS, scanIDsFS, mzs=mzxmlNative.getEIC(nativeMZ, ppm=self.fullScanEICppm, filterLine=fullScanEventNative)
+        eicL, timesFSL, scanIDsFSL, mzs=mzxmlLabeled.getEIC(nativeMZ+self.labellingOffset*Cn/metaboliteCharge, ppm=self.fullScanEICppm, filterLine=fullScanEventLabeled)
 
-        TIC, timesMS2Native, scanIdsMS2Native=mzxml.getTIC(filterLine=nativeMS2ScanEvent, useMS2=True)
-        TICL, timesMS2Labelled, scanIdsMS2Labelled=mzxml.getTIC(filterLine=labelledMS2ScanEvent, useMS2=True)
-
+        TIC, timesMS2Native, scanIdsMS2Native=mzxmlNative.getTIC(filterLine=nativeMS2ScanEvent, useMS2=True)
         # limit eic to predefined time window
         #print eic
         for i in range(len(eic)):
@@ -329,10 +314,21 @@ class ProcessTarget:
                 pass
             else:
                 eic[i]=0
-        maxIntFullScanIndex=max(zip(range(len(eic)), eic), key=lambda x:x[1])[0]
+        maxIntFullScanIndexNative=max(zip(range(len(eic)), eic), key=lambda x:x[1])[0]
+        maxIntMS2NativeIndex=self.findClosestScanTo(timesMS2Native, timesFS[maxIntFullScanIndexNative], minRT*60., maxRT*60.)
 
-        maxIntMS2NativeIndex=self.findClosestScanTo(timesMS2Native, timesFS[maxIntFullScanIndex], minRT*60., maxRT*60.)
-        maxIntMS2LabelledIndex=self.findClosestScanTo(timesMS2Labelled, timesFS[maxIntFullScanIndex], minRT*60., maxRT*60.)
+
+        TICL, timesMS2Labelled, scanIdsMS2Labelled=mzxmlLabeled.getTIC(filterLine=labelledMS2ScanEvent, useMS2=True)
+        # limit eic to predefined time window
+        #print eic
+        for i in range(len(eicL)):
+            if minRT <= timesFSL[i]/60. <= maxRT:
+                pass
+            else:
+                eicL[i]=0
+
+        maxIntFullScanIndexLabeled=max(zip(range(len(eicL)), eicL), key=lambda x:x[1])[0]
+        maxIntMS2LabelledIndex=self.findClosestScanTo(timesMS2Labelled, timesFSL[maxIntFullScanIndexLabeled], minRT*60., maxRT*60.)
 
 
         ######################################
@@ -345,7 +341,7 @@ class ProcessTarget:
             plt.plot([t/60. for t in timesMS2Native], TIC, color='red')
             plt.plot([t/60. for t in timesMS2Labelled], [-i for i in TICL], color='red')
 
-            plt.axvline(x=timesFS[maxIntFullScanIndex]/60., ymin=-10000, ymax = 10000, linewidth=2, color='black')
+            plt.axvline(x=timesFS[maxIntFullScanIndexNative]/60., ymin=-10000, ymax = 10000, linewidth=2, color='black')
             try:
                 plt.axvline(x=timesMS2Native[maxIntMS2NativeIndex]/60., ymin=-10000, ymax = 10000, linewidth=2, color='yellow')
                 plt.axvline(x=timesMS2Labelled[maxIntMS2LabelledIndex]/60., ymin=-10000, ymax = 10000, linewidth=2, color='green')
@@ -354,10 +350,10 @@ class ProcessTarget:
 
             plt.show()
 
-        return (maxIntFullScanIndex, maxIntMS2NativeIndex, maxIntMS2LabelledIndex,
-                timesFS[maxIntFullScanIndex], timesMS2Native[maxIntMS2NativeIndex], timesMS2Labelled[maxIntMS2LabelledIndex],
-                scanIDsFS[maxIntFullScanIndex], scanIdsMS2Native[maxIntMS2NativeIndex], scanIdsMS2Labelled[maxIntMS2LabelledIndex],
-                eic, eicL, timesFS)
+        return (maxIntFullScanIndexNative, maxIntFullScanIndexLabeled, maxIntMS2NativeIndex, maxIntMS2LabelledIndex,
+                timesFS[maxIntFullScanIndexNative], timesFSL[maxIntFullScanIndexLabeled], timesMS2Native[maxIntMS2NativeIndex], timesMS2Labelled[maxIntMS2LabelledIndex],
+                scanIDsFS[maxIntFullScanIndexNative], scanIDsFSL[maxIntFullScanIndexLabeled], scanIdsMS2Native[maxIntMS2NativeIndex], scanIdsMS2Labelled[maxIntMS2LabelledIndex],
+                eic, eicL, timesFS, timesFSL)
 
     def removePeaksBelowThreshold(self, msScan, intThreshold):
         usePeaks=[]
@@ -431,20 +427,35 @@ class ProcessTarget:
                             if ppmDiff<=matchingPPM:
 
                                 # check if intensity ratios are within expected error window
-                                if abs(lInt-nInt)<=maxRelError:
+                                if abs(lInt-nInt)<=maxRelError or True:
 
                                     if abs(lInt-nInt)<bestRat:
-                                        bestMatch=Bunch(nInd=i, lInd=j, Cn=n)
+                                        bestMatch=Bunch(nInd=i, lInd=j, Cn=n, ppmDiff=ppmDiff, ratioSimilarity=nInt/lInt)
                                         bestRat=abs(lInt-nInt)
                                         bestRatio=lInt-nInt
                                         if ppmDiff < 200 and _debug: print " ***",
-                            if ppmDiff < 200 and _debug: print ""
+                            if ppmDiff < 200 and _debug: print "ppmDiff less than 200"
 
             if bestMatch.nInd!=-1:
                 retMS.newAnnotationForPeakInScan(nativeIndex=bestMatch.nInd,labelledIndex=bestMatch.lInd,
-                                                 anno=Bunch(Cn=bestMatch.Cn, NIndex=bestMatch.nInd, LIndex=bestMatch.lInd, ratioError=bestRatio))
+                                                 anno=Bunch(Cn=bestMatch.Cn, NIndex=bestMatch.nInd, LIndex=bestMatch.lInd, ratioError=bestRatio, ratioSimilarity=bestMatch.ratioSimilarity,
+                                                            dppmSpectra=bestMatch.ppmDiff))
+        if False:
+            rats=[]
+            intsA=[]
+            intsB=[]
+            for anno in retMS.peakAnnotations:
+                print "     -- ", anno.ratioSimilarity
+                intsA.append(scanMS2Native.intensity_list[anno.NIndex])
+                intsB.append(scanMS2Labelled.intensity_list[anno.LIndex])
+                rats.append(anno.ratioSimilarity)
+
+
+            result = similarity(intsA, intsB)
+            print "   --> ", "mean", np.mean(rats), "median", np.median(rats), "similarity", result
 
         return retMS
+
     def calculateOptimalMatch(self, scanMS2Native, scanMS2Labelled, matchingPPM, maxRelError, maxCn, charge, isotopeOffset=1.00335):
         scanMS2Annotated=self.calculateCn(charge, scanMS2Native, scanMS2Labelled, matchingPPM=matchingPPM, maxRelError=maxRelError, maxCn=maxCn, isotopeOffset=isotopeOffset)
 
@@ -571,36 +582,27 @@ class ProcessTarget:
         if not isinstance(parentSumFormula, list):
             parentSumFormula=[parentSumFormula]
 
+        parentSumFormula=[[psf, False] for psf in parentSumFormula]
+
         if removeImpossibleAnnotations:
-            for anno in annos:
-                for adduct in anno.generatedSumFormulas.keys():
 
-                    todel=[]
-                    for index, annoSF in enumerate(anno.generatedSumFormulas[adduct]):
-                        annoSFElems=fT.parseFormula(annoSF.sumFormula)
+            for psi in range(len(parentSumFormula)):
+                psElems = fT.parseFormula(parentSumFormula[psi][0])
+                consistentWithAtLeastOneFragmentSumFormula=False
 
-                        useFragmentAnnotation=False
-                        for ps in parentSumFormula:
-                            psElems=fT.parseFormula(ps)
-                            isPossible=self.checkIfSubset(annoSFElems, psElems)
-                            useFragmentAnnotation=useFragmentAnnotation or isPossible
+                for anno in annos:
+                    for adduct in anno.generatedSumFormulas.keys():
 
-                        if not useFragmentAnnotation:
-                            todel.append(index)
-
-                    if len(todel)>0:
-                        todel=list(set(todel))
-                        todel=sorted(todel)
-                        todel.reverse()
-
-                        for delIndex in todel:
-                            anno.generatedSumFormulas[adduct].pop(delIndex)
-                        if len(anno.generatedSumFormulas[adduct])==0:
-                            del anno.generatedSumFormulas[adduct]
+                        for index, annoSF in enumerate(anno.generatedSumFormulas[adduct]):
+                            annoSFElems=fT.parseFormula(annoSF.sumFormula)
 
 
+                            consistentWithAtLeastOneFragmentSumFormula=consistentWithAtLeastOneFragmentSumFormula or self.checkIfSubset(annoSFElems, psElems)
 
-        return ret
+                if consistentWithAtLeastOneFragmentSumFormula:
+                    parentSumFormula[psi][1]=True
+
+        return [psf for psf, usepsf in parentSumFormula if usepsf]
 
 
     def saveResultsToTSV(self, target, curs):
@@ -639,7 +641,7 @@ class ProcessTarget:
         else:
             annotatedSpectrumLabeled.annos=[]
 
-        with open(target.lcmsmsFile + "." + target.targetName + ".tsv", "wb") as fOut:
+        with open(target.lcmsmsNativeFile + "." + target.targetName + ".tsv", "wb") as fOut:
 
             fOut.write("\t".join(["Num", "MZ", "L_MZ", "D_MZ_ppm", "relInt", "L_relInt", "Cn", "sumFormula", "Adduct", "NeutralLoss"]))
             fOut.write("\n")
@@ -651,7 +653,7 @@ class ProcessTarget:
                 indexLab=annotatedSpectrumNative.annos[index].LIndex
                 b = Bunch(index=index, mz=annotatedSpectrumNative.mzs[index], relInt=annotatedSpectrumNative.ints[index], l_mz=annotatedSpectrumLabeled.mzs[indexLab], l_relInt=annotatedSpectrumLabeled.ints[indexLab],
                           Cn=annotatedSpectrumNative.annos[index].Cn, sumFormulas=annotatedSpectrumNative.annos[index].generatedSumFormulas)
-                b.dmzppm=(b.l_mz-b.mz-b.Cn*1.00335)*1000000./b.mz
+                b.dmzppm=(b.l_mz-b.mz-b.Cn*1.00335484)*1000000./b.mz
                 ##(generatedSumFormulas:{'[M]+': [(neutralLossToParent:,deltaPPM:-12.0126539494,sumFormula:C4H5O2N3)]},ratioError:6.78271579018,NIndex:0,Cn:0,LIndex:0)
 
                 totSumForms=0
@@ -660,7 +662,7 @@ class ProcessTarget:
                     if len(val)==0:
                         del b.sumFormulas[key]
 
-                line.append("\t".join([str(b.index), "%.4f"%b.mz, "%.4f"%b.l_mz, "%.4f"%b.dmzppm,  "%.1f"%b.relInt, "%.1f"%b.l_relInt, "%d"%b.Cn]))
+                line.append("\t".join([str(b.index), "%.4f"%b.mz, "%.4f"%b.l_mz, "%.2f"%b.dmzppm, "%.1f"%b.relInt, "%.1f"%b.l_relInt, "%d"%b.Cn]))
                 line.append("\t")
                 mzs.append(b.mz)
 
@@ -688,7 +690,7 @@ class ProcessTarget:
 
     def saveResultsToPDF(self, target, curs):
 
-        pdf = canvas.Canvas(target.lcmsmsFile + "." + target.targetName + ".pdf", pagesize=pagesizes.A4)
+        pdf = canvas.Canvas(self.chromatogramNativeFile + "." + target.targetName + ".pdf", pagesize=pagesizes.A4)
 
         fT=formulaTools()
 
@@ -701,7 +703,8 @@ class ProcessTarget:
         currentHeight = 800
         currentHeight=writeKeyValuePair("ID", str(target.id), pdf, currentHeight)
         currentHeight=writeKeyValuePair("Target name", target.targetName, pdf, currentHeight)
-        currentHeight=writeKeyValuePair("LC-HRMS/MS file", target.lcmsmsFile[(target.lcmsmsFile.rfind("/")+1):], pdf, currentHeight)
+        currentHeight=writeKeyValuePair("LC-HRMS/MS file native", self.chromatogramNativeFile[(self.chromatogramNativeFile.rfind("/")+1):], pdf, currentHeight)
+        currentHeight=writeKeyValuePair("LC-HRMS/MS file native", self.chromatogramLabeledFile[(self.chromatogramLabeledFile.rfind("/") + 1):], pdf, currentHeight)
         currentHeight=writeKeyValuePair("Sum formula", target.parentSumFormula, pdf, currentHeight)
         currentHeight=writeKeyValuePair("Adduct", "%s (%.4f)"%(target.adduct, target.adductMZOffset), pdf, currentHeight)
 
@@ -711,9 +714,10 @@ class ProcessTarget:
         currentHeight=writeKeyValuePair("Cn", str(target.Cn), pdf, currentHeight)
         currentHeight=writeKeyValuePair("Charge count", str(target.chargeCount), pdf, currentHeight)
         currentHeight=writeKeyValuePair("Retention time [min]", "%.2f - %.2f"%(target.startRT, target.stopRT), pdf, currentHeight)
-        currentHeight=writeKeyValuePair("MS scan event", target.scanEventMS1, pdf, currentHeight)
+        currentHeight=writeKeyValuePair("Native MS scan event", target.scanEventMS1M, pdf, currentHeight)
+        currentHeight=writeKeyValuePair("Labeled MS scan event", target.scanEventMS1Mp, pdf, currentHeight)
         currentHeight=writeKeyValuePair("Native MS/MS scan event", target.scanEventMS2Native, pdf, currentHeight)
-        currentHeight=writeKeyValuePair("Labelled MS/MS scan event", target.scanEventMS2Labelled, pdf, currentHeight)
+        currentHeight=writeKeyValuePair("Labelled MS/MS scan event", target.scanEventMS2Labeled, pdf, currentHeight)
         currentHeight=writeKeyValuePair("Native MS/MS scan time / id", "%.2f / %s"%(target.scanRTNativeRaw/60., str(target.scanIDNativeRaw)), pdf, currentHeight)
         currentHeight=writeKeyValuePair("Labeled MS/MS scan time / id", "%.2f / %s"%(target.scanRTLabeledRaw/60., str(target.scanIDLabelledRaw)), pdf, currentHeight)
 
@@ -721,9 +725,6 @@ class ProcessTarget:
 
         currentHeight=writeKeyValuePair("FragExtract version",  str(self.feVersion), pdf, currentHeight)
         currentHeight-=20
-
-
-
 
         nativeRawSpectrum=[p for p in SQLSelectAsObject(curs, selectStatement="SELECT mzs, ints FROM MSSpectra WHERE forTarget=%d AND type='native_raw'"%target.id)][0]
         if len(nativeRawSpectrum.mzs)>0:
@@ -764,60 +765,12 @@ class ProcessTarget:
               SQLSelectAsObject(curs,
                                 selectStatement="SELECT intensityList, timesList, forMZ, type FROM EICs WHERE forTarget=%d"%target.id)]
 
-        data=[]
-
-        data.append(["Num", "mz", "relInt", "RatioDifference", "Cn", "sumFormula", "deviation [ppm]", "Adduct", "NeutralLoss"])
-        widths=[30,50,40,60,20,80,80,30,100]
-        for index in range(len(annotatedSpectrum.mzs)):
-            b = Bunch(index=index, mz=annotatedSpectrum.mzs[index], relInt=annotatedSpectrum.ints[index], ratioDifference=annotatedSpectrum.annos[index].ratioError,
-                      Cn=annotatedSpectrum.annos[index].Cn, sumFormulas=annotatedSpectrum.annos[index].generatedSumFormulas)
-
-            totSumForms=0
-            for key, val in b.sumFormulas.items():
-                totSumForms+=len(val)
-                if len(val)==0:
-                    del b.sumFormulas[key]
-
-            dl=[str(b.index+1), "%.4f"%b.mz, "%.1f"%b.relInt, "%.1f"%b.ratioDifference, "%d"%b.Cn]
-
-            if totSumForms==0:
-                dl.extend(["","","",""])
-                data.append(dl)
-            elif totSumForms==1:
-                m=fT.calcMolWeight(fT.parseFormula(list(b.sumFormulas.values())[0][0].sumFormula))+target.adductObj.mzoffset/target.adductObj.charge
-                dl.extend([str(list(b.sumFormulas.values())[0][0].sumFormula),
-                           "%.2f"%((m-b.mz)*1000000./b.mz),
-                           str(list(b.sumFormulas.keys())[0]),
-                           str(list(b.sumFormulas.values())[0][0].neutralLossToParent)])
-                data.append(dl)
-            else:
-                dl.extend(["*","","",""])
-                data.append(dl)
-                for adduct in b.sumFormulas.keys():
-                    if len(b.sumFormulas[adduct])>0:
-                        for sumForm in b.sumFormulas[adduct]:
-                            m=fT.calcMolWeight(fT.parseFormula(sumForm.sumFormula))+target.adductObj.mzoffset/target.adductObj.charge
-                            dl=["", "", "", "", sumForm.sumFormula, "%.2f"%((m-b.mz)*1000000./b.mz), adduct, sumForm.neutralLossToParent]
-                            data.append(dl)
-
-        style = [('FONTSIZE', (0, 0), (-1, -1), 8),
-                 ('LEFTPADDING', (0, 0), (-1, -1), 0),
-                 ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-                 ('TOPPADDING', (0, 0), (-1, -1), 0),
-                 ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                 ('ALIGN', (0, 0), (-1, -1), 'LEFT')]
-        table = Table(data, colWidths=widths, style=style)
-
-        table.wrapOn(pdf, 2 * len(data), 1100)
-        table.drawOn(pdf, 20, currentHeight-10-len(data)*9)
-
         ## Plot MSMS spectra - native MSMS
         drawing = Drawing(500, 260)
         lp = LinePlot()
         lp.x = 20
         lp.y = 0
-        lp.height = 260
+        lp.height = 400
         lp.width = 400
 
         dd=[]
@@ -833,16 +786,16 @@ class ProcessTarget:
         strokeWidth.append(0.3)
 
         ## parent ions
-        dd.append([(target.precursorMZ, 110), (target.precursorMZ, 120)])
+        dd.append([(target.precursorMZ, 0), (target.precursorMZ, 10)])
         colors.append(Color(107 / 255., 142 / 255., 35 / 255.))
         strokeWidth.append(2.1)
-        dd.append([(target.precursorMZ+1.00335*target.Cn/target.chargeCount, -110), (target.precursorMZ+1.00335*target.Cn/target.chargeCount, -120)])
+        dd.append([(target.precursorMZ+1.00335*target.Cn/target.chargeCount, -10), (target.precursorMZ+1.00335*target.Cn/target.chargeCount, 0)])
         colors.append(Color(107 / 255., 142 / 255., 35 / 255.))
         strokeWidth.append(2.1)
-        dd.append([(target.precursorMZ, 0), (target.precursorMZ, 120)])
+        dd.append([(target.precursorMZ, 0), (target.precursorMZ, 10)])
         colors.append(Color(107 / 255., 142 / 255., 35 / 255.))
         strokeWidth.append(0.1)
-        dd.append([(target.precursorMZ+1.00335*target.Cn/target.chargeCount, 0), (target.precursorMZ+1.00335*target.Cn/target.chargeCount, -120)])
+        dd.append([(target.precursorMZ+1.00335*target.Cn/target.chargeCount, 0), (target.precursorMZ+1.00335*target.Cn/target.chargeCount, -10)])
         colors.append(Color(107 / 255., 142 / 255., 35 / 255.))
         strokeWidth.append(0.1)
 
@@ -879,11 +832,11 @@ class ProcessTarget:
 
 
         ## Plot EICs
-        drawing = Drawing(500, 260)
+        drawing = Drawing(500, 400)
         lp = LinePlot()
         lp.x = 460
         lp.y = 0
-        lp.height = 260
+        lp.height = 400
         lp.width = 100
 
         dd=[]
@@ -897,7 +850,7 @@ class ProcessTarget:
         strokeWidth.append(.7)
         ma = max(target.eicLFS)
         ma = ma if ma > 0 else 1
-        dd.append(zip([t / 60. for t in target.timesFS], [-i / ma for i in target.eicLFS]))
+        dd.append(zip([t / 60. for t in target.timesLFS], [-i / ma for i in target.eicLFS]))
         colors.append(Color(94 / 255., 158 / 255., 158 / 255.))
         strokeWidth.append(.7)
 
@@ -932,6 +885,61 @@ class ProcessTarget:
         renderPDF.draw(drawing, pdf, 15 , 25)
         pdf.drawString(470, 295, "EICs")
         pdf.showPage()
+
+        currentHeight=800
+
+        currentHeight=writeKeyValuePair("Matched fragments", "", pdf, currentHeight)
+        currentHeight=writeKeyValuePair("", "", pdf, currentHeight)
+        currentHeight=writeKeyValuePair("", "", pdf, currentHeight)
+        data=[]
+
+        data.append(["Num", "mz", "Delta error", "relInt", "RatioDifference", "Cn", "sumFormula", "deviation [ppm]", "Adduct", "NeutralLoss"])
+        widths=[30,50,40,60,20,80,80,30,100]
+        for index in range(len(annotatedSpectrum.mzs)):
+            b = Bunch(index=index, mz=annotatedSpectrum.mzs[index], relInt=annotatedSpectrum.ints[index], ratioDifference=annotatedSpectrum.annos[index].ratioError,
+                      Cn=annotatedSpectrum.annos[index].Cn, sumFormulas=annotatedSpectrum.annos[index].generatedSumFormulas, dppmSpectra=annotatedSpectrum.annos[index].dppmSpectra)
+
+            totSumForms=0
+            for key, val in b.sumFormulas.items():
+                totSumForms+=len(val)
+                if len(val)==0:
+                    del b.sumFormulas[key]
+
+            dl=[str(b.index+1), "%.4f"%b.mz, "%.1f"%b.dppmSpectra, "%.1f"%b.relInt, "%.1f"%b.ratioDifference, "%d"%b.Cn]
+
+            if totSumForms==0:
+                dl.extend(["","","",""])
+                data.append(dl)
+            elif totSumForms==1:
+                m=fT.calcMolWeight(fT.parseFormula(list(b.sumFormulas.values())[0][0].sumFormula))+target.adductObj.mzoffset/target.adductObj.charge
+                dl.extend([str(list(b.sumFormulas.values())[0][0].sumFormula),
+                           "%.2f"%((m-b.mz)*1000000./b.mz),
+                           str(list(b.sumFormulas.keys())[0]),
+                           str(list(b.sumFormulas.values())[0][0].neutralLossToParent)])
+                data.append(dl)
+            else:
+                dl.extend(["*","","",""])
+                data.append(dl)
+                for adduct in b.sumFormulas.keys():
+                    if len(b.sumFormulas[adduct])>0:
+                        for sumForm in b.sumFormulas[adduct]:
+                            m=fT.calcMolWeight(fT.parseFormula(sumForm.sumFormula))+target.adductObj.mzoffset/target.adductObj.charge
+                            dl=["", "", "", "", sumForm.sumFormula, "%.2f"%((m-b.mz)*1000000./b.mz), adduct, sumForm.neutralLossToParent]
+                            data.append(dl)
+
+        style = [('FONTSIZE', (0, 0), (-1, -1), 8),
+                 ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                 ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                 ('TOPPADDING', (0, 0), (-1, -1), 0),
+                 ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                 ('ALIGN', (0, 0), (-1, -1), 'LEFT')]
+        table = Table(data, colWidths=widths, style=style)
+
+        table.wrapOn(pdf, 2 * len(data), 1600)
+        table.drawOn(pdf, 50, currentHeight-10-len(data)*9)
+        pdf.showPage()
+
 
         if target.matches.numResults>0:
             mbE=1
@@ -1051,15 +1059,18 @@ class ProcessTarget:
                 if index==0:
                     self.postMessageToProgressWrapper("start", forPID=target.pID)
                     self.postMessageToProgressWrapper("max", 100., forPID=target.pID)
-                    self.postMessageToProgressWrapper("text", "Parsing file %s"%(self.chromatogramFile[(self.chromatogramFile.rfind("/")+1):]), forPID=target.pID)
+                    self.postMessageToProgressWrapper("text", "Parsing file %s"%(self.chromatogramNativeFile[(self.chromatogramNativeFile.rfind("/")+1):]), forPID=target.pID)
 
 
             # region parse mzxml file
-            chromatogram=Chromatogram()
-            chromatogram.parse_file(self.chromatogramFile)
+            chromatogramNative=Chromatogram()
+            chromatogramNative.parse_file(self.chromatogramNativeFile)
+
+            chromatogramLabeled=Chromatogram()
+            chromatogramLabeled.parse_file(self.chromatogramLabeledFile)
             # endregion
             # region create results db
-            conn=sqlite3.connect(self.chromatogramFile+".identified.sqlite")
+            conn=sqlite3.connect(self.chromatogramNativeFile+".identified.sqlite")
             curs=conn.cursor()
             #endregion
 
@@ -1067,6 +1078,7 @@ class ProcessTarget:
             target.eicFS=""
             target.eicLFS=""
             target.timesFS=""
+            target.timesLFS = ""
             target.scanRTNativeRaw=0.
             target.scanRTLabeledRaw=0.
             createTableFromBunch("Targets", target, cursor=curs, primaryKeys=["id"], autoIncrements=["id"], ifNotExists=True)
@@ -1082,23 +1094,22 @@ class ProcessTarget:
                     self.postMessageToProgressWrapper("start", forPID=target.pID)
                     self.postMessageToProgressWrapper("max", 100., forPID=target.pID)
                 self.postMessageToProgressWrapper("value", 40.+60.*index/len(self.targets), forPID=target.pID)
-                self.postMessageToProgressWrapper("text", "Processing file %s, target %.4f"%(self.chromatogramFile[(self.chromatogramFile.rfind("/")+1):], target.precursorMZ), forPID=target.pID)
+                self.postMessageToProgressWrapper("text", "Processing file %s, target %.4f"%(self.chromatogramNativeFile[(self.chromatogramNativeFile.rfind("/")+1):], target.precursorMZ), forPID=target.pID)
 
-                self._process(chromatogram, target, conn, curs)
+                self._process(chromatogramNative, chromatogramLabeled, target, conn, curs)
 
                 self.postMessageToProgressWrapper("end", forPID=target.pID)
-                sleep(2)
 
         except Exception as ex:
             import traceback
             traceback.print_exc()
             logging.error(str(traceback))
 
-            self.printMessage("Error in %s: %s" % (self.chromatogramFile, str(ex)))
+            self.printMessage("Error in %s: %s" % (self.chromatogramNativeFile, str(ex)))
             self.postMessageToProgressWrapper("failed")
 
-    def _process(self, chromatogram, target, conn, curs):
-        self.printMessage("processing file: %s; target: %.4f"%(self.chromatogramFile, target.precursorMZ))
+    def _process(self, chromatogramNative, chromatogramLabeled, target, conn, curs):
+        self.printMessage("Processing file: %s; target: %.4f"%(self.chromatogramNativeFile, target.precursorMZ))
 
         useAtoms=[]
         atomsRange=[]
@@ -1112,44 +1123,56 @@ class ProcessTarget:
                 useAtoms.append(ce.name)
                 atomsRange.append((ce.minCount, ce.maxCount))
 
-
         # region 1. Processing step: get scan events and select the user specified ones
-        scanEventsMS2=sorted(list(chromatogram.getFilterLines(includeMS1=False, includeMS2=True, includePosPolarity=True, includeNegPolarity=True)))
-        scanEventsMS1=sorted(list(chromatogram.getFilterLines(includeMS1=True, includeMS2=False, includePosPolarity=True, includeNegPolarity=True)))
-        nativeScanEventString=scanEventsMS2[target.nativeScanEventNum]
-        labelledScanEventString=scanEventsMS2[target.labelledScanEventNum]
-        fullScanEventString=scanEventsMS1[target.fullScanEventNum]
-        target.scanEventMS1=fullScanEventString
-        target.scanEventMS2Native=nativeScanEventString
-        target.scanEventMS2Labelled=labelledScanEventString
+        scanEventsMS2M=sorted(list(chromatogramNative.getFilterLines(includeMS1=False, includeMS2=True, includePosPolarity=True, includeNegPolarity=True)))
+        scanEventsMS1M=sorted(list(chromatogramNative.getFilterLines(includeMS1=True, includeMS2=False, includePosPolarity=True, includeNegPolarity=True)))
+        target.scanEventMS1M=scanEventsMS1M[target.nativefullScanEventNum]
+        target.scanEventMS2Native=scanEventsMS2M[target.nativeScanEventNum ]
+
+        scanEventsMS2Mp=sorted(list(chromatogramLabeled.getFilterLines(includeMS1=False, includeMS2=True, includePosPolarity=True, includeNegPolarity=True)))
+        scanEventsMS1Mp=sorted(list(chromatogramLabeled.getFilterLines(includeMS1=True, includeMS2=False, includePosPolarity=True, includeNegPolarity=True)))
+        target.scanEventMS1Mp=scanEventsMS1Mp[target.labeledfullScanEventNum]
+        target.scanEventMS2Labeled=scanEventsMS2Mp[target.labelledScanEventNum]
+
         # endregion
 
         # region 2. create results tables
         # write target to results db
-        id=writeObjectAsSQLInsert(curs, "Targets", target, writeFields=["targetName", "lcmsmsFile", "precursorMZ", "Cn", "chargeCount", "startRT", "parentSumFormula",
-                                                                       "stopRT", "scanEventMS1", "scanEventMS2Native", "scanEventMS2Labelled",
-                                                                       "adduct", "adductMZOffset"])
+        id=writeObjectAsSQLInsert(curs, "Targets", target, writeFields=["targetName", "lcmsmsNativeFile", "lcmsmsLabeledFile",
+                                                                        "precursorMZ", "Cn", "chargeCount", "startRT", "parentSumFormula",
+                                                                        "stopRT", "adduct", "adductMZOffset",
+                                                                        "scanEventMS1M", "scanEventMS1Mp",
+                                                                        "scanEventMS2Native", "scanEventMS2Labeled"])
         target.id=id
         # endregion
 
         # region 3. Processing step: select the most abundant FullScan and select the two following MS2 scans
-        t=self.selectMSMSScansForProcessing(chromatogram, target.Cn, target.startRT, target.stopRT, target.precursorMZ, target.chargeCount, fullScanEventString, nativeScanEventString, labelledScanEventString)
-        maxIntFullScanIndex, maxIntMS2NativeIndex, maxIntMS2LabelledIndex, \
-            maxIntFullScanTime, maxIntMS2NativeTime, maxIntMS2LabelledTime, \
-            maxIntFullScanID, maxIntMS2NativeID, maxIntMS2LabelledID, \
-            eicFS, eicLFS, timesFS=t
+        t=self.selectMSMSScansForProcessing(chromatogramNative, chromatogramLabeled, target.Cn, target.startRT, target.stopRT, target.precursorMZ, target.chargeCount, target.scanEventMS1M, target.scanEventMS1Mp, target.scanEventMS2Native, target.scanEventMS2Labeled)
 
-        startInd=min(range(len(timesFS)), key=lambda x: abs(timesFS[x]/60.-target.startRT))
+        maxIntFullScanIndexNative, maxIntFullScanIndexLabeled, maxIntMS2NativeIndex, maxIntMS2LabelledIndex, \
+         maxIntFullScanTimeNative, maxIntFullScanTimeLabeled, \
+         timeMS2Native, timeMS2Labelled, \
+         maxIntFullScanIndexNative, maxIntFullScanIndexLabeled, \
+         maxIntMS2NativeScanID, maxIntMS2LabelledScanID, \
+         eicFSNative, eicFSLabeled, timesFS, timesFSL = t
+
+        startInd = min(range(len(timesFS)), key=lambda x: abs(timesFS[x]/60.-target.startRT))
         stopInd = min(range(len(timesFS)), key=lambda x: abs(timesFS[x]/60. - target.stopRT))
-        target.eicFS=eicFS[startInd:stopInd]
-        target.eicLFS=eicLFS[startInd:stopInd]
+        target.eicFS=eicFSNative[startInd:stopInd]
         target.timesFS=timesFS[startInd:stopInd]
 
-        curs.execute("UPDATE Targets SET eicFS=?, eicLFS=?, timesFS=? WHERE id=?", (base64.b64encode(pickle.dumps(target.eicFS)), base64.b64encode(pickle.dumps(target.eicLFS)), base64.b64encode(pickle.dumps(target.timesFS)), target.id))
+        startInd = min(range(len(timesFSL)), key=lambda x: abs(timesFSL[x]/60.-target.startRT))
+        stopInd = min(range(len(timesFSL)), key=lambda x: abs(timesFSL[x]/60. - target.stopRT))
 
-        scanFS=deepcopy(chromatogram.getScanByID(maxIntFullScanID))
-        scanMS2Native=deepcopy(chromatogram.getScanByID(maxIntMS2NativeID))
-        scanMS2Labelled=deepcopy(chromatogram.getScanByID(maxIntMS2LabelledID))
+        target.eicLFS=eicFSLabeled[startInd:stopInd]
+        target.timesLFS=timesFSL[startInd:stopInd]
+
+        curs.execute("UPDATE Targets SET eicFS=?, eicLFS=?, timesFS=?, timesLFS=? WHERE id=?", (base64.b64encode(pickle.dumps(target.eicFS)), base64.b64encode(pickle.dumps(target.eicLFS)), base64.b64encode(pickle.dumps(target.timesFS)), base64.b64encode(pickle.dumps(target.timesLFS)), target.id))
+
+        scanFSNative=deepcopy(chromatogramNative.getScanByID(maxIntFullScanIndexNative))
+        scanFSLabeled = deepcopy(chromatogramLabeled.getScanByID(maxIntFullScanIndexLabeled))
+        scanMS2Native=deepcopy(chromatogramNative.getScanByID(maxIntMS2NativeScanID))
+        scanMS2Labelled=deepcopy(chromatogramLabeled.getScanByID(maxIntMS2LabelledScanID))
         # endregion
 
         if scanMS2Native.polarity != scanMS2Labelled.polarity:
@@ -1186,26 +1209,28 @@ class ProcessTarget:
                 print "No scaling possible"
 
 
-        assert maxIntFullScanTime==scanFS.retention_time and maxIntMS2NativeTime==scanMS2Native.retention_time and maxIntMS2LabelledTime==scanMS2Labelled.retention_time
+        assert maxIntFullScanTimeNative==scanFSNative.retention_time and maxIntFullScanTimeLabeled==scanFSLabeled.retention_time and \
+               timeMS2Native==scanMS2Native.retention_time and timeMS2Labelled==scanMS2Labelled.retention_time
         assert isinstance(scanMS2Native, MS2Scan) and isinstance(scanMS2Labelled, MS2Scan)
 
         # endregion
         # region write native spectra to results db
         writeObjectAsSQLInsert(curs, "MSSpectra", Bunch(forTarget=target.id, mzs=",".join([str(mz) for mz in scanMS2Native.mz_list]),
                                                         ints=",".join([str(i) for i in scanMS2Native.intensity_list]),
-                                                        scanTime=scanMS2Native.retention_time, scanID=str(maxIntMS2NativeID), type="native_raw",
+                                                        scanTime=scanMS2Native.retention_time, scanID=str(maxIntMS2NativeScanID), type="native_raw",
                                                         precursorIntensity=scanMS2Native.precursor_intensity),
                                writeFields=["forTarget", "mzs", "ints", "scanTime", "type", "precursorIntensity"])
         # write labelled spectra to results db
         writeObjectAsSQLInsert(curs, "MSSpectra", Bunch(forTarget=target.id, mzs=",".join([str(mz) for mz in scanMS2Labelled.mz_list]),
                                                         ints=",".join([str(i) for i in scanMS2Labelled.intensity_list]),
-                                                        scanTime=scanMS2Labelled.retention_time, scanID=str(maxIntMS2LabelledID), type="labelled_raw",
+                                                        scanTime=scanMS2Labelled.retention_time, scanID=str(maxIntMS2LabelledScanID), type="labelled_raw",
                                                         precursorIntensity=scanMS2Labelled.precursor_intensity),
                                writeFields=["forTarget", "mzs", "ints", "scanTime", "type", "precursorIntensity"])
 
-        curs.execute("UPDATE Targets SET scanRTNativeRaw=?, scanRTLabeledRaw=?, scanIDNativeRaw=?, scanIDLabelledRaw=? WHERE id=?", (scanMS2Native.retention_time, scanMS2Labelled.retention_time, maxIntMS2NativeID, maxIntMS2LabelledID, target.id))
-        target.scanIDNativeRaw=str(maxIntMS2NativeID)
-        target.scanIDLabelledRaw=str(maxIntMS2LabelledID)
+        curs.execute("UPDATE Targets SET scanRTNativeRaw=?, scanRTLabeledRaw=?, scanIDNativeRaw=?, scanIDLabelledRaw=? WHERE id=?",
+                     (scanMS2Native.retention_time, scanMS2Labelled.retention_time, maxIntMS2NativeScanID, maxIntMS2LabelledScanID, target.id))
+        target.scanIDNativeRaw=str(maxIntMS2NativeScanID)
+        target.scanIDLabelledRaw=str(maxIntMS2LabelledScanID)
         target.scanRTNativeRaw=scanMS2Native.retention_time
         target.scanRTLabeledRaw=scanMS2Labelled.retention_time
 
@@ -1214,19 +1239,23 @@ class ProcessTarget:
 
         # region 6. Processing step: apply threshold and remove isotopolog peaks
         scanMS2Native=self.removePeaksBelowThreshold(scanMS2Native, intThreshold=self.minMSMSPeakIntensityScaled)
-        scanMS2Native=self.cleanScanFromIsotopoes(scanMS2Native, maxPPM=self.matchingPPM, metaboliteCharge=target.chargeCount, isotopeOffset=1.00335, use=[+1])
+        scanMS2Native=self.cleanScanFromIsotopoes(scanMS2Native, maxPPM=self.matchingPPM, metaboliteCharge=target.chargeCount, isotopeOffset=1.00335484, use=[+1])
 
         scanMS2Labelled=self.removePeaksBelowThreshold(scanMS2Labelled, intThreshold=self.minMSMSPeakIntensityScaled)
-        scanMS2Labelled=self.cleanScanFromIsotopoes(scanMS2Labelled, maxPPM=self.matchingPPM, metaboliteCharge=target.chargeCount, isotopeOffset=1.00335, use=[-1])
+        scanMS2Labelled=self.cleanScanFromIsotopoes(scanMS2Labelled, maxPPM=self.matchingPPM, metaboliteCharge=target.chargeCount, isotopeOffset=1.00335484, use=[-1])
         # endregion
 
         # region 7. Processing step: calculate Cn for each fragment peak
-        scanMS2Annotated=self.calculateOptimalMatch(scanMS2Native, scanMS2Labelled, self.matchingPPM, self.maxRelError, target.Cn, target.chargeCount, isotopeOffset=1.00335)
+        scanMS2Annotated=self.calculateOptimalMatch(scanMS2Native, scanMS2Labelled, self.matchingPPM, self.maxRelError, target.Cn, target.chargeCount, isotopeOffset=1.00335484)
         # endregion
 
         # region 8. Processing step: select only matched peaks
         self.removeNonAnnotatedPeaks(scanMS2Annotated)
         # endregion
+
+        if len(scanMS2Annotated.nativeIntensity_list)>0:
+            scanMS2Annotated.nativeIntensity_list = self.scaleMSScanBy(scanMS2Annotated.nativeIntensity_list, by=100. / max(scanMS2Annotated.nativeIntensity_list))
+            scanMS2Annotated.labelledIntensity_list = self.scaleMSScanBy(scanMS2Annotated.labelledIntensity_list, by=100. / max(scanMS2Annotated.labelledIntensity_list))
 
         # region 9. Processing step: annotate peaks with sum formulas
         self.annotatePeaksWithSumFormulas(target.adductObj, scanMS2Annotated, useAtoms, atomsRange, fixed, ppm=self.annotationPPM)
@@ -1234,21 +1263,15 @@ class ProcessTarget:
 
         # region 10. Processing step: calculate putative sum formulas for parent
         genSumForms=self.calcParentSumFormulas(target.precursorMZ, target.Cn, target.adductObj, useAtoms, atomsRange, fixed, ppm=self.annotationPPM)
-
         # endregion
 
         # region
         # use either generated sum formulas or check, if the provided is among the generated ones
         if target.parentSumFormula=="" or target.parentSumFormula==None:
-            if len(genSumForms)==1:
-                target.parentSumFormula=genSumForms[0]
-                hasUniqueParentSumFormula=True
-            else:
-                target.parentSumFormula=genSumForms
-                hasUniqueParentSumFormula=False
+            target.parentSumFormula=genSumForms
 
             if self.useParentFragmentConsistencyRule: # check for fragment-parent-sumFormula consistency
-                self.checkForFragmentParentSumFormulaConsistency(scanMS2Annotated, target.parentSumFormula, removeImpossibleAnnotations=hasUniqueParentSumFormula)
+                target.parentSumFormula=self.checkForFragmentParentSumFormulaConsistency(scanMS2Annotated, target.parentSumFormula, removeImpossibleAnnotations=True)
         else:
             fT=formulaTools()
             elemsProvided=fT.parseFormula(target.parentSumFormula)
@@ -1264,12 +1287,10 @@ class ProcessTarget:
             if not alsoGenerated:
                 logging.warning("WARNING: The provided sum formula (%s) for this target was not generated by the seven golden rules"%(fT.flatToString(elemsProvided)), ",".join(genSumForms))
 
-            hasUniqueParentSumFormula=True
-
             if self.useParentFragmentConsistencyRule: # check for fragment-parent-sumFormula consistency
-                self.checkForFragmentParentSumFormulaConsistency(scanMS2Annotated, target.parentSumFormula, removeImpossibleAnnotations=True)
+                target.parentSumFormula=self.checkForFragmentParentSumFormulaConsistency(scanMS2Annotated, target.parentSumFormula, removeImpossibleAnnotations=True)
 
-        target.parentSumFormula=str(target.parentSumFormula)
+        target.parentSumFormula="%d [%s]"%(len(target.parentSumFormula), ", ".join(target.parentSumFormula))
 
 
         sumFormsDisplay=target.parentSumFormula.replace("'", "").replace("\"", "").replace("[", "").replace("]", "")
@@ -1277,7 +1298,7 @@ class ProcessTarget:
         # endregion
 
         # region 11. Processing step: Calculate neutral losses for MSMS peaks
-        if hasUniqueParentSumFormula and isinstance(target.parentSumFormula, str) and target.parentSumFormula!="":  ## neutral losses will only be calculated for provided or unique sum formulas
+        if len(target.parentSumFormula)==1 and isinstance(target.parentSumFormula, str) and target.parentSumFormula!="":  ## neutral losses will only be calculated for provided or unique sum formulas
             self.calcNeutralLosses(scanMS2Annotated, target.parentSumFormula, ppm=self.annotationPPM)
         # endregion
 
@@ -1297,33 +1318,33 @@ class ProcessTarget:
         dummy = Bunch(title="", score=0., id="", formula="", exactMass=0., forTarget=1, mzs="", relInts="")
         createTableFromBunch("MassBankHits", dummy, cursor=curs, ifNotExists=True)
 
-        try:
-            ## for some reason that I have not figured out yet the webservice must be initialized here
-            self.massbankClient = PyMassBankSearchTool()
-            matches=self.massbankClient.searchForMSMSSpectra(mzValues=scanMS2Annotated.nativeMz_list, intensityValues=scanMS2Annotated.nativeIntensity_list,
-                                                        ionMode=scanMS2Native.polarity, tolerance=self.massBankPPMError, cutoff=self.massBankMinRelAbundance,
-                                                        maxNumResults=self.massBankHitsToLoad, minimalScore=self.massBankMinimalScore)
+        if False:
+            try:
+                ## for some reason that I have not figured out yet the webservice must be initialized here
+                self.massbankClient = PyMassBankSearchTool()
+                matches=self.massbankClient.searchForMSMSSpectra(mzValues=scanMS2Annotated.nativeMz_list, intensityValues=scanMS2Annotated.nativeIntensity_list,
+                                                            ionMode=scanMS2Native.polarity, tolerance=self.massBankPPMError, cutoff=self.massBankMinRelAbundance,
+                                                            maxNumResults=self.massBankHitsToLoad, minimalScore=self.massBankMinimalScore)
 
-            if matches.numResults > 0:
-                for match in matches.matchedSubstances:
-                    match.forTarget=target.id
-                    mzs, relInts=self.massbankClient.getMSMSSpectraForRecordID(match.id)
-                    match.mzs=";".join([str(d) for d in mzs])
-                    match.relInts=";".join([str(d) for d in relInts])
-                    writeObjectAsSQLInsert(curs, "MassBankHits", match, writeFields=["title", "score", "id", "formula", "exactMass", "forTarget", "mzs", "relInts"])
-            target.matches=matches
-        except:
-            target.matches=Bunch(numResults=0)
-
+                if matches.numResults > 0:
+                    for match in matches.matchedSubstances:
+                        match.forTarget=target.id
+                        mzs, relInts=self.massbankClient.getMSMSSpectraForRecordID(match.id)
+                        match.mzs=";".join([str(d) for d in mzs])
+                        match.relInts=";".join([str(d) for d in relInts])
+                        writeObjectAsSQLInsert(curs, "MassBankHits", match, writeFields=["title", "score", "id", "formula", "exactMass", "forTarget", "mzs", "relInts"])
+                target.matches=matches
+            except:
+                target.matches=Bunch(numResults=0)
+        else:
+            target.matches = Bunch(numResults=0)
 
         for i in range(len(scanMS2Annotated.nativeMz_list)):
             mz=scanMS2Annotated.nativeMz_list[i]
             mzL=scanMS2Annotated.labelledMz_list[i]
 
-            eicN, timesN, scanIdsN, mzs=chromatogram.getEIC(mz=mz,  ppm=self.matchingPPM, filterLine=nativeScanEventString, removeSingles=False, useMS1=False, useMS2=True)
-            eicL, timesL, scanIdsL, mzs=chromatogram.getEIC(mz=mzL, ppm=self.matchingPPM, filterLine=labelledScanEventString, removeSingles=False, useMS1=False, useMS2=True)
-
-
+            eicN, timesN, scanIdsN, mzs=chromatogramNative.getEIC(mz=mz,  ppm=self.matchingPPM, filterLine=target.scanEventMS1M, removeSingles=False, useMS1=False, useMS2=True)
+            eicL, timesL, scanIdsL, mzs=chromatogramLabeled.getEIC(mz=mzL, ppm=self.matchingPPM, filterLine=target.scanEventMS1Mp, removeSingles=False, useMS1=False, useMS2=True)
 
             eicN, timesN, scanIdsN=cropEICs(eicN, timesN, scanIdsN, target.startRT*60, target.stopRT*60)
             eicL, timesL, scanIdsL=cropEICs(eicL, timesL, scanIdsL, target.startRT*60, target.stopRT*60)
@@ -1337,7 +1358,7 @@ class ProcessTarget:
                                    writeFields=["forTarget", "forMZ", "type", "timesList", "intensityList"])
 
             writeObjectAsSQLInsert(curs, "EICs", Bunch(forTarget=target.id,
-                                                       forMZ=mz,
+                                                       forMZ=mzL,
                                                        type="Labeled",
                                                        timesList=",".join([str(t) for t in timesL]),
                                                        intensityList=",".join([str(i) for i in eicL])),

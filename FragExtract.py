@@ -159,7 +159,7 @@ class MSMSTargetModel(QtCore.QAbstractTableModel):
 
 
     def rowCount(self, parent=QtCore.QModelIndex()): return len(self._data)
-    def columnCount(self, parent=QtCore.QModelIndex()): return 11
+    def columnCount(self, parent=QtCore.QModelIndex()): return 13
 
 
     def data(self, index, role=QtCore.Qt.DisplayRole):
@@ -168,7 +168,7 @@ class MSMSTargetModel(QtCore.QAbstractTableModel):
             #if index.row() in range(8):
             #    return QtGui.QBrush(QtGui.QColor(cols[1]))
 
-            prevNames=list(set([self._data[i].lcmsmsFileName for i in range(index.row()+1)]))
+            prevNames=list(set([self._data[i].lcmsmsNativeFileName for i in range(index.row()+1)]))
             return QtGui.QBrush(QtGui.QColor(cols[len(prevNames)%len(cols)]))
 
         if not index.isValid(): return None
@@ -181,25 +181,31 @@ class MSMSTargetModel(QtCore.QAbstractTableModel):
             a=str(self._data[index.row()].parentSumFormula)
             return a
         if index.column()==2:
-            a=str(self._data[index.row()].lcmsmsFileName)
+            a=str(self._data[index.row()].lcmsmsNativeFileName)
             a=a.replace("\\", "/")
             return a[a.rfind("/")+1:]
         if index.column()==3:
-            return str(self._data[index.row()].nativeMZ)
+            a=str(self._data[index.row()].lcmsmsLabeledFileName)
+            a=a.replace("\\", "/")
+            return a[a.rfind("/")+1:]
         if index.column()==4:
-            return self._data[index.row()].usedAdduct
+            return str(self._data[index.row()].nativeMZ)
         if index.column()==5:
-            return self._data[index.row()].cNMetabolite
+            return self._data[index.row()].usedAdduct
         if index.column()==6:
-            return self._data[index.row()].rtMin
+            return self._data[index.row()].cNMetabolite
         if index.column()==7:
-            return self._data[index.row()].rtMax
+            return self._data[index.row()].rtMin
         if index.column()==8:
-            return self._data[index.row()].scanEventIndexM
+            return self._data[index.row()].rtMax
         if index.column()==9:
-            return self._data[index.row()].scanEventIndexMp
+            return self._data[index.row()].scanEventIndexM
         if index.column()==10:
-            return self._data[index.row()].scanEventIndexFullScan
+            return self._data[index.row()].scanEventIndexMp
+        if index.column()==11:
+            return self._data[index.row()].scanEventIndexFullScanM
+        if index.column()==12:
+            return self._data[index.row()].scanEventIndexFullScanMp
 
     def setData(self, index, value, role=QtCore.Qt.DisplayRole):
         if index.column()==0:
@@ -208,7 +214,7 @@ class MSMSTargetModel(QtCore.QAbstractTableModel):
         elif index.column()==1:
             s=str(value.toString())
             self._data[index.row()].parentSumFormula=s
-        elif index.column()==3:
+        elif index.column()==4:
             s=str(value.toString())
             if is_float(s):
                 mz=float(s)
@@ -216,8 +222,8 @@ class MSMSTargetModel(QtCore.QAbstractTableModel):
                 self._data[index.row()].nativeMZ=mz
 
                 update=False
-                if self._data[index.row()].scanEventIndexM<=0:
-                    for sei, se in enumerate(self._data[index.row()].MS2ScanEvents):
+                if self._data[index.row()].scanEventIndexM <= 0:
+                    for sei, se in enumerate(self._data[index.row()].MS2ScanEventsNative):
                         try:
                             precurs=float(re.search("PreMZ: ([0-9]*\.[0-9]*) ", se).group(1))
                             ppm=abs(precurs-mz)*1E6/mz
@@ -228,7 +234,7 @@ class MSMSTargetModel(QtCore.QAbstractTableModel):
                             pass
 
                 if self._data[index.row()].scanEventIndexMp <= 0:
-                    for sei, se in enumerate(self._data[index.row()].MS2ScanEvents):
+                    for sei, se in enumerate(self._data[index.row()].MS2ScanEventsLabeled):
                         try:
                             precurs=float(re.search("PreMZ: ([0-9]*\.[0-9]*) ", se).group(1))
                             ppm=abs(precurs-lmz)*1E6/lmz
@@ -244,7 +250,7 @@ class MSMSTargetModel(QtCore.QAbstractTableModel):
                 return True
             else:
                 return False
-        elif index.column()==4:
+        elif index.column()==5:
             value=str(value.toString())
             if value in self.adducts.keys():
                 self._data[index.row()].usedAdduct=value
@@ -252,42 +258,45 @@ class MSMSTargetModel(QtCore.QAbstractTableModel):
                 return False
             else:
                 return False
-        elif index.column()==5:
+        elif index.column()==6:
             s=str(value.toString())
             if is_int(s):
                 self._data[index.row()].cNMetabolite=int(s)
                 return True
             else:
                 return False
-        elif index.column()==6:
+        elif index.column()==7:
             s=str(value.toString())
             if is_float(s):
                 self._data[index.row()].rtMin=float(s)
                 return True
             else:
                 return False
-        elif index.column()==7:
+        elif index.column()==8:
             s=str(value.toString())
             if is_float(s):
                 self._data[index.row()].rtMax=float(s)
                 return True
             else:
                 return False
-        elif index.column()==8:
+        elif index.column()==9:
             self._data[index.row()].scanEventIndexM=value
             return True
-        elif index.column()==9:
+        elif index.column()==10:
             self._data[index.row()].scanEventIndexMp=value
             return True
-        elif index.column()==10:
-            self._data[index.row()].scanEventIndexFullScan=value
+        elif index.column()==11:
+            self._data[index.row()].scanEventIndexFullScanNative=value
+            return True
+        elif index.column()==12:
+            self._data[index.row()].scanEventIndexFullScanLabeled=value
             return True
 
         return False
 
     def headerData(self, col, orientation, role):
         if orientation == QtCore.Qt.Horizontal and role == QtCore.Qt.DisplayRole:
-            return QtCore.QVariant(["Target name", "Sum formula", "File", "MZ", "Adduct", "Cn metabolite", "Min. Rt [min]", "Max. Rt [min]", "Target M", "Target M'", "Full scan"][col])
+            return QtCore.QVariant(["Target name", "Sum formula", "File native", "File labeled", "MZ", "Adduct", "Cn metabolite", "Min. Rt [min]", "Max. Rt [min]", "Target M", "Target M'", "Full scan native", "Full scan labeled"][col])
         return QtCore.QVariant()
 
     def insertRows(self, row, count, parent=QtCore.QModelIndex(), object=None, atPos=None):
@@ -312,7 +321,7 @@ class MSMSTargetModel(QtCore.QAbstractTableModel):
         return True
 
     def flags(self, index):
-        if index.column() == 2:
+        if index.column() in [2,3]:
             return QtCore.Qt.ItemIsEnabled
         else:
             return QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEditable
@@ -332,10 +341,14 @@ class MSMSFileComboDelegate(QtGui.QItemDelegate):
     def createEditor(self, parent, option, index):
         combo = QtGui.QComboBox(parent)
 
-        if index.column() in [8,9]:
-            combo.addItems(self.MSMSTargetModel._data[index.row()].MS2ScanEvents)
-        elif index.column() in [10]:
-            combo.addItems(self.MSMSTargetModel._data[index.row()].MS1ScanEvents)
+        if index.column() == 9:
+            combo.addItems(self.MSMSTargetModel._data[index.row()].MS2ScanEventsNative)
+        if index.column() == 10:
+            combo.addItems(self.MSMSTargetModel._data[index.row()].MS2ScanEventsLabeled)
+        elif index.column() == 11:
+            combo.addItems(self.MSMSTargetModel._data[index.row()].MS1ScanEventsNative)
+        elif index.column() == 12:
+            combo.addItems(self.MSMSTargetModel._data[index.row()].MS1ScanEventsLabeled)
 
         self.connect(combo, QtCore.SIGNAL("currentIndexChanged(int)"), self, QtCore.SLOT("currentIndexChanged()"))
         return combo
@@ -422,16 +435,18 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.MSMSFileComboDelegateM=MSMSFileComboDelegate(self.MSMSTargetModel, parent=self)
         self.MSMSFileComboDelegateMp=MSMSFileComboDelegate(self.MSMSTargetModel, parent=self)
         self.MSFileComboDelegateM=MSMSFileComboDelegate(self.MSMSTargetModel, parent=self)
+        self.MSFileComboDelegateMp=MSMSFileComboDelegate(self.MSMSTargetModel, parent=self)
 
-        self.processFilesTable.setItemDelegateForColumn(8, self.MSMSFileComboDelegateM)
-        self.processFilesTable.setItemDelegateForColumn(9, self.MSMSFileComboDelegateMp)
-        self.processFilesTable.setItemDelegateForColumn(10, self.MSFileComboDelegateM)
+        self.processFilesTable.setItemDelegateForColumn(9, self.MSMSFileComboDelegateM)
+        self.processFilesTable.setItemDelegateForColumn(10, self.MSMSFileComboDelegateMp)
+        self.processFilesTable.setItemDelegateForColumn(11, self.MSFileComboDelegateM)
+        self.processFilesTable.setItemDelegateForColumn(12, self.MSFileComboDelegateMp)
 
         self.processFilesTable.setModel(self.MSMSTargetModel)
         for row in range(0, self.MSMSTargetModel.rowCount()):
             self.processFilesTable.openPersistentEditor(self.MSMSTargetModel.index(row, 0))
 
-        sectionSizes=[250,100,190,60,120,90,80,80,420,420,200]
+        sectionSizes=[250,100,190,190,60,120,90,80,80,420,420,200,200]
         for i in range(len(sectionSizes)):
             self.processFilesTable.horizontalHeader().resizeSection(i, sectionSizes[i])
 
@@ -605,6 +620,14 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
             mzXMLFile=mzXMLFile.replace("\\","/")
             mzXMLFile=str(mzXMLFile)
 
+            matchFromDifferentFiles=False
+            if "12C" in mzXMLFile and os.path.isfile(mzXMLFile.replace("12C", "13C")):
+                if QtGui.QMessageBox.question(self, "FragExtract",
+                                              "A file with the same name but 13C instead of 12C was found. Shall this file be used for parsing the 13C spectra?\n\n"
+                                              "Files:\n%s\n%s"%(mzXMLFile, mzXMLFile.replace("12C", "13C")),
+                                              QtGui.QMessageBox.Yes | QtGui.QMessageBox.No) == QtGui.QMessageBox.Yes:
+                    matchFromDifferentFiles=True
+
             a=mzXMLFile.replace("\\", "/")
             a=a[a.rfind("/")+1:]
 
@@ -613,42 +636,53 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 mzxml.parse_file(mzXMLFile, ignoreCharacterData=True)
                 opened[mzXMLFile]=mzxml
 
-            mzxml=opened[mzXMLFile]
+            if matchFromDifferentFiles:
+                a = mzXMLFile.replace("\\", "/").replace("12C", "13C")
+                a = a[a.rfind("/") + 1:]
 
-            scanEventsMS2=mzxml.getFilterLinesExtended(includeMS1=False, includeMS2=True, includePosPolarity=True, includeNegPolarity=True)
-            sortedScanEventsMS2=sorted(scanEventsMS2.keys())
-            scanEventsMS1=mzxml.getFilterLines(includeMS1=True, includeMS2=False, includePosPolarity=True, includeNegPolarity=True)
-            scanEventsMS1PerPolarity=mzxml.getFilterLinesPerPolarity(includeMS1=True, includeMS2=False)
+                if mzXMLFile.replace("12C", "13C") not in opened.keys():
+                    mzxml = Chromatogram()
+                    mzxml.parse_file(mzXMLFile.replace("12C", "13C"), ignoreCharacterData=True)
+                    opened[mzXMLFile.replace("12C", "13C")] = mzxml
 
+            mzxmlNative=opened[mzXMLFile]
 
-
-            if len(scanEventsMS2)<2:
-                QtGui.QMessageBox.critical(self, "FragExtract", "Error: At least two MSMS scan events are required for FragExtract. File will be skipped", QtGui.QMessageBox.Ok)
-                continue
-
-            addMultipleTimes=1
-            if len(scanEventsMS2)>2:
-                val, okClicked = QtGui.QInputDialog.getInteger(self, "FragExtract",
-                                                               "The file (%s) contains more than 2 MS/MS scan events.\nDo you want to define multiple"
-                                                               "targets for this file?\nClick 'Cancel' to add file only once"%a,
-                                                               len(scanEventsMS2)/2, 1, len(scanEventsMS2))
-                if okClicked:
-                    addMultipleTimes=val
+            scanEventsMS2Native=mzxmlNative.getFilterLinesExtended(includeMS1=False, includeMS2=True, includePosPolarity=True, includeNegPolarity=True)
+            sortedScanEventsMS2Native=sorted(scanEventsMS2Native.keys())
+            scanEventsMS1Native=mzxmlNative.getFilterLines(includeMS1=True, includeMS2=False, includePosPolarity=True, includeNegPolarity=True)
+            scanEventsMS1PerPolarityNative=mzxmlNative.getFilterLinesPerPolarity(includeMS1=True, includeMS2=False)
 
 
-            t=[(k, v) for k, v in sorted(list(scanEventsMS2.items()), key=lambda x: x[1].targetStartTime)]
+            mzxmlLabeled=opened[mzXMLFile]
+            if matchFromDifferentFiles:
+                mzxmlLabeled = opened[mzXMLFile.replace("12C", "13C")]
+
+            scanEventsMS2Labeled=mzxmlLabeled.getFilterLinesExtended(includeMS1=False, includeMS2=True, includePosPolarity=True, includeNegPolarity=True)
+            sortedScanEventsMS2Labeled=sorted(scanEventsMS2Labeled.keys())
+            scanEventsMS1Labeled=mzxmlLabeled.getFilterLines(includeMS1=True, includeMS2=False, includePosPolarity=True, includeNegPolarity=True)
+            scanEventsMS1PerPolarityLabeled=mzxmlLabeled.getFilterLinesPerPolarity(includeMS1=True, includeMS2=False)
+
+
+
+
+
+
+            t=[(k, v) for k, v in sorted(list(scanEventsMS2Native.items()), key=lambda x: x[1].targetStartTime)]
+            z=[(k, v) for k, v in sorted(list(scanEventsMS2Labeled.items()), key=lambda x: x[1].targetStartTime)]
 
             matches=[]
 
+            matchedTargets=[]
             if tryMatchTargets:
+                pass
 
                 if len(t)>2:
                     for i in range(len(t)):
-                        for j in range(len(t)):
+                        for j in range(len(z)):
                             km, vm = t[i]
-                            kmp, vmp = t[j]
+                            kmp, vmp = z[j]
                             if vm.preCursorMz<vmp.preCursorMz:
-                                cn=round((vmp.preCursorMz-vm.preCursorMz)/1.00335, 0)
+                                cn=round((vmp.preCursorMz-vm.preCursorMz)/1.00335484, 0)
 
                                 #print vm.preCursorMz, vm.polarity, vm.scanTimes
                                 if vm.polarity == vmp.polarity and cn>0 and (vmp.preCursorMz-vm.preCursorMz)>1 and (abs(vmp.preCursorMz-vm.preCursorMz-cn*1.00335)*1000000./vmp.preCursorMz)<=10:
@@ -667,53 +701,81 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                                         if bestMatch != None:
                                             jrt=bestMatch
-                                            #print "       ", irt, jrt
 
                                             b=Bunch(M=km, Mp=kmp, cn=cn, nativeMz=vm.preCursorMz, labelledMz=vmp.preCursorMz, startRt=irt, endRt=jrt, polarity=vm.polarity)
                                             matches.append(b)
-                                            #print "       ", b
 
 
                 for i in range(len(matches)):
-                    obj=Bunch(targetName="", parentSumFormula="", lcmsmsFileName=mzXMLFile,
-                              scanEventIndexM=0, scanEventIndexMp=0, scanEventIndexFullScan=0,
+                    obj=Bunch(targetName="Unknown %d"%(len(self.MSMSTargetModel._data)+i), parentSumFormula="", lcmsmsNativeFileName=mzXMLFile,
+                              lcmsmsLabeledFileName=mzXMLFile.replace("12C", "13C") if matchFromDifferentFiles else mzXMLFile,
+                              scanEventIndexM=0, scanEventIndexMp=0,
+                              scanEventIndexFullScanM=0, scanEventIndexFullScanMp=0,
                               nativeMZ=0, charge=1,
-                              MS2ScanEvents=sortedScanEventsMS2,
-                              MS1ScanEvents=sorted(list(scanEventsMS1)), cNMetabolite=-1,
+                              MS2ScanEventsNative=sortedScanEventsMS2Native,
+                              MS2ScanEventsLabeled=sortedScanEventsMS2Labeled,
+                              MS1ScanEventsNative=sorted(list(scanEventsMS1Native)),
+                              MS1ScanEventsLabeled=sorted(list(scanEventsMS1Labeled)),
+                              cNMetabolite=-1,
                               rtMin=0, rtMax=0, usedAdduct="[M+H]+")
 
                     if tryMatchTargets and i < len(matches):
-                        obj.scanEventIndexM=sortedScanEventsMS2.index(matches[i].M)
-                        obj.scanEventIndexMp=sortedScanEventsMS2.index(matches[i].Mp)
-                        obj.scanEventIndexFullScan=obj.MS1ScanEvents.index(list(scanEventsMS1PerPolarity[matches[i].polarity])[0])
+                        obj.scanEventIndexM=sortedScanEventsMS2Native.index(matches[i].M)
+                        obj.scanEventIndexMp=sortedScanEventsMS2Labeled.index(matches[i].Mp)
+                        obj.scanEventIndexFullScanM=obj.MS1ScanEventsNative.index(list(scanEventsMS1PerPolarityNative[matches[i].polarity])[0])
+                        obj.scanEventIndexFullScanMp = obj.MS1ScanEventsLabeled.index(list(scanEventsMS1PerPolarityLabeled[matches[i].polarity])[0])
                         obj.nativeMZ=matches[i].nativeMz
                         obj.cNMetabolite=matches[i].cn
                         obj.rtMin=matches[i].startRt/60.-0.3
                         obj.rtMax=matches[i].endRt/60.+0.3
                         obj.usedAdduct="[M+H]+" if matches[i].polarity=="+" else "[M-H]-"
 
-                    self.MSMSTargetModel.insertRows(len(self.MSMSTargetModel._data), 1, object=obj)
-
-                    self.processFilesTable.openPersistentEditor(self.MSMSTargetModel.index(self.MSMSTargetModel.rowCount()-1, 8))
-                    self.processFilesTable.openPersistentEditor(self.MSMSTargetModel.index(self.MSMSTargetModel.rowCount()-1, 9))
-                    self.processFilesTable.openPersistentEditor(self.MSMSTargetModel.index(self.MSMSTargetModel.rowCount()-1, 10))
+                    matchedTargets.append(obj)
 
                 curFi += 1
                 pw.getCallingFunction()("value")(curFi)
+
+                if QtGui.QMessageBox.question(self, "FragExtract",
+                                              "%d MSMS scans were found to be potential targets. Do you want to add them?"%(len(matchedTargets)),
+                                              QtGui.QMessageBox.Yes | QtGui.QMessageBox.No) == QtGui.QMessageBox.Yes:
+                    for obj in matchedTargets:
+                        self.MSMSTargetModel.insertRows(len(self.MSMSTargetModel._data), 1, object=obj)
+
+                        self.processFilesTable.openPersistentEditor(
+                            self.MSMSTargetModel.index(self.MSMSTargetModel.rowCount() - 1, 9))
+                        self.processFilesTable.openPersistentEditor(
+                            self.MSMSTargetModel.index(self.MSMSTargetModel.rowCount() - 1, 10))
+                        self.processFilesTable.openPersistentEditor(
+                            self.MSMSTargetModel.index(self.MSMSTargetModel.rowCount() - 1, 11))
+                        self.processFilesTable.openPersistentEditor(
+                            self.MSMSTargetModel.index(self.MSMSTargetModel.rowCount() - 1, 12))
             else:
-                for i in range(addMultipleTimes):
-                    obj=Bunch(targetName="", parentSumFormula="", lcmsmsFileName=mzXMLFile,
-                              scanEventIndexM=0, scanEventIndexMp=0, scanEventIndexFullScan=0,
-                              nativeMZ=-1.1, charge=1,
-                              MS2ScanEvents=sortedScanEventsMS2,
-                              MS1ScanEvents=sorted(list(scanEventsMS1)), cNMetabolite=-1,
-                              rtMin=-1.1, rtMax=-1.1, usedAdduct="")
+                if len(scanEventsMS2Native)>2:
+                    val, okClicked = QtGui.QInputDialog.getInteger(self, "FragExtract",
+                                                                   "The file (%s) contains more than 2 MS/MS scan events.\nDo you want to define multiple"
+                                                                   "targets for this file?\nClick 'Cancel' to add file only once"%a,
+                                                                   1, 1, len(scanEventsMS2Native))
+                    if okClicked:
+                        addMultipleTimes=val
+                        for i in range(addMultipleTimes):
+                            obj=Bunch(targetName="Unknown %d"%(len(self.MSMSTargetModel._data)+i), parentSumFormula="",
+                                      lcmsmsNativeFileName=mzXMLFile, lcmsmsLabeledFileName=mzXMLFile.replace("12C", "13C") if matchFromDifferentFiles else mzXMLFile,
+                                      scanEventIndexM=0, scanEventIndexMp=0,
+                                      scanEventIndexFullScanM=0, scanEventIndexFullScanMp=0,
+                                      nativeMZ=-1.1, charge=1,
+                                      MS2ScanEventsNative=sortedScanEventsMS2Native,
+                                      MS2ScanEventsLabeled=sortedScanEventsMS2Labeled,
+                                      MS1ScanEventsNative=sorted(list(scanEventsMS1Native)),
+                                      MS1ScanEventsLabeled=sorted(list(scanEventsMS1Labeled)),
+                                      cNMetabolite=-1,
+                                      rtMin=-1.1, rtMax=-1.1, usedAdduct="")
 
-                    self.MSMSTargetModel.insertRows(len(self.MSMSTargetModel._data), 1, object=obj)
+                            self.MSMSTargetModel.insertRows(len(self.MSMSTargetModel._data), 1, object=obj)
 
-                    self.processFilesTable.openPersistentEditor(self.MSMSTargetModel.index(self.MSMSTargetModel.rowCount()-1, 8))
-                    self.processFilesTable.openPersistentEditor(self.MSMSTargetModel.index(self.MSMSTargetModel.rowCount()-1, 9))
-                    self.processFilesTable.openPersistentEditor(self.MSMSTargetModel.index(self.MSMSTargetModel.rowCount()-1, 10))
+                            self.processFilesTable.openPersistentEditor(self.MSMSTargetModel.index(self.MSMSTargetModel.rowCount()-1, 9))
+                            self.processFilesTable.openPersistentEditor(self.MSMSTargetModel.index(self.MSMSTargetModel.rowCount()-1, 10))
+                            self.processFilesTable.openPersistentEditor(self.MSMSTargetModel.index(self.MSMSTargetModel.rowCount()-1, 11))
+                            self.processFilesTable.openPersistentEditor(self.MSMSTargetModel.index(self.MSMSTargetModel.rowCount()-1, 12))
         pw.hide()
 
         self.updateResultsView()
@@ -889,15 +951,17 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
             grps.setValue("%d__CnMetabolite"%i, configured.cNMetabolite)
             grps.setValue("%d__rtMin"%i, configured.rtMin)
             grps.setValue("%d__rtMax"%i, configured.rtMax)
-            grps.setValue("%d__fullScanEvent"%i, configured.scanEventIndexFullScan)
+            grps.setValue("%d__fullScanEventM"%i, configured.scanEventIndexFullScanM)
+            grps.setValue("%d__fullScanEventMp"%i, configured.scanEventIndexFullScanMp)
             grps.setValue("%d__nativeMZ"%i, configured.nativeMZ)
             grps.setValue("%d__charge"%i, configured.charge)
             grps.setValue("%d__usedAdduct"%i, configured.usedAdduct)
 
-            relFilePath = "./" + str(
-                        os.path.relpath(configured.lcmsmsFileName, os.path.split(str(groupFile))[0]).replace("\\", "/"))
-                    #grps.setValue(group.name + "__" + str(i), relFilePath)
-            grps.setValue("%d__File"%i, relFilePath)
+            relFilePath = "./" + str(os.path.relpath(configured.lcmsmsNativeFileName, os.path.split(str(groupFile))[0]).replace("\\", "/"))
+            grps.setValue("%d__FileNative"%i, relFilePath)
+
+            relFilePath = "./" + str(os.path.relpath(configured.lcmsmsLabeledFileName, os.path.split(str(groupFile))[0]).replace("\\", "/"))
+            grps.setValue("%d__FileLabeled"%i, relFilePath)
 
         grps.endGroup()
 
@@ -935,38 +999,61 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
             cnMetabolite=grps.value("%d__CnMetabolite"%i).toInt()[0]
             rtMin=grps.value("%d__rtMin"%i).toDouble()[0]
             rtMax=grps.value("%d__rtMax"%i).toDouble()[0]
-            scanEventIndexFS=grps.value("%d__fullScanEvent"%i).toInt()[0]
+            scanEventIndexFSM=grps.value("%d__fullScanEventM"%i).toInt()[0]
+            scanEventIndexFSMp=grps.value("%d__fullScanEventMp"%i).toInt()[0]
             nativeMZ=grps.value("%d__nativeMZ"%i).toDouble()[0]
             charge=grps.value("%d__charge"%i).toDouble()[0]
             usedAdduct=str(grps.value("%d__usedAdduct"%i).toString())
 
-            if os.path.isabs(str(grps.value("%d__File"%i).toString()).replace("\\", "/")):
-                fileName=str(grps.value("%d__File"%i).toString())
+            if os.path.isabs(str(grps.value("%d__FileNative"%i).toString()).replace("\\", "/")):
+                fileNameNative=str(grps.value("%d__FileNative"%i).toString())
             else:
-                fileName=os.path.split(str(groupFile))[0].replace("\\", "/") + "/" + str(
-                                grps.value("%d__File"%i).toString()).replace("\\", "/")
+                fileNameNative=os.path.split(str(groupFile))[0].replace("\\", "/") + "/" + str(
+                                grps.value("%d__FileNative"%i).toString()).replace("\\", "/")
 
-            mzXMLFile=str(fileName)
+            mzXMLFileNative=str(fileNameNative)
 
-            if mzXMLFile not in opened.keys():
+            if mzXMLFileNative not in opened.keys():
                 mzxml=Chromatogram()
-                mzxml.parse_file(mzXMLFile, ignoreCharacterData=True)
-                opened[mzXMLFile]=mzxml
+                mzxml.parse_file(mzXMLFileNative, ignoreCharacterData=True)
+                opened[mzXMLFileNative]=mzxml
 
-            mzxml=opened[mzXMLFile]
-            scanEventsMS2=sorted(list(mzxml.getFilterLines(includeMS1=False, includeMS2=True, includePosPolarity=True, includeNegPolarity=True)))
-            scanEventsMS1=sorted(list(mzxml.getFilterLines(includeMS1=True, includeMS2=False, includePosPolarity=True, includeNegPolarity=True)))
+            mzxml=opened[mzXMLFileNative]
+            scanEventsMS2Native=sorted(list(mzxml.getFilterLines(includeMS1=False, includeMS2=True, includePosPolarity=True, includeNegPolarity=True)))
+            scanEventsMS1Native=sorted(list(mzxml.getFilterLines(includeMS1=True, includeMS2=False, includePosPolarity=True, includeNegPolarity=True)))
+
+            if os.path.isabs(str(grps.value("%d__FileLabeled"%i).toString()).replace("\\", "/")):
+                fileNameLabeled=str(grps.value("%d__FileLabeled"%i).toString())
+            else:
+                fileNameLabeled=os.path.split(str(groupFile))[0].replace("\\", "/") + "/" + str(
+                                grps.value("%d__FileLabeled"%i).toString()).replace("\\", "/")
+
+            mzXMLFileLabeled=str(fileNameLabeled)
+
+            if mzXMLFileLabeled not in opened.keys():
+                mzxml=Chromatogram()
+                mzxml.parse_file(mzXMLFileLabeled, ignoreCharacterData=True)
+                opened[mzXMLFileLabeled]=mzxml
+
+            mzxml=opened[mzXMLFileLabeled]
+            scanEventsMS2Labeled=sorted(list(mzxml.getFilterLines(includeMS1=False, includeMS2=True, includePosPolarity=True, includeNegPolarity=True)))
+            scanEventsMS1Labeled=sorted(list(mzxml.getFilterLines(includeMS1=True, includeMS2=False, includePosPolarity=True, includeNegPolarity=True)))
 
             self.MSMSTargetModel.insertRows(len(self.MSMSTargetModel._data), 1,
-                                            object=Bunch(targetName=targetName, parentSumFormula=sumFormula, lcmsmsFileName=fileName,
-                                                         scanEventIndexM=scanEventIndexM, scanEventIndexMp=scanEventIndexMp, scanEventIndexFullScan=scanEventIndexFS,
+                                            object=Bunch(targetName=targetName, parentSumFormula=sumFormula,
+                                                         lcmsmsNativeFileName=fileNameNative, lcmsmsLabeledFileName=fileNameLabeled,
+                                                         scanEventIndexM=scanEventIndexM, scanEventIndexMp=scanEventIndexMp,
+                                                         scanEventIndexFullScanM=scanEventIndexFSM, scanEventIndexFullScanMp=scanEventIndexFSMp,
                                                          nativeMZ=nativeMZ, charge=charge,
-                                                         MS2ScanEvents=scanEventsMS2, MS1ScanEvents=scanEventsMS1, cNMetabolite=cnMetabolite,
+                                                         MS2ScanEventsNative=scanEventsMS2Native, MS2ScanEventsLabeled=scanEventsMS2Labeled,
+                                                         MS1ScanEventsNative=scanEventsMS1Native, MS1ScanEventsLabeled=scanEventsMS1Labeled,
+                                                         cNMetabolite=cnMetabolite,
                                                          rtMin=rtMin, rtMax=rtMax, usedAdduct=usedAdduct))
 
-            self.processFilesTable.openPersistentEditor(self.MSMSTargetModel.index(self.MSMSTargetModel.rowCount()-1, 8))
             self.processFilesTable.openPersistentEditor(self.MSMSTargetModel.index(self.MSMSTargetModel.rowCount()-1, 9))
             self.processFilesTable.openPersistentEditor(self.MSMSTargetModel.index(self.MSMSTargetModel.rowCount()-1, 10))
+            self.processFilesTable.openPersistentEditor(self.MSMSTargetModel.index(self.MSMSTargetModel.rowCount()-1, 11))
+            self.processFilesTable.openPersistentEditor(self.MSMSTargetModel.index(self.MSMSTargetModel.rowCount()-1, 12))
 
             pw.getCallingFunction()("value")(i+1)
         pw.hide()
@@ -1036,8 +1123,8 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.processedFilesComboBox.addItem("--")
 
         for index, target in zip(range(len(self.MSMSTargetModel._data)), self.MSMSTargetModel._data):
-            if os.path.exists(str(target.lcmsmsFileName)+".identified.sqlite") and os.path.isfile(str(target.lcmsmsFileName)+".identified.sqlite"):
-                 os.remove(str(target.lcmsmsFileName)+".identified.sqlite")
+            if os.path.exists(str(target.lcmsmsNativeFileName)+".identified.sqlite") and os.path.isfile(str(target.lcmsmsNativeFileName)+".identified.sqlite"):
+                 os.remove(str(target.lcmsmsNativeFileName)+".identified.sqlite")
 
         filesTargets={}
         pIds = {}
@@ -1047,31 +1134,32 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
             if target.targetName=="" or target.targetName==None:
                 target.targetName="Unknown target %d"%(index+1)
 
-            pIds[index+1] = "%s//%s (%d)"%(str(target.lcmsmsFileName), str(target.targetName), index+1)
-            if str(target.lcmsmsFileName)[(str(target.lcmsmsFileName).rfind("/")+1):] not in indGroups.keys():
-                indGroups[str(target.lcmsmsFileName)[(str(target.lcmsmsFileName).rfind("/")+1):]]=[]
-            indGroups[str(target.lcmsmsFileName)[(str(target.lcmsmsFileName).rfind("/")+1):]].append("%s//%s (%d)"%(str(target.lcmsmsFileName), str(target.targetName), index+1))
+            pIds[index+1] = "%s//%s (%d)"%(str(target.lcmsmsNativeFileName), str(target.targetName), index+1)
+            if str(target.lcmsmsNativeFileName)[(str(target.lcmsmsNativeFileName).rfind("/")+1):] not in indGroups.keys():
+                indGroups[str(target.lcmsmsNativeFileName)[(str(target.lcmsmsNativeFileName).rfind("/")+1):]]=[]
+            indGroups[str(target.lcmsmsNativeFileName)[(str(target.lcmsmsNativeFileName).rfind("/")+1):]].append("%s//%s (%d)"%(str(target.lcmsmsNativeFileName), str(target.targetName), index+1))
 
 
-
-            processingTarget=Bunch(id=0, targetName=str(target.targetName), lcmsmsFile=str(target.lcmsmsFileName),
+            processingTarget=Bunch(id=0, targetName=str(target.targetName),
+                                   lcmsmsNativeFile=str(target.lcmsmsNativeFileName), lcmsmsLabeledFile=str(target.lcmsmsLabeledFileName),
                          parentSumFormula=str(target.parentSumFormula), precursorMZ=target.nativeMZ,
                          adductObj=self.MSMSTargetModel.adducts[target.usedAdduct],
                          adduct=self.MSMSTargetModel.adducts[target.usedAdduct].name, adductMZOffset=self.MSMSTargetModel.adducts[target.usedAdduct].mzoffset,
                          Cn=int(target.cNMetabolite), chargeCount=target.charge,
                          startRT=target.rtMin, stopRT=target.rtMax,
-                         scanEventMS1="",
+                         scanEventMS1M="", scanEventMS1Mp="",
                          scanIDNativeRaw='', scanIDLabelledRaw='',
-                         scanEventMS2Native="", scanEventMS2Labelled="",
+                         scanEventMS2Native="", scanEventMS2Labeled="",
 
                          nativeScanEventNum=target.scanEventIndexM,
                          labelledScanEventNum=target.scanEventIndexMp,
-                         fullScanEventNum=target.scanEventIndexFullScan,
+                         nativefullScanEventNum=target.scanEventIndexFullScanM,
+                         labeledfullScanEventNum=target.scanEventIndexFullScanMp,
                          pID=index+1)
 
-            if str(target.lcmsmsFileName) not in filesTargets.keys():
-                filesTargets[str(target.lcmsmsFileName)]=[]
-            filesTargets[str(target.lcmsmsFileName)].append(processingTarget)
+            if str(target.lcmsmsNativeFileName) not in filesTargets.keys():
+                filesTargets[str(target.lcmsmsNativeFileName)]=[]
+            filesTargets[str(target.lcmsmsNativeFileName)].append(processingTarget)
 
         cpus = min(cpu_count(), self.useCPUCoresSpinner.value())
         p = Pool(processes=min(len(filesTargets.keys()), cpus))  #, maxtasksperchild=1) # only in python >=2.7
@@ -1081,9 +1169,9 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         targetsToProc=[]
         index=0
-        for lcmsmsFileName, targets in filesTargets.items():
+        for lcmsmsNativeFileName, targets in filesTargets.items():
 
-            f=ProcessTarget(targets=targets, chromatogramFile=lcmsmsFileName,
+            f=ProcessTarget(targets=targets, chromatogramFileNative=targets[0].lcmsmsNativeFile, chromatogramFileLabeled=targets[0].lcmsmsLabeledFile,
 
                             fullScanEICppm=self.eicPPMSpinner.value(), fullScanThreshold=self.intensityThresoldSpinner.value(),
                             minMSMSPeakIntensityScaled=self.minScaledPeakIntensity_Spinner.value(),
@@ -1092,7 +1180,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             minXn=self.minXn.value(), useZeroLabelingAtoms=self.useZeroLabelingAtoms.checkState()==QtCore.Qt.Checked,
                             useTracExtractAnnotation=self.useTracExtractAnnotation.checkState()==QtCore.Qt.Checked,
 
-                            labellingOffset=1.00335, annotationElements=self.elements, annotationPPM=self.annotationPPMErrorSpinner.value(),
+                            labellingOffset=1.00335484, annotationElements=self.elements, annotationPPM=self.annotationPPMErrorSpinner.value(),
                             useParentFragmentConsistencyRule=self.applyParentFragmentConsistencyRuleCheckBox.checkState()==QtCore.Qt.Checked,
 
                             massBankPPMError=self.doubleSpinBox_massBankPPMError.value(),
@@ -1140,20 +1228,14 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
             else:
                 pwMain("value")(completed)
 
-                mess = {}
                 while not (queue.empty()):
                     mes = queue.get(block=False, timeout=1)
-                    if mes.pid not in mess:
-                        mess[mes.pid] = {}
-                    mess[mes.pid][mes.mes] = mes
                     if mes.pid not in history.keys():
                         history[mes.pid]=[]
                     history[mes.pid].append(mes)
 
 
-                for v in mess.values():
-                    if "start" in v.keys():
-                        mes = v["start"]
+                    if "start" ==mes.mes:
                         if len(freeSlots) > 0:
                             w = freeSlots.pop()
                             assignedThreads[mes.pid] = w
@@ -1164,22 +1246,16 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             logging.error("Something went wrong..")
                             logging.error("Progress bars do not work correctly, but files will be processed and \"finished..\" will be printed..")
 
-                for v in mess.values():
-                    for mes in v.values():
-                        if mes.mes in ["log", "text", "max", "value"]:
-                            if assignedThreads.has_key(mes.pid):
-                                pw.getCallingFunction(assignedThreads[mes.pid] + 1)(mes.mes)(mes.val)
-                            else:
-                                logging.error("Error %d" % mes.pid)
 
-                for v in mess.values():
-                    if "end" in v.keys() or "failed" in v.keys():
+                    if mes.mes in ["log", "text", "max", "value"]:
+                        if assignedThreads.has_key(mes.pid):
+                            pw.getCallingFunction(assignedThreads[mes.pid] + 1)(mes.mes)(mes.val)
+                        else:
+                            logging.error("Error %d" % mes.pid)
+
+
+                    if "end" == mes.mes or "failed" == mes.mes:
                         completed += 1
-                        mes = None
-                        if "end" in v.keys():
-                            mes = v["end"]
-                        elif "failed" in v.keys():
-                            mes = v["failed"]
                         freeS = assignedThreads[mes.pid]
                         pw.getCallingFunction(assignedThreads[mes.pid] + 1)("text")("")
                         pw.getCallingFunction(assignedThreads[mes.pid] + 1)("value")(0)
@@ -1239,7 +1315,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
             os.startfile(self.mappedResultsToFile[curFile])
 
     def updateResultsView(self):
-        files=sorted(list(set([d.lcmsmsFileName for d in self.MSMSTargetModel._data])))
+        files=sorted(list(set([d.lcmsmsNativeFileName for d in self.MSMSTargetModel._data])))
 
         self.processedFilesComboBox.clear()
         self.processedFilesComboBox.addItem("--")
@@ -1282,11 +1358,11 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
             targetsItem.myID = 1
             targetsItem.myData = []
 
-            targets=[t for t in SQLSelectAsObject(self.curFileSQLiteConnection.curs, selectStatement="select id, targetName, precursorMZ, chargeCount, Cn, startRT, stopRT, scanEventMS1, scanEventMS2Native, scanEventMS2Labelled, scanIDNativeRaw, scanIDLabelledRaw, scanRTNativeRaw, scanRTLabeledRaw, parentSumFormula from Targets")]
+            targets=[t for t in SQLSelectAsObject(self.curFileSQLiteConnection.curs, selectStatement="select id, targetName, precursorMZ, chargeCount, Cn, startRT, stopRT, scanEventMS1M, scanEventMS1Mp, scanEventMS2Native, scanEventMS2Labeled, scanIDNativeRaw, scanIDLabelledRaw, scanRTNativeRaw, scanRTLabeledRaw, parentSumFormula from Targets")]
             for target in targets:
 
                 targetItem = QtGui.QTreeWidgetItem([target.targetName, "%s"%str(target.precursorMZ), "%d"%target.Cn, str(target.parentSumFormula), "%d"%target.chargeCount, "%.2f (%s)"%(target.scanRTNativeRaw/60., target.scanIDNativeRaw), "%.2f (%s)"%(target.scanRTLabeledRaw/60., target.scanIDLabelledRaw),
-                                                    target.scanEventMS2Native, target.scanEventMS2Labelled, target.scanEventMS1])
+                                                    target.scanEventMS2Native, target.scanEventMS2Labeled, target.scanEventMS1M, target.scanEventMS1Mp])
                 targetItem.myType = "MSMSTarget"
                 targetItem.myID = target.id
                 targetItem.myData = target
@@ -1314,8 +1390,9 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                 for index in range(len(annotatedSpectrum.mzs)):
                     b = Bunch(index=index, mz=annotatedSpectrum.mzs[index], relInt=annotatedSpectrum.ints[index],
-                              Cn=annotatedSpectrum.annos[index].Cn, sumFormulas=annotatedSpectrum.annos[index].generatedSumFormulas)
-                    peakItem = QtGui.QTreeWidgetItem(["Peak %d"%b.index, "%.4f"%b.mz, "%d (mz %.4f)"%(b.Cn, b.mz+1.00335*b.Cn), "", "", "", "Rel.int: %.1f%%"%(b.relInt)])
+                              Cn=annotatedSpectrum.annos[index].Cn, sumFormulas=annotatedSpectrum.annos[index].generatedSumFormulas,
+                              dppmSpectra=annotatedSpectrum.annos[index].dppmSpectra, ratioError=annotatedSpectrum.annos[index].ratioError, ratioSimilarity=annotatedSpectrum.annos[index].ratioSimilarity)
+                    peakItem = QtGui.QTreeWidgetItem(["Peak %d"%b.index, "%.4f"%b.mz, "%d (mz %.4f; dppm %.2f)"%(b.Cn, b.mz+1.00335*b.Cn, b.dppmSpectra), "", "", "", "Rel.int: %.1f%%"%(b.relInt), "Ratio: %.5f"%(b.ratioSimilarity)])
                     peakItem.myType = "PeakAnnotation"
                     peakItem.myID = target.id
                     peakItem.myData = b
@@ -1372,7 +1449,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
     def fetchAndPlotMSMSTarget(self, id, highlightCleandPeak=None, showMassBankSpectra=None):
         target=[p for p in SQLSelectAsObject(self.curFileSQLiteConnection.curs,
                                              selectStatement="SELECT targetName, parentSumFormula, scanIDNativeRaw, scanIDLabelledRaw, scanRTNativeRaw, scanRTLabeledRaw, Cn, scanEventMS2Native, id, "
-                                                             "scanEventMS2Labelled, precursorMZ, chargeCount, eicFS, eicLFS, timesFS FROM Targets WHERE id=%d" % (id))]
+                                                             "scanEventMS2Labeled, precursorMZ, chargeCount, eicFS, eicLFS, timesFS, timesLFS FROM Targets WHERE id=%d" % (id))]
 
         assert len(target)==1
         target=target[0]
@@ -1380,6 +1457,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
         target.eicFS = pickle.loads(base64.b64decode(target.eicFS))
         target.eicLFS = pickle.loads(base64.b64decode(target.eicLFS))
         target.timesFS = pickle.loads(base64.b64decode(target.timesFS))
+        target.timesLFS = pickle.loads(base64.b64decode(target.timesLFS))
 
         nativeSpectra=[spec for spec in
                        SQLSelectAsObject(self.curFileSQLiteConnection.curs,
@@ -1530,7 +1608,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.pl2.twinxs[0].plot([t/60. for t in target.timesFS], [i/ma for i in target.eicFS], color="black")
         ma=max(target.eicLFS)
         ma = ma if ma > 0 else 1
-        self.pl2.twinxs[0].plot([t/60. for t in target.timesFS], [-i/ma for i in target.eicLFS], color="black")
+        self.pl2.twinxs[0].plot([t/60. for t in target.timesLFS], [-i/ma for i in target.eicLFS], color="black")
 
         self.pl2.twinxs[0].plot([target.scanRTNativeRaw/60., target.scanRTNativeRaw/60.], [0, 1], color="firebrick")
         self.pl2.twinxs[0].plot([target.scanRTLabeledRaw/60., target.scanRTLabeledRaw/60.], [0, -1], color="firebrick")
@@ -1565,14 +1643,14 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         target=[p for p in SQLSelectAsObject(self.curFileSQLiteConnection.curs,
                                              selectStatement="SELECT targetName, parentSumFormula, scanIDNativeRaw, scanIDLabelledRaw, Cn, scanEventMS2Native, id, "
-                                                             "scanEventMS2Labelled, precursorMZ, chargeCount FROM Targets WHERE id=%d" % (copyTargetID))]
+                                                             "scanEventMS2Labeled, precursorMZ, chargeCount FROM Targets WHERE id=%d" % (copyTargetID))]
         assert len(target)==1
         target=target[0]
         dat.append(["Num", "TargetName", "ParentSumFormula", "Cn", "PrecursorMZ", "NativeScanNum", "LabelledScanNum",
                     "NativeMSMSScanEvent", "LabelledMSMSScanEvent", "chargeCount"])
         dat.append(["%d"%target.id, str(target.targetName), str(target.parentSumFormula), "%d"%target.Cn, "%.4f"%target.precursorMZ,
                     str(target.scanIDNativeRaw), str(target.scanIDLabelledRaw), str(target.scanEventMS2Native),
-                    str(target.scanEventMS2Labelled), "%d"%target.chargeCount])
+                    str(target.scanEventMS2Labeled), "%d"%target.chargeCount])
         dat.append("|")
 
         dat.append(["|", "Num", "MZ", "RelativeIntensity [%]", "Cn", "Adduct", "SumFormula", "NeutralLossToParent", "RelPPMError"])
