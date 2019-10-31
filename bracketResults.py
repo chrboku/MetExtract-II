@@ -831,7 +831,10 @@ def getPeak(times, rt, borderleft, borderright):
 
 def calculateMetaboliteGroups(file="./results.tsv", groups=[], eicPPM=10., maxAnnotationTimeWindow=0.05,
                               minConnectionsInFiles=1, minConnectionRate=0.4, minPeakCorrelation=0.85, useRatio=False,
-                              runIdentificationInstance=None, pwMaxSet=None, pwValSet=None, pwTextSet=None, cpus=1):
+                              runIdentificationInstance=None, pwMaxSet=None, pwValSet=None, pwTextSet=None, cpus=1, toFile=None):
+
+    if toFile is None:
+        toFile=file
 
     logging.info("Starting convoluting feature pairs..")
 
@@ -881,7 +884,7 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[], eicPPM=10., maxAn
             logging.info("  found double peaks: %d"%doublePeaks)
         writeCols=[]
         if doublePeaks>0:
-            TableUtils.saveFile(table, file.replace(".tsv", ".doublePeaks.tsv"), cols=writeCols, order="OGroup, MZ, Xn", where="doublePeak>0")
+            TableUtils.saveFile(table, toFile.replace(".tsv", ".doublePeaks.tsv"), cols=writeCols, order="OGroup, MZ, Xn", where="doublePeak>0")
 
         table.executeSQL("DELETE FROM :table: WHERE doublePeak>0")
         ## file specific columns
@@ -1164,7 +1167,7 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[], eicPPM=10., maxAn
             if not column.name.endswith("_CorrelatesTo"):
                 writeCols.append(column.name)
 
-        TableUtils.saveFile(table, file, cols=writeCols, order="OGroup, MZ, Xn")
+        TableUtils.saveFile(table, toFile, cols=writeCols, order="OGroup, MZ, Xn")
 
         exportAsFeatureML.convertMEMatrixToFeatureMLSepPolarities(file, postfix="_ac")
 

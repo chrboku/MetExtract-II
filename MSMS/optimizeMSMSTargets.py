@@ -5,6 +5,8 @@ from copy import deepcopy
 import random
 import time
 
+import exportAsFeatureML
+
 
 class OptimizeMSMSTargetList:
 
@@ -44,7 +46,7 @@ class OptimizeMSMSTargetList:
             self.addTarget(num=str(row[0])+"_L",
                            mz=row[2],
                            rt=row[3],
-                           ionMode=row[4],
+                           ionMode="positive" if row[4]=="+" else "negative",
                            abundancesInFiles=abundancesInFiles)
 
 
@@ -76,25 +78,43 @@ class OptimizeMSMSTargetList:
 
     def writeTargetsToFile(self, fromFile, toFile):
         table = TableUtils.readFile(fromFile)
-        table.addColumn(col="MSMS_1st", colType="TEXT", defaultValue="")
+        table.addColumn(col="MSMS_1st_N", colType="TEXT", defaultValue="")
         table.addColumn(col="MSMS_1st_Abundance_N", colType="TEXT", defaultValue="")
 
-        table.addColumn(col="MSMS_2nd", colType="TEXT", defaultValue="")
+        table.addColumn(col="MSMS_2nd_N", colType="TEXT", defaultValue="")
         table.addColumn(col="MSMS_2nd_Abundance_N", colType="TEXT", defaultValue="")
 
-        table.addColumn(col="MSMS_3rd", colType="TEXT", defaultValue="")
+        table.addColumn(col="MSMS_3rd_N", colType="TEXT", defaultValue="")
         table.addColumn(col="MSMS_3rd_Abundance_N", colType="TEXT", defaultValue="")
 
+        table.addColumn(col="MSMS_1st_L", colType="TEXT", defaultValue="")
+        table.addColumn(col="MSMS_1st_Abundance_L", colType="TEXT", defaultValue="")
+
+        table.addColumn(col="MSMS_2nd_L", colType="TEXT", defaultValue="")
+        table.addColumn(col="MSMS_2nd_Abundance_L", colType="TEXT", defaultValue="")
+
+        table.addColumn(col="MSMS_3rd_L", colType="TEXT", defaultValue="")
+        table.addColumn(col="MSMS_3rd_Abundance_L", colType="TEXT", defaultValue="")
+
         for target in self.MSMSTargets:
+            if "_N" in target.num:
+                table.setData(cols=["MSMS_1st_N", "MSMS_1st_Abundance_N",
+                                    "MSMS_2nd_N", "MSMS_2nd_Abundance_N",
+                                    "MSMS_3rd_N", "MSMS_3rd_Abundance_N"],
+                              vals=[target.first, target.firstCounts,
+                                    target.second, target.secondCounts,
+                                    target.third, target.thirdCounts], where="Num='%s'"%str(target.num).replace("_N",""))
+            elif "_L" in target.num:
+                table.setData(cols=["MSMS_1st_L", "MSMS_1st_Abundance_L",
+                                    "MSMS_2nd_L", "MSMS_2nd_Abundance_L",
+                                    "MSMS_3rd_L", "MSMS_3rd_Abundance_L"],
+                              vals=[target.first, target.firstCounts,
+                                    target.second, target.secondCounts,
+                                    target.third, target.thirdCounts], where="Num='%s'"%str(target.num).replace("_L",""))
 
-            table.setData(cols=["MSMS_1st", "MSMS_1st_Abundance_N",
-                                "MSMS_2nd", "MSMS_2nd_Abundance_N",
-                                "MSMS_3rd", "MSMS_3rd_Abundance_N"],
-                          vals=[target.first, target.firstCounts,
-                                target.second, target.secondCounts,
-                                target.third, target.thirdCounts], where="Num='%s'"%target.num)
 
-        TableUtils.saveFile(table, fType="tsv", file=toFile)
+        TableUtils.saveFile(table, fType="csv", file=toFile)
+        exportAsFeatureML.convertMSMSoptFileToFeatureML(toFile)
 
 
     def generateMSMSLists(self, samplesToUse, fileTo, minCounts=1000000, rtPlusMinus=0.25, maxParallelTargets=5, numberOfFiles=2, noffsprings=20, permCount=5, ngenerations=500, showDebugPlot=False, pwSetText=None, pwSetMax=None, pwSetValue=None):
@@ -235,6 +255,7 @@ class OptimizeMSMSTargetList:
                         if isInSample:
                             target=useTargets[rowNum]
                             fout.write("\t".join([str(t) for t in [target.mz, "", "", "", "", target.ionMode, target.rt-rtPlusMinus, target.rt+rtPlusMinus, "", "", "Num: %s, Abundance: %s"%(rowNum, target.abundancesInFiles[sampOri])]])+"\n")
+
 
     def permMatrix(self, mat, permCount=25):
 

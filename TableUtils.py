@@ -400,6 +400,10 @@ class TableUtils:
             if not (args.has_key("sheetName")):
                 args["sheetName"] = ""
             return TableUtilsXLS.readFile(file, sheetName=args["sheetName"], commentLineStart=commentLineStart)
+        elif fType == "csv" or bn.endswith(".csv"):
+            if not (args.has_key("delim")):
+                args["delim"] = ";"
+            return TableUtilsCSV.readFile(file, delim=args["delim"], commentLineStart=commentLineStart)
         elif fType == "tsv" or bn.endswith(".tsv") or bn.endswith(".txt") or bn.endswith(".csv"):
             if not (args.has_key("delim")):
                 args["delim"] = "\t"
@@ -435,9 +439,17 @@ class TableUtils:
                 args["sheetName"] = ""
             return TableUtilsXLS.saveFile(table, file, sheetName=args["sheetName"], where=args["where"],
                                           order=args["order"], select=args["select"], cols=args["cols"], writeComments=writeComments)
+        elif fType == "csv" or bn.endswith(".csv"):
+            if not (args.has_key("delim")):
+                args["delim"] = ";"
+            if not (args.has_key("newLine")):
+                args["newLine"] = ""
+            return TableUtilsCSV.saveFile(table, file, delim=args["delim"], newLine=args["newLine"],
+                                          where=args["where"], order=args["order"], select=args["select"],
+                                          cols=args["cols"], writeComments=writeComments)
         elif fType == "tsv" or bn.endswith(".tsv") or bn.endswith(".txt"):
             if not (args.has_key("delim")):
-                args["delim"] = ""
+                args["delim"] = "\t"
             if not (args.has_key("newLine")):
                 args["newLine"] = ""
             return TableUtilsCSV.saveFile(table, file, delim=args["delim"], newLine=args["newLine"],

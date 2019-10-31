@@ -207,64 +207,35 @@ def mergeDirs (root_src_dir, root_dst_dir):
             shutil.move(src_file, dst_dir)
 import openpyxl
 
+
+class Target:
+    def __init__(self, **kw):
+        self.__dict__.update(kw)
+
+a=Target(script = "MetExtractII_Main.py")
+b=Target(script = "FragExtract.py")
+c=Target(script = "MExtract.py")
+
 print "###################################################"
 print "########## Packing MetExtractII_Main"
 print "###################################################"
-setup(console=[{"script": "MetExtractII_Main.py"}],
+setup(console=[a,b,c],
       options={"py2exe": {
                  "includes": ["sip", "matplotlib.backends.backend_tkagg", 'scipy', 'scipy.integrate', 'scipy.special.*','scipy.linalg.*', 'scipy.sparse.csgraph._validation'],  # use this line if above does not work
                  "dll_excludes": ["MSVCP90.dll"],
                  "excludes": ["_gtkagg", "_tkagg"],
-                 "packages": ["FileDialog", "openpyxl", 'reportlab','reportlab.graphics.charts','reportlab.graphics.samples','reportlab.graphics.widgets','reportlab.graphics.barcode','reportlab.graphics','reportlab.lib','reportlab.pdfbase','reportlab.pdfgen','reportlab.platypus', 'zeep', 'lxml']
-      }})
-shutil.copytree("./dist", "./dist_MetExtract_Main")
-#rmtree("./build/")
-
-print "###################################################"
-print "########## Packing FragExtract"
-print "###################################################"
-setup(console=[{"script": "FragExtract.py"}],
-      options={"py2exe": {
-                 "includes": ["sip", "matplotlib.backends.backend_tkagg", 'scipy', 'scipy.integrate', 'scipy.special.*','scipy.linalg.*', 'scipy.sparse.csgraph._validation'],
-                 "dll_excludes": ["MSVCP90.dll"],
-                 "excludes": ["_gtkagg", "_tkagg"],
-                 "packages": ["FileDialog", "openpyxl", 'reportlab','reportlab.graphics.charts','reportlab.graphics.samples','reportlab.graphics.widgets','reportlab.graphics.barcode','reportlab.graphics','reportlab.lib','reportlab.pdfbase','reportlab.pdfgen','reportlab.platypus', 'zeep', 'lxml']
+                 "packages": ["FileDialog", "openpyxl", 'reportlab','reportlab.graphics.charts','reportlab.graphics.samples','reportlab.graphics.widgets','reportlab.graphics.barcode','reportlab.graphics','reportlab.lib','reportlab.pdfbase','reportlab.pdfgen','reportlab.platypus', 'zeep', 'lxml'],
+                 'dist_dir': "./dist"
       }},
       data_files=data_files,
       requires=['matplotlib'])
-shutil.copytree("./dist", "./dist_FragExtract")
 #rmtree("./build/")
 
-print "###################################################"
-print "########## Packing MExtract"
-print "###################################################"
-setup(console=[{"script": "MExtract.py"}],
-      options={"py2exe": {
-                 "includes": ["sip", "matplotlib.backends.backend_tkagg", 'scipy', 'scipy.integrate', 'scipy.special.*','scipy.linalg.*', 'scipy.sparse.csgraph._validation'],
-                 "dll_excludes": ["MSVCP90.dll"],
-                 "excludes": ["_gtkagg", "_tkagg"],
-                 "packages": ["FileDialog", "openpyxl", 'reportlab','reportlab.graphics.charts','reportlab.graphics.samples','reportlab.graphics.widgets','reportlab.graphics.barcode','reportlab.graphics','reportlab.lib','reportlab.pdfbase','reportlab.pdfgen','reportlab.platypus', 'zeep', 'lxml']
-      }},
-      data_files=data_files,
-      requires=['matplotlib'])
-shutil.copytree("./dist", "./dist_MExtract")
 
 print "forced waiting..."
 import time
 time.sleep(3)
 
-rmtree("./dist/")
-rmtree("./build/")
-
-os.mkdir("./dist")
-
-mergeDirs("./dist_MetExtract_Main", "./dist")
-mergeDirs("./dist_MExtract", "./dist")
-mergeDirs("./dist_FragExtract", "./dist")
-
-rmtree("./dist_MetExtract_Main/")
-rmtree("./dist_MExtract/")
-rmtree("./dist_FragExtract/")
 
 print "Setup finished\n==============================\n"
 
@@ -416,5 +387,11 @@ copy ("./calculateIsotopeEnrichment.R", "./distribute/calcIsotopicEnrichment.R")
 
 print "calcIsotopicEnrichment.R copied"
 
-#rmtree("./dist/")
-#rmtree("./dist/")
+try:
+    rmtree("./dist/")
+except:
+    pass
+try:
+    rmtree("./build/")
+except:
+    pass

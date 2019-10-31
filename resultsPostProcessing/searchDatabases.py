@@ -35,6 +35,7 @@ class DBEntry:
         self.sumFormula=sumFormula
         self.mass=mass
         self.matchErrorPPM=-1
+        self.matchErrorMass=-1
         self.rt_min=rt_min
         self.mz=mz
         self.polarity=polarity
@@ -71,7 +72,7 @@ class DBSearch:
                 else:
                     try:
                         num=row[headers["Num"]].strip()
-                        name=row[headers["Name"]].strip().replace("\"","DOURBLEPRIME").replace("'", "PRIME").replace("\t", "TAB").replace("\n","RETTURN").replace("\r","CarrRETURN").replace("#","HASH")
+                        name=row[headers["Name"]].strip().replace("\"","DOURBLEPRIME").replace("'", "PRIME").replace("\t", "TAB").replace("\n","RETURN").replace("\r","CarrRETURN").replace("#","HASH")
                         sumFormula=row[headers["SumFormula"]].strip()
                         rt_min=float(row[headers["Rt_min"]]) if row[headers["Rt_min"]]!="" else None
                         mz=float(row[headers["MZ"]]) if row[headers["MZ"]]!="" else None
@@ -189,8 +190,9 @@ class DBSearch:
                                 elems=fT.parseFormula(entry.sumFormula)
                             if checkXN=="Don't use" or elems is None or (checkXN=="Exact" and elems[element]==Xn) or (checkXN=="Minimum" and elems[element]>=Xn) or (checkXN.startswith("PlusMinus_") and abs(elems[element]-Xn)<=int(checkXN[10:len(checkXN)])):
                                 entry=deepcopy(entry)
-                                entry.hitType="Calc. Adduct: %s"%adduct[0]
-                                entry.matchErrorPPM=(mass-entry.mass)*1E6/mz
+                                entry.hitType=adduct[0]
+                                entry.matchErrorPPM=(mass-entry.mass)*1E6/mass
+                                entry.matchErrorMass=mass-entry.mass
                                 possibleHits.append(entry)
 
 
@@ -208,6 +210,7 @@ class DBSearch:
                         entry=deepcopy(entry)
                         entry.hitType="MZ match"
                         entry.matchErrorPPM=(mz-entry.mz)*1E6/mz
+                        entry.matchErrorMass=mz-entry.mz
                         possibleHits.append(entry)
 
         return possibleHits
@@ -238,8 +241,9 @@ class DBSearch:
                                 elems=fT.parseFormula(entry.sumFormula)
                             if checkXN=="Don't use" or elems is None or (checkXN=="Exact" and elems[element]==Xn) or (checkXN=="Minimum" and elems[element]>=Xn) or (checkXN.startswith("PlusMinus_") and abs(elems[element]-Xn)<=int(checkXN[10:len(checkXN)])):
                                 entry = deepcopy(entry)
-                                entry.hitType = "Calc. Adduct: %s" % adduct[0]
+                                entry.hitType = adduct[0]
                                 entry.matchErrorPPM=(mz-entry.mz)*1E6/mz
+                                entry.matchErrorMass=mz-entry.mz
                                 possibleHits.append(entry)
 
         ## search for non-charged DB entries by the provided mass
@@ -256,6 +260,7 @@ class DBSearch:
                         entry = deepcopy(entry)
                         entry.hitType = "M match"
                         entry.matchErrorPPM=(mass-entry.mass)*1E6/mass
+                        entry.matchErrorMass=mass-entry.mass
                         possibleHits.append(entry)
 
         return possibleHits

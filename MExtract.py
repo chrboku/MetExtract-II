@@ -33,6 +33,7 @@ from mePyGuis.groupEdit import groupEdit
 from mePyGuis.adductsEdit import adductsEdit
 from mePyGuis.heteroAtomEdit import heteroAtomEdit
 from mePyGuis.DependenciesDialog import DependenciesDialog
+from mePyGuis.RegExTestDialog import RegExTestDialog
 from mePyGuis.ProgressWrapper import ProgressWrapper
 from mePyGuis.calcIsoEnrichmentDialog import calcIsoEnrichmentDialog
 
@@ -728,8 +729,6 @@ def _integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colload
                          positiveScanEvent="None", negativeScanEvent="None",pw=None, selfObj=None, cpus=1, pwOffset=0,totalFilesToProc=1,
                          writeConfig=True, start=0):
 
-    # read results file
-    table = TableUtils.readFile(file, delim="\t")
 
     # connect to results db
     resDB=Bunch(conn=None, curs=None)
@@ -743,6 +742,8 @@ def _integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colload
     if pw is not None: pw.getCallingFunction()("value")(0+pwOffset)
     if pw is not None: pw.getCallingFunction()("max")(totalFilesToProc)
 
+    # read results file
+    table = TableUtils.readFile(file, delim="\t")
 
     # check if all expected columns are present in the grouped results
     cols = [col.getName() for col in table.getColumns()]
@@ -750,8 +751,24 @@ def _integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colload
         if str.isdigit(col[0]):
             col = "_" + col
 
-        assert col + "_Area_N" in cols
-        assert col + "_Area_L" in cols
+        if col + "_Area_N" not in cols:
+            table.addColumn(col + "_Area_N", "FLOAT")
+        if col + "_Area_L" not in cols:
+            table.addColumn(col + "_Area_L", "FLOAT")
+
+        if col + "_Abundance_N" not in cols:
+            table.addColumn(col + "_Abundance_N", "FLOAT")
+        if col + "_Abundance_L" not in cols:
+            table.addColumn(col + "_Abundance_L", "FLOAT")
+
+        if col + "_fold" not in cols:
+            table.addColumn(col + "_fold", "FLOAT")
+
+
+    TableUtils.saveFile(table, file+".tmp.tsv")
+
+    table = TableUtils.readFile(file+".tmp.tsv", delim="\t")
+    cols = [col.getName() for col in table.getColumns()]
 
     assert colmz in cols
     assert colrt in cols
@@ -779,7 +796,7 @@ def _integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colload
         if str.isdigit(s[0]):
             s = "_" + s
 
-        u.setParams(file, [x.getName() for x in table.getColumns()], s, colmz, colrt, colxcount, colloading,
+        u.setParams(file+".tmp.tsv", [x.getName() for x in table.getColumns()], s, colmz, colrt, colxcount, colloading,
                     colLmz, colIonMode, positiveScanEvent, negativeScanEvent, colnum, ppm, maxRTShift, scales, reintegrateIntensityCutoff, snrTH,
                     smoothingWindow, smoothingWindowSize, smoothingWindowPolynom)
         u.setMultiProcessingQueue(queue, i)
@@ -2883,6 +2900,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         if self.terminateJobs:
             return
 
+        resFileFull = str(self.ui.groupsSave.text())
+        resFilePath, resFileName=os.path.split(os.path.abspath(resFileFull))
         # bracket/group from individual LC-HRMS data / re-integrate missed peaks
         if self.ui.processMultipleFiles.checkState() == QtCore.Qt.Checked:
 
@@ -2964,7 +2983,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                 maxLoading=self.ui.maxLoading.value(),
                                                 positiveScanEvent=str(self.ui.positiveScanEvent.currentText()),
                                                 negativeScanEvent=str(self.ui.negativeScanEvent.currentText()),
-                                                file=str(self.ui.groupsSave.text()),
+                                                file=resFileFull,
                                                 align=(self.ui.alignChromatograms.checkState() == QtCore.Qt.Checked),
                                                 nPolynom=self.ui.polynomValue.value(),
                                                 rVersion=getRVersion(), meVersion="MetExtract (%s)" % MetExtractVersion,
@@ -3006,6 +3025,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         else:
                             logging.info("Bracketing finished (%s%s).." % (hours, mins))
 
+                        shutil.copyfile(resFileFull, resFilePath+"/xxx_results__1_afterBracketing.tsv")
+                        shutil.copyfile(resFileFull+".identified.sqlite", resFilePath+"/xxx_results__1_afterBracketing.tsv.identified.sqlite")
+
                         #Arrange grouped results and add statistics columns
                         groups = {}
                         outputOrder = []
@@ -3036,10 +3058,16 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             outputOrder.append(grpName)
                             grpStats.append((str(group.name+"_Stat_fold"), group.minFound, group.omitFeatures))
 
-                        addStatsColumnToResults(str(self.ui.groupsSave.text()), groups, str(self.ui.groupsSave.text()), outputOrder)
+                        addStatsColumnToResults(resFileFull, groups, resFileFull, outputOrder)
+
+                        shutil.copyfile(resFileFull, resFilePath+"/xxx_results__2_afterAddingStatColumn.tsv")
+                        shutil.copyfile(resFileFull+".identified.sqlite", resFilePath+"/xxx_results__2_afterAddingStatColumn.tsv.identified.sqlite")
+
 
                         #remove feature pairs not found more than n times (according to user specified omit value)
-                        grpOmit(str(self.ui.groupsSave.text()), grpStats, str(self.ui.groupsSave.text()))
+                        grpOmit(resFileFull, grpStats, resFileFull)
+                        shutil.copyfile(resFileFull, resFilePath+"/xxx_results__3_afterOmit.tsv")
+                        shutil.copyfile(resFileFull+".identified.sqlite", resFilePath+"/xxx_results__3_afterOmit.tsv.identified.sqlite")
                         logging.info("Statistic columns added (and feature pairs omitted)..")
 
 
@@ -3063,6 +3091,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     pw = ProgressWrapper(1, parent=self)
                     pw.show()
                     pw.getCallingFunction()("text")("Convoluting feature pairs")
+
+                    shutil.copyfile(resFilePath + "/xxx_results__3_afterOmit.tsv", resFileFull)
+                    shutil.copyfile(resFilePath + "/xxx_results__3_afterOmit.tsv.identified.sqlite", resFileFull + ".identified.sqlite")
 
                     runIdentificationInstance=RunIdentification(files[0],
                                                                 exOperator=str(self.ui.exOperator_LineEdit.text()),
@@ -3116,7 +3147,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                                 rVersion=getRVersion(), meVersion="MetExtract (%s)" % MetExtractVersion)
 
                     procProc = FuncProcess(_target=calculateMetaboliteGroups,
-                                           file=str(self.ui.groupsSave.text()), groups=definedGroups,
+                                           file=resFileFull,
+                                           toFile=resFileFull,
+                                           groups=definedGroups,
                                            eicPPM=self.ui.wavelet_EICppm.value(),
                                            maxAnnotationTimeWindow=self.ui.maxAnnotationTimeWindow.value(),
                                            minConnectionsInFiles=self.ui.metaboliteClusterMinConnections.value(),
@@ -3162,6 +3195,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         return
                     else:
                         logging.info("Convoluting feature pairs finished (%s%s).." % (hours, mins))
+                    shutil.copyfile(resFileFull, resFilePath+"/xxx_results__4_afterFeaturePairConvolution.tsv")
+                    shutil.copyfile(resFileFull+".identified.sqlite", resFilePath+"/xxx_results__4_afterFeaturePairConvolution.tsv.identified.sqlite")
 
                 except Exception as ex:
                     import traceback
@@ -3183,6 +3218,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             if self.ui.integratedMissedPeaks.isChecked():
                 logging.info("Re-integrating of individual LC-HRMS results..")
 
+                shutil.copyfile(resFilePath + "/xxx_results__4_afterFeaturePairConvolution.tsv", resFileFull)
+                shutil.copyfile(resFilePath + "/xxx_results__4_afterFeaturePairConvolution.tsv.identified.sqlite", resFileFull + ".identified.sqlite")
+
                 pw = ProgressWrapper(min(len(files), cpus) + 1, showLog=False, parent=self)
                 pw.show()
                 pw.getCallingFunction()("text")("Integrating..")
@@ -3197,7 +3235,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             f = f.replace("\\", "/")
                             fDict[f] = f[(f.rfind("/") + 1):max(f.lower().rfind(".mzxml"), f.lower().rfind(".mzml"))]
 
-                    integrateResultsFile(str(self.ui.groupsSave.text()), str(self.ui.groupsSave.text()), fDict, "MZ",
+                    integrateResultsFile(resFileFull, resFileFull, fDict, "MZ",
                                          "RT", "Xn", "Charge", "L_MZ", "Ionisation_Mode", "Num",
                                          ppm=self.ui.groupPpm.value(),
                                          maxRTShift=self.ui.integrationMaxTimeDifference.value(),
@@ -3217,6 +3255,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         hours = "%d hours " % (elapsed // 60)
                     mins = "%.2f mins" % (elapsed % 60.)
                     logging.info("Re-integrating finished (%s%s).." % (hours, mins))
+
+                    shutil.copyfile(resFileFull, resFilePath + "/xxx_results__5_afterReIntegration.tsv")
+                    shutil.copyfile(resFileFull + ".identified.sqlite", resFilePath + "/xxx_results__5_afterReIntegration.tsv.identified.sqlite")
 
                 except Exception as e:
                     import traceback
@@ -3238,6 +3279,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         annotationColumns=[]
         ## annotate results
         if self.ui.annotateMetabolites_CheckBox.isChecked():
+
             logging.info("Annotation of detected metabolites..")
 
             useAdducts=[]
@@ -3251,8 +3293,11 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
             if self.ui.searchDB_checkBox.isChecked():
                 pw.getCallingFunction()("text")("Searching hits in databases..")
+
+                shutil.copyfile(resFilePath + "/xxx_results__5_afterReIntegration.tsv", resFileFull)
+
                 db = searchDatabases.DBSearch()
-                table = TableUtils.readFile(str(self.ui.groupsSave.text()))
+                table = TableUtils.readFile(resFileFull)
 
                 dbEntries=[]
                 for entryInd in range(self.ui.dbList_listView.model().rowCount()):
@@ -3307,10 +3352,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             if hit.dbName not in hits.keys():
                                 hits[hit.dbName]=[]
 
-                            hits[hit.dbName].append("%s (%s): Num %s, Formula %s, RT: %s, MassErrorPPM: %.5f, Additional information: %s" % (hit.name, hit.hitType, hit.num, hit.sumFormula, hit.rt_min, hit.matchErrorPPM, hit.additionalInfo))
+                            hits[hit.dbName].append("%s (%s, Num: %s, Formula: %s, RT: %s, MassErrorPPM: %.5f, MassErrorMass: %.5f, Additional information: %s)" % (hit.name, hit.hitType, hit.num, hit.sumFormula, hit.rt_min, hit.matchErrorPPM, hit.matchErrorMass, hit.additionalInfo))
 
                         for dbName in hits.keys():
-                            x["DBs_"+dbName] = "\"%s\""%(",".join(hits[dbName]))
+                            x["DBs_"+dbName] = "\"%s\""%(";".join(hits[dbName]))
                             x["DBs_" + dbName + "_count"] = len(hits[dbName])
                         return x
 
@@ -3324,12 +3369,14 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                 table.addComment("## Database search: checkXn %s, ppm: %.5f, correctppm: %.5f, Adducts: %s"%(useExactXn, self.ui.annotationMaxPPM_doubleSpinBox.value(), self.ui.annotation_correctMassByPPM.value(), str(useAdducts)))
 
-                TableUtils.saveFile(table, str(self.ui.groupsSave.text()))
-
+                TableUtils.saveFile(table, resFileFull)
+                shutil.copyfile(resFileFull, resFilePath + "/xxx_results__6_afterDBSearch.tsv")
 
             if self.ui.generateSumFormulas_CheckBox.isChecked():
                 pw.getCallingFunction()("text")("Generating sum formulas..")
                 pw.getCallingFunction()("value")(0)
+
+                shutil.copyfile(resFilePath + "/xxx_results__6_afterDBSearch.tsv", resFileFull)
 
                 smCol="SFs"
                 annotationColumns.append(smCol + "_CHO")
@@ -3340,6 +3387,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 annotationColumns.append(smCol + "_CHOPS")
                 annotationColumns.append(smCol + "_CHONS")
                 annotationColumns.append(smCol + "_CHONPS")
+                annotationColumns.append(smCol + "_all")
                 annotationColumns.append(smCol + "_CHO_count")
                 annotationColumns.append(smCol + "_CHOS_count")
                 annotationColumns.append(smCol + "_CHOP_count")
@@ -3348,7 +3396,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 annotationColumns.append(smCol + "_CHOPS_count")
                 annotationColumns.append(smCol + "_CHONS_count")
                 annotationColumns.append(smCol + "_CHONPS_count")
-                annotationColumns.append("all_"+smCol+"_count")
+                annotationColumns.append(smCol + "_all_count")
 
                 try:
                     fT = formulaTools()
@@ -3391,7 +3439,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     useExactXn=str(self.ui.sumFormulasUseExactXn_ComboBox.currentText())
                     if useExactXn.lower()=="plusminus":
                         useExactXn="PlusMinus_%d"%(self.ui.sumFormulasPlusMinus_spinBox.value())
-                    sumFormulaGeneration.annotateResultsWithSumFormulas(str(self.ui.groupsSave.text()),
+                    sumFormulaGeneration.annotateResultsWithSumFormulas(resFileFull,
                                                                         useAtoms,
                                                                         atomsRange,
                                                                         getElementOfIsotope(str(self.ui.isotopeAText.text())),
@@ -3401,8 +3449,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                                         adducts=useAdducts,
                                                                         pwMaxSet=pw.getCallingFunction()("max"),
                                                                         pwValSet=pw.getCallingFunction()("value"),
-                                                                        nCores=min(len(files), cpus))
-
+                                                                        nCores=min(len(files), cpus),
+                                                                        toFile=resFileFull)
+                    shutil.copyfile(resFileFull, resFilePath + "/xxx_results__7_afterSFgeneration.tsv")
                 except Exception as e:
                     import traceback
                     traceback.print_exc()
@@ -3423,69 +3472,69 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
 
 
-        ## Organize table a bit better
-        impCols=["Num", "OGroup", "Comment", "MZ", "RT", "Xn", "Charge", "Ionisation_Mode", "AverageAbundance_N", "AverageAbundance_L", "RelativeAbundance", "Ion", "Loss", "M", "L_MZ", "D_MZ", "MZ_Range", "RT_Range", "PeakScalesNL", "ScanEvent", "Tracer"]
-        frontCols=[]
-        endCols=[]
-        table = TableUtils.readFile(str(self.ui.groupsSave.text()))
-        table.addColumn("AverageAbundance_N", "FLOAT", defaultValue=0.)
-        table.addColumn("AverageAbundance_L", "FLOAT", defaultValue=0.)
-        table.addColumn("RelativeAbundance", "TEXT", defaultValue="")
-        for col in table.getColumns():
-            nam=str(col.name)
+            ## Organize table a bit better
+            impCols=["Num", "OGroup", "Comment", "MZ", "RT", "Xn", "Charge", "Ionisation_Mode", "AverageAbundance_N", "AverageAbundance_L", "RelativeAbundance", "Ion", "Loss", "M", "L_MZ", "D_MZ", "MZ_Range", "RT_Range", "PeakScalesNL", "ScanEvent", "Tracer"]
+            frontCols=[]
+            endCols=[]
+            table = TableUtils.readFile(resFileFull)
+            table.addColumn("AverageAbundance_N", "FLOAT", defaultValue=0.)
+            table.addColumn("AverageAbundance_L", "FLOAT", defaultValue=0.)
+            table.addColumn("RelativeAbundance", "TEXT", defaultValue="")
+            for col in table.getColumns():
+                nam=str(col.name)
 
-            if nam in impCols:
-                continue
+                if nam in impCols:
+                    continue
 
-            if nam in annotationColumns or nam.startswith("DBs_") or nam.startswith("SFs_"):
-                frontCols.append(nam)
-                continue
+                if nam in annotationColumns or nam.startswith("DBs_") or nam.startswith("SFs_"):
+                    frontCols.append(nam)
+                    continue
 
-            if nam.endswith("_Stat_fold") or nam=="doublePeak":
-                continue
+                if nam.endswith("_Stat_fold") or nam=="doublePeak":
+                    continue
 
-            endCols.append(nam)
+                endCols.append(nam)
 
-        order=[]
-        order.extend(impCols)
-        order.extend(frontCols)
-        order.extend(endCols)
-        table.addComment("## MetainformationColumns: [%s]"%(",".join(impCols)))
-        table.addComment("## AnnotationColumns: [%s]"%(",".join(annotationColumns)))
-        TableUtils.saveFile(table, str(self.ui.groupsSave.text()), cols=order)
+            order=[]
+            order.extend(impCols)
+            order.extend(frontCols)
+            order.extend(endCols)
+            table.addComment("## MetainformationColumns: [%s]"%(";".join(impCols)))
+            table.addComment("## AnnotationColumns: [%s]"%(";".join(annotationColumns)))
 
 
-        filesForConvolution=[]
-        for group in definedGroups:
-            if group.useForMetaboliteGrouping:
-                for fi in group.files:
-                    fi.replace("\\", "/")
-                    filesForConvolution.append(fi[fi.rfind("/")+1:fi.rfind(".")])
+            filesForConvolution=[]
+            for group in definedGroups:
+                if group.useForMetaboliteGrouping:
+                    for fi in group.files:
+                        fi.replace("\\", "/")
+                        filesForConvolution.append(fi[fi.rfind("/")+1:fi.rfind(".")])
 
-        ogroups=set([ogroup for ogroup in table.getData(["OGroup"])])
-        for ogroup in ogroups:
-            numsInGroup=set([ogroup for ogroup in table.getData(["Num"], where="OGroup=%d"%ogroup)])
+            ogroups=set([ogroup for ogroup in table.getData(["OGroup"])])
+            for ogroup in ogroups:
+                numsInGroup=set([ogroup for ogroup in table.getData(["Num"], where="OGroup=%d"%ogroup)])
 
-            abu={}
-            sum=0
-            for num in numsInGroup:
-                abundances=table.getData([fi+"_Area_N" for fi in filesForConvolution], where="Num=%d"%num)[0]
-                av=mean([ab for ab in abundances if ab!=""])
-                table.setData(["AverageAbundance_N"], [av], where="Num=%d"%num)
-
-                abundances=table.getData([fi+"_Area_L" for fi in filesForConvolution], where="Num=%d"%num)[0]
-                av=mean([ab for ab in abundances if ab!=""])
-                table.setData(["AverageAbundance_L"], [av], where="Num=%d"%num)
-
-                abu[num]=av
-                sum=sum+av
-
-            if len(numsInGroup)>1:
+                abu={}
+                sum=0
                 for num in numsInGroup:
-                    table.setData(["RelativeAbundance"], ["%.1f%%"%(abu[num]/sum*100.)], where="Num=%d"%num)
+                    abundances=table.getData([fi+"_Area_N" for fi in filesForConvolution], where="Num=%d"%num)[0]
+                    av=mean([ab for ab in abundances if ab!=""])
+                    table.setData(["AverageAbundance_N"], [av], where="Num=%d"%num)
 
-        TableUtils.saveFile(table, str(self.ui.groupsSave.text()), cols=order)
+                    abundances=table.getData([fi+"_Area_L" for fi in filesForConvolution], where="Num=%d"%num)[0]
+                    av=mean([ab for ab in abundances if ab!=""])
+                    table.setData(["AverageAbundance_L"], [av], where="Num=%d"%num)
 
+                    abu[num]=av
+                    sum=sum+av
+
+                if len(numsInGroup)>1:
+                    for num in numsInGroup:
+                        table.setData(["RelativeAbundance"], ["%.1f%%"%(abu[num]/sum*100.)], where="Num=%d"%num)
+
+            TableUtils.saveFile(table, resFileFull, cols=order)
+
+        shutil.copyfile(resFileFull, resFilePath + "/xxx_results__8_afterAnnotation.tsv")
 
 
 
@@ -3497,8 +3546,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             pw.show()
             pw.getCallingFunction()("text")("Preparing MSMS import and list generation")
 
-            inFile=str(self.ui.groupsSave.text())
-            outFile=str(self.ui.groupsSave.text()).replace(".tsv", "_MSMS.tsv")
+            inFile=resFileFull
+            outFile=resFileFull.replace(".tsv", "_withMSMS.csv")
 
             definedGroups = [t.data(QListWidgetItem.UserType).toPyObject() for t in
                              natSort(self.ui.groupsList.findItems('*', QtCore.Qt.MatchWildcard),
@@ -3523,8 +3572,6 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
             opt.getMostAbundantFileList(minCounts=self.ui.msms_minCounts.value())
 
-            opt.writeTargetsToFile(inFile, inFile)
-
             opt.generateMSMSLists(samplesForMSMS,
                                   fileTo=inFile,
                                   minCounts=self.ui.msms_minCounts.value(),
@@ -3536,6 +3583,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                   pwSetText=pw.getCallingFunction()("text"),
                                   pwSetMax=pw.getCallingFunction()("max"),
                                   pwSetValue=pw.getCallingFunction()("value"))
+
+            opt.writeTargetsToFile(inFile, outFile)
+
+            shutil.copyfile(resFileFull.replace(".tsv", "_withMSMS.csv"), resFilePath + "/xxx_results__9_withMSMSInfo.csv")
 
             pw.hide()
 
@@ -6587,6 +6638,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         pw.setValue(0)
         pw.show()
 
+        intensityThreshold = float(QtGui.QInputDialog.getDouble(self, "Intensity threshold", "Please enter the minimal threshold used for importing the data", value=10000, min=0, decimals=0)[0])
+
         done=0
         for group in definedGroups:
             for i in range(len(group.files)):
@@ -6596,7 +6649,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 pw.setTextu("Loading group %s\nFile %s"%(group.name, fi))
 
                 mzXML = Chromatogram()
-                mzXML.parse_file(fi, intensityCutoff=self.ui.intensityCutoff.value()) #intensityCutoff=
+                mzXML.parse_file(fi, intensityCutoff=intensityThreshold)
                 self.loadedMZXMLs[fi] = mzXML
                 self.loadedMZXMLs[group.files[i]] = mzXML
 
@@ -6801,7 +6854,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.ui.resultsExperiment_plot.axes.set_xlabel("Retention time (min)")
         self.ui.resultsExperiment_plot.axes.set_ylabel("Intensity")
         self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_title("Overlaid EICs of selected feature pairs or groups (separated artificially by respective experimental group)")
-        self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_xlabel("Retention time (min)")
+        if len(plotItems)==1:
+            self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_title("Overlaid EICs of %.5f (%.5f), %.2f min, %s\n(separated artificially by respective experimental group to improve comparison)\n"%(plotItems[0].mz, plotItems[0].lmz, plotItems[0].rt/60., plotItems[0].scanEvent))
+        self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_xlabel("Retention time (min) of feature + groupIndex (0-based)")
         self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_ylabel("Intensity")
 
 
@@ -7002,28 +7057,42 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     QtGui.QMessageBox.warning(self, "MetExtract", "You are trying to load unknown file types that are not supported: \n\n  * "+"\n  * ".join(incorrectFiles)+"\n\nPlease only load mzXML or mzML files.")
                 else:
 
-                    sepChar = "_"
-                    groups = {}
-                    for link in links:
-                        gName = link[:link.rfind(sepChar)]
-                        if gName not in groups.keys():
-                            groups[gName] = []
-                        groups[gName].append(link)
+                    for li in range(len(links)):
+                        links[li]=links[li].replace("\\", "/")
 
-                    gNames = {}
-                    for gName, files in groups.items():
-                        gName = gName.replace("\\", "/")
-                        gName = gName[(gName.rfind("/") + 1):]
-                        gNames[gName]=len(files)
+                    if len(links)>1:
 
-                    if QtGui.QMessageBox.question(self, "MetExtract", "Do you want to automatically assign all files to separate groups? Everything before the last '_' character will be used as the group identifier and everything after the last '_' character will be used as the replicate identifier.\n\nThe following groups will be created: \n\n"+"\n".join([u"\u2022  "+gN+" (" + str(gNames[gN]) + " files)" for gN in natSort(gNames.keys())]), QtGui.QMessageBox.Yes | QtGui.QMessageBox.No) == QtGui.QMessageBox.Yes:
+                        pw = RegExTestDialog(strings=links)
+                        pw.exec_()
 
-                        groupNames=natSort([gName for gName in groups.keys()])
-                        for gName in groupNames:
-                            files = groups[gName]
+                        regEx=pw.getRegEx()
+                        regExRes=pw.getRegExRes()
+
+
+                        groups = {}
+                        for link in links:
+
+                            res = re.match(regEx, link)
+                            gName = regExRes.format(*res.groups())
+
+                            if gName not in groups.keys():
+                                groups[gName] = []
+                            groups[gName].append(link)
+
+                        gNames = {}
+                        for gName, files in groups.items():
                             gName = gName.replace("\\", "/")
                             gName = gName[(gName.rfind("/") + 1):]
-                            self.showAddGroupDialog(initWithGroupName=gName, initWithFiles=files)
+                            gNames[gName]=len(files)
+
+                        if QtGui.QMessageBox.question(self, "MetExtract", "Do you want to automatically assign all files to separate groups? Everything before the last '_' character will be used as the group identifier and everything after the last '_' character will be used as the replicate identifier.\n\nThe following groups will be created: \n\n"+"\n".join([u"\u2022  "+gN+" (" + str(gNames[gN]) + " files)" for gN in natSort(gNames.keys())]), QtGui.QMessageBox.Yes | QtGui.QMessageBox.No) == QtGui.QMessageBox.Yes:
+
+                            groupNames=natSort([gName for gName in groups.keys()])
+                            for gName in groupNames:
+                                files = groups[gName]
+                                gName = gName.replace("\\", "/")
+                                gName = gName[(gName.rfind("/") + 1):]
+                                self.showAddGroupDialog(initWithGroupName=gName, initWithFiles=files)
                     else:
                         self.showAddGroupDialog(initWithFiles=links)
         else:

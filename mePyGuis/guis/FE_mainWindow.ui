@@ -215,7 +215,7 @@ font: 7pt;</string>
                <bool>false</bool>
               </property>
               <property name="selectionMode">
-               <enum>QAbstractItemView::SingleSelection</enum>
+               <enum>QAbstractItemView::MultiSelection</enum>
               </property>
               <property name="selectionBehavior">
                <enum>QAbstractItemView::SelectRows</enum>
@@ -786,6 +786,13 @@ font: 7pt;</string>
                 <widget class="QCheckBox" name="saveResultsAsPDFCheckBox">
                  <property name="text">
                   <string>Save as PDF</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="0">
+                <widget class="QCheckBox" name="exportAsSiriuscheckBox">
+                 <property name="text">
+                  <string>Export as SIRIUS 4.0 MS format</string>
                  </property>
                 </widget>
                </item>

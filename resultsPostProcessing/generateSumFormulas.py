@@ -5,6 +5,8 @@ from SGR import SGRGenerator
 
 from utils import Bunch
 
+from formulaTools import formulaTools
+
 import TableUtils
 
 from copy import deepcopy
@@ -54,8 +56,8 @@ def processFile(file, columns, adducts, ppm=5., ppmCorrection=0, useAtoms=[], at
     if not smCol + "_CHONPS"+"_count" in [col.name for col in table.getColumns()]:
         table.addColumn(smCol + "_CHONPS"+"_count", "INTEGER")
 
-    if not "all_"+smCol+"_count" in [col.name for col in table.getColumns()]:
-        table.addColumn("all_"+smCol+"_count", "INTEGER")
+    if not smCol + "_all_count" in [col.name for col in table.getColumns()]:
+        table.addColumn(smCol + "_all_count", "INTEGER")
 
     if not smCol+"_CHO" in [col.name for col in table.getColumns()]:
         table.addColumn(smCol+"_CHO", "TEXT")
@@ -73,6 +75,8 @@ def processFile(file, columns, adducts, ppm=5., ppmCorrection=0, useAtoms=[], at
         table.addColumn(smCol + "_CHOPS", "TEXT")
     if not smCol + "_CHONPS" in [col.name for col in table.getColumns()]:
         table.addColumn(smCol + "_CHONPS", "TEXT")
+    if not smCol + "_all" in [col.name for col in table.getColumns()]:
+        table.addColumn(smCol + "_all", "TEXT")
 
 
     class formulaSearch:
@@ -90,6 +94,8 @@ def processFile(file, columns, adducts, ppm=5., ppmCorrection=0, useAtoms=[], at
             self.counter=counter
 
             self.calcObjects=[]
+
+            self.fT=formulaTools()
 
         def generateSumFormulaCalcObjects(self, x):
 
@@ -199,6 +205,7 @@ def processFile(file, columns, adducts, ppm=5., ppmCorrection=0, useAtoms=[], at
             dbe[smCol + "_CHOPS"] = []
             dbe[smCol + "_CHONS"] = []
             dbe[smCol + "_CHONPS"] = []
+            dbe[smCol + "_all"] = []
 
             if accMass == "":
                 for adduct in self.adducts:
@@ -207,7 +214,8 @@ def processFile(file, columns, adducts, ppm=5., ppmCorrection=0, useAtoms=[], at
                         #ret = sfg.findFormulas((mz - adduct[1])*adduct[3]/adduct[4], self.ppm, useAtoms=useAtoms, atomsRange=atomsRange,
                         #                       fixed="C", useSevenGoldenRules=self.useSevenGoldenRules)
 
-                        ret=calcSumFormulas(Bunch(m=(mz - adduct[1])*adduct[3]/adduct[4],
+                        m=(mz - adduct[1])*adduct[3]/adduct[4]
+                        ret=calcSumFormulas(Bunch(m=m,
                                               ppm=self.ppm,
                                               useAtoms=useAtoms,
                                               atomsRange=atomsRange,
@@ -217,8 +225,8 @@ def processFile(file, columns, adducts, ppm=5., ppmCorrection=0, useAtoms=[], at
                                               counter=self.counter))
 
                         for e in ret:
-                            #print e
-                            ent = ["[M" + adduct[0] + "]: ", e]
+                            mT=self.fT.calcMolWeight(self.fT.parseFormula(e))
+                            ent = "%s (Ion: %s, MassErrorPPM: %.5f, MassErrorMass: %.5f)"%(e, "[M" + adduct[0] + "]", (m-mT)*1E6/m, m-mT)
                             if "P" in e and "N" in e and "S" in e:
                                 dbe[smCol + "_CHONPS"].append(ent)
                             elif "P" in e and "S" in e:
@@ -235,10 +243,12 @@ def processFile(file, columns, adducts, ppm=5., ppmCorrection=0, useAtoms=[], at
                                 dbe[smCol + "_CHOS"].append(ent)
                             else:
                                 dbe[smCol + "_CHO"].append(ent)
+                            dbe[smCol + "_all"].append(ent)
             else:
                 for m in str(accMass).split(","):
                     m = m.replace("\"", "")
                     m = m.strip()
+                    m = float(m)
                     #ret = sfg.findFormulas(float(m), self.ppm, useAtoms=useAtoms, atomsRange=atomsRange, fixed="C",
                     #                       useSevenGoldenRules=self.useSevenGoldenRules)
 
@@ -252,8 +262,8 @@ def processFile(file, columns, adducts, ppm=5., ppmCorrection=0, useAtoms=[], at
                                   counter=self.counter))
 
                     for e in ret:
-                        #print e
-                        ent = ["[M]: ", e]
+                        mT = self.fT.calcMolWeight(self.fT.parseFormula(e))
+                        ent = "%s (Ion: %s, MassErrorPPM: %.5f, MassErrorMass: %.5f)" % (e, "[M]", (m - mT) * 1E6 / m, m - mT)
                         if "P" in e and "N" in e and "S" in e:
                             dbe[smCol + "_CHONPS"].append(ent)
                         elif "P" in e and "S" in e:
@@ -270,12 +280,15 @@ def processFile(file, columns, adducts, ppm=5., ppmCorrection=0, useAtoms=[], at
                             dbe[smCol + "_CHOS"].append(ent)
                         else:
                             dbe[smCol + "_CHO"].append(ent)
+                        dbe[smCol + "_all"].append(ent)
+
+
 
             if len(dbe[smCol + "_CHO"]) > 0:
                 if len(dbe[smCol + "_CHO"])>250:
                     x[smCol + "_CHO"] = "Too many hits %d"%(len(dbe[smCol + "_CHO"]))
                 else:
-                    x[smCol + "_CHO"] = ", ".join([h[0] + str(h[1]) for h in dbe[smCol + "_CHO"]])
+                    x[smCol + "_CHO"] = "; ".join(dbe[smCol + "_CHO"])
                 x[smCol + "_CHO_count"] = len(dbe[smCol + "_CHO"])
             else:
                 x[smCol + "_CHO"] = ""
@@ -285,7 +298,7 @@ def processFile(file, columns, adducts, ppm=5., ppmCorrection=0, useAtoms=[], at
                 if len(dbe[smCol + "_CHOS"]) > 250:
                     x[smCol + "_CHOS"] = "Too many hits %d" % (len(dbe[smCol + "_CHOS"]))
                 else:
-                    x[smCol + "_CHOS"] = ", ".join([h[0] + str(h[1]) for h in dbe[smCol + "_CHOS"]])
+                    x[smCol + "_CHOS"] = "; ".join(dbe[smCol + "_CHOS"])
                 x[smCol + "_CHOS"+"_count"] = len(dbe[smCol + "_CHOS"])
             else:
                 x[smCol + "_CHOS"] = ""
@@ -295,7 +308,7 @@ def processFile(file, columns, adducts, ppm=5., ppmCorrection=0, useAtoms=[], at
                 if len(dbe[smCol + "_CHOP"]) > 250:
                     x[smCol + "_CHOP"] = "Too many hits %d" % (len(dbe[smCol + "_CHOP"]))
                 else:
-                    x[smCol + "_CHOP"] = ", ".join([h[0] + str(h[1]) for h in dbe[smCol + "_CHOP"]])
+                    x[smCol + "_CHOP"] = "; ".join(dbe[smCol + "_CHOP"])
                 x[smCol + "_CHOP"+"_count"] = len(dbe[smCol + "_CHOP"])
             else:
                 x[smCol + "_CHOP"] = ""
@@ -305,7 +318,7 @@ def processFile(file, columns, adducts, ppm=5., ppmCorrection=0, useAtoms=[], at
                 if len(dbe[smCol + "_CHON"]) > 250:
                     x[smCol + "_CHON"] = "Too many hits %d" % (len(dbe[smCol + "_CHON"]))
                 else:
-                    x[smCol + "_CHON"] = ", ".join([h[0] + str(h[1]) for h in dbe[smCol + "_CHON"]])
+                    x[smCol + "_CHON"] = "; ".join(dbe[smCol + "_CHON"])
                 x[smCol + "_CHON"+"_count"] = len(dbe[smCol + "_CHON"])
             else:
                 x[smCol + "_CHON"] = ""
@@ -315,7 +328,7 @@ def processFile(file, columns, adducts, ppm=5., ppmCorrection=0, useAtoms=[], at
                 if len(dbe[smCol + "_CHONP"]) > 250:
                     x[smCol + "_CHONP"] = "Too many hits %d" % (len(dbe[smCol + "_CHONP"]))
                 else:
-                    x[smCol + "_CHONP"] = ", ".join([h[0] + str(h[1]) for h in dbe[smCol + "_CHONP"]])
+                    x[smCol + "_CHONP"] = "; ".join(dbe[smCol + "_CHONP"])
                 x[smCol + "_CHONP"+"_count"] = len(dbe[smCol + "_CHONP"])
             else:
                 x[smCol + "_CHONP"] = ""
@@ -325,7 +338,7 @@ def processFile(file, columns, adducts, ppm=5., ppmCorrection=0, useAtoms=[], at
                 if len(dbe[smCol + "_CHONS"]) > 250:
                     x[smCol + "_CHONS"] = "Too many hits %d" % (len(dbe[smCol + "_CHONS"]))
                 else:
-                    x[smCol + "_CHONS"] = ", ".join([h[0] + str(h[1]) for h in dbe[smCol + "_CHONS"]])
+                    x[smCol + "_CHONS"] = "; ".join(dbe[smCol + "_CHONS"])
                 x[smCol + "_CHONS"+"_count"] = len(dbe[smCol + "_CHONS"])
             else:
                 x[smCol + "_CHONS"] = ""
@@ -335,7 +348,7 @@ def processFile(file, columns, adducts, ppm=5., ppmCorrection=0, useAtoms=[], at
                 if len(dbe[smCol + "_CHOPS"]) > 250:
                     x[smCol + "_CHOPS"] = "Too many hits %d" % (len(dbe[smCol + "_CHOPS"]))
                 else:
-                    x[smCol + "_CHOPS"] = ", ".join([h[0] + str(h[1]) for h in dbe[smCol + "_CHOPS"]])
+                    x[smCol + "_CHOPS"] = "; ".join(dbe[smCol + "_CHOPS"])
                 x[smCol + "_CHOPS"+"_count"] = len(dbe[smCol + "_CHOPS"])
             else:
                 x[smCol + "_CHOPS"] = ""
@@ -345,14 +358,22 @@ def processFile(file, columns, adducts, ppm=5., ppmCorrection=0, useAtoms=[], at
                 if len(dbe[smCol + "_CHONPS"]) > 250:
                     x[smCol + "_CHONPS"] = "Too many hits %d" % (len(dbe[smCol + "_CHONPS"]))
                 else:
-                    x[smCol + "_CHONPS"] = ", ".join([h[0] + str(h[1]) for h in dbe[smCol + "_CHONPS"]])
+                    x[smCol + "_CHONPS"] = "; ".join(dbe[smCol + "_CHONPS"])
                 x[smCol + "_CHONPS"+"_count"] = len(dbe[smCol + "_CHONPS"])
             else:
                 x[smCol + "_CHONPS"] = ""
                 x[smCol + "_CHONPS"+"_count"] = ""
 
-            x["all_"+smCol+"_count"] = len(dbe[smCol + "_CHO"])+len(dbe[smCol + "_CHOS"])+len(dbe[smCol + "_CHOP"])+len(dbe[smCol + "_CHON"])+len(dbe[smCol + "_CHONP"])+len(dbe[smCol + "_CHONS"])+ \
-                                        len(dbe[smCol + "_CHOPS"])+ len(dbe[smCol + "_CHONPS"])
+            if len(dbe[smCol + "_all"]) > 0:
+                if len(dbe[smCol + "_all"]) > 250:
+                    x[smCol + "_all"] = "Too many hits %d" % (len(dbe[smCol + "_all"]))
+                else:
+                    x[smCol + "_all"] = "; ".join(dbe[smCol + "_all"])
+                x[smCol + "_all"+"_count"] = len(dbe[smCol + "_all"])
+            else:
+                x[smCol + "_all"] = ""
+                x[smCol + "_all"+"_count"] = ""
+
 
             return x
 
@@ -422,9 +443,12 @@ def natSort(l, key=lambda ent: ent):
 
 
 
-def annotateResultsWithSumFormulas(resultsFile, useAtoms, atomsRange, Xn, useExactXn, ppm=5., ppmCorrection=0, adducts=adductsN+adductsP, pwMaxSet=None, pwValSet=None, nCores=1):
+def annotateResultsWithSumFormulas(resultsFile, useAtoms, atomsRange, Xn, useExactXn, ppm=5., ppmCorrection=0, adducts=adductsN+adductsP, pwMaxSet=None, pwValSet=None, nCores=1, toFile=None):
 
-    processFile(resultsFile, toFile=resultsFile,
+    if toFile is None:
+        toFile=resultsFile
+
+    processFile(resultsFile, toFile=toFile,
                 columns={exID: exID, exMZ: exMZ, exRT: exRT, exAccMass: exAccMass, exXCount: exXCount,
                          exIonMode: exIonMode, exCharge: exCharge},
                 adducts=adducts, ppm=ppm, ppmCorrection=ppmCorrection,

@@ -196,7 +196,7 @@ class ProcessTarget:
                  minXn, useZeroLabelingAtoms, useTracExtractAnnotation,
                  labellingOffset, matchingPPM, maxRelError, annotationElements, annotationPPM, useParentFragmentConsistencyRule,
                  massBankPPMError, massBankMinRelAbundance, massBankMinimalScore, massBankHitsToLoad,
-                 saveAsTSV, saveAsPDF,
+                 saveAsTSV, saveAsPDF, exportAsSirius,
                  lock, queue, pID, feVersion):
 
         self.targets=targets
@@ -227,6 +227,7 @@ class ProcessTarget:
 
         self.saveAsTSV=saveAsTSV
         self.saveAsPDF=saveAsPDF
+        self.exportAsSirius=exportAsSirius
 
         self.lock = lock
         self.queue = queue
@@ -684,6 +685,76 @@ class ProcessTarget:
 
             for i, v in sorted(enumerate(mzs), key=lambda x:x[1]):
                 fOut.write("".join(lines[i]))
+                fOut.write("\n")
+
+
+    def saveResultsToSIRIUSMS(self, target, MS1Scan, curs):
+        annotatedSpectrumNative=[p for p in SQLSelectAsObject(curs,
+                            selectStatement="SELECt mzs, ints, annos AS annos FROM MSSpectra WHERE forTarget=%d AND type='native_cleaned'"%target.id)][0]
+        annotatedSpectrumLabeled=[p for p in SQLSelectAsObject(curs,
+                            selectStatement="SELECt mzs, ints, annos AS annos FROM MSSpectra WHERE forTarget=%d AND type='labelled_cleaned'"%target.id)][0]
+
+        if len(annotatedSpectrumNative.mzs)>0:
+            annotatedSpectrumNative.mzs=[float(mz) for mz in annotatedSpectrumNative.mzs.split(",")]
+        else:
+            annotatedSpectrumNative.mzs=[]
+
+        if len(annotatedSpectrumNative.ints)>0:
+            annotatedSpectrumNative.ints=[float(i) for i in annotatedSpectrumNative.ints.split(",")]
+        else:
+            annotatedSpectrumNative.ints=[]
+
+        if len(annotatedSpectrumNative.annos)>0:
+            annotatedSpectrumNative.annos=pickle.loads(base64.b64decode(annotatedSpectrumNative.annos))
+        else:
+            annotatedSpectrumNative.annos=[]
+
+        if len(annotatedSpectrumLabeled.mzs)>0:
+            annotatedSpectrumLabeled.mzs=[float(mz) for mz in annotatedSpectrumLabeled.mzs.split(",")]
+        else:
+            annotatedSpectrumLabeled.mzs=[]
+
+        if len(annotatedSpectrumLabeled.ints)>0:
+            annotatedSpectrumLabeled.ints=[float(i) for i in annotatedSpectrumLabeled.ints.split(",")]
+        else:
+            annotatedSpectrumLabeled.ints=[]
+
+        if len(annotatedSpectrumLabeled.annos)>0:
+            annotatedSpectrumLabeled.annos=pickle.loads(base64.b64decode(annotatedSpectrumLabeled.annos))
+        else:
+            annotatedSpectrumLabeled.annos=[]
+
+
+
+        with open(target.lcmsmsNativeFile + "." + target.targetName + ".ms", "wb") as fOut:
+            fOut.write(">compound " + target.targetName + "_C%d"%target.Cn)
+            fOut.write("\n")
+
+            fOut.write(">parentmass %f"%target.precursorMZ)
+            fOut.write("\n")
+
+            fOut.write(">ionization %s"%target.adduct)
+            fOut.write("\n")
+
+            fOut.write(">source file: %s"%target.lcmsmsNativeFile.replace("\\", "/"))
+            fOut.write("\n")
+            fOut.write("\n")
+
+            if len(MS1Scan)>0:
+                fOut.write(">ms1peaks")
+                fOut.write("\n")
+
+                for ind in range(len(MS1Scan)):
+                    fOut.write("%.6f %.4f"%(MS1Scan[ind][0], MS1Scan[ind][1]))
+                    fOut.write("\n")
+                fOut.write("\n")
+
+            fOut.write(">ms2peaks")
+            fOut.write("\n")
+
+            for index in range(len(annotatedSpectrumNative.mzs)):
+
+                fOut.write("%.6f %.4f"%(annotatedSpectrumNative.mzs[index], annotatedSpectrumNative.ints[index]))
                 fOut.write("\n")
 
 
@@ -1373,6 +1444,15 @@ class ProcessTarget:
             self.saveResultsToPDF(target=target, curs=curs)
         if self.saveAsTSV:
             self.saveResultsToTSV(target=target, curs=curs)
+        if self.exportAsSirius:
+            MS1Scan=[]
+
+            for ind in range(len(scanFSNative.mz_list)):
+                mz=scanFSNative.mz_list[ind]
+                if target.precursorMZ-3 <= mz <= target.precursorMZ+5:
+                    MS1Scan.append((mz, scanFSNative.intensity_list[ind]))
+
+            self.saveResultsToSIRIUSMS(target=target, MS1Scan=MS1Scan, curs=curs, )
 
     # endregion
 

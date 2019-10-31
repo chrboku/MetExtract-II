@@ -62,11 +62,36 @@ def writeFeatureListToFeatureML(features, toFile, ppmPM=5, rtPM=0.25*60):
             fOut.write("\r\n")
 
 
+def convertMSMSoptFileToFeatureML(msmsFile, featureMLFile=None):
+    if featureMLFile is None:
+        featureMLFile=msmsFile+".featureML"
+
+    with open(msmsFile, "rb") as fIn:
+        csvReader=csv.reader(fIn, delimiter=";", quotechar="\"")
+
+        headers={}
+        features=[]
+
+        for linei, row in enumerate(csvReader):
+            if linei==0:
+                for colInd, header in enumerate(row):
+                    headers[header]=colInd
+            elif row[0].startswith("#"):
+                pass
+            else:
+                b=Bunch(id=row[headers["Comment"]], ogroup="NA", mz=float(row[headers["Mass [m/z]"]]), rt=(float(row[headers["Start [min]"]])*60+float(row[headers["End [min]"]])*60)/2,
+                        Xn=0, lmz=float(row[headers["Mass [m/z]"]]),
+                        charge=1, name=row[headers["Comment"]], ionMode=row[headers["Polarity"]])
+                features.append(b)
+
+    writeFeatureListToFeatureML(features, featureMLFile, ppmPM=5., rtPM=0.25*60)
+
+
 def convertMEMatrixToFeatureML(meMatrixFile, featureMLFile=None):
     if featureMLFile is None:
         featureMLFile=meMatrixFile.replace(".tsv", ".txt").replace(".txt", "")+".featureML"
 
-    with open(meMatrixFile) as fIn:
+    with open(meMatrixFile, "rb") as fIn:
         csvReader=csv.reader(fIn, delimiter="\t", quotechar="\"")
 
         headers={}
@@ -109,5 +134,4 @@ def convertMEMatrixToFeatureMLSepPolarities(meMatrixFile, featureMLFile=None, po
         writeFeatureListToFeatureML(features['-'], featureMLFile.replace(".featureML", "_negMode%s.featureML"%(postfix)), ppmPM=5., rtPM=0.25*60)
     if len(features['+'])>0:
         writeFeatureListToFeatureML(features['+'], featureMLFile.replace(".featureML", "_posMode%s.featureML"%(postfix)), ppmPM=5., rtPM=0.25 * 60)
-
 

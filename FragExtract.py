@@ -556,10 +556,13 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
             self.MSMSTargetModel.removeRows(index.row(), 1)
 
         if action == copyAction:
+            indices=set()
             for index in self.processFilesTable.selectedIndexes():
-                newObj=deepcopy(self.MSMSTargetModel._data[index.row()])
+                indices.add(index.row())
+            for rowInd in sorted(indices, reverse=True):
+                newObj=deepcopy(self.MSMSTargetModel._data[rowInd])
                 newObj.targetName="Copy of %s"%newObj.targetName
-                self.MSMSTargetModel.insertRows(index.row(), 1, object=newObj, atPos=index.row())
+                self.MSMSTargetModel.insertRows(rowInd, 1, object=newObj, atPos=rowInd)
 
         if action == pasteAction:
             selIndex=self.processFilesTable.indexAt(position)
@@ -569,7 +572,6 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
             for ti, t in enumerate(text.split("\n")):
                 self.MSMSTargetModel.setData(selIndex.sibling(selIndex.row()+ti, selIndex.column()), QtCore.QVariant(t))
 
-    
     
     def showAnnotationConfiguration(self):
         t = adductsEdit(nls=self.elements, showAdductsConfiguration=False)
@@ -785,8 +787,11 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                                "Please review carefully and correct if necessary.")
 
     def deleteMSMSTargetHandler(self):
+        todel=set()
         for index in self.processFilesTable.selectedIndexes():
-            self.MSMSTargetModel.removeRows(index.row(), 1)
+            todel.add(index.row())
+        for rowInd in sorted(todel, reverse=True):
+            self.MSMSTargetModel.removeRows(rowInd, 1)
 
 
 
@@ -854,6 +859,8 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
             self.saveResultsAsTSVCheckBox.setChecked(sett.value("saveAsTSV").toBool())
         if sett.contains("saveAsPDF"):
             self.saveResultsAsPDFCheckBox.setChecked(sett.value("saveAsPDF").toBool())
+        if sett.contains("exportAsSirius"):
+            self.exportAsSiriuscheckBox.setChecked(sett.value("exportAsSirius").toBool())
 
         sett.endGroup()
 
@@ -892,7 +899,8 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         sett.setValue("saveAsTSV", self.saveResultsAsTSVCheckBox.checkState()==QtCore.Qt.Checked)
         sett.setValue("saveAsPDF", self.saveResultsAsPDFCheckBox.checkState()==QtCore.Qt.Checked)
-
+        sett.setValue("exportAsSirius", self.exportAsSiriuscheckBox.checkState()==QtCore.Qt.Checked)
+        self.exportAsSiriuscheckBox.checkState()
         sett.endGroup()
 
     def exit(self):
@@ -1190,6 +1198,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                             saveAsTSV=self.saveResultsAsTSVCheckBox.checkState()==QtCore.Qt.Checked,
                             saveAsPDF=self.saveResultsAsPDFCheckBox.checkState()==QtCore.Qt.Checked,
+                            exportAsSirius=self.exportAsSiriuscheckBox.checkState()==QtCore.Qt.Checked,
 
                             lock=lock, queue=queue, pID=index+1,
 
