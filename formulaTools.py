@@ -180,7 +180,7 @@ class formulaTools:
                 raise Exception("Unrecognized element")
 
             if formula[pos] != "]":
-                raise Exception("Malformed isotope")
+                raise Exception("Malformed isotope: "+formula)
             pos = pos + 1
 
             pos, numb = self._parseNumber(formula, pos)
