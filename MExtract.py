@@ -637,30 +637,11 @@ class procAreaInFile:
     # re-integrated data needs to be matched to the correct columns in the grouped results
     def matchIntegratedDataToTable(self, oldData):
         newData={}
-        if oldData[self.colToProc + "_Area_N"] == "":
-            for r in self.newData:
-                if r[self.colInd[self.colnum]] == oldData[self.colnum]:
-                    newData[self.colToProc + "_Area_N"] = r[self.colInd[self.colToProc + "_Area_N"]]
-
-        if oldData[self.colToProc + "_Area_L"] == "":
-            for r in self.newData:
-                if r[self.colInd[self.colnum]] == oldData[self.colnum]:
-                    newData[self.colToProc + "_Area_L"] = r[self.colInd[self.colToProc + "_Area_L"]]
-
-        if oldData[self.colToProc + "_Abundance_N"] == "":
-            for r in self.newData:
-                if r[self.colInd[self.colnum]] == oldData[self.colnum]:
-                    newData[self.colToProc + "_Abundance_N"] = r[self.colInd[self.colToProc + "_Abundance_N"]]
-
-        if oldData[self.colToProc + "_Abundance_L"] == "":
-            for r in self.newData:
-                if r[self.colInd[self.colnum]] == oldData[self.colnum]:
-                    newData[self.colToProc + "_Abundance_L"] = r[self.colInd[self.colToProc + "_Abundance_L"]]
-
-        if oldData[self.colToProc + "_fold"] == "":
-            for r in self.newData:
-                if r[self.colInd[self.colnum]] == oldData[self.colnum]:
-                    newData[self.colToProc + "_fold"] = r[self.colInd[self.colToProc + "_fold"]]
+        for key in oldData.keys():
+            if oldData[key] == "":
+                for r in self.newData:
+                    if r[self.colInd[self.colnum]] == oldData[self.colnum]:
+                        newData[key] = r[self.colInd[key]]
         return newData
 
 # helper method for the multiprocessing package
@@ -869,18 +850,31 @@ def _integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colload
             QtGui.QApplication.processEvents();
             time.sleep(.5)
 
-    p.close()
-    p.terminate()
-    p.join()
-
-    if selfObj.terminateJobs:
-        return
+    elapsed = (time.time() - start) / 60.
+    hours = ""
+    if elapsed >= 60.:
+        hours = "%d hours " % (elapsed // 60)
+    mins = "%.2f mins" % (elapsed % 60.)
+    logging.info("Re-integrating finished after %s%s. Results will be saved next"%(hours, mins))
 
     # after all LC-HRMS data files have been re-integrated, match the individual results
+    newDat=None
+    u=None
     for re in res:
-        u = filesDict[re[0]]
-        u.newData = re[1]
-        table.applyFunction(u.matchIntegratedDataToTable)
+
+        if newDat==None:
+            u=filesDict[re[0]]
+            newDat=re[1]
+        else:
+            nd=re[1]
+            for rowi, row in enumerate(nd):
+
+                for coli, col in enumerate(row):
+                    if newDat[rowi][coli]=="" and col!="":
+                        newDat[rowi][coli]=col
+
+    u.newData=newDat
+    table.applyFunction(u.matchIntegratedDataToTable)
 
     if writeConfig:
         processingParams=Bunch()
@@ -903,6 +897,21 @@ def _integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colload
     resDB.curs.close()
     resDB.conn.close()
 
+
+    elapsed = (time.time() - start) / 60.
+    hours = ""
+    if elapsed >= 60.:
+        hours = "%d hours " % (elapsed // 60)
+    mins = "%.2f mins" % (elapsed % 60.)
+    logging.info("Results saved after %s%s. Done"%(hours, mins))
+
+
+    p.close()
+    p.terminate()
+    p.join()
+
+    if selfObj.terminateJobs:
+        return
 
 #</editor-fold>
 
