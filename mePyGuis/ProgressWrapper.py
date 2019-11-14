@@ -284,49 +284,59 @@ def callBack(a="hello", b="world", qt=None):
 if __name__ == '__main__':
     app = QtGui.QApplication(sys.argv)
 
-    # create a ProgressWrapper with 3 progress bars, a log and 3 groups with individual files in each group
-    pw = ProgressWrapper(3, showProgressBars=True, showLog=False, showIndProgress=True,
-                         indGroups={"blanks": ["blank_1", "blank_2", "blank_3"],
-                                    "PH1": ["PH1_%d"%i for i in range(1, 28)],
-                                    "TRI5": ["TRI5_1", "TRI5_2", "TRI5_3", "TRI5_4"],
-                                    "test1":["Test1", "Test2"],
-                                    "test2":["Test2", "Test4"]})
-    pw.setCloseCallback(closeCallBack=CallBackMethod(_target=callBack, b="Joe", qt=pw).getRunMethod())
-    pw.show()
+    if True:
+        pw=ProgressWrapper(1, showProgressBars=True, showLog=True, showIndProgress=False)
+        pw.show()
 
-    pw.getCallingFunction(0)("text")("<p align='right' style='background-color: red;'>first element</p>\n\nfirst elementfirst elementfirst elementfirst elementfirst elementfirst element")
-    pw.getCallingFunction(1)("text")("second element")
-    pw.getCallingFunction(2)("text")("third element")
+        pw.getCallingFunction()("max")(5)
+        pw.getCallingFunction()("value")(2)
+        pw.getCallingFunction()("log")("Test")
+        pw.getCallingFunction()("text")("Test")
 
-    # set a maximum of 10 on the second progress bar and set its current value to 5 (50%)
-    pw.getCallingFunction(0)("max")(1.)
-    pw.setUntils({.25: "#E3E9E2", .35: "#D3D9D2", .65: "#52626D", .70: "#6C7B8B", .75: "#92A1AB", .9: "#CACDC9", 1.: "darkorange"}, 0)
-    pw.getCallingFunction(0)("value")(1.)
-    pw.getCallingFunction(1)("max")(10)
-    pw.setUntils({.25: "#E3E9E2", .35: "#D3D9D2", .65: "#52626D", .70: "#6C7B8B", .75: "#92A1AB", .9: "#CACDC9", 1.: "darkorange"}, 1)
-    pw.getCallingFunction(1)("value")(3)
-    pw.getCallingFunction(2)("max")(10)
-    pw.setUntils({.25: "#E3E9E2", .35: "#D3D9D2", .65: "#52626D", .70: "#6C7B8B", .75: "#92A1AB", .9: "#CACDC9", 1.: "darkorange"}, 2)
-    pw.getCallingFunction(2)("value")(5)
+    else:
+        # create a ProgressWrapper with 3 progress bars, a log and 3 groups with individual files in each group
+        pw = ProgressWrapper(3, showProgressBars=True, showLog=False, showIndProgress=True,
+                             indGroups={"blanks": ["blank_1", "blank_2", "blank_3"],
+                                        "PH1": ["PH1_%d"%i for i in range(1, 28)],
+                                        "TRI5": ["TRI5_1", "TRI5_2", "TRI5_3", "TRI5_4"],
+                                        "test1":["Test1", "Test2"],
+                                        "test2":["Test2", "Test4"]})
+        pw.setCloseCallback(closeCallBack=CallBackMethod(_target=callBack, b="Joe", qt=pw).getRunMethod())
+        pw.show()
 
-    pw.getCallingFunction()("appendtolog")("some log entry")
-    pw.getCallingFunction()("appendtolog")("another log entry")
-    pw.getCallingFunction()("appendtolog")("-----------------")
-    pw.getCallingFunction()("appendtolog")("")
-    pw.getCallingFunction()("appendtolog")("a severe exception occurred")
+        pw.getCallingFunction(0)("text")("<p align='right' style='background-color: red;'>first element</p>\n\nfirst elementfirst elementfirst elementfirst elementfirst elementfirst element")
+        pw.getCallingFunction(1)("text")("second element")
+        pw.getCallingFunction(2)("text")("third element")
 
-    # set color of file blank_2 to green and its status to finished
-    # note: this will affect two groups in total since they share this respective file
-    pw.setStatusColoru("blank_2", colorName="olivedrab")
-    pw.setStatusTextu("blank_2", text="File: %s\nStatus: %s" % ("blank_1", "finished"))
+        # set a maximum of 10 on the second progress bar and set its current value to 5 (50%)
+        pw.getCallingFunction(0)("max")(1.)
+        pw.setUntils({.25: "#E3E9E2", .35: "#D3D9D2", .65: "#52626D", .70: "#6C7B8B", .75: "#92A1AB", .9: "#CACDC9", 1.: "darkorange"}, 0)
+        pw.getCallingFunction(0)("value")(1.)
+        pw.getCallingFunction(1)("max")(10)
+        pw.setUntils({.25: "#E3E9E2", .35: "#D3D9D2", .65: "#52626D", .70: "#6C7B8B", .75: "#92A1AB", .9: "#CACDC9", 1.: "darkorange"}, 1)
+        pw.getCallingFunction(1)("value")(3)
+        pw.getCallingFunction(2)("max")(10)
+        pw.setUntils({.25: "#E3E9E2", .35: "#D3D9D2", .65: "#52626D", .70: "#6C7B8B", .75: "#92A1AB", .9: "#CACDC9", 1.: "darkorange"}, 2)
+        pw.getCallingFunction(2)("value")(5)
 
-    # set color of file blank_1 to red and status to failed
-    pw.getSetStatusColorSetter()("blank_1", colorName="firebrick")
-    pw.getSetStatusTextSetter()("blank_1", text="File: %s\nStatus: %s" % ("blank_1", "failed"))
+        pw.getCallingFunction()("appendtolog")("some log entry")
+        pw.getCallingFunction()("appendtolog")("another log entry")
+        pw.getCallingFunction()("appendtolog")("-----------------")
+        pw.getCallingFunction()("appendtolog")("")
+        pw.getCallingFunction()("appendtolog")("a severe exception occurred")
 
-    # set color of file PH1_4 to orange and status to running
-    pw.getCallingFunction()("statuscolor")("PH1_4", "Orange")
-    pw.getCallingFunction()("statustext")("PH1_4", text="File: %s\nStatus: %s" % ("PH1_4", "running"))
+        # set color of file blank_2 to green and its status to finished
+        # note: this will affect two groups in total since they share this respective file
+        pw.setStatusColoru("blank_2", colorName="olivedrab")
+        pw.setStatusTextu("blank_2", text="File: %s\nStatus: %s" % ("blank_1", "finished"))
+
+        # set color of file blank_1 to red and status to failed
+        pw.getSetStatusColorSetter()("blank_1", colorName="firebrick")
+        pw.getSetStatusTextSetter()("blank_1", text="File: %s\nStatus: %s" % ("blank_1", "failed"))
+
+        # set color of file PH1_4 to orange and status to running
+        pw.getCallingFunction()("statuscolor")("PH1_4", "Orange")
+        pw.getCallingFunction()("statustext")("PH1_4", text="File: %s\nStatus: %s" % ("PH1_4", "running"))
 
     sys.exit(app.exec_())
     

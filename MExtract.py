@@ -1004,6 +1004,51 @@ def interruptConvolutingOfFeaturePairs(selfObj, funcProc):
 
 
 
+def loadMZXMLFile(params):
+    #{"File":fi, "Group":group.name, "IntensityThreshold":intensityThrehold}
+    mzXML = Chromatogram()
+    mzXML.parse_file(params["File"], intensityCutoff=params["IntensityThreshold"])
+
+    ret={"File":params["File"], "Group":params["Group"], "IntensityThreshold":params["IntensityThreshold"]}
+    ret["mzXMLFile"]=mzXML
+
+    return ret
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6637,35 +6682,27 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
 
     def loadAllSamples(self):
+        from utilities import RunImapUnordered
+        intensityThreshold = float(QtGui.QInputDialog.getDouble(self, "Intensity threshold", "Please enter the minimal threshold used for importing the data", value=10000, min=0, decimals=0)[0])
+
+
         definedGroups = [t.data(QListWidgetItem.UserType).toPyObject() for t in natSort(self.ui.groupsList.findItems('*', QtCore.Qt.MatchWildcard), key=lambda x: str(x.data(QListWidgetItem.UserType).toPyObject().name))]
         self.loadedMZXMLs={}
 
-        ramBefore=memory_usage_psutil()
-
-        pw = ProgressWrapper()
-        pw.setMax(sum([len(group.files) for group in definedGroups]))
-        pw.setValue(0)
-        pw.show()
-
-        intensityThreshold = float(QtGui.QInputDialog.getDouble(self, "Intensity threshold", "Please enter the minimal threshold used for importing the data", value=10000, min=0, decimals=0)[0])
-
-        done=0
+        filesToLoad=[]
         for group in definedGroups:
             for i in range(len(group.files)):
                 fi = str(group.files[i]).replace("\\", "/")
 
-                pw.setValueu(done)
-                pw.setTextu("Loading group %s\nFile %s"%(group.name, fi))
+                filesToLoad.append({"File":fi, "Group":group.name, "IntensityThreshold":intensityThreshold})
 
-                mzXML = Chromatogram()
-                mzXML.parse_file(fi, intensityCutoff=intensityThreshold)
-                self.loadedMZXMLs[fi] = mzXML
-                self.loadedMZXMLs[group.files[i]] = mzXML
+        res=RunImapUnordered.runImapUnordered(loadMZXMLFile, filesToLoad, processes=min(cpu_count(), self.ui.cpuCores.value()), pw="createNewPW")
+        ## {"File":fi, "Group":group.name, "IntensityThreshold":intensityThrehold, "mzXMLFile": mzXML}
 
-                done=done+1
+        for re in res:
+            self.loadedMZXMLs[re["File"]]=re["mzXMLFile"]
+            self.loadedMZXMLs[re["Group"]] = re["mzXMLFile"]
 
-        pw.close()
-        ramAfter=memory_usage_psutil()
 
     def showCustomFeature(self):
         self.resultsExperimentChangedNew(askForFeature=True)
