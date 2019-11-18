@@ -1,12 +1,13 @@
 
 from utils import Bunch, getRatio
+from formulaTools import formulaTools
 
 from HCA import *
 
 from MSScan import MSScan
 from SGR import SGRGenerator
 
-
+from copy import deepcopy
 
 
 
@@ -49,7 +50,7 @@ def importMSScan(file, colNameMZ="MZ", colNameIntensity="Int", log=False):
 
 
 
-def matchPairs(msscan, file, ppm=0.5, mzDelta=1.00335484, nativePurity=0.9893, labeledPurity=0.99, isotopologs=[], log=False):
+def matchPairs(msscan, file, ppm=0.5, mzDelta=1.00335484, nativePurity=0.9893, labeledPurity=0.99, cns=[3,60], isotopologsCanBeOmitted=False, log=False):
 
     res=[]
 
@@ -57,7 +58,7 @@ def matchPairs(msscan, file, ppm=0.5, mzDelta=1.00335484, nativePurity=0.9893, l
         mzi=msscan.mz_list[i]
         inti=msscan.intensity_list[i]
 
-        for cn in range(3, 60):
+        for cn in range(cns[0], cns[1]):
             mzj=mzi+cn*mzDelta
             bounds=msscan.findMZ(mzj, ppm)
 
@@ -72,6 +73,9 @@ def matchPairs(msscan, file, ppm=0.5, mzDelta=1.00335484, nativePurity=0.9893, l
             intj=msscan.intensity_list[j]
             if log: print "Peak pair found: Cn: %2d,    MZs %9.5f / %9.5f,    Intensities: %8.1f / %8.1f  (%7.3f),     "%(cn, mzi, mzj, inti, intj, inti/intj)
 
+
+
+
             ipo=msscan.findMZ(mzi+mzDelta, ppm)
             jmo=msscan.findMZ(mzj-mzDelta, ppm)
 
@@ -85,14 +89,40 @@ def matchPairs(msscan, file, ppm=0.5, mzDelta=1.00335484, nativePurity=0.9893, l
             ipoRat=0
             if ipo[0]!=-1:
                 ipoRat=msscan.intensity_list[ipo[0]]/inti
-                if log: print "    -->  M +1 found. Ratio is %8.3f (should be %8.3f)"%(msscan.intensity_list[ipo[0]]/inti, getRatio(nativePurity, cn, 1))
+                if log: print "    -->  M +1 found. Ratio is %8.3f (should be %8.3f)"%(ipoRat, getRatio(nativePurity, cn, 1))
             jmoRat=0
             if jmo[0]!=-1:
                 jmoRat=msscan.intensity_list[jmo[0]]/intj
-                if log: print "    -->  M'-1 found. Ratio is %8.3f (should be %8.3f)"%(msscan.intensity_list[jmo[0]]/intj, getRatio(labeledPurity, cn, 1))
+                if log: print "    -->  M'-1 found. Ratio is %8.3f (should be %8.3f)"%(jmo, getRatio(labeledPurity, cn, 1))
 
-            #if ((ipoRat > 0 and abs(ipoRat - getRatio(nativePurity, cn, 1)) < 0.15) or ipoRat == 0) and ((jmoRat > 0 and abs(jmoRat - getRatio(labeledPurity, cn, 1)) < 0.15) or jmoRat == 0):
-            if ipoRat > 0 and abs(ipoRat - getRatio(nativePurity, cn, 1)) < 0.15 and jmoRat > 0 and abs(jmoRat - getRatio(labeledPurity, cn, 1)) < 0.15:
+
+
+
+            imo=msscan.findMZ(mzi-mzDelta, ppm)
+            jpo=msscan.findMZ(mzj+mzDelta, ppm)
+
+            if imo[0]!=imo[1]:
+                print "    --> found several peaks. As this usually never happens with FT-ICR data, it is not considered here yet. The signal (M+1) in the range with the highest abundance is used"
+                imo=msscan.getMostIntensePeak(imo[0], imo[1])
+            if jpo[0]!=jpo[1]:
+                print "    --> found several peaks. As this usually never happens with FT-ICR data, it is not considered here yet. The signal (M'-1) in the range with the highest abundance is used"
+                jpo=msscan.getMostIntensePeak(jpo[0], jpo[1])
+
+            imoRat=0
+            if imo[0]!=-1:
+                imoRat=msscan.intensity_list[imo[0]]/inti
+                if log: print "    -->  M -1 found. Ratio is %8.3f"%(imoRat)
+            jpoRat=0
+            if jpo[0]!=-1:
+                jpoRat=msscan.intensity_list[jpo[0]]/intj
+                if log: print "    -->  M'+1 found. Ratio is %8.3f"%(jpoRat)
+
+
+
+
+            if ( (    isotopologsCanBeOmitted and ((ipoRat > 0 and abs(ipoRat - getRatio(nativePurity, cn, 1)) < 0.15) or ipoRat == 0) and ((jmoRat > 0 and abs(jmoRat - getRatio(labeledPurity, cn, 1)) < 0.15) or jmoRat == 0)) or \
+                 (not isotopologsCanBeOmitted and ipoRat > 0 and abs(ipoRat - getRatio(nativePurity, cn, 1)) < 0.15 and jmoRat > 0 and abs(jmoRat - getRatio(labeledPurity, cn, 1)) < 0.15)  ) and \
+                    jpoRat < 0.05 and imoRat < 0.05:
                 res.append(Bunch(sampe=file, mz=mzi, mzl=mzj, intensity=inti, intensityl=intj, cn=cn, ipoRatio=ipoRat, jmoRatio=jmoRat))
 
 
@@ -100,60 +130,86 @@ def matchPairs(msscan, file, ppm=0.5, mzDelta=1.00335484, nativePurity=0.9893, l
 
 
 
-def annotateWithSFs(allRes, clusteringPPM=2, annotationPPM=0.5):
+def annotateWithSFs(allRes, clusteringPPM=2, annotationPPM=0.5,
+                    atoms=["C", "N", "H", "O", "P", "S"], atomsRange=[(0, 0), (0, 0), (0, 0), (0, 0), [0, 0], [0, 0]],
+                    useSevenGoldenRules=True):
     foundSFs = []
     sgr = SGRGenerator()
+    fT=formulaTools()
     for cn in set([r.cn for r in allRes]):
-        # print "\nCn:", cn
 
         hc = HierarchicalClustering(sorted([r for r in allRes if r.cn == cn], key=lambda x: x.mz),
                                     dist=lambda x, y: x.getValue() - y.getValue(),
                                     val=lambda x: x.mz, mean=lambda x, y: x / y, add=lambda x, y: x + y)
 
-        t = cutTreeSized(hc.getTree(), ppm=2)
-        # printTree(hc.getTree(), inlet="    ")
-        # print " -----"
+        t = cutTreeSized(hc.getTree(), ppm=clusteringPPM)
         for c in t:
             mzs = [r.getObject().mz for r in c.getKids()]
-            # print "  %5.3f ppm error (%8.5f-%8.5f): "%(abs(min(mzs)-max(mzs))*1000000./max(mzs), min(mzs), max(mzs)), mzs
 
+            sfs=[]
             meanmz = sum(mzs) / len(mzs)
-            sfs = sgr.findFormulas(meanmz + 1.007276, useAtoms=["C", "N", "H", "O", "P", "S"],
-                                   atomsRange=[(cn, cn), (0, 500), (0, 10000), (0, 400), [0, 10], [0, 20]],
-                                   useSevenGoldenRules=True, useSecondRule=True, ppm=annotationPPM)
 
-            sfs.extend(sgr.findFormulas(meanmz - 36.969402, useAtoms=["C", "N", "H", "O", "P", "S"],
-                                        atomsRange=[(cn, cn), (0, 500), (0, 10000), (0, 400), [0, 10], [0, 20]],
-                                        useSevenGoldenRules=True, useSecondRule=True, ppm=annotationPPM))
+            atoms=deepcopy(atoms)
+            atomsRange=deepcopy(atomsRange)
 
-            # for sf in sfs:
-            #    print "      --> ", sf
+            for elemi, elem in enumerate(atoms):
+                if elem=="C":
+                    atomsRange[elemi]=(cn, cn)
 
-            if len(sfs) > 0:
-                foundSFs.append(Bunch(sfs=sfs, meanMZ=meanmz, cn=cn, files={}))
+            a = sgr.findFormulas(meanmz + 1.007276, useAtoms=deepcopy(atoms),
+                                 atomsRange=deepcopy(atomsRange),
+                                 useSevenGoldenRules=useSevenGoldenRules, useSecondRule=True, ppm=annotationPPM)
+            for t in a:
+                mz=fT.calcMolWeight(fT.parseFormula(t))-1.007276
+                ppmError=(meanmz-mz)*1E6/meanmz
+                sfs.append(Bunch(sf=t, ion="[M-H]-", theoMZ=mz, ppmError=ppmError))
+
+            a = sgr.findFormulas(meanmz - 36.969402, useAtoms=deepcopy(atoms),
+                                 atomsRange=deepcopy(atomsRange),
+                                 useSevenGoldenRules=useSevenGoldenRules, useSecondRule=True, ppm=annotationPPM)
+            for t in a:
+                mz=fT.calcMolWeight(fT.parseFormula(t))+36.969402
+                ppmError=(meanmz-mz)*1E6/meanmz
+                sfs.append(Bunch(sf=t, ion="[M+Cl]-", theoMZ=mz, ppmError=ppmError))
+
+            foundSFs.append(Bunch(sfs=sfs, meanMZ=meanmz, cn=cn, files={}))
 
     return foundSFs
 
 
 
 
-def processMSScans(files, ppm=0.5, clusteringPPM=2):
+def processMSScans(files, ppm=0.5, clusteringPPM=2, annotationPPM=0.5,
+                   atoms=["C", "N", "H", "O", "P", "S"], atomsRange=[(0, 0), (0, 0), (0, 0), (0, 0), [0, 0], [0, 0]],
+                   useSevenGoldenRules=True,
+                   setFunctionMax=None, setFunctionValue=None, setFunctionText=None):
     allRes=[]
-    for fileName in files.keys():
+    if setFunctionMax!=None: setFunctionMax(len(files)+1)
+    if setFunctionValue!=None: setFunctionValue(0)
+    for i, fileName in enumerate(files.keys()):
+        if setFunctionText!=None: setFunctionText("Processing file %s"%fileName)
         msScan=files[fileName]
 
         res=matchPairs(msScan, fileName, ppm=ppm)
         print "%d signals pairs found in %s"%(len(res), fileName)
+        if setFunctionValue!=None: setFunctionValue(i)
         allRes.extend(res)
 
-    foundSFs=annotateWithSFs(allRes, clusteringPPM=clusteringPPM, annotationPPM=ppm)
+    if setFunctionText != None: setFunctionText("Combining results and generating sum formulas")
+    s = "".join(["%s(%d-%d)" % (atoms[i], atomsRange[i][0], atomsRange[i][1]) for i in range(len(atoms))])
+    print "Annotating elements with %s" % s
+    foundSFs=annotateWithSFs(allRes, clusteringPPM=clusteringPPM, annotationPPM=annotationPPM,
+                             atoms=deepcopy(atoms), atomsRange=deepcopy(atomsRange),
+                             useSevenGoldenRules=useSevenGoldenRules)
+    if setFunctionValue!=None: setFunctionValue(len(files)+1)
+
 
     return foundSFs
 
 
 
-def generateDataMatrix(files, foundSFs, ppm=0.5):
-    for file in files.keys():
+def generateDataMatrix(msScans, foundSFs, ppm=0.5):
+    for file in msScans.keys():
         msscan=msScans[file]
         for f in foundSFs:
             b=msscan.findMZ(f.meanMZ, ppm=ppm)
@@ -176,22 +232,22 @@ def generateDataMatrix(files, foundSFs, ppm=0.5):
 
                 f.files[file+"_L"] = msscan.intensity_list[b[0]]
 
-    return f
+    return foundSFs
 
 
-def writeMatrixToFile(outFile, foundSFs, ppm):
+def writeMatrixToFile(outFile, foundSFs, msScans, ppm):
     with open(outFile, "wb") as fout:
 
-        fout.write("\t".join(["Num", "SF", "Cn"]+[a[a.rfind("/")+1:].replace(".tsv", "") for a in files]+[a[a.rfind("/")+1:].replace(".tsv", "")+"_L" for a in files]))
+        fout.write("\t".join(["Num", "MeanMZ", "Cn", "SF_all", "SF"]+[a[a.rfind("/")+1:].replace(".tsv", "") for a in msScans.keys()]+[a[a.rfind("/")+1:].replace(".tsv", "")+"_L" for a in msScans.keys()]))
         fout.write("\n")
 
         ind=1
         for f in foundSFs:
-            fout.write("\t".join(["FTICR_%d"%ind, ";".join(f.sfs), "%d"%f.cn]))
+            fout.write("\t".join(["FTICR_%d"%ind, str(f.meanMZ), "%d"%f.cn, ";".join([str(sf) for sf in f.sfs]), "" if len(f.sfs)!=1 else f.sfs[0].sf]))
             fout.write("\t")
-            fout.write("\t".join([str(f.files[i]) for i in files]))
+            fout.write("\t".join([str(f.files[i]) for i in msScans.keys()]))
             fout.write("\t")
-            fout.write("\t".join([str(f.files[i+"_L"]) for i in files]))
+            fout.write("\t".join([str(f.files[i+"_L"]) for i in msScans.keys()]))
             fout.write("\n")
             ind+=1
 
@@ -237,7 +293,7 @@ if __name__=="__main__":
     print "%d signal pairs were annotated with unique sum formulas. %d non-unique sum formulas"%(len(set(foundSFs)), len([f for f in foundSFs if len(f.sfs)>1]))
 
     generateDataMatrix(msScans, foundSFs, ppm=ppm)
-    writeMatrixToFile("H:/190318_538_AlternariaII/FT Daten/results_MEII.txt", foundSFs, ppm=ppm)
+    writeMatrixToFile("H:/190318_538_AlternariaII/FT Daten/results_MEII.txt", foundSFs, msScans, ppm=ppm)
 
 
 

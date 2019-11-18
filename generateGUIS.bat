@@ -4,7 +4,7 @@ CALL c:\Python27\Lib\site-packages\PyQt4\pyuic4.bat -x .\mePyGuis\guis\TracerEdi
 CALL c:\Python27\Lib\site-packages\PyQt4\pyuic4.bat -x .\mePyGuis\guis\adductsEditor.ui               -o .\mePyGuis\adductsEditor.py
 CALL c:\Python27\Lib\site-packages\PyQt4\pyuic4.bat -x .\mePyGuis\guis\groupEditor.ui                 -o .\mePyGuis\groupEditor.py
 CALL c:\Python27\Lib\site-packages\PyQt4\pyuic4.bat -x .\mePyGuis\guis\heteroAtomEditor.ui            -o .\mePyGuis\heteroAtomEditor.py
-CALL c:\Python27\Lib\site-packages\PyQt4\pyuic4.bat -x .\mePyGuis\guis\TSVLoaderEditor.ui             -o .\offTopic\TSVLoaderEditor.py
+CALL c:\Python27\Lib\site-packages\PyQt4\pyuic4.bat -x .\mePyGuis\guis\TSVLoaderEditor.ui             -o .\mePyGuis\TSVLoaderEditor.py
 CALL c:\Python27\Lib\site-packages\PyQt4\pyuic4.bat -x .\mePyGuis\guis\ModuleSelectionWindow.ui       -o .\mePyGuis\ModuleSelectionWindow.py
 CALL c:\Python27\Lib\site-packages\PyQt4\pyuic4.bat -x .\mePyGuis\guis\calcIsotopeEnrichmentDialog.ui -o .\mePyGuis\calcIsotopeEnrichmentDialog.py
 
