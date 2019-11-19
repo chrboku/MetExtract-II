@@ -177,7 +177,13 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         self.results.clear()
 
+        item=QtGui.QTreeWidgetItem(["Distribution PPM Error"])
+        item.data=Bunch(type="PPMErrorGenerated")
+        self.results.addTopLevelItem(item)
+
         for i, re in enumerate(sorted(foundSFs, key=lambda sf:sf.meanMZ)):
+            ## re=Bunch(sfs=sfs, meanMZ=meanmz, cn=cn, files={})
+            re.type="SignalPair"
             sfShow=""
             if len(re.sfs) == 1:
                 sfShow=re.sfs[0].ion.replace("M", re.sfs[0].sf)
@@ -187,7 +193,7 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
             item.data=re
 
             for sf in re.sfs:
-                ## sf=t, ion="[M+Cl]-", theoMZ=mz, ppmError=ppmError
+                ## re.sfs=[Bunch(sf=t, ion="[M+Cl]-", theoMZ=mz, ppmError=ppmError), ...]
                 itemKid=QtGui.QTreeWidgetItem([sf.ion, sf.sf, "%.3f"%sf.ppmError])
                 itemKid.data=re
                 item.addChild(itemKid)
@@ -238,7 +244,6 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                 self.samplesModel.appendRow(item)
 
-
     def clearPlot(self, twinxs=1):
         if twinxs==0:
             twinxs=1
@@ -274,20 +279,19 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
             else:
                 ax.set_xlim(xlim[0], xlim[1])
 
-
     def drawCanvas(self):
         self.pl.fig.tight_layout()
         self.pl.canvas.draw()
 
-    def drawPlot(self, x=range(10), y=range(1, 11), color="lightgrey",
+    def drawPlot(self, x=range(10), y=range(1, 11), color="lightgrey", marker=".", linestyle="solid",
                  xlab="MZ", ylab="Intensity [counts]", title="",
-                 twinxsindex=1):
+                 twinxsindex=0):
         try:
             ax = self.pl.twinxs[twinxsindex]
             ax.set_title(title)
             ax.set_xlabel(xlab)
             ax.set_ylabel(ylab)
-            ax.plot(x, y, color=color)
+            ax.plot(x, y, color=color, marker=marker, linestyle=linestyle)
 
         except Exception as ex:
             logging.warning("Exception caught", ex)
@@ -307,71 +311,109 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
         selIndsSamples=[index.row() for index in self.loadedSamples.selectedIndexes()]
         selectedResults= self.results.selectedItems()
 
-        self.clearPlot(twinxs=max(1, min(len(selIndsSamples), 5)))
-        shownSample=0
-        zoom = True
-        for rowi in range(self.samplesModel.rowCount()):
-            if rowi in selIndsSamples:
-                x1 = []
-                y1 = []
-                x1a = []
-                y1a = []
-                x2 = []
-                y2 = []
-                x3 = []
-                y3 = []
 
-                item = self.samplesModel.item(rowi)
-                data=item.data().toPyObject()
+        types=set()
+        for selectedResult in selectedResults:
+            types.add(selectedResult.data.type)
 
-                for j in range(len(data.msScan.mz_list)):
-                    mz=data.msScan.mz_list[j]
+        if len(types)>1:
+            QtGui.QMessageBox.warning(self, "MetExtract - FT-ICR modul",
+                                      "Error: Different results cannot be visualized at the same time",
+                                      QtGui.QMessageBox.Ok)
+        elif len(types)==0:
+            return
+        elif "SignalPair" in types:
+                            self.clearPlot(twinxs=max(1, min(len(selIndsSamples), 5)))
+                            shownSample=0
+                            zoom = True
+                            for rowi in range(self.samplesModel.rowCount()):
+                                if rowi in selIndsSamples:
+                                    x1 = []
+                                    y1 = []
+                                    x1a = []
+                                    y1a = []
+                                    x2 = []
+                                    y2 = []
+                                    x3 = []
+                                    y3 = []
 
-                    used=False
-                    for itemSF in selectedResults:
-                        b=itemSF.data
-                        for cn in range(0-50, b.cn+51):
-                            if abs(mz-b.meanMZ-cn*1.00335484)*1E6/mz < matchppm:
-                                used=True
-                                x2.append(mz);x2.append(mz);x2.append(mz)
-                                y2.append(0);y2.append(data.msScan.intensity_list[j]);y2.append(0)
+                                    item = self.samplesModel.item(rowi)
+                                    data=item.data().toPyObject()
 
-                    if False:
-                        for tlii in range(self.results.topLevelItemCount()):
-                            tli=self.results.topLevelItem(tlii)
-                            bl=tli.data
-                            for cn in [-2,-1,0,1,2,bl.cn-2,bl.cn-1,bl.cn,bl.cn+1,bl.cn+2]:
-                                if abs(mz-bl.meanMZ-cn*1.00335484)*1E6/mz < matchppm:
-                                    used=True
-                                    x1a.append(mz);x1a.append(mz);x1a.append(mz)
-                                    y1a.append(0);y1a.append(data.msScan.intensity_list[j]);y1a.append(0)
-                    if not used:
-                        x1.append(mz);x1.append(mz);x1.append(mz)
-                        y1.append(0);y1.append(data.msScan.intensity_list[j]);y1.append(0)
+                                    for j in range(len(data.msScan.mz_list)):
+                                        mz=data.msScan.mz_list[j]
 
-                for itemSF in selectedResults:
-                    b = itemSF.data
-                    x3.append(b.meanMZ);x3.append(b.meanMZ);x3.append(b.meanMZ)
-                    y3.append(0);y3.append(1.1*max(y2 if len(y2)>0 else y1));y3.append(0)
-                    x3.append(b.meanMZ+b.cn*1.00335484);x3.append(b.meanMZ+b.cn*1.00335484);x3.append(b.meanMZ+b.cn*1.00335484)
-                    y3.append(0);y3.append(1.1*max(y2 if len(y2)>0 else y1));y3.append(0)
-                self.drawPlot(x1,y1, color="whitesmoke" if len(x2)>0 else "lightgrey", title=data.fileName, twinxsindex=shownSample%5)
-                self.drawPlot(x1a,y1a, color="Slategrey" if len(x2)>0 else "lightgrey", title=data.fileName, twinxsindex=shownSample%5)
-                self.drawPlot(x3, y3, color="Dodgerblue", title=data.fileName, twinxsindex=shownSample%5)
-                self.drawPlot(x2, y2, color="Firebrick", title=data.fileName, twinxsindex=shownSample%5)
+                                        used=False
+                                        for itemSF in selectedResults:
+                                            b=itemSF.data
+                                            for cn in range(0-50, b.cn+51):
+                                                if abs(mz-b.meanMZ-cn*1.00335484)*1E6/mz < matchppm:
+                                                    used=True
+                                                    x2.append(mz);x2.append(mz);x2.append(mz)
+                                                    y2.append(0);y2.append(data.msScan.intensity_list[j]);y2.append(0)
 
-                if zoom and len(x2) > 0:
-                    ylim = (max(y2 + y3) * -0.05, max(y2 + y3) * 1.05)
-                    self.setLims(ylim=ylim, twinxsind=shownSample%5)
-                x2all.extend(x2)
-                x3all.extend(x3)
-                shownSample=shownSample+1
+                                        if False:
+                                            for tlii in range(self.results.topLevelItemCount()):
+                                                tli=self.results.topLevelItem(tlii)
+                                                if tli.data.type=="SignalPair":
+                                                    bl=tli.data
+                                                    for cn in [-2,-1,0,1,2,bl.cn-2,bl.cn-1,bl.cn,bl.cn+1,bl.cn+2]:
+                                                        if abs(mz-bl.meanMZ-cn*1.00335484)*1E6/mz < matchppm:
+                                                            used=True
+                                                            x1a.append(mz);x1a.append(mz);x1a.append(mz)
+                                                            y1a.append(0);y1a.append(data.msScan.intensity_list[j]);y1a.append(0)
+                                        if not used:
+                                            x1.append(mz);x1.append(mz);x1.append(mz)
+                                            y1.append(0);y1.append(data.msScan.intensity_list[j]);y1.append(0)
 
-        if zoom and len(x2all) > 0:
-            for i in range(len(self.pl.twinxs)):
-                xlim = (min(x2all + x3all) - 3.5, max(x2all + x3all) + 3.5)
-                self.setLims(xlim=xlim, twinxsind=i)
-        self.drawCanvas()
+                                    for itemSF in selectedResults:
+                                        b = itemSF.data
+                                        x3.append(b.meanMZ);x3.append(b.meanMZ);x3.append(b.meanMZ)
+                                        y3.append(0);y3.append(1.1*max(y2 if len(y2)>0 else y1));y3.append(0)
+                                        x3.append(b.meanMZ+b.cn*1.00335484);x3.append(b.meanMZ+b.cn*1.00335484);x3.append(b.meanMZ+b.cn*1.00335484)
+                                        y3.append(0);y3.append(1.1*max(y2 if len(y2)>0 else y1));y3.append(0)
+                                    self.drawPlot(x1,y1, color="whitesmoke" if len(x2)>0 else "lightgrey", title=data.fileName, twinxsindex=shownSample%5)
+                                    self.drawPlot(x1a,y1a, color="Slategrey" if len(x2)>0 else "lightgrey", title=data.fileName, twinxsindex=shownSample%5)
+                                    self.drawPlot(x3, y3, color="Dodgerblue", title=data.fileName, twinxsindex=shownSample%5)
+                                    self.drawPlot(x2, y2, color="Firebrick", title=data.fileName, twinxsindex=shownSample%5)
+
+                                    if zoom and len(x2) > 0:
+                                        ylim = (max(y2 + y3) * -0.05, max(y2 + y3) * 1.05)
+                                        self.setLims(ylim=ylim, twinxsind=shownSample%5)
+                                    x2all.extend(x2)
+                                    x3all.extend(x3)
+                                    shownSample=shownSample+1
+
+                            if zoom and len(x2all) > 0:
+                                for i in range(len(self.pl.twinxs)):
+                                    xlim = (min(x2all + x3all) - 3.5, max(x2all + x3all) + 3.5)
+                                    self.setLims(xlim=xlim, twinxsind=i)
+                            self.drawCanvas()
+        elif "PPMErrorGenerated" in types:
+                            self.clearPlot(twinxs=1)
+
+                            xu=[]
+                            yu=[]
+                            xnu=[]
+                            ynu=[]
+                            for tlii in range(self.results.topLevelItemCount()):
+                                tli = self.results.topLevelItem(tlii)
+                                if tli.data.type == "SignalPair":
+                                    b = tli.data
+                                    for sf in b.sfs:
+                                        if len(b.sfs)==1:
+                                            xu.append(b.meanMZ)
+                                            yu.append(sf.ppmError)
+                                        else:
+                                            xnu.append(b.meanMZ)
+                                            ynu.append(sf.ppmError)
+
+                            self.drawPlot(xu, yu, color="Firebrick", linestyle="None",
+                                          title="PPM Error generated sum formulas\n(mean from all samples)", xlab="MZ", ylab="PPM Error")
+                            self.drawPlot(xnu, ynu, color="Dodgerblue", linestyle="None")
+                            self.pl.twinxs[0].axhline(y=  matchppm, color="black")
+                            self.pl.twinxs[0].axhline(y= -matchppm, color="black")
+                            self.drawCanvas()
 
 
 
