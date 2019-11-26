@@ -44,13 +44,31 @@ class ProgressWrapper(QtGui.QDialog):
             self.texts = []
             self.ps = []
 
+            p = QtGui.QScrollArea()
+            p.setStyleSheet("QScrollArea { border-width: 0px;border-style: solid;border-color: rgb(170, 170, 170);}")
+            p.setWidgetResizable(True)
+            p.setVerticalScrollBarPolicy(2)
+            p.setHorizontalScrollBarPolicy(1)
+            #p.setMaximumHeight(min(900, 35*len(indGroups))-(10 if len(indGroups)>1 else 0))
+            #p.setMinimumHeight(min(50, 35 * len(indGroups)) - (10 if len(indGroups) > 1 else 0))
+            p.setContentsMargins(0, 0, 0, 0)
+            l.addWidget(p)
+
+            k = QtGui.QWidget()
+            k.setContentsMargins(0, 0, 0, 0)
+            p.setWidget(k)
+
+            o = QtGui.QGridLayout(k)
+            o.setContentsMargins(0, 0, 0, 0)
+
             for pw in range(pwCount):
                 text = QtGui.QLabel("#%d" % pw)
-                l.addWidget(text)
+                text.setWordWrap(True);
+                o.addWidget(text)
                 self.texts.append(text)
 
                 p = ColoredProgressBar()
-                l.addWidget(p)
+                o.addWidget(p)
                 self.ps.append(p)
 
         self.hasIndFileGroups = False
@@ -68,7 +86,8 @@ class ProgressWrapper(QtGui.QDialog):
             p.setWidgetResizable(True)
             p.setVerticalScrollBarPolicy(2)
             #p.setMaximumHeight(min(900, 35*len(indGroups))-(10 if len(indGroups)>1 else 0))
-            p.setMinimumHeight(min(600, 35*len(indGroups))-(10 if len(indGroups)>1 else 0))
+            p.setMinimumHeight(min(200, 35*len(indGroups))-(10 if len(indGroups)>1 else 0))
+            p.setMinimumWidth(400)
             p.setContentsMargins(0,0,0,0)
             l.addWidget(p)
 
@@ -139,6 +158,9 @@ class ProgressWrapper(QtGui.QDialog):
 
         self.closeCallBack=closeCallback
         self.skipCallBack=skipCallBack
+
+        self.setMinimumHeight(50)
+        self.setMinimumWidth(600)
 
     def closeEvent(self, event):
         if not self.skipCallBack and self.closeCallBack!=None:
@@ -284,7 +306,7 @@ def callBack(a="hello", b="world", qt=None):
 if __name__ == '__main__':
     app = QtGui.QApplication(sys.argv)
 
-    if True:
+    if False:
         pw=ProgressWrapper(1, showProgressBars=True, showLog=True, showIndProgress=False)
         pw.show()
 
@@ -295,7 +317,7 @@ if __name__ == '__main__':
 
     else:
         # create a ProgressWrapper with 3 progress bars, a log and 3 groups with individual files in each group
-        pw = ProgressWrapper(3, showProgressBars=True, showLog=False, showIndProgress=True,
+        pw = ProgressWrapper(13, showProgressBars=True, showLog=False, showIndProgress=True,
                              indGroups={"blanks": ["blank_1", "blank_2", "blank_3"],
                                         "PH1": ["PH1_%d"%i for i in range(1, 28)],
                                         "TRI5": ["TRI5_1", "TRI5_2", "TRI5_3", "TRI5_4"],
@@ -304,7 +326,7 @@ if __name__ == '__main__':
         pw.setCloseCallback(closeCallBack=CallBackMethod(_target=callBack, b="Joe", qt=pw).getRunMethod())
         pw.show()
 
-        pw.getCallingFunction(0)("text")("<p align='right' style='background-color: red;'>first element</p>\n\nfirst elementfirst elementfirst elementfirst elementfirst elementfirst element")
+        pw.getCallingFunction(0)("text")("<p align='right' style='background-color: red;'>first element</p>\n\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.")
         pw.getCallingFunction(1)("text")("second element")
         pw.getCallingFunction(2)("text")("third element")
 

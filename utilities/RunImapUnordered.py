@@ -1,18 +1,16 @@
-from utils import Bunch, CallBackMethod
-
-from multiprocessing import Pool, Manager, Queue
+from multiprocessing import Pool
 from PyQt4 import QtGui
 import time
 
 
-from mePyGuis import ProgressWrapper
 
-def runImapUnordered(functionToCall, parameters, processes=1, pw=None):
+def runImapUnordered(functionToCall, parameters, processes=1, pw=None, header=""):
 
     # initialise multiprocessing queue
     p = Pool(processes=processes, maxtasksperchild=1) # only in python >=2.7; experimental
 
     if pw == "createNewPW":
+        from mePyGuis import ProgressWrapper
         pw=ProgressWrapper.ProgressWrapper(1, showProgressBars=True, showLog=False, showIndProgress=False)
         pw.show()
 
@@ -33,7 +31,7 @@ def runImapUnordered(functionToCall, parameters, processes=1, pw=None):
         if completed == len(parameters):
             loop = False
         else:
-            if pw!=None: pw.getCallingFunction()("text")("%d of %d processes completed\n(%d in parallel, %.2f minutes running)"%(completed, len(parameters), processes, (time.time()-startProc)/60.))
+            if pw!=None: pw.getCallingFunction()("text")("%s%s%d of %d processes completed\n(%d in parallel, %.2f minutes running)"%(header, "\n\n" if header!="" else "", completed, len(parameters), processes, (time.time()-startProc)/60.))
             if pw!=None: pw.getCallingFunction()("value")(completed)
 
             QtGui.QApplication.processEvents();
@@ -46,3 +44,18 @@ def runImapUnordered(functionToCall, parameters, processes=1, pw=None):
         ret.append(re)
 
     return ret
+
+
+
+def testFunction(params):
+    print "testFunction", str(params)
+
+    return 1
+
+if __name__=="__main__":
+    import sys
+    app = QtGui.QApplication(sys.argv)
+
+    runImapUnordered(testFunction, [{"id":1}, {"id":2}, {"id":3}], processes=4, pw="createNewPW", header="Test function")
+
+    sys.exit(app.exec_())

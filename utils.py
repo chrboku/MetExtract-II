@@ -624,9 +624,14 @@ def mapArrayToRefTimes(data, times, refTimes):
     return ref
 
 
-def mean(x):
+def mean(x, skipExtremes=0):
     if len(x) == 0:
         return None
+
+    if skipExtremes>0:
+        x=sorted(x)
+        n=len(x)
+        x=x[int(len(x)*skipExtremes):int(len(x)-len(x)*skipExtremes)]
 
     s = sum(x)
     return s / (len(x) * 1.)

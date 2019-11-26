@@ -1288,13 +1288,13 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             QtGui.QMessageBox.warning(self, "MetExtract",
                                       "%d failed to import correctly. Please resolve the following problems before continuing.\n\nFailed files:\n%s" % (len(failed), t),
                                       QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)
-            return False
+            return False, failed
 
         if len(commonFilterLines) == 0:
             QtGui.QMessageBox.information(self, "MetExtract",
                                           "No common scan events among files. Please use files with at least one identical measurement method",
                                           QtGui.QMessageBox.Ok)
-            return False
+            return False, []
 
         # Create list with positive mode scan events
         qslpos = QtCore.QStringList()
@@ -1873,7 +1873,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                 metaboliteGroupTreeItems={}
                 for metaboliteGroup in SQLSelectAsObject(self.experimentResults.curs, "SELECT DISTINCT 'metaboliteGroup' AS type, OGroup AS metaboliteGroupID FROM GroupResults ORDER BY rt"):
-                    metaboliteGroupTreeItem=QtGui.QTreeWidgetItem(["%d"%metaboliteGroup.metaboliteGroupID])
+                    metaboliteGroupTreeItem=QtGui.QTreeWidgetItem(["%s"%metaboliteGroup.metaboliteGroupID])
                     metaboliteGroupTreeItem.bunchData=metaboliteGroup
                     self.ui.resultsExperiment_TreeWidget.addTopLevelItem(metaboliteGroupTreeItem)
                     metaboliteGroupTreeItems[metaboliteGroup.metaboliteGroupID]=metaboliteGroupTreeItem
@@ -1952,6 +1952,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                 ##TODO finish that
         except Exception as e:
+            import traceback
+            traceback.print_exc()
+            logging.error(str(traceback))
+
             logging.error("Multiple file results could not be fetched correctly: "+e.message)
             pass
 
@@ -6696,7 +6700,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                 filesToLoad.append({"File":fi, "Group":group.name, "IntensityThreshold":intensityThreshold})
 
-        res=RunImapUnordered.runImapUnordered(loadMZXMLFile, filesToLoad, processes=min(cpu_count(), self.ui.cpuCores.value()), pw="createNewPW")
+        res=RunImapUnordered.runImapUnordered(loadMZXMLFile, filesToLoad, processes=int(min(cpu_count()/2, self.ui.cpuCores.value())), pw="createNewPW")
         ## {"File":fi, "Group":group.name, "IntensityThreshold":intensityThrehold, "mzXMLFile": mzXML}
 
         for re in res:
@@ -6769,6 +6773,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 for i in range(len(group.files)):
                     fi = str(group.files[i]).replace("\\", "/")
                     a=fi[fi.rfind("/") + 1:fi.find(".mzXML")]
+                    print a
                     if pi.scanEvent in self.loadedMZXMLs[fi].getFilterLines(includeMS1=True, includeMS2=False, includePosPolarity=True, includeNegPolarity=True):
 
                         eic, times, scanIds, mzs=self.loadedMZXMLs[fi].getEIC(pi.mz, ppm=ppm, filterLine=pi.scanEvent)

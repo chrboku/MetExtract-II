@@ -172,7 +172,10 @@ class TSVLoaderEdit(QtGui.QDialog, Ui_Dialog):
         self.reject()
 
     def dialogFin(self):
-        self.accept()
+        if len(self.selectedFiles)==0:
+            self.reject()
+        else:
+            self.accept()
 
     def executeDialog(self):
         self.loadFiles()

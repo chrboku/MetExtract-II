@@ -7,25 +7,22 @@ import logging
 import LoggingSetup
 LoggingSetup.LoggingSetup.Instance().initLogging()
 
+import os
+
 
 from formulaTools import formulaTools
 from mePyGuis.FTICRWindow import Ui_MainWindow
 from PyQt4 import QtGui, QtCore
-from utils import Bunch, get_main_dir, is_int, is_float
-from multiprocessing import cpu_count
+from utils import Bunch, mean
 from mePyGuis.ProgressWrapper import ProgressWrapper
-from multiprocessing import Pool, freeze_support, cpu_count, Manager
 
 
 
 #<editor-fold desc="### MatPlotLib imports and setup">
 import matplotlib
-import matplotlib.pyplot as plt
-from matplotlib.ticker import ScalarFormatter
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
-from matplotlib.cm import get_cmap
 
 matplotlib.rcParams['savefig.dpi'] = 300
 font = {'size': 16}
@@ -52,32 +49,6 @@ def noaxis(ax):
 #style.use('ggplot')
 #</editor-fold>
 
-def clearPlot(plt, setXtoZero=False):
-    for ax in plt.twinxs:
-        plt.fig.delaxes(ax)
-    plt.axes = plt.fig.add_subplot(111)
-
-    simpleaxis(plt.axes)
-    if setXtoZero:
-        plt.axes.spines['bottom'].set_position('zero')
-
-    plt.axes.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
-    plt.twinxs = [plt.axes]
-def drawCanvas(plt, ylim=None, xlim=None):
-
-    for ax in plt.twinxs:
-        if ylim!=None:
-            if len(ylim) == 1:
-                ax.set_ylim(ylim[0])
-            elif len(ylim) == 2:
-                ax.set_ylim(ylim[0], ylim[1])
-        if xlim!=None:
-            if len(xlim) == 1:
-                ax.set_xlim(xlim[0])
-            else:
-                ax.set_xlim(xlim[0], xlim[1])
-
-    plt.canvas.draw()
 
 
 class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
@@ -85,6 +56,7 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
         logging.info("MetExtract II (module FTICRExtract)")
 
         self.fT=formulaTools()
+        self.fticr=FTICR.FTICRProcessing()
 
         QtGui.QMainWindow.__init__(self, parent)
         self.setupUi(self)
@@ -98,10 +70,15 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.loadedSamples.selectionModel().selectionChanged.connect(self.draw)
         self.results.itemSelectionChanged.connect(self.draw)
 
+        self.actionNew_processing.triggered.connect(self.newProcessing)
         self.actionExit.triggered.connect(self.exitApp)
-        self.actionLoad_samples.triggered.connect(self.loadSamples)
-
+        self.loadSamplesTSVButton.clicked.connect(self.loadSamplesTSV)
+        self.loadSamplesMZXMLButton.clicked.connect(self.loadSamplesMZXML)
         self.process.clicked.connect(self.processSamples)
+        self.stackedWidget.setCurrentIndex(0)
+
+        self.dbs=[]
+        self.addDB.clicked.connect(self.addSFDB)
 
         #Setup plot
         #http://eli.thegreenplace.net/2009/01/20/matplotlib-with-pyqt-guis/
@@ -118,6 +95,130 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.result_MassSpectrum.setLayout(vbox)
         self.clearPlot()
 
+
+
+    def newProcessing(self):
+        if self.samplesModel.rowCount() > 0 and \
+                        QtGui.QMessageBox.question(self, "MetExtract",
+                                                   "Do you want to discard the already loaded and processed samples? ",
+                                                   QtGui.QMessageBox.Yes | QtGui.QMessageBox.No) == QtGui.QMessageBox.Yes:
+            self.samplesModel = QtGui.QStandardItemModel()
+            self.loadedSamples.setModel(self.samplesModel)
+            self.loadedSamples.selectionModel().selectionChanged.connect(self.draw)
+
+            model = QtGui.QStandardItemModel()
+            self.DBs.setModel(model)
+
+            self.dbs=[]
+            self.clearPlot(twinxs=1)
+            self.drawCanvas()
+
+            self.stackedWidget.setCurrentIndex(0)
+
+
+
+    def addSFDB(self):
+        dialog = TSVLoaderEdit(
+            mapping={"Name": "Name", "Sum formula": "SumFormula"},
+            order=["Name", "Sum formula"])
+
+        dialog.setTitle("Select sum formula database file(s)")
+        dialog.setDescription("Select sum formula database file(s)")
+        dialog.setWindowTitle("Select sum formula database file(s)")
+        dialog.resize(560, 80)
+
+        if dialog.executeDialog() == QtGui.QDialog.Accepted:
+            mappingInfo = dialog.getUserSelectedMapping()
+
+            model = QtGui.QStandardItemModel()
+            self.DBs.setModel(model)
+
+            for filename in dialog.getUserSelectedFile():
+                filename = str(filename).replace("\\", "/")
+                f=filename[filename.rfind("/") + 1:]
+
+                imported=0
+
+                with open(filename, "rb") as fin:
+                    headers={}
+                    for rowi, row in enumerate(fin):
+                        cells=row.split("\t")
+                        if rowi==0:
+                            for celli, cell in enumerate(cells):
+                                headers[cell]=celli
+                        else:
+                            b=Bunch(DBName=f,
+                                    sumFormula=cells[headers[mappingInfo["Sum formula"]]],
+                                    name=cells[headers[mappingInfo["Name"]]])
+                            self.dbs.append(b)
+                            imported=imported+1
+
+                item = QtGui.QStandardItem("%s: %d entries"%(f, imported))
+                model.appendRow(item)
+
+
+    def loadSamplesTSV(self):
+
+        dialog = TSVLoaderEdit(
+            mapping={"mz": "MZ", "Intensity": "Int"},
+            order=["mz", "Intensity"])
+
+        dialog.setTitle("Select FT-ICR MS file(s)")
+        dialog.setDescription("Select FT-ICR MS file(s)")
+        dialog.setWindowTitle("Select FT-ICR MS file(s)")
+        dialog.resize(560, 80)
+
+        texts=[]
+
+        if dialog.executeDialog() == QtGui.QDialog.Accepted:
+            mappingInfo = dialog.getUserSelectedMapping()
+
+            for filename in dialog.getUserSelectedFile():
+                filename = str(filename).replace("\\", "/")
+
+                self.initDir = filename
+                self.initDir = self.initDir[:self.initDir.rfind("/")]
+
+                msScan = self.fticr.importMSScan(filename, colNameMZ=mappingInfo["mz"],
+                                                 colNameIntensity=mappingInfo["Intensity"])
+                mes="Read file '%s' with %d signals" % (filename, len(msScan.mz_list))
+                logging.info(mes)
+                texts.append(mes)
+
+                b = Bunch(fileName=filename[filename.rfind("/") + 1:], path=filename, color="Firebrick", msScan=msScan)
+                item = QtGui.QStandardItem()
+                item.setData(b)
+                item.setText(b.fileName)
+
+                self.samplesModel.appendRow(item)
+
+            self.stackedWidget.setCurrentIndex(1)
+
+    def loadSamplesMZXML(self):
+
+        texts=[]
+
+        filenames = QtGui.QFileDialog.getOpenFileNames(self, caption="Select mzXML files", directory=self.initDir,
+                                                       filter="mzXML (*.mzxml);;mzML (*.mzml);;All files (*.*)")
+        imported=0
+        for filename in filenames:
+            filename=str(filename).replace("\\", "/")
+            msScan = self.fticr.importMSScan(filename)
+            mes = "Read file '%s' with %d signals" % (filename, len(msScan.mz_list))
+            logging.info(mes)
+            texts.append(mes)
+
+            b = Bunch(fileName=filename[filename.rfind("/") + 1:], path=filename, color="Firebrick", msScan=msScan)
+            item = QtGui.QStandardItem()
+            item.setData(b)
+            item.setText(b.fileName)
+
+            self.samplesModel.appendRow(item)
+
+            imported=imported+1
+
+        if imported>0:
+            self.stackedWidget.setCurrentIndex(1)
 
     def processSamples(self):
 
@@ -139,10 +240,27 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
             QtGui.QMessageBox.warning(self, "MetExtract - FT-ICR modul", "Error: Results must be saved to a file. Please rerun the analysis and save it to a file", QtGui.QMessageBox.Ok)
             return
 
+        enr12C=self.enr12C.value()
+        enr13C=self.enr13C.value()
+        maxEnrDeviation=self.maxEnrDeviation.value()
+
         matchPPM=self.matchPPM.value()
         clusteringPPM=self.bracketingPPM.value()
         annotationPPM=self.annotationPPM.value()
 
+        adducts={}
+        if self.adduct_MmHm.isChecked():
+            adducts["[M-H]-"]=  -1.007276
+        if self.adduct_MpClm.isChecked():
+            adducts["[M+Cl]-"]= 34.969402
+        if self.adduct_MKm2Hm.isChecked():
+            adducts["[M+K-2H]-"]= 36.948606
+        if self.adduct_MNam2Hm.isChecked():
+            adducts["[M+Na-2H]-"]= 20.974666
+        if self.adduct_MpFAmHm.isChecked():
+            adducts["[M+FA-H]-"]= 44.998201
+        if self.adduct_MpBrm.isChecked():
+            adducts["[M+Br]-"]= 78.918885
 
         elemsMin=self.fT.parseFormula(str(self.SGRElements_min.text()))
         elemsMax=self.fT.parseFormula(str(self.SGRElements_max.text()))
@@ -161,34 +279,63 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         pw=ProgressWrapper()
         pw.show()
-        foundSFs = FTICR.processMSScans(msScans, ppm=matchPPM, clusteringPPM=clusteringPPM, annotationPPM=annotationPPM,
-                                        atoms=atoms, atomsRange=atomsRange,
+        foundSFs, averageMZErrors = self.fticr.processMSScans(
+                                        msScans,
+                                        enr12C=enr12C, enr13C=enr13C, maxEnrDeviation=maxEnrDeviation,
+                                        intensityThreshold=self.intensityThreshold.value(),
+                                        ppm=matchPPM, clusteringPPM=clusteringPPM, annotationPPM=annotationPPM,
+                                        atoms=atoms, atomsRange=atomsRange, adducts=adducts,
                                         useSevenGoldenRules=self.useSevenGoldenRules.checkState()==QtCore.Qt.Checked,
+                                        recalibrateWithUniqueSumFormulas=self.calibrate.checkState()==QtCore.Qt.Checked,
+                                        dbs=self.dbs,
                                         setFunctionMax=pw.getCallingFunction()("max"), setFunctionValue=pw.getCallingFunction()("value"), setFunctionText=pw.getCallingFunction()("text"))
-        logging.info("%d signal pairs were annotated with unique sum formulas. %d non-unique sum formulas" % (
-        len(set(foundSFs)), len([f for f in foundSFs if len(f.sfs) > 1])))
+        logging.info("%d signal pairs were annotated with unique sum formulas. %d non-unique sum formulas" % (len(set(foundSFs)), len([f for f in foundSFs if len(f.sfs) > 1])))
 
         logging.info("Generating data matrix")
-        FTICR.generateDataMatrix(msScans, foundSFs, ppm=matchPPM)
+        self.fticr.generateDataMatrix(msScans, foundSFs, ppm=matchPPM)
 
         logging.info("Saving data matrix (%s)"%saveFile)
-        FTICR.writeMatrixToFile(saveFile, foundSFs, msScans, ppm=matchPPM)
+        self.fticr.writeMatrixToFile(saveFile, foundSFs, msScans, ppm=matchPPM)
         pw.hide()
 
         self.results.clear()
+
+        item=QtGui.QTreeWidgetItem(["Calibration"])
+        item.data=Bunch(type="other")
+        for file in sorted(msScans.keys()):
+            item2=QtGui.QTreeWidgetItem([file, "%.3f"%(averageMZErrors[file]) if file in averageMZErrors.keys() else "-"])
+            item2.data=Bunch(type="other")
+            item.addChild(item2)
+        self.results.addTopLevelItem(item)
 
         item=QtGui.QTreeWidgetItem(["Distribution PPM Error"])
         item.data=Bunch(type="PPMErrorGenerated")
         self.results.addTopLevelItem(item)
 
+        item=QtGui.QTreeWidgetItem(["Enrichment variation"])
+        item.data=Bunch(type="EnrichmentVariation")
+        self.results.addTopLevelItem(item)
+
         for i, re in enumerate(sorted(foundSFs, key=lambda sf:sf.meanMZ)):
-            ## re=Bunch(sfs=sfs, meanMZ=meanmz, cn=cn, files={})
+            ## re=Bunch(sfs=sfs, dbs=dbs, meanMZ=meanmz, cn=cn, files={})
             re.type="SignalPair"
             sfShow=""
+
+            if len(re.dbs) == 1:
+                sfShow=re.dbs[0].name
+            elif len(re.dbs)>1:
+                sfShow=">1"
+
             if len(re.sfs) == 1:
-                sfShow=re.sfs[0].ion.replace("M", re.sfs[0].sf)
+                x=re.sfs[0].ion.replace("M", re.sfs[0].sf)
+                sfShow=x if len(re.dbs)==0 else "%s / %s" % (sfShow, x)
             elif len(re.sfs) > 1:
-                sfShow="> 1"
+                x=">1"
+                sfShow="> 1" if len(re.dbs)==0 else "%s / %s" % (sfShow, x)
+
+            if len(re.dbs)==0 and len(re.sfs)==0:
+                sfShow="-"
+
             item=QtGui.QTreeWidgetItem(["%.5f"%(re.meanMZ), "%d"%(re.cn), sfShow])
             item.data=re
 
@@ -198,7 +345,15 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
                 itemKid.data=re
                 item.addChild(itemKid)
 
+            for db in re.dbs:
+                ## Bunch(ion=adductName, dbName=db.DBName, name=db.name, ppmError=ppmError)
+                itemKid=QtGui.QTreeWidgetItem([db.ion, db.name, "%.3f"%db.ppmError])
+                itemKid.data=re
+                item.addChild(itemKid)
+
             self.results.addTopLevelItem(item)
+
+        self.stackedWidget.setCurrentIndex(2)
 
 
 
@@ -208,43 +363,7 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
     def exitApp(self):
         self.close()
 
-    def loadSamples(self):
-        if self.samplesModel.rowCount()>0 and \
-                        QtGui.QMessageBox.question(self, "MetExtract", "Do you want to keep the already loaded samples? ",
-                                      QtGui.QMessageBox.Yes | QtGui.QMessageBox.No) == QtGui.QMessageBox.No:
-            self.samplesModel=QtGui.QStandardItemModel()
-            self.loadedSamples.setModel(self.samplesModel)
-            self.loadedSamples.selectionModel().selectionChanged.connect(self.draw)
-
-        dialog = TSVLoaderEdit(
-            mapping={"mz": "MZ", "Intensity": "Int"},
-            order=["mz", "Intensity"])
-
-        dialog.setTitle("Select FT-ICR MS file(s)")
-        dialog.setDescription("Select FT-ICR MS file(s)")
-        dialog.setWindowTitle("Select FT-ICR MS file(s)")
-        dialog.resize(560, 80)
-
-        if dialog.executeDialog() == QtGui.QDialog.Accepted:
-            mappingInfo = dialog.getUserSelectedMapping()
-
-            for filename in dialog.getUserSelectedFile():
-                filename=str(filename).replace("\\","/")
-
-                self.initDir = filename
-                self.initDir = self.initDir[:self.initDir.rfind("/")]
-
-                msScan=FTICR.importMSScan(filename, colNameMZ=mappingInfo["mz"], colNameIntensity=mappingInfo["Intensity"])
-                logging.info("Read file '%s' with %d signals"%(filename, len(msScan.mz_list)))
-
-                b=Bunch(fileName=filename[filename.rfind("/")+1:], path=filename, color="Firebrick", msScan=msScan)
-                item=QtGui.QStandardItem()
-                item.setData(b)
-                item.setText(b.fileName)
-
-                self.samplesModel.appendRow(item)
-
-    def clearPlot(self, twinxs=1):
+    def clearPlot(self, twinxs=1, shareX=False, shareY=False):
         if twinxs==0:
             twinxs=1
         try:
@@ -258,7 +377,7 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         self.pl.twinxs=[]
         for i in range(1,twinxs+1):
-            ax = self.pl.fig.add_subplot(twinxs*100+10+i)
+            ax = self.pl.fig.add_subplot(twinxs*100+10+i)#, sharex=self.pl.twinxs[0] if shareX and i>1 else "None", sharey=self.pl.twinxs[0] if shareY and i>1 else "None")
 
             simpleaxis(ax)
             ax.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
@@ -298,10 +417,7 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
 
 
     def draw(self):
-        xlim, ylim=self.clearPlot()
-        if xlim[0]==0 and xlim[1]==1 and ylim[0]==0 and ylim[1]==1:
-            xlim=None
-            ylim=None
+        self.clearPlot()
 
         matchppm=self.matchPPM.value()
 
@@ -323,7 +439,7 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
         elif len(types)==0:
             return
         elif "SignalPair" in types:
-                            self.clearPlot(twinxs=max(1, min(len(selIndsSamples), 5)))
+                            self.clearPlot(twinxs=max(1, min(len(selIndsSamples), 5)), shareX=True)
                             shownSample=0
                             zoom = True
                             for rowi in range(self.samplesModel.rowCount()):
@@ -389,13 +505,19 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
                                     xlim = (min(x2all + x3all) - 3.5, max(x2all + x3all) + 3.5)
                                     self.setLims(xlim=xlim, twinxsind=i)
                             self.drawCanvas()
+
+
         elif "PPMErrorGenerated" in types:
-                            self.clearPlot(twinxs=1)
+                            self.clearPlot(twinxs=2)
 
                             xu=[]
                             yu=[]
                             xnu=[]
                             ynu=[]
+
+                            xei={}
+                            yei={}
+
                             for tlii in range(self.results.topLevelItemCount()):
                                 tli = self.results.topLevelItem(tlii)
                                 if tli.data.type == "SignalPair":
@@ -409,20 +531,89 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
                                             ynu.append(sf.ppmError)
 
                             self.drawPlot(xu, yu, color="Firebrick", linestyle="None",
-                                          title="PPM Error generated sum formulas\n(mean from all samples)", xlab="MZ", ylab="PPM Error")
-                            self.drawPlot(xnu, ynu, color="Dodgerblue", linestyle="None")
+                                          title="PPM Error generated sum formulas\n(mean from all samples)", xlab="MZ", ylab="PPM Error",
+                                          twinxsindex=0)
+                            self.drawPlot(xnu, ynu, color="Dodgerblue", linestyle="None",
+                                          title="PPM Error generated sum formulas\n(mean from all samples)", xlab="MZ", ylab="PPM Error",
+                                          twinxsindex=0)
                             self.pl.twinxs[0].axhline(y=  matchppm, color="black")
                             self.pl.twinxs[0].axhline(y= -matchppm, color="black")
+
+                            for tlii in range(self.results.topLevelItemCount()):
+                                tli = self.results.topLevelItem(tlii)
+                                if tli.data.type == "SignalPair":
+                                    b = tli.data
+
+                                    for file in b.isotopologRatios["mzError"].keys():
+                                        if file not in xei.keys():
+                                            xei[file]=[]
+                                            yei[file]=[]
+
+                                        xei[file].append(b.meanMZ)
+                                        yei[file].append(b.isotopologRatios["mzError"][file])
+
+                            for file in xei.keys():
+                                color="Firebrick"
+                                for selInd in selIndsSamples:
+                                    s=str(self.samplesModel.item(selInd).text())
+                                    if s.find(file)!=-1:
+                                        color="Dodgerblue"
+                                self.drawPlot(xei[file], yei[file], color=color, linestyle="solid",
+                                              title="PPM Error generated sum formulas\n(individual samples)", xlab="MZ", ylab="PPM Error",
+                                              twinxsindex=1)
+                            self.pl.twinxs[1].axhline(y=  matchppm, color="black")
+                            self.pl.twinxs[1].axhline(y= -matchppm, color="black")
+
+                            self.drawCanvas()
+
+
+        elif "EnrichmentVariation" in types:
+                            self.clearPlot(twinxs=2, shareX=True, shareY=True)
+
+                            xn=[]
+                            yn=[]
+                            xl=[]
+                            yl=[]
+
+                            for tlii in range(self.results.topLevelItemCount()):
+                                tli = self.results.topLevelItem(tlii)
+                                if tli.data.type == "SignalPair":
+                                    b = tli.data
+
+                                    for file in b.isotopologRatios["native"].keys():
+                                        xn.append(b.meanMZ)
+                                        yn.append(b.isotopologRatios["native"][file])
+
+                                    for file in b.isotopologRatios["labeled"].keys():
+                                        xl.append(b.meanMZ)
+                                        yl.append(b.isotopologRatios["labeled"][file])
+
+                            self.drawPlot(xn, yn, color="Firebrick", linestyle="None",
+                                          title="Error between theoretical ratio for native carbon isotopologs", xlab="MZ", ylab="Delta observed - theoretical (%%)",
+                                          twinxsindex=0)
+                            self.drawPlot(xl, yl, color="Firebrick", linestyle="None",
+                                          title="Error between theoretical ratio for 13C-labeled carbon isotopologs", xlab="MZ", ylab="Delta observed - theoretical (%%)",
+                                          twinxsindex=1)
+
+                            self.pl.twinxs[0].axhline(y=0, color="black")
+                            self.pl.twinxs[0].axhline(y= 0.05, color="slategrey")
+                            self.pl.twinxs[0].axhline(y=-0.05, color="slategrey")
+                            self.pl.twinxs[0].axhline(y=mean(yn, skipExtremes=0.1), color="Firebrick")
+                            #self.pl.twinxs[0].text(min(xn)*1.1, mean(yn, skipExtremes=0.1)+0.1, "Mean enrichment %.2f%%"%(100*mean(yn, skipExtremes=0.1)))
+
+
+                            self.pl.twinxs[1].axhline(y=0, color="black")
+                            self.pl.twinxs[1].axhline(y= 0.05, color="slategrey")
+                            self.pl.twinxs[1].axhline(y=-0.05, color="slategrey")
+                            self.pl.twinxs[1].axhline(y=mean(yl, skipExtremes=0.1), color="Firebrick")
+                            #self.pl.twinxs[1].text(min(xl) * 1.1, mean(yl, skipExtremes=0.1) + 0.1,"Mean enrichment %.2f%%" % (100 * mean(yl, skipExtremes=0.1)))
                             self.drawCanvas()
 
 
 
 
 
-
 if __name__=="__main__":
-    # add freeze support (required for multiprocessing)
-    freeze_support()
 
     import sys
 
@@ -433,6 +624,3 @@ if __name__=="__main__":
     x = app.exec_()
 
     sys.exit(x)
-
-    window=FTICRModuleWindow()
-    window.show()
