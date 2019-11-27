@@ -56,7 +56,7 @@ class FTICRProcessing:
                         msscan.mz_list.append(float(cells[headers[colNameMZ]]))
                         msscan.intensity_list.append(float(cells[headers[colNameIntensity]]))
 
-                self.log("File", file, "read.", len(msscan.mz_list), "signals in the file..")
+                self.log("File %s read. %dsignals in the file.."%(file, len(msscan.mz_list)))
 
             return msscan
 
