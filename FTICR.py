@@ -242,7 +242,7 @@ class FTICRProcessing:
 
 
     def processMSScans(self, msScans,
-                       enr12C=0.9893, enr13C=0.99, maxEnrDeviation=0.15,
+                       enr12C=0.9893, enr13C=0.99, maxEnrDeviation=0.15, checkIsotopologPattern=True,
                        ppm=0.5, clusteringPPM=2, annotationPPM=0.5,
                        intensityThreshold=0,
                        atoms=["C", "N", "H", "O", "P", "S"], atomsRange=[(0, 0), (0, 0), (0, 0), (0, 0), [0, 0], [0, 0]],
@@ -258,6 +258,7 @@ class FTICRProcessing:
         self.addToHistory("Enrichment native metabolite forms: %.3f%%"%(enr12C*100))
         self.addToHistory("Enrichment 13C-labeled metabolite forms: %.3f%%"%(enr13C*100))
         self.addToHistory("Minimum peak intensity (for M and M'): %d"%intensityThreshold)
+        self.addToHistory("Check isotopologs M+a and M'-1: %s"%(checkIsotopologPattern))
         self.addToHistory("Maximum enrichment deviation: +/- %.3f"%(maxEnrDeviation))
         self.addToHistory("Search for signal pairs maximum allowed error: %.1f ppm"%ppm)
         self.addToHistory("Clustering of found signals pairs among samples maximum allowed cluster size: %.1f ppm"%clusteringPPM)
@@ -276,7 +277,8 @@ class FTICRProcessing:
             if setFunctionText!=None: setFunctionText("Processing file %s"%fileName)
             msScan=msScans[fileName]
 
-            res=self.matchPairs(msScan, fileName, ppm=ppm, nativePurity=enr12C, labeledPurity=enr13C, maxEnrDeviation=maxEnrDeviation, intensityThreshold=intensityThreshold)
+            res=self.matchPairs(msScan, fileName, ppm=ppm, nativePurity=enr12C, labeledPurity=enr13C, maxEnrDeviation=maxEnrDeviation,
+                                intensityThreshold=intensityThreshold, isotopologsCanBeOmitted=not(checkIsotopologPattern))
             self.log("%d signals pairs found in %s"%(len(res), fileName))
             self.addToHistory("%d signals pairs found in %s"%(len(res), fileName))
             if setFunctionValue!=None: setFunctionValue(i)

@@ -281,7 +281,7 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
         pw.show()
         foundSFs, averageMZErrors = self.fticr.processMSScans(
                                         msScans,
-                                        enr12C=enr12C, enr13C=enr13C, maxEnrDeviation=maxEnrDeviation,
+                                        enr12C=enr12C, enr13C=enr13C, maxEnrDeviation=maxEnrDeviation, checkIsotopologPattern=self.checkIsotopologPattern.isChecked(),
                                         intensityThreshold=self.intensityThreshold.value(),
                                         ppm=matchPPM, clusteringPPM=clusteringPPM, annotationPPM=annotationPPM,
                                         atoms=atoms, atomsRange=atomsRange, adducts=adducts,

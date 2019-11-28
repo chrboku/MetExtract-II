@@ -187,16 +187,6 @@ The respective columns can be specified later in a separate dialog.&lt;/p&gt;
              <string>Process samples</string>
             </property>
             <layout class="QGridLayout" name="gridLayout_4">
-             <item row="1" column="1">
-              <widget class="QDoubleSpinBox" name="intensityThreshold">
-               <property name="maximum">
-                <double>100000000000.000000000000000</double>
-               </property>
-               <property name="value">
-                <double>1000000.000000000000000</double>
-               </property>
-              </widget>
-             </item>
              <item row="1" column="0">
               <widget class="QLabel" name="label_14">
                <property name="sizePolicy">
@@ -210,77 +200,14 @@ The respective columns can be specified later in a separate dialog.&lt;/p&gt;
                </property>
               </widget>
              </item>
-             <item row="7" column="2">
+             <item row="8" column="2">
               <widget class="QPushButton" name="process">
                <property name="text">
                 <string>Process</string>
                </property>
               </widget>
              </item>
-             <item row="0" column="0" colspan="2">
-              <widget class="QGroupBox" name="groupBox_7">
-               <property name="title">
-                <string>Labeling enrichment</string>
-               </property>
-               <layout class="QGridLayout" name="gridLayout_14">
-                <item row="1" column="0">
-                 <widget class="QLabel" name="label_12">
-                  <property name="text">
-                   <string>&lt;sup&gt;13&lt;/sup&gt;C-labeled</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="0" column="0">
-                 <widget class="QLabel" name="label_11">
-                  <property name="text">
-                   <string>Native</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="0" column="1">
-                 <widget class="QDoubleSpinBox" name="enr12C">
-                  <property name="decimals">
-                   <number>4</number>
-                  </property>
-                  <property name="singleStep">
-                   <double>0.001000000000000</double>
-                  </property>
-                  <property name="value">
-                   <double>0.989300000000000</double>
-                  </property>
-                 </widget>
-                </item>
-                <item row="1" column="1">
-                 <widget class="QDoubleSpinBox" name="enr13C">
-                  <property name="decimals">
-                   <number>4</number>
-                  </property>
-                  <property name="singleStep">
-                   <double>0.001000000000000</double>
-                  </property>
-                  <property name="value">
-                   <double>0.990000000000000</double>
-                  </property>
-                 </widget>
-                </item>
-                <item row="2" column="0">
-                 <widget class="QLabel" name="label_13">
-                  <property name="text">
-                   <string>Maximum deviation +-</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="2" column="1">
-                 <widget class="QDoubleSpinBox" name="maxEnrDeviation">
-                  <property name="value">
-                   <double>0.150000000000000</double>
-                  </property>
-                 </widget>
-                </item>
-               </layout>
-              </widget>
-             </item>
-             <item row="0" column="2" rowspan="7">
+             <item row="0" column="2" rowspan="8">
               <widget class="QGroupBox" name="groupBox_4">
                <property name="title">
                 <string>Sum formula generation</string>
@@ -469,6 +396,79 @@ The respective columns can be specified later in a separate dialog.&lt;/p&gt;
                </layout>
               </widget>
              </item>
+             <item row="0" column="0" colspan="2">
+              <widget class="QGroupBox" name="groupBox_7">
+               <property name="title">
+                <string>Labeling enrichment</string>
+               </property>
+               <layout class="QGridLayout" name="gridLayout_14">
+                <item row="1" column="0">
+                 <widget class="QLabel" name="label_12">
+                  <property name="text">
+                   <string>&lt;sup&gt;13&lt;/sup&gt;C-labeled</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="0" column="0">
+                 <widget class="QLabel" name="label_11">
+                  <property name="text">
+                   <string>Native</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="0" column="1">
+                 <widget class="QDoubleSpinBox" name="enr12C">
+                  <property name="decimals">
+                   <number>4</number>
+                  </property>
+                  <property name="singleStep">
+                   <double>0.001000000000000</double>
+                  </property>
+                  <property name="value">
+                   <double>0.989300000000000</double>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="1">
+                 <widget class="QDoubleSpinBox" name="enr13C">
+                  <property name="decimals">
+                   <number>4</number>
+                  </property>
+                  <property name="singleStep">
+                   <double>0.001000000000000</double>
+                  </property>
+                  <property name="value">
+                   <double>0.990000000000000</double>
+                  </property>
+                 </widget>
+                </item>
+                <item row="2" column="0">
+                 <widget class="QLabel" name="label_13">
+                  <property name="text">
+                   <string>Maximum deviation +-</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="2" column="1">
+                 <widget class="QDoubleSpinBox" name="maxEnrDeviation">
+                  <property name="value">
+                   <double>0.150000000000000</double>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QDoubleSpinBox" name="intensityThreshold">
+               <property name="maximum">
+                <double>100000000000.000000000000000</double>
+               </property>
+               <property name="value">
+                <double>1000000.000000000000000</double>
+               </property>
+              </widget>
+             </item>
              <item row="2" column="0">
               <widget class="QLabel" name="label_9">
                <property name="text">
@@ -483,10 +483,14 @@ The respective columns can be specified later in a separate dialog.&lt;/p&gt;
                </property>
               </widget>
              </item>
-             <item row="3" column="0">
-              <widget class="QLabel" name="label_10">
+             <item row="5" column="0" colspan="2">
+              <widget class="QCheckBox" name="calibrate">
                <property name="text">
-                <string>Bracketing ppm</string>
+                <string>Calibrate with average MZ error based
+on generated, unique sum formulas</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
                </property>
               </widget>
              </item>
@@ -497,11 +501,17 @@ The respective columns can be specified later in a separate dialog.&lt;/p&gt;
                </property>
               </widget>
              </item>
-             <item row="4" column="0" colspan="2">
-              <widget class="QCheckBox" name="calibrate">
+             <item row="3" column="0">
+              <widget class="QLabel" name="label_10">
                <property name="text">
-                <string>Calibrate with average MZ error based
-on generated, unique sum formulas</string>
+                <string>Bracketing ppm</string>
+               </property>
+              </widget>
+             </item>
+             <item row="4" column="0" colspan="2">
+              <widget class="QCheckBox" name="checkIsotopologPattern">
+               <property name="text">
+                <string>M+1 and M'-1 must be present</string>
                </property>
                <property name="checked">
                 <bool>true</bool>
