@@ -3914,7 +3914,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     for hetAtom in lk:
                         pIso = lk[hetAtom]
                         for hetAtomCount in pIso:
-                            heteroAtoms.append("%s%d"%(hetAtom, hetAtomCount))
+                            heteroAtoms.append("{%s}%d"%(hetAtom, hetAtomCount))
                     heteroAtoms=", ".join(heteroAtoms)
 
                     assignedMZs=loads(base64.b64decode(row.assignedMZs))

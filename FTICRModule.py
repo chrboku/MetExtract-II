@@ -277,12 +277,22 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
                 atoms.append(elem)
                 atomsRange.append((elemsMin[elem] if elem in elemsMin.keys() else 0, elemsMax[elem]))
 
+        searchCAtomsRange=str(self.cAtomsCounts.text())
+        a=searchCAtomsRange.replace(" ", "").replace(";",",").split(",")
+        searchCAtomsRange=[]
+        for j in a:
+            if "-" in j:
+                searchCAtomsRange.extend(range(int(j[0:j.find("-")]), int(j[j.find("-")+1:len(j)])+1))
+            elif j!="":
+                searchCAtomsRange.append(int(j))
+
+
         pw=ProgressWrapper()
         pw.show()
         foundSFs, averageMZErrors = self.fticr.processMSScans(
                                         msScans,
                                         enr12C=enr12C, enr13C=enr13C, maxEnrDeviation=maxEnrDeviation, checkIsotopologPattern=self.checkIsotopologPattern.isChecked(),
-                                        intensityThreshold=self.intensityThreshold.value(),
+                                        intensityThreshold=self.intensityThreshold.value(), searchCAtomsRange=searchCAtomsRange,
                                         ppm=matchPPM, clusteringPPM=clusteringPPM, annotationPPM=annotationPPM,
                                         atoms=atoms, atomsRange=atomsRange, adducts=adducts,
                                         useSevenGoldenRules=self.useSevenGoldenRules.checkState()==QtCore.Qt.Checked,

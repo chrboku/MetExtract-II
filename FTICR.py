@@ -63,7 +63,7 @@ class FTICRProcessing:
 
         raise Exception("Unknown file type")
 
-    def matchPairs(self, msscan, file, ppm=0.5, mzDelta=1.00335484, nativePurity=0.9893, labeledPurity=0.99, maxEnrDeviation=.015, cns=[3,60], isotopologsCanBeOmitted=False, intensityThreshold=0):
+    def matchPairs(self, msscan, file, ppm=0.5, mzDelta=1.00335484, nativePurity=0.9893, labeledPurity=0.99, maxEnrDeviation=.015, cns=range(3,60), isotopologsCanBeOmitted=False, intensityThreshold=0):
 
         res=[]
 
@@ -73,7 +73,7 @@ class FTICRProcessing:
 
             if inti>=intensityThreshold:
 
-                for cn in range(cns[0], cns[1]):
+                for cn in cns:
                     mzj=mzi+cn*mzDelta
                     bounds=msscan.findMZ(mzj, ppm)
 
@@ -244,7 +244,7 @@ class FTICRProcessing:
     def processMSScans(self, msScans,
                        enr12C=0.9893, enr13C=0.99, maxEnrDeviation=0.15, checkIsotopologPattern=True,
                        ppm=0.5, clusteringPPM=2, annotationPPM=0.5,
-                       intensityThreshold=0,
+                       intensityThreshold=0, searchCAtomsRange=range(3, 60),
                        atoms=["C", "N", "H", "O", "P", "S"], atomsRange=[(0, 0), (0, 0), (0, 0), (0, 0), [0, 0], [0, 0]],
                        adducts={"[M-H]-": -1.007276, "[M+Cl]-": 36.969402},
                        recalibrateWithUniqueSumFormulas=True,
@@ -278,7 +278,7 @@ class FTICRProcessing:
             msScan=msScans[fileName]
 
             res=self.matchPairs(msScan, fileName, ppm=ppm, nativePurity=enr12C, labeledPurity=enr13C, maxEnrDeviation=maxEnrDeviation,
-                                intensityThreshold=intensityThreshold, isotopologsCanBeOmitted=not(checkIsotopologPattern))
+                                cns=searchCAtomsRange, intensityThreshold=intensityThreshold, isotopologsCanBeOmitted=not(checkIsotopologPattern))
             self.log("%d signals pairs found in %s"%(len(res), fileName))
             self.addToHistory("%d signals pairs found in %s"%(len(res), fileName))
             if setFunctionValue!=None: setFunctionValue(i)
