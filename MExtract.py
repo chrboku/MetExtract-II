@@ -6762,8 +6762,18 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         mostAbundantFile=None
 
-        for h, pi in enumerate(plotItems):
+        all=0
+        for grpInd, group in enumerate(definedGroups):
+            for i in range(len(group.files)):
+                all=all+1
 
+        pw = ProgressWrapper(1, parent=self, showIndProgress=False)
+        pw.show()
+        pw.getCallingFunction()("max")(len(plotItems) * all)
+        pw.getCallingFunction()("value")(0)
+
+        done=0
+        for h, pi in enumerate(plotItems):
             meanRT.append(pi.rt)
 
             rtBorderMin=pi.rt/60.-borderOffset
@@ -6771,8 +6781,14 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
             for grpInd, group in enumerate(definedGroups):
                 for i in range(len(group.files)):
+
                     fi = str(group.files[i]).replace("\\", "/")
                     a=fi[fi.rfind("/") + 1:fi.find(".mzXML")]
+
+                    pw.getCallingFunction()("text")("MZ: %.5f\nFile: '%s'"%(pi.mz, a))
+                    pw.getCallingFunction()("value")(done)
+                    done=done+1
+
                     print a
                     if pi.scanEvent in self.loadedMZXMLs[fi].getFilterLines(includeMS1=True, includeMS2=False, includePosPolarity=True, includeNegPolarity=True):
 
@@ -6893,6 +6909,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     maxSigAbundance=max(maxSigAbundance, mostAbundantFile[2].intensity_list[peakID[0]])
                 if peakID2[0]!=-1:
                     maxSigAbundance=max(maxSigAbundance, mostAbundantFile[2].intensity_list[peakID2[0]])
+
+        pw.hide()
 
         if len(plotItems)==1:
             pi=plotItems[0]
