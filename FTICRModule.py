@@ -102,14 +102,20 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
                         QtGui.QMessageBox.question(self, "MetExtract",
                                                    "Do you want to discard the already loaded and processed samples? ",
                                                    QtGui.QMessageBox.Yes | QtGui.QMessageBox.No) == QtGui.QMessageBox.Yes:
+
+            self.fticr=FTICR.FTICRProcessing()
+
             self.samplesModel = QtGui.QStandardItemModel()
             self.loadedSamples.setModel(self.samplesModel)
             self.loadedSamples.selectionModel().selectionChanged.connect(self.draw)
 
-            model = QtGui.QStandardItemModel()
-            self.DBs.setModel(model)
+            if QtGui.QMessageBox.question(self, "MetExtract",
+                                                   "Do you want to discard the loaded databases? ",
+                                                   QtGui.QMessageBox.Yes | QtGui.QMessageBox.No) == QtGui.QMessageBox.Yes:
+                model = QtGui.QStandardItemModel()
+                self.DBs.setModel(model)
+                self.dbs=[]
 
-            self.dbs=[]
             self.clearPlot(twinxs=1)
             self.drawCanvas()
 
@@ -173,8 +179,16 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
         if dialog.executeDialog() == QtGui.QDialog.Accepted:
             mappingInfo = dialog.getUserSelectedMapping()
 
+            imported=0
+
+            pw = ProgressWrapper(1, parent=self, showIndProgress=False)
+            pw.show()
+            pw.getCallingFunction()("max")(len(dialog.getUserSelectedFile()))
+            pw.getCallingFunction()("value")(0)
+
             for filename in dialog.getUserSelectedFile():
                 filename = str(filename).replace("\\", "/")
+                pw.getCallingFunction()("text")("Importing %s"%(filename))
 
                 self.initDir = filename
                 self.initDir = self.initDir[:self.initDir.rfind("/")]
@@ -192,6 +206,11 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                 self.samplesModel.appendRow(item)
 
+                imported=imported+1
+                pw.getCallingFunction()("value")(imported)
+
+            pw.hide()
+
             self.stackedWidget.setCurrentIndex(1)
 
     def loadSamplesMZXML(self):
@@ -201,8 +220,16 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
         filenames = QtGui.QFileDialog.getOpenFileNames(self, caption="Select mzXML files", directory=self.initDir,
                                                        filter="mzXML (*.mzxml);;mzML (*.mzml);;All files (*.*)")
         imported=0
+
+        pw = ProgressWrapper(1, parent=self, showIndProgress=False)
+        pw.show()
+        pw.getCallingFunction()("max")(len(filenames))
+        pw.getCallingFunction()("value")(0)
+
         for filename in filenames:
             filename=str(filename).replace("\\", "/")
+            pw.getCallingFunction()("text")("Importing %s"%filename)
+
             msScan = self.fticr.importMSScan(filename)
             mes = "Read file '%s' with %d signals" % (filename, len(msScan.mz_list))
             logging.info(mes)
@@ -216,6 +243,9 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
             self.samplesModel.appendRow(item)
 
             imported=imported+1
+            pw.getCallingFunction()("value")(imported)
+
+        pw.hide()
 
         if imported>0:
             self.stackedWidget.setCurrentIndex(1)
