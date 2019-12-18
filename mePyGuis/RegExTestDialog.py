@@ -1,6 +1,8 @@
 import sys
 from PyQt4 import QtGui
 
+from utils import natSort
+
 import re
 
 
@@ -74,7 +76,7 @@ class RegExTestDialog(QtGui.QDialog):
 
             resA.append("")
             resA.append("Extracted groups:\n")
-            for g in groups.keys():
+            for g in natSort(groups.keys()):
                 resA.append("%s:"%(g))
                 for f in groups[g]:
                     resA.append("   %s"%(f))

@@ -7234,15 +7234,15 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 dbt.write("\n")
                 dbt.write("## Any line starting with the hash-symbol (#) is a comment and will be skipped")
                 dbt.write("\n")
-                dbt.write("## Mandatory fields are the Num and Name")
+                dbt.write("## The fileds Num and Name are mandatory")
                 dbt.write("\n")
                 dbt.write("## Additionally, either the sum formula or the m/z value (and a polarity mode) have to be provided")
                 dbt.write("\n")
-                dbt.write("## If the sum formula is provided, the accurate mass will automatically be calculated")
+                dbt.write("## If the sum formula is provided, the accurate mass will be calculated automatically")
                 dbt.write("\n")
-                dbt.write("## The retention time is optional and must be specified in minutes. If several retention times are possible, use different rows.")
+                dbt.write("## The retention time is optional and must be specified in minutes. If several retention times are possible, use different rows. Use the dot (.) as the decimal separator")
                 dbt.write("\n")
-                dbt.write("## Additional columns may be provided. These will be transfered to the results but not checked in any way")
+                dbt.write("## Additional columns may be provided. These will be transfered to the results but not checked in any way. Do not include tab-stops in there.")
 
 
     # initialise main interface, triggers and command line parameters
