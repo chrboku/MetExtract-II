@@ -69,9 +69,10 @@ class RegExTestDialog(QtGui.QDialog):
                         groups[finSt]=[]
                     groups[finSt].append(string)
 
-                    resA.append("%s --> %s"%(string, finSt))
+                    #resA.append("%s --> %s"%(string, finSt))
                 except Exception as ex:
-                    resA.append("%s --> Error in RegEx (%s)"%(string, ex.message))
+                    resA=["Error in RegEx"]
+                    #resA.append("%s --> Error in RegEx (%s)"%(string, ex.message))
 
 
             resA.append("")
