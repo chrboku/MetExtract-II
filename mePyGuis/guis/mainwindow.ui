@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1880</width>
-    <height>2169</height>
+    <height>1219</height>
    </rect>
   </property>
   <property name="acceptDrops">
@@ -37,7 +37,16 @@
     <property name="spacing">
      <number>0</number>
     </property>
-    <property name="margin">
+    <property name="leftMargin">
+     <number>2</number>
+    </property>
+    <property name="topMargin">
+     <number>2</number>
+    </property>
+    <property name="rightMargin">
+     <number>2</number>
+    </property>
+    <property name="bottomMargin">
      <number>2</number>
     </property>
     <item>
@@ -102,7 +111,16 @@
         </item>
         <item row="0" column="0">
          <layout class="QGridLayout" name="gridLayout_22">
-          <property name="margin">
+          <property name="leftMargin">
+           <number>9</number>
+          </property>
+          <property name="topMargin">
+           <number>9</number>
+          </property>
+          <property name="rightMargin">
+           <number>9</number>
+          </property>
+          <property name="bottomMargin">
            <number>9</number>
           </property>
           <item row="9" column="0">
@@ -915,7 +933,7 @@ font: 7pt;</string>
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1506</width>
+             <width>1514</width>
              <height>2098</height>
             </rect>
            </property>
@@ -1222,7 +1240,16 @@ font: 7pt;</string>
               </item>
               <item row="21" column="4">
                <layout class="QHBoxLayout" name="horizontalLayout">
-                <property name="margin">
+                <property name="leftMargin">
+                 <number>3</number>
+                </property>
+                <property name="topMargin">
+                 <number>3</number>
+                </property>
+                <property name="rightMargin">
+                 <number>3</number>
+                </property>
+                <property name="bottomMargin">
                  <number>3</number>
                 </property>
                 <item>
@@ -1670,7 +1697,16 @@ font: 7pt;</string>
                  <enum>QFrame::Raised</enum>
                 </property>
                 <layout class="QGridLayout" name="gridLayout_11">
-                 <property name="margin">
+                 <property name="leftMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="topMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="rightMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="bottomMargin">
                   <number>0</number>
                  </property>
                  <item row="0" column="0">
@@ -1689,7 +1725,16 @@ font: 7pt;</string>
                         <string>Save results</string>
                        </property>
                        <layout class="QGridLayout" name="gridLayout_39">
-                        <property name="margin">
+                        <property name="leftMargin">
+                         <number>3</number>
+                        </property>
+                        <property name="topMargin">
+                         <number>3</number>
+                        </property>
+                        <property name="rightMargin">
+                         <number>3</number>
+                        </property>
+                        <property name="bottomMargin">
                          <number>3</number>
                         </property>
                         <property name="spacing">
@@ -4078,7 +4123,16 @@ font: 7pt;</string>
         <string>Sample results</string>
        </attribute>
        <layout class="QGridLayout" name="gridLayout_24">
-        <property name="margin">
+        <property name="leftMargin">
+         <number>0</number>
+        </property>
+        <property name="topMargin">
+         <number>0</number>
+        </property>
+        <property name="rightMargin">
+         <number>0</number>
+        </property>
+        <property name="bottomMargin">
          <number>0</number>
         </property>
         <property name="spacing">
@@ -4164,8 +4218,8 @@ font: 7pt;</string>
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1802</width>
-             <height>1862</height>
+             <width>1790</width>
+             <height>878</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_15">
@@ -4838,8 +4892,8 @@ font: 7pt;</string>
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1784</width>
-             <height>1844</height>
+             <width>1248</width>
+             <height>641</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_40">
