@@ -219,11 +219,17 @@ c=Target(script = "MExtract.py")
 print "###################################################"
 print "########## Packing MetExtractII_Main"
 print "###################################################"
+import sys
+sys.setrecursionlimit(5000)
 setup(console=[a,b,c],
       options={"py2exe": {
                  "includes": ["sip", "matplotlib.backends.backend_tkagg", 'scipy', 'scipy.integrate', 'scipy.special.*','scipy.linalg.*', 'scipy.sparse.csgraph._validation'],  # use this line if above does not work
-                 "dll_excludes": ["MSVCP90.dll"],
-                 "excludes": ["_gtkagg", "_tkagg"],
+                 "dll_excludes": ["MSVCP90.dll", "api-ms-win-core-string-l1-1-0.dll","api-ms-win-core-registry-l1-1-0.dll","api-ms-win-core-errorhandling-l1-1-0.dll","api-ms-win-core-string-l2-1-0.dll",
+                                  "api-ms-win-core-profile-l1-1-0.dll","api-ms-win*.dll","api-ms-win-core-processthreads-l1-1-2.dll","api-ms-win-core-libraryloader-l1-2-1.dll","api-ms-win-core-file-l1-2-1.dll",
+                                  "api-ms-win-security-base-l1-2-0.dll","api-ms-win-eventing-provider-l1-1-0.dll","api-ms-win-core-heap-l2-1-0.dll","api-ms-win-core-libraryloader-l1-2-0.dll","api-ms-win-core-localization-l1-2-1.dll",
+                                  "api-ms-win-core-sysinfo-l1-1-0.dll","api-ms-win-core-synch-l1-2-0.dll","api-ms-win-core-heap-l1-2-0.dll","api-ms-win-core-handle-l1-1-0.dll","api-ms-win-core-io-l1-1-1.dll","api-ms-win-core-com-l1-1-1.dll",
+                                  "api-ms-win-core-memory-l1-1-2.dll","api-ms-win-core-version-l1-1-1.dll","api-ms-win-core-version-l1-1-0.dll","api-ms-win-core-processthreads-l1-1-0.dll"],
+                 "excludes": ["_gtkagg", "_tkagg", 'jinja2.asyncsupport','jinja2.asyncfilters'],
                  "packages": ["FileDialog", "openpyxl", 'reportlab','reportlab.graphics.charts','reportlab.graphics.samples','reportlab.graphics.widgets','reportlab.graphics.barcode','reportlab.graphics','reportlab.lib','reportlab.pdfbase','reportlab.pdfgen','reportlab.platypus', 'zeep', 'lxml'],
                  'dist_dir': "./dist"
       }},

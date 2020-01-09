@@ -7782,7 +7782,10 @@ if __name__ == '__main__':
 
         if checkRDependencies(r):  # missing dependencies
             QtGui.QMessageBox.warning(None, "MetExtract", "Error: Not all R-dependencies are available or can be installed", QtGui.QMessageBox.Ok)
-            logging.warning("  Required R-packages are not available or installation failed")
+            logging.warning("  Required R-packages are not available or installation failed. \n\n" \
+                            "  One reason for this could be antivirus on-access-protection. \n" \
+                            "  Please try turning this feature off momentarily and repeat the step. \n" \
+                            "  Don't forget to turn it back on. ")
         else:
             if not opts.silentStart:
                 logging.info("  All necessary R-dependencies are installed/available")
