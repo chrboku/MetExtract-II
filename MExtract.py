@@ -6789,7 +6789,6 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     pw.getCallingFunction()("value")(done)
                     done=done+1
 
-                    print a
                     if pi.scanEvent in self.loadedMZXMLs[fi].getFilterLines(includeMS1=True, includeMS2=False, includePosPolarity=True, includeNegPolarity=True):
 
                         eic, times, scanIds, mzs=self.loadedMZXMLs[fi].getEIC(pi.mz, ppm=ppm, filterLine=pi.scanEvent)
