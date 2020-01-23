@@ -55,22 +55,22 @@ Section "instfiles"
     
     File /r "PyMetExtract_$$METEXTRACTVERSION$$\"
 
-    CreateDirectory "$INSTDIR\R"
-    
-    CreateDirectory "$SMPROGRAMS\MetExtractII $$METEXTRACTVERSION$$"
-    CreateShortCut "$SMPROGRAMS\MetExtractII $$METEXTRACTVERSION$$\MetExtract II $$METEXTRACTVERSION$$.lnk" "$INSTDIR\MetExtractII_Main.exe"
-    # CreateShortCut "$SMPROGRAMS\MetExtractII\Sample data.lnk" "$INSTDIR\sampleData"
-    CreateShortCut "$SMPROGRAMS\MetExtractII $$METEXTRACTVERSION$$\Documentation.lnk" "$INSTDIR\documentation\index.html"
-    
-    CreateShortCut "$SMPROGRAMS\MetExtractII $$METEXTRACTVERSION$$\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
-    
+    # SetShellVarContext all
+    CreateDirectory "$SMPROGRAMS\MetExtractII\$$METEXTRACTVERSION$$"
+    CreateShortCut "$SMPROGRAMS\MetExtractII\$$METEXTRACTVERSION$$\MetExtract II $$METEXTRACTVERSION$$.lnk" "$INSTDIR\MetExtractII_Main.exe"
+    # CreateShortCut "$SMPROGRAMS\MetExtractII\$$METEXTRACTVERSION$$\Sample data.lnk" "$INSTDIR\sampleData"
+    CreateShortCut "$SMPROGRAMS\MetExtractII\$$METEXTRACTVERSION$$\Documentation.lnk" "$INSTDIR\documentation\index.html"
+
+    CreateShortCut "$SMPROGRAMS\MetExtractII\$$METEXTRACTVERSION$$\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
+
     MessageBox MB_YESNO "Do you want to create a shortcut on the desktop?" /SD IDYES IDNO endDesktopIcon
-                
+
         CreateShortCut "$DESKTOP\MetExtract II $$METEXTRACTVERSION$$.lnk" "$INSTDIR\MetExtractII_Main.exe"
-            
+
     endDesktopIcon:
-    
-    
+
+
+    CreateDirectory "$INSTDIR\R"
     Call installR
     Call configureR
     Call checkWinXPProblem
