@@ -11,7 +11,7 @@ class RegExTestDialog(QtGui.QDialog):
     def __init__(self, strings=[], parent=None):
         super(RegExTestDialog, self).__init__()
         self.setModal(True)
-        self.setWindowTitle("RegEx test dialog")
+        self.setWindowTitle("RegEx group import")
         self.strings=strings
 
 
@@ -22,7 +22,7 @@ class RegExTestDialog(QtGui.QDialog):
         o = QtGui.QGridLayout(k)
         o.setContentsMargins(0, 0, 0, 0)
 
-        text = QtGui.QLabel("RegEx: ")
+        text = QtGui.QLabel("RegEx file path match: ")
         #text.setFixedSize(15, 15)
         text.setToolTip("")
         o.addWidget(text, 0, 0)
@@ -31,7 +31,7 @@ class RegExTestDialog(QtGui.QDialog):
         self.regEx.textChanged.connect(self.updateReg)
         o.addWidget(self.regEx, 0, 1)
 
-        text = QtGui.QLabel("RegEx: ")
+        text = QtGui.QLabel("RegEx group name: ")
         #text.setFixedSize(15, 15)
         text.setToolTip("")
         o.addWidget(text, 1, 0)
@@ -75,8 +75,7 @@ class RegExTestDialog(QtGui.QDialog):
                     #resA.append("%s --> Error in RegEx (%s)"%(string, ex.message))
 
 
-            resA.append("")
-            resA.append("Extracted groups:\n")
+            resA.append("\nExtracted groups:\n")
             for g in natSort(groups.keys()):
                 resA.append("%s:"%(g))
                 for f in groups[g]:
@@ -84,7 +83,7 @@ class RegExTestDialog(QtGui.QDialog):
                 resA.append("")
 
 
-            self.res.setText("Parsed: \n\n%s"%("\n".join(resA)))
+            self.res.setText("%s"%("\n".join(resA)))
 
         except Exception as ex:
             self.res.setText("Error in RegEx/Result (%s)"%ex.message)

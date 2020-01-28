@@ -155,7 +155,7 @@ class groupEdit(QtGui.QDialog, Ui_GroupEditor):
         else:
             self.useAsMSMSTarget.setCheckState(QtCore.Qt.Unchecked)
 
-        self.groupName.setFocus()
+        self.dialogFinished.setFocus()
         return self.exec_()
 
     def dragEnterEvent(self, event):

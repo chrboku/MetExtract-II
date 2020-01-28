@@ -317,7 +317,7 @@ from annotateResultMatrix import performGroupOmit as grpOmit
 from mePyGuis.mainWindow import Ui_MainWindow
 from mePyGuis.adductsEdit import ConfiguredAdduct, ConfiguredElement
 from mePyGuis.heteroAtomEdit import ConfiguredHeteroAtom
-from mePyGuis.TracerEdit import tracerEdit
+from mePyGuis.TracerEdit import tracerEdit, ConfiguredTracer
 from formulaTools import formulaTools, getIsotopeMass, getElementOfIsotope
 #</editor-fold>
 #<editor-fold desc="### Various Imports">
@@ -2191,7 +2191,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                               QtGui.QMessageBox.Ok)
 
             if sett.contains("tracerConfiguration") and self.labellingExperiment==TRACER:
-                self.configuredTracers = loads(str(base64.b64decode(sett.value("tracerConfiguration").toString())))
+                self.configuredTracer = loads(str(base64.b64decode(sett.value("tracerConfiguration").toString())))[0]
 
             if sett.contains("LabellingElementA") and self.labellingExperiment==METABOLOME:
                 self.ui.isotopeAText.setText(str(sett.value("LabellingElementA").toString()))
@@ -2462,7 +2462,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             sett.setValue("TracerExperiment", self.labellingExperiment==TRACER)
 
             if self.labellingExperiment==TRACER:
-                sett.setValue("tracerConfiguration", base64.b64encode(dumps(self.configuredTracers)))
+                sett.setValue("tracerConfiguration", base64.b64encode(dumps([self.configuredTracer])))
             else:
                 sett.setValue("LabellingElementA", self.ui.isotopeAText.text())
                 sett.setValue("IsotopicAbundanceA", self.ui.isotopicAbundanceA.value())
@@ -2804,7 +2804,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                   minRatio=self.ui.minRatio.value(),
                                   maxRatio=self.ui.maxRatio.value(),
                                   useCIsotopePatternValidation=int(str(self.ui.useCValidation.checkState())),
-                                  configuredTracers=self.configuredTracers, startTime=self.ui.scanStartTime.value(),
+                                  configuredTracer=self.configuredTracer, startTime=self.ui.scanStartTime.value(),
                                   stopTime=self.ui.scanEndTime.value(), maxLoading=self.ui.maxLoading.value(),
                                   xCounts=str(self.ui.xCountSearch.text()),
                                   ppm=self.ui.ppmRangeIdentification.value(),
@@ -2993,7 +2993,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                       minRatio=self.ui.minRatio.value(),
                                                       maxRatio=self.ui.maxRatio.value(),
                                                       useCValidation=int(str(self.ui.useCValidation.checkState())),
-                                                      configuredTracers="[%s]"%",".join([str(t) for t in self.configuredTracers]), startTime=self.ui.scanStartTime.value(),
+                                                      configuredTracer=str(self.configuredTracer), startTime=self.ui.scanStartTime.value(),
                                                       stopTime=self.ui.scanEndTime.value(), maxLoading=self.ui.maxLoading.value(),
                                                       xCounts=str(self.ui.xCountSearch.text()),
                                                       ppm=self.ui.ppmRangeIdentification.value(),
@@ -3172,7 +3172,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                                 minRatio=self.ui.minRatio.value(),
                                                                 maxRatio=self.ui.maxRatio.value(),
                                                                 useCIsotopePatternValidation=int(str(self.ui.useCValidation.checkState())),
-                                                                configuredTracers=self.configuredTracers, startTime=self.ui.scanStartTime.value(),
+                                                                configuredTracer=self.configuredTracer, startTime=self.ui.scanStartTime.value(),
                                                                 stopTime=self.ui.scanEndTime.value(), maxLoading=self.ui.maxLoading.value(),
                                                                 xCounts=str(self.ui.xCountSearch.text()),
                                                                 isotopicPatternCountLeft=self.ui.isotopePatternCountA.value(),
@@ -3434,7 +3434,6 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 pw.getCallingFunction()("text")("Generating sum formulas..")
                 pw.getCallingFunction()("value")(0)
 
-                shutil.copyfile(resFilePath + "/xxx_results__6_afterDBSearch.tsv", resFileFull)
 
                 smCol="SFs"
                 annotationColumns.append(smCol + "_CHO")
@@ -3691,7 +3690,13 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.ui.wm_ib.setEnabled(sta)
 
     def procIndFilesChanges(self, sta):
-        self.ui.procIndFiles.setEnabled(sta)
+        self.ui.frame_procIndFiles.setVisible(sta)
+    def processMultipleFilesChanged(self, sta):
+        self.ui.frame_bracketResults.setVisible(sta)
+    def annotateMetabolitesChanged(self, sta):
+        self.ui.frame_annotateMetabolites.setVisible(sta)
+    def genrateMSMSListsChanged(self, sta):
+        self.ui.frame_generateMSMSTargetLists.setVisible(sta)
 
     #<editor-fold desc="### visualisation of results of single sample">
     def closeCurrentOpenResultsFile(self):
@@ -7046,26 +7051,22 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
     def showTracerEditor(self):
         tracerDialog = tracerEdit()
-        tracerDialog.setTracers(deepcopy(self.configuredTracers))
+        tracerDialog.setTracer(deepcopy(self.configuredTracer))
         if tracerDialog.executeDialog() == QtGui.QDialog.Accepted:
-            self.lastOpenDir = tracerDialog.getOpenDir()
 
-            self.configuredTracers = tracerDialog.getTracers()
+            self.configuredTracer = tracerDialog.getTracer()
 
             logging.info("Configured tracers:")
-            for tracer in self.configuredTracers:
-                logging.info(" * %s (%s/%s) ratio: %.2f (min. %.2f, max. %.2f)" % (tracer.name, tracer.isotopeA, tracer.isotopeB, tracer.monoisotopicRatio, tracer.monoisotopicRatio*tracer.maxRelNegBias, tracer.monoisotopicRatio*tracer.maxRelPosBias))
+            tracer = self.configuredTracer
+            logging.info(" * %s (%s/%s) ratio: %.2f (min. %.2f, max. %.2f)" % (tracer.name, tracer.isotopeA, tracer.isotopeB, tracer.monoisotopicRatio, tracer.monoisotopicRatio*tracer.maxRelNegBias, tracer.monoisotopicRatio*tracer.maxRelPosBias))
         self.updateTracerInfo()
 
     def updateTracerInfo(self):
-        if len(self.configuredTracers) == 0:
-            self.ui.tracerExperimentLabel.setText("No tracers configured")
-        else:
-            trcs = []
-            for tracer in self.configuredTracers:
-                trcs.append(
-                    " * %s (%s/%s)" % (tracer.name, tracer.isotopeA, tracer.isotopeB))
-            self.ui.tracerExperimentLabel.setText("\n\n".join(trcs))
+        trcs = []
+        tracer = self.configuredTracer
+        trcs.append(
+            " * %s (%s/%s)" % (tracer.name, tracer.isotopeA, tracer.isotopeB))
+        self.ui.tracerExperimentLabel.setText("\n\n".join(trcs))
     #</editor-fold>
 
     def isotopeATextChanged(self, text):
@@ -7173,10 +7174,6 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             pass
 
 
-
-    def annotateMetabolitesChanged(self, events):
-        self.ui.generateSumFormulas_CheckBox.setEnabled(self.ui.annotateMetabolites_CheckBox.isChecked())
-        self.ui.searchDB_checkBox.setEnabled(self.ui.annotateMetabolites_CheckBox.isChecked())
 
     def addDB(self, events):
         dbFile = QtGui.QFileDialog.getOpenFileName(caption="Select database file", directory=self.lastOpenDir,
@@ -7370,13 +7367,25 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         self.ui.useRatio.setChecked(False)
 
-        self.configuredTracers = []
+        self.configuredTracer = ConfiguredTracer()
         self.updateTracerInfo()
         self.ui.setupTracers.clicked.connect(self.showTracerEditor)
 
         self.ui.processIndividualFiles.toggled.connect(self.procIndFilesChanges)
         self.ui.groupResults.toggled.connect(self.groupFilesChanges)
         self.ui.processMultipleFiles.toggled.connect(self.processMultipleFilesChanged)
+        self.ui.annotateMetabolites_CheckBox.toggled.connect(self.annotateMetabolitesChanged)
+        self.ui.generateMSMSInfo_CheckBox.toggled.connect(self.genrateMSMSListsChanged)
+
+        self.ui.processIndividualFiles.setChecked(False)
+        self.ui.groupResults.setChecked(False)
+        self.ui.annotateMetabolites_CheckBox.setChecked(False)
+        self.ui.generateMSMSInfo_CheckBox.setChecked(False)
+        self.ui.frame_procIndFiles.setVisible(False)
+        self.ui.frame_bracketResults.setVisible(False)
+        self.ui.frame_annotateMetabolites.setVisible(False)
+        self.ui.frame_generateMSMSTargetLists.setVisible(False)
+
         self.ui.saveMZXML.toggled.connect(self.saveMZXMLChanged)
         self.updateIndividualFileProcessing = True
 
@@ -7645,7 +7654,6 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.ui.peak_scaleError.setVisible(False)
 
         #todo: implement results view with all brackated feature pairs
-        self.ui.tabWidget.setTabText(3, "EXPERIMENTAL: "+self.ui.tabWidget.tabText(3))
         self.ui.tabWidget.setTabEnabled(3, True)
 
         self.loadedMZXMLs=None

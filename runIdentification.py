@@ -122,7 +122,7 @@ class RunIdentification:
                  metabolisationExperiment=False,
                  labellingisotopeA='12C', labellingisotopeB='13C', useCIsotopePatternValidation=False, xOffset=1.00335,
                  minRatio=0, maxRatio=9999999, useRatio=False,
-                 configuredTracers=[], intensityThreshold=0, intensityCutoff=0, maxLoading=1, xCounts="", ppm=2.,
+                 configuredTracer=None, intensityThreshold=0, intensityCutoff=0, maxLoading=1, xCounts="", ppm=2.,
                  isotopicPatternCountLeft=2, isotopicPatternCountRight=2, lowAbundanceIsotopeCutoff=True, intensityThresholdIsotopologs=1000,
                  intensityErrorN=0.25, intensityErrorL=0.25, purityN=0.99, purityL=0.99, minSpectraCount=1, clustPPM=8.,
                  chromPeakPPM=5., snrTh=1., scales=[1, 35], peakCenterError=5, peakScaleError=3, minPeakCorr=0.85,
@@ -177,9 +177,9 @@ class RunIdentification:
         self.maxRatio = maxRatio
         self.useRatio = useRatio
 
-        self.configuredTracers = configuredTracers
+        self.configuredTracer = configuredTracer
         if not self.metabolisationExperiment:
-            self.configuredTracers = [ConfiguredTracer(name="FML", id=0)]
+            self.configuredTracer = ConfiguredTracer(name="FML", id=0)
 
         #1. Mass picking
         self.intensityThreshold = intensityThreshold
@@ -385,7 +385,7 @@ class RunIdentification:
         SQLInsert(curs, "config", key="maxRatio", value=self.maxRatio)
         SQLInsert(curs, "config", key="useRatio", value=str(self.useRatio))
         SQLInsert(curs, "config", key="metabolisationExperiment", value=str(self.metabolisationExperiment))
-        SQLInsert(curs, "config", key="configuredTracers", value=base64.b64encode(dumps(self.configuredTracers)))
+        SQLInsert(curs, "config", key="configuredTracer", value=base64.b64encode(dumps(self.configuredTracer)))
         SQLInsert(curs, "config", key="startTime", value=self.startTime)
         SQLInsert(curs, "config", key="stopTime", value=self.stopTime)
         SQLInsert(curs, "config", key="positiveScanEvent", value=self.positiveScanEvent)
@@ -443,14 +443,13 @@ class RunIdentification:
 
         i = 1
         if self.metabolisationExperiment:
-            for tracer in self.configuredTracers:
-                tracer.id = i
-                SQLInsert(curs, "tracerConfiguration", id=tracer.id, name=tracer.name, elementCount=tracer.elementCount, natural=tracer.isotopeA, labelling=tracer.isotopeB,
-                      deltaMZ=getIsotopeMass(tracer.isotopeB)[0] - getIsotopeMass(tracer.isotopeA)[0], purityN=tracer.enrichmentA, purityL=tracer.enrichmentB,
-                      amountN=tracer.amountA, amountL=tracer.amountB, monoisotopicRatio=tracer.monoisotopicRatio, lowerError=tracer.maxRelNegBias,
-                      higherError=tracer.maxRelPosBias, tracertype=tracer.tracerType)
+            tracer = self.configuredTracer
+            tracer.id = i
+            SQLInsert(curs, "tracerConfiguration", id=tracer.id, name=tracer.name, elementCount=tracer.elementCount, natural=tracer.isotopeA, labelling=tracer.isotopeB,
+                  deltaMZ=getIsotopeMass(tracer.isotopeB)[0] - getIsotopeMass(tracer.isotopeA)[0], purityN=tracer.enrichmentA, purityL=tracer.enrichmentB,
+                  amountN=tracer.amountA, amountL=tracer.amountB, monoisotopicRatio=tracer.monoisotopicRatio, lowerError=tracer.maxRelNegBias,
+                  higherError=tracer.maxRelPosBias, tracertype=tracer.tracerType)
 
-                i += 1
         else:
             #ConfiguredTracer(name="Full metabolome labeling experiment", id=0)
             SQLInsert(curs, "tracerConfiguration", id=0, name="FLE")
@@ -497,7 +496,7 @@ class RunIdentification:
 
         if self.metabolisationExperiment:
             pdf.drawString(70, currentHeight, "Metabolisation Experiment")
-            pdf.drawString(240, currentHeight, "%d tracer(s)" % len(self.configuredTracers));
+            pdf.drawString(240, currentHeight, "1 tracer" % len(self.configuredTracer));
             currentHeight -= 25
 
         else:
@@ -3179,181 +3178,182 @@ class RunIdentification:
             ######################################################################################
 
             self.postMessageToProgressWrapper("text", "Starting data processing")
-            tracerProgressWidth = 100. / len(self.configuredTracers)
+            tracerProgressWidth = 100. / 1
 
-            for tracerNum in range(len(self.configuredTracers)):
+            tracerNum=1
 
-                # region Process configured tracer
-                ######################################################################################
 
-                tracer = self.configuredTracers[tracerNum]
+            # region Process configured tracer
+            ######################################################################################
 
-                curTracerProgress = tracerNum / len(self.configuredTracers)
+            tracer = self.configuredTracer
 
-                tracerID = 0
-                if self.metabolisationExperiment:
-                    tracerID = tracer.id
-                    self.printMessage("Tracer: %s" % tracer.name, type="info")
+            curTracerProgress = tracerNum / 1
 
-                    ##################################################################################################
-                    # Attention: delta mz for one labelling atom is always saved in the member variable self.xOffset #
-                    ##################################################################################################
+            tracerID = 0
+            if self.metabolisationExperiment:
+                tracerID = tracer.id
+                self.printMessage("Tracer: %s" % tracer.name, type="info")
 
-                    self.xOffset = getIsotopeMass(tracer.isotopeB)[0] - getIsotopeMass(tracer.isotopeA)[0]
+                ##################################################################################################
+                # Attention: delta mz for one labelling atom is always saved in the member variable self.xOffset #
+                ##################################################################################################
 
+                self.xOffset = getIsotopeMass(tracer.isotopeB)[0] - getIsotopeMass(tracer.isotopeA)[0]
+
+            else:
+                # Full metabolome labelling experiment
+                pass
+            # endregion
+
+
+
+
+
+            # region 1. Find 12C 13C partners in the mz dimension (0-25%)
+            ######################################################################################
+
+            self.postMessageToProgressWrapper("value", curTracerProgress + 0 * tracerProgressWidth)
+            self.postMessageToProgressWrapper("text", "%s: Extracting signal pairs" % tracer.name)
+
+            def reportFunction(curVal, text):
+                self.postMessageToProgressWrapper("value",curTracerProgress + 0 * tracerProgressWidth + 0.25 * curVal * tracerProgressWidth)
+                self.postMessageToProgressWrapper("text", "%s: Extracting signal pairs (%s)" % (tracer.name, text))
+
+            mzs, negFound, posFound = self.findSignalPairs(curTracerProgress, mzxml, tracer, reportFunction)
+            self.writeSignalPairsToDB(mzs, mzxml, tracerID)
+
+            self.printMessage("%s: Extracting signal pairs done. pos: %d neg: %d mzs (including mismatches)" % (
+                tracer.name, posFound, negFound), type="info")
+            # endregion
+
+            # region 2. Cluster found mz values according to mz value and number of x atoms (25-35%)
+            ######################################################################################
+
+            self.postMessageToProgressWrapper("value", curTracerProgress + 0.25 * tracerProgressWidth)
+            self.postMessageToProgressWrapper("text", "%s: Clustering found signal pairs" % tracer.name)
+
+            def reportFunction(curVal, text):
+                self.postMessageToProgressWrapper("value",
+                                                  curTracerProgress + 0.25 * tracerProgressWidth + 0.1 * curVal * tracerProgressWidth)
+                self.postMessageToProgressWrapper("text",
+                                                  "%s: Clustering found signal pairs (%s)" % (tracer.name, text))
+
+            mzbins = self.clusterFeaturePairs(mzs, reportFunction)
+            self.writeFeaturePairClustersToDB(mzbins)
+            mzbins = self.removeImpossibleFeaturePairClusters(mzbins)
+
+            self.printMessage(
+                "%s: Clustering found signal pairs done. pos: %d neg: %d mz bins (including mismatches)" % (
+                    tracer.name, len(mzbins['+']), len(mzbins['-'])), type="info")
+            # endregion
+
+            # region 3. Extract chromatographic peaks (35-65%)
+            ######################################################################################
+
+            self.postMessageToProgressWrapper("value", curTracerProgress + 0.35 * tracerProgressWidth)
+            self.postMessageToProgressWrapper("text", "%s: Separating feature pairs" % tracer.name)
+
+            def reportFunction(curVal, text):
+                self.postMessageToProgressWrapper("value",
+                                                  curTracerProgress + 0.35 * tracerProgressWidth + 0.3 * curVal * tracerProgressWidth)
+                self.postMessageToProgressWrapper("text", "%s: Separating feature pairs (%s)" % (tracer.name, text))
+
+            chromPeaks = self.findChromatographicPeaksAndWriteToDB(mzbins, mzxml, tracerID, reportFunction)
+
+            self.printMessage(
+                "%s: Separating feature pairs done. pos: %d neg: %d chromatographic peaks (including mismatches)" % (
+                    tracer.name, len([c for c in chromPeaks if c.ionMode == "+"]),
+                    len([c for c in chromPeaks if c.ionMode == "-"])), type="info")
+            # endregion
+
+            # region 4. Remove isotopolog feature pairs and other false positive findings (65-70%)
+            ######################################################################################
+
+            self.postMessageToProgressWrapper("value", curTracerProgress + 0.65 * tracerProgressWidth)
+            self.postMessageToProgressWrapper("text", "%s: Removing false positive feature pairs" % tracer.name)
+
+            def reportFunction(curVal, text):
+                self.postMessageToProgressWrapper("value",
+                                                  curTracerProgress + 0.65 * tracerProgressWidth + 0.05 * curVal * tracerProgressWidth)
+                self.postMessageToProgressWrapper("text", "%s: Removing false positive feature pairs (%s)" % (
+                    tracer.name, text))
+
+            self.removeFalsePositiveFeaturePairsAndUpdateDB(chromPeaks, reportFunction)
+
+            self.printMessage("%s: Removing false positive feature pairs done. %d chromatographic peaks" % (
+                tracer.name, len(chromPeaks)), type="info")
+            #endregion
+
+
+
+            # region 5. Search for hetero atoms (70-75%)
+            ######################################################################################
+
+            self.postMessageToProgressWrapper("value", curTracerProgress + 0.7 * tracerProgressWidth)
+            self.postMessageToProgressWrapper("text", "%s: Searching for hetero atoms" % tracer.name)
+
+            def reportFunction(curVal, text):
+                self.postMessageToProgressWrapper("value",
+                                                  curTracerProgress + 0.7 * tracerProgressWidth + 0.05 * curVal * tracerProgressWidth)
+                self.postMessageToProgressWrapper("text",
+                                                  "%s: Annotating feature pairs (%s)" % (tracer.name, text))
+
+            self.annotateFeaturePairs(chromPeaks, mzxml, tracer, reportFunction)
+            # endregion
+
+            # region 6. Group feature pairs untargeted using chromatographic peak shape into feature groups (75-80%)
+            ######################################################################################
+
+            self.postMessageToProgressWrapper("value", curTracerProgress + 0.75 * tracerProgressWidth)
+            self.postMessageToProgressWrapper("text", "%s: Grouping feature pairs" % tracer.name)
+
+            def reportFunction(curVal, text):
+                self.postMessageToProgressWrapper("value",
+                                                  curTracerProgress + 0.75 * tracerProgressWidth + 0.05 * curVal * tracerProgressWidth)
+                self.postMessageToProgressWrapper("text", "%s: Grouping feature pairs (%s)" % (tracer.name, text))
+
+            self.groupFeaturePairsUntargetedAndWriteToDB(chromPeaks, mzxml, tracer, tracerID, reportFunction)
+            # endregion
+
+            # region 7. Extract mass spectra for feature pairs and feature groups (80-95%)
+            ######################################################################################
+
+            self.postMessageToProgressWrapper("value", curTracerProgress + 0.8 * tracerProgressWidth)
+            self.postMessageToProgressWrapper("text", "%s: Extracting mass spectra to DB" % tracer.name)
+
+            def reportFunction(curVal, text):
+                self.postMessageToProgressWrapper("value",
+                                                  curTracerProgress + 0.8 * tracerProgressWidth + 0.15 * curVal * tracerProgressWidth)
+                self.postMessageToProgressWrapper("text",
+                                                  "%s: Extracting mass spectra to DB (%s)" % (tracer.name, text))
+
+            self.writeMassSpectraToDB(chromPeaks, mzxml, reportFunction)
+
+            # Log time used for processing of individual files
+            elapsed = (time.time() - start) / 60.
+            hours = ""
+            if elapsed >= 60.:
+                if elapsed < 120.:
+                    hours = "1 hour "
                 else:
-                    # Full metabolome labelling experiment
-                    pass
-                # endregion
+                    hours = "%d hours " % (elapsed // 60)
+            mins = "%.2f min(s)" % (elapsed % 60.)
 
+            self.printMessage("%s: Calculations finished (%s%s).." % (tracer.name, hours, mins), type="info")
+            # endregion
 
+            # region 8. Write results to files (95-100%, without progress indicator)
+            ######################################################################################
 
+            # W.1 Save results to new MzXML file (intermediate step) (95-100%)
 
+            if self.writeMZXML:
+                self.postMessageToProgressWrapper("value", curTracerProgress + 0.95 * tracerProgressWidth)
+                self.postMessageToProgressWrapper("text", "%s: Writing results to mzXML.." % tracer.name)
 
-                # region 1. Find 12C 13C partners in the mz dimension (0-25%)
-                ######################################################################################
-
-                self.postMessageToProgressWrapper("value", curTracerProgress + 0 * tracerProgressWidth)
-                self.postMessageToProgressWrapper("text", "%s: Extracting signal pairs" % tracer.name)
-
-                def reportFunction(curVal, text):
-                    self.postMessageToProgressWrapper("value",curTracerProgress + 0 * tracerProgressWidth + 0.25 * curVal * tracerProgressWidth)
-                    self.postMessageToProgressWrapper("text", "%s: Extracting signal pairs (%s)" % (tracer.name, text))
-
-                mzs, negFound, posFound = self.findSignalPairs(curTracerProgress, mzxml, tracer, reportFunction)
-                self.writeSignalPairsToDB(mzs, mzxml, tracerID)
-
-                self.printMessage("%s: Extracting signal pairs done. pos: %d neg: %d mzs (including mismatches)" % (
-                    tracer.name, posFound, negFound), type="info")
-                # endregion
-
-                # region 2. Cluster found mz values according to mz value and number of x atoms (25-35%)
-                ######################################################################################
-
-                self.postMessageToProgressWrapper("value", curTracerProgress + 0.25 * tracerProgressWidth)
-                self.postMessageToProgressWrapper("text", "%s: Clustering found signal pairs" % tracer.name)
-
-                def reportFunction(curVal, text):
-                    self.postMessageToProgressWrapper("value",
-                                                      curTracerProgress + 0.25 * tracerProgressWidth + 0.1 * curVal * tracerProgressWidth)
-                    self.postMessageToProgressWrapper("text",
-                                                      "%s: Clustering found signal pairs (%s)" % (tracer.name, text))
-
-                mzbins = self.clusterFeaturePairs(mzs, reportFunction)
-                self.writeFeaturePairClustersToDB(mzbins)
-                mzbins = self.removeImpossibleFeaturePairClusters(mzbins)
-
-                self.printMessage(
-                    "%s: Clustering found signal pairs done. pos: %d neg: %d mz bins (including mismatches)" % (
-                        tracer.name, len(mzbins['+']), len(mzbins['-'])), type="info")
-                # endregion
-
-                # region 3. Extract chromatographic peaks (35-65%)
-                ######################################################################################
-
-                self.postMessageToProgressWrapper("value", curTracerProgress + 0.35 * tracerProgressWidth)
-                self.postMessageToProgressWrapper("text", "%s: Separating feature pairs" % tracer.name)
-
-                def reportFunction(curVal, text):
-                    self.postMessageToProgressWrapper("value",
-                                                      curTracerProgress + 0.35 * tracerProgressWidth + 0.3 * curVal * tracerProgressWidth)
-                    self.postMessageToProgressWrapper("text", "%s: Separating feature pairs (%s)" % (tracer.name, text))
-
-                chromPeaks = self.findChromatographicPeaksAndWriteToDB(mzbins, mzxml, tracerID, reportFunction)
-
-                self.printMessage(
-                    "%s: Separating feature pairs done. pos: %d neg: %d chromatographic peaks (including mismatches)" % (
-                        tracer.name, len([c for c in chromPeaks if c.ionMode == "+"]),
-                        len([c for c in chromPeaks if c.ionMode == "-"])), type="info")
-                # endregion
-
-                # region 4. Remove isotopolog feature pairs and other false positive findings (65-70%)
-                ######################################################################################
-
-                self.postMessageToProgressWrapper("value", curTracerProgress + 0.65 * tracerProgressWidth)
-                self.postMessageToProgressWrapper("text", "%s: Removing false positive feature pairs" % tracer.name)
-
-                def reportFunction(curVal, text):
-                    self.postMessageToProgressWrapper("value",
-                                                      curTracerProgress + 0.65 * tracerProgressWidth + 0.05 * curVal * tracerProgressWidth)
-                    self.postMessageToProgressWrapper("text", "%s: Removing false positive feature pairs (%s)" % (
-                        tracer.name, text))
-
-                self.removeFalsePositiveFeaturePairsAndUpdateDB(chromPeaks, reportFunction)
-
-                self.printMessage("%s: Removing false positive feature pairs done. %d chromatographic peaks" % (
-                    tracer.name, len(chromPeaks)), type="info")
-                #endregion
-
-
-
-                # region 5. Search for hetero atoms (70-75%)
-                ######################################################################################
-
-                self.postMessageToProgressWrapper("value", curTracerProgress + 0.7 * tracerProgressWidth)
-                self.postMessageToProgressWrapper("text", "%s: Searching for hetero atoms" % tracer.name)
-
-                def reportFunction(curVal, text):
-                    self.postMessageToProgressWrapper("value",
-                                                      curTracerProgress + 0.7 * tracerProgressWidth + 0.05 * curVal * tracerProgressWidth)
-                    self.postMessageToProgressWrapper("text",
-                                                      "%s: Annotating feature pairs (%s)" % (tracer.name, text))
-
-                self.annotateFeaturePairs(chromPeaks, mzxml, tracer, reportFunction)
-                # endregion
-
-                # region 6. Group feature pairs untargeted using chromatographic peak shape into feature groups (75-80%)
-                ######################################################################################
-
-                self.postMessageToProgressWrapper("value", curTracerProgress + 0.75 * tracerProgressWidth)
-                self.postMessageToProgressWrapper("text", "%s: Grouping feature pairs" % tracer.name)
-
-                def reportFunction(curVal, text):
-                    self.postMessageToProgressWrapper("value",
-                                                      curTracerProgress + 0.75 * tracerProgressWidth + 0.05 * curVal * tracerProgressWidth)
-                    self.postMessageToProgressWrapper("text", "%s: Grouping feature pairs (%s)" % (tracer.name, text))
-
-                self.groupFeaturePairsUntargetedAndWriteToDB(chromPeaks, mzxml, tracer, tracerID, reportFunction)
-                # endregion
-
-                # region 7. Extract mass spectra for feature pairs and feature groups (80-95%)
-                ######################################################################################
-
-                self.postMessageToProgressWrapper("value", curTracerProgress + 0.8 * tracerProgressWidth)
-                self.postMessageToProgressWrapper("text", "%s: Extracting mass spectra to DB" % tracer.name)
-
-                def reportFunction(curVal, text):
-                    self.postMessageToProgressWrapper("value",
-                                                      curTracerProgress + 0.8 * tracerProgressWidth + 0.15 * curVal * tracerProgressWidth)
-                    self.postMessageToProgressWrapper("text",
-                                                      "%s: Extracting mass spectra to DB (%s)" % (tracer.name, text))
-
-                self.writeMassSpectraToDB(chromPeaks, mzxml, reportFunction)
-
-                # Log time used for processing of individual files
-                elapsed = (time.time() - start) / 60.
-                hours = ""
-                if elapsed >= 60.:
-                    if elapsed < 120.:
-                        hours = "1 hour "
-                    else:
-                        hours = "%d hours " % (elapsed // 60)
-                mins = "%.2f min(s)" % (elapsed % 60.)
-
-                self.printMessage("%s: Calculations finished (%s%s).." % (tracer.name, hours, mins), type="info")
-                # endregion
-
-                # region 8. Write results to files (95-100%, without progress indicator)
-                ######################################################################################
-
-                # W.1 Save results to new MzXML file (intermediate step) (95-100%)
-
-                if self.writeMZXML:
-                    self.postMessageToProgressWrapper("value", curTracerProgress + 0.95 * tracerProgressWidth)
-                    self.postMessageToProgressWrapper("text", "%s: Writing results to mzXML.." % tracer.name)
-
-                    self.writeResultsToNewMZXMLIntermediateObject(mzxml, newMZXMLData, chromPeaks)
-                # endregion
+                self.writeResultsToNewMZXMLIntermediateObject(mzxml, newMZXMLData, chromPeaks)
+            # endregion
 
 
 

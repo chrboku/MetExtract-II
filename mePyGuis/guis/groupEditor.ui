@@ -444,18 +444,19 @@ font: 7pt;</string>
   </layout>
  </widget>
  <tabstops>
+  <tabstop>dialogFinished</tabstop>
   <tabstop>groupName</tabstop>
+  <tabstop>groupFiles</tabstop>
+  <tabstop>addFolder</tabstop>
   <tabstop>addFiles</tabstop>
+  <tabstop>removeSelected</tabstop>
   <tabstop>groupMinimumFound</tabstop>
   <tabstop>omitFeatures</tabstop>
   <tabstop>useForMetaboliteGrouping</tabstop>
   <tabstop>removeAsFalsePositive</tabstop>
+  <tabstop>useAsMSMSTarget</tabstop>
   <tabstop>colorsComboBox</tabstop>
-  <tabstop>dialogFinished</tabstop>
   <tabstop>dialogCanceled</tabstop>
-  <tabstop>addFolder</tabstop>
-  <tabstop>removeSelected</tabstop>
-  <tabstop>groupFiles</tabstop>
  </tabstops>
  <resources/>
  <connections/>

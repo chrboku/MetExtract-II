@@ -71,16 +71,16 @@ class DBSearch:
 
                 else:
                     try:
-                        num=row[headers["Num"]].strip()
+                        num=row[headers["Num"]].strip().replace("\"","DOURBLEPRIME").replace("'", "PRIME").replace("\t", "TAB").replace("\n","RETURN").replace("\r","CarrRETURN").replace("#","HASH")
                         name=row[headers["Name"]].strip().replace("\"","DOURBLEPRIME").replace("'", "PRIME").replace("\t", "TAB").replace("\n","RETURN").replace("\r","CarrRETURN").replace("#","HASH")
-                        sumFormula=row[headers["SumFormula"]].strip()
+                        sumFormula=row[headers["SumFormula"]].strip().replace("\"","DOURBLEPRIME").replace("'", "PRIME").replace("\t", "TAB").replace("\n","RETURN").replace("\r","CarrRETURN").replace("#","HASH")
                         rt_min=float(row[headers["Rt_min"]]) if row[headers["Rt_min"]]!="" else None
                         mz=float(row[headers["MZ"]]) if row[headers["MZ"]]!="" else None
-                        polarity=row[headers["IonisationMode"]].strip()
+                        polarity=row[headers["IonisationMode"]].strip().replace("\"","DOURBLEPRIME").replace("'", "PRIME").replace("\t", "TAB").replace("\n","RETURN").replace("\r","CarrRETURN").replace("#","HASH")
                         additionalInfo={}
                         for header in headers.keys():
                             if header not in ["Num", "Name", "SumFormula", "Rt_min", "MZ", "IonisationMode"]:
-                                additionalInfo[header]=row[headers[header]]
+                                additionalInfo[header]=row[headers[header]].replace("\"","DOURBLEPRIME").replace("'", "PRIME").replace("\t", "TAB").replace("\n","RETURN").replace("\r","CarrRETURN").replace("#","HASH")
 
                         mass=0
                         if sumFormula!="":
