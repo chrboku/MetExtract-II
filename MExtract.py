@@ -3591,7 +3591,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
             TableUtils.saveFile(table, resFileFull, cols=order)
 
-        shutil.copyfile(resFileFull, resFilePath + "/xxx_results__8_afterAnnotation.tsv")
+            shutil.copyfile(resFileFull, resFilePath + "/xxx_results__8_afterAnnotation.tsv")
 
 
 
