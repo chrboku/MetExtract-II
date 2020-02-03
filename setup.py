@@ -258,6 +258,7 @@ try:
     os.makedirs("./dist/chromPeakPicking/")
     copy("./chromPeakPicking/MassSpecWaveletIdentification.r", "./dist/chromPeakPicking/MassSpecWaveletIdentification.r")
     copy("./XICAlignment.r", "./dist/XICAlignment.r")
+    copy("./rPackages.R", "./dist/rPackages.R")
     copy("./LICENSE.txt", "./dist/LICENSE.txt")
     copy("./calculateIsotopeEnrichment.R", "./dist/calculateIsotopeEnrichment.R")
     print "Additional resources copied\n==============================\n"

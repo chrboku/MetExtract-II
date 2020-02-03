@@ -94,7 +94,7 @@ if not loadRConfFile(path=get_main_dir()) or not checkR():
 
             app = QtGui.QApplication(sys.argv)
 
-            QtGui.QMessageBox.information(self, "MetExtract",
+            QtGui.QMessageBox.information(None, "MetExtract",
                       "R successfully configured\nUsing MetExtract R-Installation\nPlease restart",
                       QtGui.QMessageBox.Ok)
             sys.exit(0)
@@ -133,7 +133,7 @@ if not loadRConfFile(path=get_main_dir()) or not checkR():
                                 rconf.write(folder)
                                 tryLoad=False
 
-                                QtGui.QMessageBox.information(self, "MetExtract",
+                                QtGui.QMessageBox.information(None, "MetExtract",
                                           "R successfully configured\nPlease restart",
                                           QtGui.QMessageBox.Ok)
                                 sys.exit(0)

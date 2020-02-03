@@ -133,7 +133,11 @@ Function configureR
         FileOpen $9 RPATH.conf w 
         FileWrite $9 "$INSTDIR\R"
         FileClose $9 
-        
+
+        MessageBox MB_OK "Certain antivirus programs may cause problems during the installation of R-packages. Please deactivate them now for a proper installation of the software."
+        ExecWait "$INSTDIR\R\bin\i386\RScript.exe $INSTDIR\rPackages.R"
+        MessageBox MB_OK "If you have deactivated your antivirus software, you can now re-activate it."
+
         Goto endConfigureR
             
     showNonConfigMessage:
