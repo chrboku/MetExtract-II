@@ -112,7 +112,7 @@ SectionEnd
 
 
 Function installR
-    MessageBox MB_YESNO "Install R? (3.3.2; This will not affect other installation/versions of R currently installed and no registry or environment variables will be created)" /SD IDYES IDNO endinstallR
+    MessageBox MB_YESNO "Install R? (3.3.2; This will not affect other installation/versions of R currently installed and no registry or environment variables will be created)\nPlease make sure that you are connected to the internet. " /SD IDYES IDNO endinstallR
         File "resources\setupR_minimal.inf"
 
         NSISdl::download "https://cran.r-project.org/bin/windows/base/old/3.3.2/R-3.3.2-win.exe" "$INSTDIR\R-3.3.2-win.exe"
@@ -134,7 +134,7 @@ Function configureR
         FileWrite $9 "$INSTDIR\R"
         FileClose $9 
 
-        MessageBox MB_OK "Certain antivirus programs may cause problems during the installation of R-packages. Please deactivate them now for a proper installation of the software."
+        MessageBox MB_OK "Certain antivirus programs may cause problems during the installation of R-packages.\nPlease deactivate them now for a proper installation of the software and make sure that you are connected to the internet."
         ExecWait "$INSTDIR\R\bin\i386\RScript.exe $INSTDIR\rPackages.R"
         MessageBox MB_OK "If you have deactivated your antivirus software, you can now re-activate it."
 
