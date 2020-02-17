@@ -215,13 +215,14 @@ class Target:
 a=Target(script = "MetExtractII_Main.py")
 b=Target(script = "FragExtract.py")
 c=Target(script = "MExtract.py")
+d=Target(script = "resultsPostProcessing/combineResults.py")
 
 print "###################################################"
 print "########## Packing MetExtractII_Main"
 print "###################################################"
 import sys
 sys.setrecursionlimit(5000)
-setup(console=[a,b,c],
+setup(console=[a,b,c,d],
       options={"py2exe": {
                  "includes": ["sip", "matplotlib.backends.backend_tkagg", 'scipy', 'scipy.integrate', 'scipy.special.*','scipy.linalg.*', 'scipy.sparse.csgraph._validation'],  # use this line if above does not work
                  "dll_excludes": ["MSVCP90.dll", "api-ms-win-core-string-l1-1-0.dll","api-ms-win-core-registry-l1-1-0.dll","api-ms-win-core-errorhandling-l1-1-0.dll","api-ms-win-core-string-l2-1-0.dll",

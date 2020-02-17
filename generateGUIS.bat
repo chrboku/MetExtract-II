@@ -10,7 +10,9 @@ CALL c:\Python27\Lib\site-packages\PyQt4\pyuic4.bat -x .\mePyGuis\guis\calcIsoto
 
 CALL c:\Python27\Lib\site-packages\PyQt4\pyuic4.bat -x .\mePyGuis\guis\FE_mainWindow.ui               -o .\mePyGuis\FE_mainWindow.py
 
-CALL c:\Python27\Lib\site-packages\PyQt4\pyuic4.bat -x .\mePyGuis\guis\FTICRwindow.ui               -o .\mePyGuis\FTICRWindow.py
+CALL c:\Python27\Lib\site-packages\PyQt4\pyuic4.bat -x .\mePyGuis\guis\FTICRwindow.ui                 -o .\mePyGuis\FTICRWindow.py
+
+CALL c:\Python27\Lib\site-packages\PyQt4\pyuic4.bat -x .\mePyGuis\guis\combineResultsDialog.ui        -o .\mePyGuis\combineResultsDialog.py
 
 CALL c:\Python27\Lib\site-packages\PyQt4\pyrcc4 -o resources_rc.py resources.qrc
 

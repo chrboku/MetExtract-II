@@ -36,6 +36,7 @@ class ModuleSelection(QtGui.QMainWindow, Ui_MainWindow):
         self.allExtractIcon.clicked.connect(self.openAllExtract)
         self.tracExtractIcon.clicked.connect(self.openTracExtract)
         self.fragExtractIcon.clicked.connect(self.openFragExtract)
+        self.combineResultsButton.clicked.connect(self.openCombineResults)
         self.documentationIcon.clicked.connect(self.openDocumentation)
 
 
@@ -57,6 +58,13 @@ class ModuleSelection(QtGui.QMainWindow, Ui_MainWindow):
                     subprocess.Popen("%s.exe"%(modStart))
                 if platform.system() == "Linux":  #Linux
                     subprocess.Popen("%s"%(modStart))
+            elif module is "combineResults":
+                if platform.system() == "Darwin":  #MAC
+                    subprocess.Popen("combineResults")
+                if platform.system() == "Windows":  #Windows
+                    subprocess.Popen("combineResults.exe")
+                if platform.system() == "Linux":  #Linux
+                    subprocess.Popen("combineResults")
             else:
                 QtGui.QMessageBox.warning(self, "MetExtract", "Unknown module", QtGui.QMessageBox.Ok)
         except:
@@ -75,6 +83,10 @@ class ModuleSelection(QtGui.QMainWindow, Ui_MainWindow):
     def openFragExtract(self):
         print "starting FragExtract"
         self.openMetExtractModule(module="FragExtract")
+
+    def openCombineResults(self):
+        print "starting combineResults"
+        self.openMetExtractModule(module="combineResults")
 
     def openDocumentation(self):
         import subprocess

@@ -8,11 +8,11 @@ sys.path.append("C:/PyMetExtract/PyMetExtract")
 from TableUtils import TableUtils
 from utils import Bunch
 
-import guidata
-import guidata.dataset.datatypes as dt
-import guidata.dataset.dataitems as di
+from mePyGuis import combineResultsDialog
+from PyQt4 import QtGui, QtCore
 
 import csv
+import os
 
 
 ########################################################################################################################
@@ -220,119 +220,137 @@ def combineResults(experiments, experimentsOrder, saveToFile,
 
 
 
+class CombineDialog:
+
+    def __init__(self, dialog):
+
+        self.ui = combineResultsDialog.Ui_Dialog()
+        self.ui.setupUi(dialog)
+
+        self.ui.expALoad.clicked.connect(self.selectExpA)
+        self.ui.expBLoad.clicked.connect(self.selectExpB)
+        self.ui.expCLoad.clicked.connect(self.selectExpC)
+        self.ui.expDLoad.clicked.connect(self.selectExpD)
+        self.ui.expELoad.clicked.connect(self.selectExpE)
+        self.ui.expFLoad.clicked.connect(self.selectExpF)
+
+        self.ui.loadResults.clicked.connect(self.selectResults)
+
+        self.ui.run.clicked.connect(self.start)
+
+        self.lastOpenDir="."
 
 
-########################################################################################################################
-########################################################################################################################
-#############################  Execute script and show a graphical user interface to the user
-if __name__ == "__main__":
+    def selectExpA(self):
+        sel = str(QtGui.QFileDialog.getOpenFileName(caption="Select experiment A file", directory=self.lastOpenDir, filter="Data matrix (*.tsv);;All files(*.*)"))
+        if sel is not None:
+            self.ui.expASave.setText(sel)
+            self.lastOpenDir=os.path.dirname(sel)
 
-    params = Bunch()
-    params.expA = "D:/Maria_20171219/EVAL_171206_FML_Remus_untreated_FH/EVAL_171206_FML_Remus_untreated_FH/test.tsv"
-    params.expADesc = "FML"
-    params.expB = "D:/Maria_20171219/EVAL_171206_PHE_Remus_untreated_FH/EVAL_171206_PHE_Remus_untreated_FH/test.tsv"
-    params.expBDesc = "PHE"
-    params.expC = "D:/Maria_20171219/EVAL_171206_TRP_Remus_untreated_FH/test.tsv"
-    params.expCDesc = "TRP"
-    params.expD = ""
-    params.expDDesc = ""
-    params.expE = ""
-    params.expEDesc = ""
-    params.expF = ""
-    params.expFDesc = ""
+    def selectExpB(self):
+        sel = str(QtGui.QFileDialog.getOpenFileName(caption="Select experiment B file", directory=self.lastOpenDir, filter="Data matrix (*.tsv);;All files(*.*)"))
+        if sel is not None:
+            self.ui.expBSave.setText(sel)
+            self.lastOpenDir = os.path.dirname(sel)
 
-    params.maxPPMError = 5
-    params.maxRTError = 0.15
-    params.checkXn = 1
-    params.saveResTo = "D:/Maria_20171219/results_FML_PHE_TRP.tsv"
+    def selectExpC(self):
+        sel = str(QtGui.QFileDialog.getOpenFileName(caption="Select experiment C file", directory=self.lastOpenDir, filter="Data matrix (*.tsv);;All files(*.*)"))
+        if sel is not None:
+            self.ui.expCSave.setText(sel)
+            self.lastOpenDir = os.path.dirname(sel)
 
+    def selectExpD(self):
+        sel = str(QtGui.QFileDialog.getOpenFileName(caption="Select experiment D file", directory=self.lastOpenDir, filter="Data matrix (*.tsv);;All files(*.*)"))
+        if sel is not None:
+            self.ui.expDSave.setText(sel)
+            self.lastOpenDir = os.path.dirname(sel)
 
-    ## necessary, construct QT application
-    _app = guidata.qapplication()  # not required if a QApplication has already been created
+    def selectExpE(self):
+        sel = str(QtGui.QFileDialog.getOpenFileName(caption="Select experiment E file", directory=self.lastOpenDir, filter="Data matrix (*.tsv);;All files(*.*)"))
+        if sel is not None:
+            self.ui.expESave.setText(sel)
+            self.lastOpenDir = os.path.dirname(sel)
 
+    def selectExpF(self):
+        sel = str(QtGui.QFileDialog.getOpenFileName(caption="Select experiment F file", directory=self.lastOpenDir, filter="Data matrix (*.tsv);;All files(*.*)"))
+        if sel is not None:
+            self.ui.expFSave.setText(sel)
+            self.lastOpenDir = os.path.dirname(sel)
 
-    ## annotate the input dialog
-    class Processing(dt.DataSet):
-        """Combine results of two experiments"""
-        _bg1 = dt.BeginGroup("Input files")
-        expA = di.FileOpenItem("Select results A", ("tsv", "txt"), params.expA)
-        expADescString = di.StringItem("Experiment A prefix", params.expADesc)
+    def selectResults(self):
+        sel = str(QtGui.QFileDialog.getSaveFileName(caption="Select results file", directory=self.lastOpenDir, filter="Data matrix (*.tsv);;All files(*.*)"))
+        if sel is not None:
+            self.ui.saveResults.setText(sel)
+            self.lastOpenDir = os.path.dirname(sel)
 
-        expB = di.FileOpenItem("Select results B", ("tsv", "txt"), params.expB)
-        expBDescString = di.StringItem("Experiment B prefix", params.expBDesc)
-        _eg1 = dt.EndGroup("Input files")
+    def start(self):
+        if str(self.ui.expASave.text())=="" or str(self.ui.expAPrefix.text())=="":
+            QtGui.QMessageBox.warning(None, "MetExtract", "Error: You need to specify at least the two experiments A and B", QtGui.QMessageBox.Ok)
+            return
+        if str(self.ui.expBSave.text())=="" or str(self.ui.expBPrefix.text())=="":
+            QtGui.QMessageBox.warning(None, "MetExtract", "Error: You need to specify at least the two experiments A and B", QtGui.QMessageBox.Ok)
+            return
 
-        expC = di.FileOpenItem("Select results C", ("tsv", "txt"), params.expC, check=False)
-        expCDescString = di.StringItem("Experiment C prefix", params.expCDesc)
-        _eg1 = dt.EndGroup("Input files")
+        if (str(self.ui.expCSave.text())=="" != str(self.ui.expCPrefix.text())==""):
+            QtGui.QMessageBox.warning(None, "MetExtract", "Error: You need to specify both the input file and the prefix of experiment C", QtGui.QMessageBox.Ok)
+            return
+        if (str(self.ui.expDSave.text())=="" != str(self.ui.expDPrefix.text())==""):
+            QtGui.QMessageBox.warning(None, "MetExtract", "Error: You need to specify both the input file and the prefix of experiment D", QtGui.QMessageBox.Ok)
+            return
+        if (str(self.ui.expESave.text())=="" != str(self.ui.expEPrefix.text())==""):
+            QtGui.QMessageBox.warning(None, "MetExtract", "Error: You need to specify both the input file and the prefix of experiment E", QtGui.QMessageBox.Ok)
+            return
+        if (str(self.ui.expFSave.text())=="" != str(self.ui.expFPrefix.text())==""):
+            QtGui.QMessageBox.warning(None, "MetExtract", "Error: You need to specify both the input file and the prefix of experiment F", QtGui.QMessageBox.Ok)
+            return
 
-        expD = di.FileOpenItem("Select results D", ("tsv", "txt"), params.expD, check=False)
-        expDDescString = di.StringItem("Experiment D prefix", params.expDDesc)
-        _eg1 = dt.EndGroup("Input files")
+        if str(self.ui.saveResults.text())=="":
+            QtGui.QMessageBox.warning(None, "MetExtract", "Error: You need to specify a file to save the results to", QtGui.QMessageBox.Ok)
+            return
 
-        expE = di.FileOpenItem("Select results E", ("tsv", "txt"), params.expE, check=False)
-        expEDescString = di.StringItem("Experiment E prefix", params.expEDesc)
-        _eg1 = dt.EndGroup("Input files")
-
-        expF = di.FileOpenItem("Select results F", ("tsv", "txt"), params.expF, check=False)
-        expFDescString = di.StringItem("Experiment F prefix", params.expFDesc)
-        _eg1 = dt.EndGroup("Input files")
-
-        _bg2 = dt.BeginGroup("Processing parameters")
-        maxPPMError = di.FloatItem("Max. ppm error", min=0, max=1000, default=params.maxPPMError)
-        maxRTError = di.FloatItem("Max. RT error [min]", min=0, max=10, default=params.maxRTError)
-        _eg2 = dt.EndGroup("Processing parameters")
-
-        saveResTo = di.FileSaveItem("Select new results file", ("tsv", "txt"), params.saveResTo)
-
-
-    ## show the input dialog to the user
-    dialog = Processing()
-    if dialog.edit():
-
-        params = Bunch()
-        params.expA = str(dialog.expA)
-        params.expADesc = str(dialog.expADescString)
-        params.expB = str(dialog.expB)
-        params.expBDesc = str(dialog.expBDescString)
-        params.expC = str(dialog.expC)
-        params.expCDesc = str(dialog.expCDescString)
-        params.expD = str(dialog.expD)
-        params.expDDesc = str(dialog.expDDescString)
-        params.expE = str(dialog.expE)
-        params.expEDesc = str(dialog.expEDescString)
-        params.expF = str(dialog.expF)
-        params.expFDesc = str(dialog.expFDescString)
-
-        params.maxPPMError = float(dialog.maxPPMError)
-        params.maxRTError = float(dialog.maxRTError)
-        params.saveResTo = str(dialog.saveResTo)
 
         experiments={}
         experimentsOrder=[]
-        if params.expADesc != "":
-            experimentsOrder.append(params.expADesc)
-            experiments[params.expADesc] = params.expA
-        if params.expBDesc != "":
-            experimentsOrder.append(params.expBDesc)
-            experiments[params.expBDesc] = params.expB
-        if params.expCDesc != "":
-            experimentsOrder.append(params.expCDesc)
-            experiments[params.expCDesc] = params.expC
-        if params.expDDesc != "":
-            experimentsOrder.append(params.expDDesc)
-            experiments[params.expDDesc] = params.expD
-        if params.expEDesc != "":
-            experimentsOrder.append(params.expEDesc)
-            experiments[params.expEDesc] = params.expE
-        if params.expFDesc != "":
-            experimentsOrder.append(params.expFDesc)
-            experiments[params.expFDesc] = params.expF
 
-        ## combine the results from the two experiments
-        print "Combining results of %d experiments..." % (len(experiments))
+        ex=str(self.ui.expAPrefix.text())
+        experiments[ex]=str(self.ui.expASave.text())
+        experimentsOrder.append(ex)
+
+        ex = str(self.ui.expBPrefix.text())
+        experiments[ex] = str(self.ui.expBSave.text())
+        experimentsOrder.append(ex)
+
+        ex = str(self.ui.expCPrefix.text())
+        if ex!="":
+            experiments[ex] = str(self.ui.expCSave.text())
+            experimentsOrder.append(ex)
+
+        ex = str(self.ui.expDPrefix.text())
+        if ex!="":
+            experiments[ex] = str(self.ui.expDSave.text())
+            experimentsOrder.append(ex)
+
+        ex = str(self.ui.expEPrefix.text())
+        if ex!="":
+            experiments[ex] = str(self.ui.expESave.text())
+            experimentsOrder.append(ex)
+
+        ex = str(self.ui.expFPrefix.text())
+        if ex!="":
+            experiments[ex] = str(self.ui.expFSave.text())
+            experimentsOrder.append(ex)
+
+
+        print "Combining results of experiments..."
         combineResults(experiments, experimentsOrder,
-                       maxPPMError=params.maxPPMError, maxRTShift=params.maxRTError,
-                       checkXn=False, saveToFile=params.saveResTo,
+                       maxPPMError=self.ui.maxPPMDev.value(),
+                       maxRTShift=self.ui.maxRTDev.value(),
+                       checkXn=False,
+                       saveToFile=str(self.ui.saveResults.text()),
                        importantCols=["OGroup", "Ion", "Loss", "M"])
+
+        QtGui.QMessageBox.information(None, "MetExtract", "Processing finished..")
+        sys.exit(0)
+
+
 

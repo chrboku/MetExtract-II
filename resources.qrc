@@ -20,4 +20,7 @@
   <qresource prefix="EnrichmentDialog">
     <file>resources/EnrichmentDialog.png</file>
   </qresource>
+  <qresource prefix="combineResults">
+    <file>resources/combineResults.png</file>
+  </qresource>
 </RCC>

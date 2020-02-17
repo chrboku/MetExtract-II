@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>794</width>
-    <height>503</height>
+    <height>615</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -24,69 +24,15 @@
    <layout class="QGridLayout" name="gridLayout_2">
     <item row="1" column="1">
      <layout class="QGridLayout" name="gridLayout">
-      <item row="3" column="0" colspan="2">
-       <widget class="Line" name="line_2">
-        <property name="frameShadow">
-         <enum>QFrame::Sunken</enum>
-        </property>
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="1">
-       <widget class="QLabel" name="tracExtractLabel">
+      <item row="6" column="1">
+       <widget class="QLabel" name="label_2">
         <property name="text">
-         <string>TracExtract</string>
+         <string>Combine results</string>
         </property>
        </widget>
       </item>
-      <item row="4" column="1">
-       <widget class="QLabel" name="fragExtractLabel">
-        <property name="text">
-         <string>FragExtract</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="QLabel" name="allExtractLabel">
-        <property name="styleSheet">
-         <string notr="true"/>
-        </property>
-        <property name="text">
-         <string>AllExtract</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="0" colspan="2">
-       <widget class="Line" name="line">
-        <property name="frameShadow">
-         <enum>QFrame::Sunken</enum>
-        </property>
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-       </widget>
-      </item>
-      <item row="7" column="1">
-       <widget class="QLabel" name="documentationLabel">
-        <property name="text">
-         <string>Documentation</string>
-        </property>
-       </widget>
-      </item>
-      <item row="5" column="0" colspan="2">
-       <widget class="Line" name="line_3">
-        <property name="frameShadow">
-         <enum>QFrame::Sunken</enum>
-        </property>
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="0">
-       <widget class="QPushButton" name="allExtractIcon">
+      <item row="4" column="0">
+       <widget class="QPushButton" name="fragExtractIcon">
         <property name="sizePolicy">
          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
           <horstretch>90</horstretch>
@@ -100,7 +46,7 @@
          </size>
         </property>
         <property name="styleSheet">
-         <string notr="true">background-image: url(:/AllExtract/resources/AllExtract.png);</string>
+         <string notr="true">background-image: url(:/FragExtract/resources/FragExtract.png);</string>
         </property>
         <property name="text">
          <string/>
@@ -135,8 +81,52 @@
         </property>
        </widget>
       </item>
-      <item row="4" column="0">
-       <widget class="QPushButton" name="fragExtractIcon">
+      <item row="4" column="1">
+       <widget class="QLabel" name="fragExtractLabel">
+        <property name="text">
+         <string>FragExtract</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0" colspan="2">
+       <widget class="Line" name="line">
+        <property name="frameShadow">
+         <enum>QFrame::Sunken</enum>
+        </property>
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QLabel" name="allExtractLabel">
+        <property name="styleSheet">
+         <string notr="true"/>
+        </property>
+        <property name="text">
+         <string>AllExtract</string>
+        </property>
+       </widget>
+      </item>
+      <item row="7" column="0" colspan="2">
+       <widget class="Line" name="line_3">
+        <property name="frameShadow">
+         <enum>QFrame::Sunken</enum>
+        </property>
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+       </widget>
+      </item>
+      <item row="9" column="1">
+       <widget class="QLabel" name="documentationLabel">
+        <property name="text">
+         <string>Documentation</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="0">
+       <widget class="QPushButton" name="allExtractIcon">
         <property name="sizePolicy">
          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
           <horstretch>90</horstretch>
@@ -150,7 +140,7 @@
          </size>
         </property>
         <property name="styleSheet">
-         <string notr="true">background-image: url(:/FragExtract/resources/FragExtract.png);</string>
+         <string notr="true">background-image: url(:/AllExtract/resources/AllExtract.png);</string>
         </property>
         <property name="text">
          <string/>
@@ -160,7 +150,14 @@
         </property>
        </widget>
       </item>
-      <item row="7" column="0">
+      <item row="8" column="0" colspan="2">
+       <widget class="Line" name="line_4">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+       </widget>
+      </item>
+      <item row="9" column="0">
        <widget class="QPushButton" name="documentationIcon">
         <property name="sizePolicy">
          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
@@ -185,10 +182,46 @@
         </property>
        </widget>
       </item>
-      <item row="6" column="0" colspan="2">
-       <widget class="Line" name="line_4">
+      <item row="2" column="1">
+       <widget class="QLabel" name="tracExtractLabel">
+        <property name="text">
+         <string>TracExtract</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="0" colspan="2">
+       <widget class="Line" name="line_2">
+        <property name="frameShadow">
+         <enum>QFrame::Sunken</enum>
+        </property>
         <property name="orientation">
          <enum>Qt::Horizontal</enum>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="0" colspan="2">
+       <widget class="Line" name="line_5">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+       </widget>
+      </item>
+      <item row="6" column="0">
+       <widget class="QPushButton" name="combineResultsButton">
+        <property name="minimumSize">
+         <size>
+          <width>90</width>
+          <height>90</height>
+         </size>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">background-image: url(:/combineResults/resources/combineResults.png);</string>
+        </property>
+        <property name="text">
+         <string/>
+        </property>
+        <property name="flat">
+         <bool>true</bool>
         </property>
        </widget>
       </item>
