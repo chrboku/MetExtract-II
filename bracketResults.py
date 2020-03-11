@@ -98,7 +98,7 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
         # used for debug purposes
         colos = [colors.red]
 
-        cpf = get_main_dir() + "./XICAlignment.r"       # initialise chromatographic alignment script
+        cpf = get_main_dir() + "/XICAlignment.r"       # initialise chromatographic alignment script
         xicAlign = XICAlignment(cpf)
 
 
@@ -1318,7 +1318,11 @@ class ConvoluteFPsInFile:
                                 sb = sd(folds)
 
                                 if ma != None and mb != None and sa != None and sb != None:
-                                    silRatioFold = (max([ma, mb]) / min([ma, mb]))
+                                    silRatioFold=1
+                                    try:
+                                        silRatioFold = (max([ma, mb]) / min([ma, mb]))
+                                    except RuntimeWarning as ex:
+                                        pass
                                     #print ma, mb, sa, sb, max([ma, mb]), min([ma, mb])
                                     fileSILRatios[fpNumA][fpNumB] = silRatioFold <= 1 + max(0.5, 3 * mean([sa, sb]))
 

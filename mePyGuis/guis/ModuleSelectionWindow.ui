@@ -371,6 +371,28 @@
     </item>
    </layout>
   </widget>
+  <widget class="QMenuBar" name="menuBar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>794</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuTools">
+    <property name="title">
+     <string>Tools</string>
+    </property>
+    <addaction name="actionCalculate_isotopic_enrichment"/>
+   </widget>
+   <addaction name="menuTools"/>
+  </widget>
+  <action name="actionCalculate_isotopic_enrichment">
+   <property name="text">
+    <string>Calculate isotopic enrichment</string>
+   </property>
+  </action>
  </widget>
  <resources>
   <include location="../../resources.qrc"/>

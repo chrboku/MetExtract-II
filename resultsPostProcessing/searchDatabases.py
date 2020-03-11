@@ -54,6 +54,9 @@ class DBSearch:
 
 
     def addEntriesFromFile(self, dbName, dbFile, callBackCheckFunction=None):
+        imported=0
+        notImported=0
+
         curEntriesCount=len(self.dbEntriesMZ)+len(self.dbEntriesNeutral)
 
         fT=formulaTools()
@@ -89,7 +92,7 @@ class DBSearch:
                                 mass=fT.calcMolWeight(elems)
                             except Exception as ex:
                                 logging.error("DB import error (%s, row: %d): The sumformula (%s) of the entry %s '%s' could not be parsed"%(dbName, rowi, sumFormula, num, name))
-                                continue
+                                notImported+=1
 
                         dbEntry=DBEntry(dbName, num, name, sumFormula, mass, rt_min, mz, polarity, additionalInfo)
 
@@ -102,11 +105,14 @@ class DBSearch:
                                 self.dbEntriesNeutral.append(dbEntry)
                             else:
                                 self.dbEntriesMZ.append(dbEntry)
+                            imported+=1
+
                     except Exception as ex:
                         logging.error("DB import error: Could not import row %d (%s)"%(rowi, ex.message))
-                        continue
-        print "Imported DB %s with %d entries (Current number of entries: %d)"%(dbName, len(self.dbEntriesMZ)+len(self.dbEntriesNeutral)-curEntriesCount, len(self.dbEntriesMZ)+len(self.dbEntriesNeutral))
+                        notImported+=1
 
+        print "Imported DB %s with %d entries (Current number of entries: %d)"%(dbName, len(self.dbEntriesMZ)+len(self.dbEntriesNeutral)-curEntriesCount, len(self.dbEntriesMZ)+len(self.dbEntriesNeutral))
+        return imported, notImported
 
     def optimizeDB(self):
         self.dbEntriesNeutral=sorted(self.dbEntriesNeutral, key=lambda x: x.mass)

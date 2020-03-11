@@ -76,7 +76,7 @@ class groupEdit(QtGui.QDialog, Ui_GroupEditor):
         return int(self.groupMinimumFound.value())
 
     def getOmitFeatures(self):
-        return bool(self.omitFeatures.checkState() == QtCore.Qt.Checked)
+        return self.omitFeatures.isChecked()
 
     def getUseForMetaboliteGrouping(self):
         return bool(self.useForMetaboliteGrouping.checkState() == QtCore.Qt.Checked)
@@ -138,9 +138,9 @@ class groupEdit(QtGui.QDialog, Ui_GroupEditor):
         self.groupName.setText(groupName)
         self.groupMinimumFound.setValue(minimumGroupFound)
         if omitFeatures:
-            self.omitFeatures.setCheckState(QtCore.Qt.Checked)
+            self.omitFeatures.setChecked(True)
         else:
-            self.omitFeatures.setCheckState(QtCore.Qt.Unchecked)
+            self.omitFeatures.setChecked(False)
         if useForMetaboliteGrouping:
             self.useForMetaboliteGrouping.setCheckState(QtCore.Qt.Checked)
         else:

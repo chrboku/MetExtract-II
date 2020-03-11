@@ -24,6 +24,8 @@ from PyQt4 import QtGui, QtCore
 import subprocess
 import platform
 
+from mePyGuis import calcIsoEnrichmentDialog
+
 
 
 class ModuleSelection(QtGui.QMainWindow, Ui_MainWindow):
@@ -38,6 +40,8 @@ class ModuleSelection(QtGui.QMainWindow, Ui_MainWindow):
         self.fragExtractIcon.clicked.connect(self.openFragExtract)
         self.combineResultsButton.clicked.connect(self.openCombineResults)
         self.documentationIcon.clicked.connect(self.openDocumentation)
+
+        self.actionCalculate_isotopic_enrichment.triggered.connect(self.openCalcIsotopologEnrichment)
 
 
     def openMetExtractModule(self, module):
@@ -71,6 +75,9 @@ class ModuleSelection(QtGui.QMainWindow, Ui_MainWindow):
             QtGui.QMessageBox.warning(self, "MetExtract", "Requested module cannot be found. \nPlease try re-installing the software", QtGui.QMessageBox.Ok)
 
 
+    def openCalcIsotopologEnrichment(self):
+        diag = calcIsoEnrichmentDialog.calcIsoEnrichmentDialog()
+        diag.executeDialog()
 
     def openAllExtract(self):
         print "starting AllExtract"

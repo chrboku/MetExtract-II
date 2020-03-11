@@ -175,6 +175,16 @@ class Ui_MainWindow(object):
         self.verticalLayout_3.addItem(spacerItem6)
         self.gridLayout_2.addLayout(self.verticalLayout_3, 0, 4, 2, 1)
         MainWindow.setCentralWidget(self.centralwidget)
+        self.menuBar = QtGui.QMenuBar(MainWindow)
+        self.menuBar.setGeometry(QtCore.QRect(0, 0, 794, 21))
+        self.menuBar.setObjectName(_fromUtf8("menuBar"))
+        self.menuTools = QtGui.QMenu(self.menuBar)
+        self.menuTools.setObjectName(_fromUtf8("menuTools"))
+        MainWindow.setMenuBar(self.menuBar)
+        self.actionCalculate_isotopic_enrichment = QtGui.QAction(MainWindow)
+        self.actionCalculate_isotopic_enrichment.setObjectName(_fromUtf8("actionCalculate_isotopic_enrichment"))
+        self.menuTools.addAction(self.actionCalculate_isotopic_enrichment)
+        self.menuBar.addAction(self.menuTools.menuAction())
 
         self.retranslateUi(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
@@ -186,6 +196,8 @@ class Ui_MainWindow(object):
         self.allExtractLabel.setText(_translate("MainWindow", "AllExtract", None))
         self.documentationLabel.setText(_translate("MainWindow", "Documentation", None))
         self.tracExtractLabel.setText(_translate("MainWindow", "TracExtract", None))
+        self.menuTools.setTitle(_translate("MainWindow", "Tools", None))
+        self.actionCalculate_isotopic_enrichment.setText(_translate("MainWindow", "Calculate isotopic enrichment", None))
 
 import resources_rc
 

@@ -55,20 +55,14 @@ Section "instfiles"
     
     File /r "PyMetExtract_$$METEXTRACTVERSION$$\"
 
-    # SetShellVarContext all
     CreateDirectory "$SMPROGRAMS\MetExtractII\$$METEXTRACTVERSION$$"
     CreateShortCut "$SMPROGRAMS\MetExtractII\$$METEXTRACTVERSION$$\MetExtract II $$METEXTRACTVERSION$$.lnk" "$INSTDIR\MetExtractII_Main.exe"
     # CreateShortCut "$SMPROGRAMS\MetExtractII\$$METEXTRACTVERSION$$\Sample data.lnk" "$INSTDIR\sampleData"
     CreateShortCut "$SMPROGRAMS\MetExtractII\$$METEXTRACTVERSION$$\Documentation.lnk" "$INSTDIR\documentation\index.html"
-
     CreateShortCut "$SMPROGRAMS\MetExtractII\$$METEXTRACTVERSION$$\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
-
     MessageBox MB_YESNO "Do you want to create a shortcut on the desktop?" /SD IDYES IDNO endDesktopIcon
-
         CreateShortCut "$DESKTOP\MetExtract II $$METEXTRACTVERSION$$.lnk" "$INSTDIR\MetExtractII_Main.exe"
-
     endDesktopIcon:
-
 
     CreateDirectory "$INSTDIR\R"
     Call installR
@@ -89,22 +83,22 @@ Section "uninstall"
         Quit
     next:
           
-    RmDir /r "$INSTDIR\sampleData"
-    RmDir /r "$INSTDIR\R"
-    RmDir /r "$INSTDIR\documentation"
-    RmDir /r "$INSTDIR\mpl-data"
-    RmDir /r "$INSTDIR\Settings"
-    RmDir /r "$INSTDIR\tcl"
+    #RmDir /r "$INSTDIR\sampleData"
+    #RmDir /r "$INSTDIR\R"
+    #RmDir /r "$INSTDIR\documentation"
+    #RmDir /r "$INSTDIR\mpl-data"
+    #RmDir /r "$INSTDIR\Settings"
+    #RmDir /r "$INSTDIR\tcl"
+    RmDir /r "$INSTDIR"
           
     !insertmacro UNINSTALL.LOG_UNINSTALL "$INSTDIR"
     !insertmacro UNINSTALL.LOG_UNINSTALL "$APPDATA\${APP_NAME}"
     !insertmacro UNINSTALL.LOG_END_UNINSTALL
     
     DeleteRegKey /ifempty ${INSTDIR_REG_ROOT} "${INSTDIR_REG_KEY}"
-  
+
     # second, remove the links from the start menu
     RmDir /r "$SMPROGRAMS\MetExtractII $$METEXTRACTVERSION$$"
-
     delete "$DESKTOP\MetExtract II $$METEXTRACTVERSION$$.lnk"
  
 # uninstaller section end
@@ -134,7 +128,7 @@ Function configureR
         FileWrite $9 "$INSTDIR\R"
         FileClose $9 
 
-        MessageBox MB_OK "Certain antivirus programs may cause problems during the installation of R-packages.\nPlease deactivate them now for a proper installation of the software and make sure that you are connected to the internet."
+        MessageBox MB_OK "Certain antivirus programs may cause problems during the installation of R-packages. Please deactivate them now for a proper installation of the software and make sure that you are connected to the internet."
         ExecWait "$INSTDIR\R\bin\i386\RScript.exe $INSTDIR\rPackages.R"
         MessageBox MB_OK "If you have deactivated your antivirus software, you can now re-activate it."
 

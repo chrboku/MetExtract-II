@@ -38,7 +38,7 @@
      <x>19</x>
      <y>25</y>
      <width>1161</width>
-     <height>501</height>
+     <height>568</height>
     </rect>
    </property>
    <property name="sizePolicy">
@@ -54,125 +54,13 @@
     <string/>
    </property>
   </widget>
-  <widget class="QLabel" name="label_3">
-   <property name="geometry">
-    <rect>
-     <x>589</x>
-     <y>85</y>
-     <width>41</width>
-     <height>21</height>
-    </rect>
-   </property>
-   <property name="styleSheet">
-    <string notr="true">font-size: 16pt;</string>
-   </property>
-   <property name="text">
-    <string>Cn</string>
-   </property>
-  </widget>
-  <widget class="QLabel" name="label_4">
-   <property name="geometry">
-    <rect>
-     <x>90</x>
-     <y>10</y>
-     <width>21</width>
-     <height>21</height>
-    </rect>
-   </property>
-   <property name="styleSheet">
-    <string notr="true">font-size: 16pt;</string>
-   </property>
-   <property name="text">
-    <string>M</string>
-   </property>
-  </widget>
-  <widget class="QLabel" name="label_5">
-   <property name="geometry">
-    <rect>
-     <x>130</x>
-     <y>245</y>
-     <width>61</width>
-     <height>21</height>
-    </rect>
-   </property>
-   <property name="styleSheet">
-    <string notr="true">font-size: 16pt;</string>
-   </property>
-   <property name="text">
-    <string>M+1</string>
-   </property>
-  </widget>
-  <widget class="QLabel" name="label_6">
-   <property name="geometry">
-    <rect>
-     <x>192</x>
-     <y>405</y>
-     <width>61</width>
-     <height>21</height>
-    </rect>
-   </property>
-   <property name="styleSheet">
-    <string notr="true">font-size: 16pt;</string>
-   </property>
-   <property name="text">
-    <string>M+2</string>
-   </property>
-  </widget>
-  <widget class="QLabel" name="label_7">
-   <property name="geometry">
-    <rect>
-     <x>1088</x>
-     <y>12</y>
-     <width>31</width>
-     <height>21</height>
-    </rect>
-   </property>
-   <property name="styleSheet">
-    <string notr="true">font-size: 16pt;</string>
-   </property>
-   <property name="text">
-    <string>M'</string>
-   </property>
-  </widget>
-  <widget class="QLabel" name="label_8">
-   <property name="geometry">
-    <rect>
-     <x>1010</x>
-     <y>320</y>
-     <width>61</width>
-     <height>21</height>
-    </rect>
-   </property>
-   <property name="styleSheet">
-    <string notr="true">font-size: 16pt;</string>
-   </property>
-   <property name="text">
-    <string>M'-1</string>
-   </property>
-  </widget>
-  <widget class="QLabel" name="label_9">
-   <property name="geometry">
-    <rect>
-     <x>951</x>
-     <y>464</y>
-     <width>61</width>
-     <height>21</height>
-    </rect>
-   </property>
-   <property name="styleSheet">
-    <string notr="true">font-size: 16pt;</string>
-   </property>
-   <property name="text">
-    <string>M'-2</string>
-   </property>
-  </widget>
   <widget class="QTableWidget" name="tableWidget">
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>530</y>
+     <y>600</y>
      <width>1151</width>
-     <height>521</height>
+     <height>451</height>
     </rect>
    </property>
    <row>
@@ -447,17 +335,17 @@
    </column>
    <column>
     <property name="text">
-     <string>Cn</string>
+     <string>Xn</string>
     </property>
    </column>
    <column>
     <property name="text">
-     <string>12C-enrichment</string>
+     <string>M enrichment</string>
     </property>
    </column>
    <column>
     <property name="text">
-     <string>13C-enrichment</string>
+     <string>M' enrichment</string>
     </property>
    </column>
   </widget>

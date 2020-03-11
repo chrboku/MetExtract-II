@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>598</width>
+    <width>781</width>
     <height>552</height>
    </rect>
   </property>
@@ -19,7 +19,16 @@
   <layout class="QGridLayout" name="gridLayout">
    <item row="0" column="0" colspan="3">
     <layout class="QGridLayout" name="gridLayout_2">
-     <property name="margin">
+     <property name="leftMargin">
+      <number>9</number>
+     </property>
+     <property name="topMargin">
+      <number>9</number>
+     </property>
+     <property name="rightMargin">
+      <number>9</number>
+     </property>
+     <property name="bottomMargin">
       <number>9</number>
      </property>
      <item row="7" column="0">
@@ -357,7 +366,73 @@ font: 7pt;</string>
      </item>
      <item row="7" column="4">
       <layout class="QGridLayout" name="gridLayout_3">
-       <item row="0" column="0">
+       <item row="5" column="1" colspan="3">
+        <widget class="QCheckBox" name="useAsMSMSTarget">
+         <property name="text">
+          <string>Use sample for MSMS targets</string>
+         </property>
+        </widget>
+       </item>
+       <item row="4" column="1" colspan="3">
+        <widget class="QCheckBox" name="removeAsFalsePositive">
+         <property name="text">
+          <string>Remove (false positive)</string>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="1" colspan="3">
+        <widget class="QCheckBox" name="useForMetaboliteGrouping">
+         <property name="text">
+          <string>Use samples for metabolite grouping</string>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1" rowspan="2" colspan="3">
+        <widget class="QGroupBox" name="omitFeatures">
+         <property name="title">
+          <string>Omit features</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_4">
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_4">
+            <property name="text">
+             <string>Minimum found </string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QSpinBox" name="groupMinimumFound">
+            <property name="minimum">
+             <number>1</number>
+            </property>
+            <property name="maximum">
+             <number>999</number>
+            </property>
+            <property name="value">
+             <number>1</number>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item row="0" column="2" colspan="2">
+        <widget class="QComboBox" name="colorsComboBox"/>
+       </item>
+       <item row="0" column="1">
+        <widget class="QLabel" name="label_7">
+         <property name="text">
+          <string>Color</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="0" rowspan="6">
         <spacer name="horizontalSpacer_3">
          <property name="orientation">
           <enum>Qt::Horizontal</enum>
@@ -369,73 +444,6 @@ font: 7pt;</string>
           </size>
          </property>
         </spacer>
-       </item>
-       <item row="0" column="3">
-        <widget class="QSpinBox" name="groupMinimumFound">
-         <property name="minimum">
-          <number>1</number>
-         </property>
-         <property name="maximum">
-          <number>999</number>
-         </property>
-         <property name="value">
-          <number>1</number>
-         </property>
-        </widget>
-       </item>
-       <item row="5" column="2" colspan="2">
-        <widget class="QComboBox" name="colorsComboBox"/>
-       </item>
-       <item row="5" column="1">
-        <widget class="QLabel" name="label_7">
-         <property name="text">
-          <string>Color</string>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="1" colspan="2">
-        <widget class="QLabel" name="label_4">
-         <property name="text">
-          <string>Minimum found </string>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="1" colspan="3">
-        <widget class="QCheckBox" name="omitFeatures">
-         <property name="toolTip">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Feature pairs found in all groups less than &amp;quot;Min found&amp;quot; times are removed from the dataset. &lt;/p&gt;&lt;p&gt;The omit option should only be used for groups with native and labeled material and not for blanks. &lt;/p&gt;&lt;p&gt;If no groups uses the omit option, all features will remain in the dataset&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-         </property>
-         <property name="text">
-          <string>Omit features</string>
-         </property>
-         <property name="checked">
-          <bool>true</bool>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="1" colspan="3">
-        <widget class="QCheckBox" name="useForMetaboliteGrouping">
-         <property name="text">
-          <string>Use samples for metabolite grouping</string>
-         </property>
-         <property name="checked">
-          <bool>true</bool>
-         </property>
-        </widget>
-       </item>
-       <item row="3" column="1" colspan="3">
-        <widget class="QCheckBox" name="removeAsFalsePositive">
-         <property name="text">
-          <string>Remove (false positive)</string>
-         </property>
-        </widget>
-       </item>
-       <item row="4" column="1" colspan="3">
-        <widget class="QCheckBox" name="useAsMSMSTarget">
-         <property name="text">
-          <string>Use sample for MSMS targets</string>
-         </property>
-        </widget>
        </item>
       </layout>
      </item>
@@ -450,12 +458,9 @@ font: 7pt;</string>
   <tabstop>addFolder</tabstop>
   <tabstop>addFiles</tabstop>
   <tabstop>removeSelected</tabstop>
-  <tabstop>groupMinimumFound</tabstop>
-  <tabstop>omitFeatures</tabstop>
   <tabstop>useForMetaboliteGrouping</tabstop>
   <tabstop>removeAsFalsePositive</tabstop>
   <tabstop>useAsMSMSTarget</tabstop>
-  <tabstop>colorsComboBox</tabstop>
   <tabstop>dialogCanceled</tabstop>
  </tabstops>
  <resources/>

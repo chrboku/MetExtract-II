@@ -108,7 +108,7 @@
                 <div class="col-md-1 movie-align-right"><i class="glyphicon glyphicon-user"></i>
                 </div>
                 <div class="col-md-11">
-                    <p>Bernhard Kluger, Christoph Bueschl, Nora KN. Neumann, Maria Doppler, Gerhard G. Thallinger, Rudolf Krska, Rainer Schuhmacher</p>
+                    <p>Bernhard Kluger, Christoph Bueschl, Maria Doppler, Nora KN. Neumann, Gerhard G. Thallinger, Rudolf Krska, Rainer Schuhmacher</p>
                 </div>
             </div>
             <br>
@@ -166,56 +166,9 @@
     <div id="installation" class="">
         <div class="container">
             <h2 class="codefolder">Download &amp; installation</h2>
-            <div class="row row-eq-height">
-                <div class="col-md-6 row-eq-height">
-                    <div class="bs-callout bs-callout-info s-callout-fullWidth">
-                        <h4><a href="">Download for Windows 7</a></h4>
-                        <p>Follow the instructions of the setup. It will also ask to install and configure R automatically.</p>
-
-                    </div>
-                </div>
-                <!--
-                <div class="col-md-6 row-eq-height">
-                    <div class="bs-callout bs-callout-fullWidth" >
-                        <h4>Mac OS<br> (10.9 or newer)</h4>
-                        <p>under development</p>
-                    </div>
-                </div>
-                -->
-            </div>
-
-            <h3>Configuration of R</h3>
-            <div class="row row-eq-height">
-                <div class="col-md-6 row-eq-height">
-                    <div class="bs-callout bs-callout-info">
-                        <h4>Windows 7</h4>
-                        <p>Note: Only required if not performed during the automated setup.</p>
-                        <ol>
-                            <li>Download and install <a href="http://cran.at.r-project.org/bin/windows/base/old/2.15.2/R-2.15.2-win.exe">R-2.15.2-win.exe</a>
-                            </li>
-                            <li>Create a file in the MetExtract base folder named RPATH.conf containing the path to the R-base directory (not /bin folder; e.g. C:/Program Files/R/R-2.15.2)</li>
-                            <li>Copy all files in R_HOME/bin/i386 to R_HOME/bin</li>
-                            <li>Copy Rlapack.dll to the MetExtract base folder</li>
-                        </ol>
-                        <p>Required R-packages will automatically be installed upon the first use of MetExtract II</p>
-                    </div>
-                </div>
-            </div>
-            <div class="row row-eq-height">
-                <div class="col-md-12 row-eq-height">
-                    <div class="bs-callout bs-callout-danger">
-                        <h4>R_HOME environment variable</h4>
-                        <p>An environment variable named 'R_HOME' may cause problems with MetExtract II. Please rename this variable when using MetExtract II and undo the renaming after using MetExtract II. </p>
-                    </div>
-                </div>
-            </div>
-
-            <h3>Sample dataset</h3>
-
-
             <div class="row">
                 <div class="col-md-12">
-                    <p>For sample data please refer to the publication <a href="">DOI: TODO</a> and the homepage of MetExtract II at <a href="https://metabolomics-ifa.boku.ac.at/metextractII">https://metabolomics-ifa.boku.ac.at/metextractII</a></p>
+                    <p>For installation setups and sample data please refer to the publication <a href="https://dx.doi.org/10.1021/acs.analchem.7b02518" target="_blank">MetExtract II: A software suite for stable isotope-assisted untargeted metabolomics (Bueschl et al. 2017)</a> and the homepage of MetExtract II at <a href="https://metabolomics-ifa.boku.ac.at/metextractII">https://metabolomics-ifa.boku.ac.at/metextractII</a></p>
                 </div>
             </div>
         </div>
@@ -380,10 +333,7 @@
             </div>
             <p>MetExtract requires the LC-HRMS(/MS) data in the mzXML (Pedrioli <i>et al.</i> 2004 DOI:<a href="https://dx.doi.org/10.1038/nbt1031">10.138/nbt1031</a>) or mzML format (Martens <i>et al.</i> 2011 DOI:<a href="http://dx.doi.org/10.1074/mcp.R110.000133">10.1074/mcp.R110.000133</a>). Some instrument manufacturers provide tools for exportint their proprietary formats to mzXML or mzML; for others open source software can be used for the conversion. </p>
             <p>Besides the mzXML format, MetExtract also requires centroid LC-HRMS(/MS) data since it does not support profile mode data. </p>
-            <h3>ReAdW</h3>
-            <p>ReAdW, a command line tool, is capable of converting Thermo Fischer Raw files (Orbitrap format) into mzXML. It can be downloaded from <a href="http://tools.proteomecenter.org/wiki/index.php?title=Software:ReAdW.">http://tools.proteomecenter.org/wiki/index.php?title=Software:ReAdW.</a>
-            </p>
-            <p>The option –c is used to centroid data from profile mode using the Thermo Fischer centroidation algorithm. The X-Calibur software suite from Thermo Fisher Scientific must be installed and accessible for ReAdW.</p>
+           
             <h3>Proteo Wizard</h3>
             <p>The program msConvert is a part of the ProteoWizard software package and has a graphical user interface, multi core support, and is capable of importing different MS vendor data formats. It can be downloaded from <a href="http://proteowizard.sourceforge.net/.">http://proteowizard.sourceforge.net/.</a>
             </p>
@@ -453,9 +403,13 @@
                             <dt>Files</dt>
                             <dd>Use the buttons "Add files(s)" to add mzXML files or remove selected files using the buttion "Remove selected"</dd>
                             <dt>Options</dt>
-                            <dd>Minimum found: An ion must be detected at least in n replicates of this group
-                                <br>Omit features: If a feature is found less than "Minimum found" times, it is removed from further data processing
-                                <br>Color: The color used for drawing the TIC of the files used in this group</dd>
+                            <dd><i>Color</i>: The color used for drawing the TIC of the files used in this group<br>
+                                <i>Omit features</i>: If a feature is found less than "Minimum found" times among the samples of this group, it is removed from further data processing.<br>
+                                <i>Minimum found</i>: The number of times a feature pair must be detected in this group to not be removed from data processing<br>
+                                <i>Use samples for metabolite grouping</i>: If selected, the samples of the current experimental group are used for metabolite convolution<br>
+                                <i>Remove (false positive)</i>: If selected, any feature pair detected in these samples will be removed. This option should only be selected for those groups that represent blanks or matrix-blank samples (i.e. only native material, no labeled material)<br>
+                                <i>Use sample for MSMS targets</i>: If selected, the samples of this group will be used to automatically optimize MSMS inclustion lists
+                            </dd>
                         </dl>
                         <p>See figure 3 for an example of the group dialog with two mzXML files added to the respective group.</p>
 

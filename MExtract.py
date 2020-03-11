@@ -16,6 +16,12 @@
 #    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 
+import os
+if not os.path.exists(os.environ["LOCALAPPDATA"]+"/MetExtractII"):
+    os.makedirs(os.environ["LOCALAPPDATA"]+"/MetExtractII")
+
+
+
 import logging
 
 import LoggingSetup
@@ -183,12 +189,18 @@ def checkRDependencies(r):
     dialog.show()
     dialog.setDependencyStatus("R", RPackageAvailable)
 
+    antiVirusMessage=True
+
+
     # Check each dependency, if it is installed and update the dialog accordingly
     missingDependency = False
     for dep in ["waveslim", "signal", "ptw", "MASS", "baseline"]:
         if str(r("is.installed(\"%s\")" % dep)[0]).lower() == "true":
             dialog.setDependencyStatus(dep, RPackageAvailable)
         else:
+            if antiVirusMessage:
+                QtGui.QMessageBox.warning(None, "MetExtract", "Certain antivirus programs may cause problems during the installation of R-packages. Please deactivate them now for a proper installation of the software and make sure that you are connected to the internet.", QtGui.QMessageBox.Ok)
+                antiVirusMessage = False
             logging.info("installing %s.." % dep)
             r("install.packages(\"%s\", repos='http://cran.us.r-project.org')" % dep)
             if str(r("is.installed(\"%s\")" % dep)[0]).lower() == "true":
@@ -201,6 +213,10 @@ def checkRDependencies(r):
         if str(r("is.installed(\"%s\")" % dep)[0]).lower() == "true":
             dialog.setDependencyStatus(dep, RPackageAvailable)
         else:
+            if antiVirusMessage:
+                QtGui.QMessageBox.warning(None, "MetExtract", "Certain antivirus programs may cause problems during the installation of R-packages. Please deactivate them now for a proper installation of the software and make sure that you are connected to the internet.",QtGui.QMessageBox.Ok)
+                antiVirusMessage = False
+
             logging.info("installing %s.." % dep)
             r("source(\"http://bioconductor.org/biocLite.R\")")
             r("biocLite(\"%s\", suppressUpdates=TRUE)" % dep)
@@ -209,6 +225,12 @@ def checkRDependencies(r):
             else:
                 dialog.setDependencyStatus(dep, RPackageError)
                 missingDependency = True
+
+    if not antiVirusMessage:
+        QtGui.QMessageBox.warning(None, "MetExtract", "The antivirus protection can now be reactivated", QtGui.QMessageBox.Ok)
+
+    if missingDependency:
+        QtGui.QMessageBox.warning(None, "MetExtract", "Error: some packages have not been installed successfully. Please retry or contact your system administrator.\nSee the console for further informatin about the installation errors.", QtGui.QMessageBox.Ok)
 
     dialog.hide()
 
@@ -338,15 +360,15 @@ import pyperclip
 
 from SGR import SGRGenerator
 from SqliteCache import SqliteCache
-sfCache=SqliteCache(get_main_dir()+"/sfcache.db")
+sfCache=SqliteCache(os.environ["LOCALAPPDATA"]+"/MetExtractII/sfcache.db")
 if __name__=="__main__":
-    logging.info("Using sum formula generation cache at"+ get_main_dir()+"/sfcache.db")
+    logging.info("Using sum formula generation cache at"+ os.environ["LOCALAPPDATA"]+"/MetExtractII/sfcache.db")
     logging.info("")
 
 
 def getCallStr(m, ppm, useAtoms, atomsRange, fixed, useSGR):
-    return "sfg.findFormulas(%.5f, useAtoms=%s," \
-           "atomsRange=%s, fixed='%s'" \
+    return "sfg.findFormulas(%.5f, useAtoms=%s, " \
+           "atomsRange=%s, fixed='%s', " \
            "useSevenGoldenRules=%s, useSecondRule=True, ppm=%.2f))" % (m, str(useAtoms), str(atomsRange), fixed, useSGR, ppm)
 
 def genSFs(m, ppm, useAtoms, atomsRange, fixed, useSGR):
@@ -433,7 +455,7 @@ class procAreaInFile:
     def __init__(self, forFile, chromPeakFile=None, offset=0):
         if chromPeakFile is None:
             from utils import get_main_dir
-            cpf = get_main_dir()+ "./chromPeakPicking/MassSpecWaveletIdentification.r"
+            cpf = get_main_dir()+ "/chromPeakPicking/MassSpecWaveletIdentification.r"
             chromPeakFile=cpf
 
         self.chromPeakFile = chromPeakFile
@@ -907,7 +929,10 @@ def _integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colload
 
 
     p.close()
-    p.terminate()
+    try:
+        p.terminate()
+    except:
+        pass
     p.join()
 
     if selfObj.terminateJobs:
@@ -1067,7 +1092,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         #fhash="%s_%s"%(file, sha256(open(file, 'rb').read()).hexdigest())  #self.ckeckedLCMSFiles[fhash]=Bunch(parsed=parsed, fls=tm.getFilterLinesPerPolarity(), pols=tm.getPolarities(), tics=tics)
         fhash="%s_NOHash"%(file)  ## ignore hash, files are not likely to change
 
-        tconn = connect(get_main_dir() + "/fileImport.sqlite.cache")
+        tconn = connect(os.environ["LOCALAPPDATA"] + "/MetExtractII/fileImport.sqlite.cache")
         tcurs = tconn.cursor()
         tcurs.execute("CREATE TABLE IF NOT EXISTS fileCache(filePath TEXT, parsingInfo TEXT)")
         tconn.commit()
@@ -1742,7 +1767,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             grps.endGroup()
 
             # ask user, if currently loaded settings shall also be saved to this compilation
-            if QtGui.QMessageBox.question(self, "MetExtract", "Do you want to save the currently loaded settings with this group?",
+            if QtGui.QMessageBox.question(self, "MetExtract", "Do you want to save the current settings with this group?",
                                           QtGui.QMessageBox.Yes | QtGui.QMessageBox.No) == QtGui.QMessageBox.Yes:
                 self.saveSettingsFile(groupFile, clear=False)
 
@@ -2159,6 +2184,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             if sett.contains("workingDirectory"):
                 try:
                     os.chdir(str(sett.value("workingDirectory").toString()))
+                    LoggingSetup.LoggingSetup.Instance().initLogging(location=str(sett.value("workingDirectory").toString()))
                     logging.info("Working directory changed to '%s'"%str(sett.value("workingDirectory").toString()))
                     if not(silent):
                         QtGui.QMessageBox.information(self, "MetExtract", "The current working directory was changed to\n'%s'"%str(sett.value("workingDirectory").toString()), QtGui.QMessageBox.Ok)
@@ -2196,11 +2222,11 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             if sett.contains("LabellingElementA") and self.labellingExperiment==METABOLOME:
                 self.ui.isotopeAText.setText(str(sett.value("LabellingElementA").toString()))
             if sett.contains("IsotopicAbundanceA") and self.labellingExperiment==METABOLOME:
-                self.ui.isotopicAbundanceA.setValue(sett.value("IsotopicAbundanceA").toDouble()[0])
+                self.ui.isotopicAbundanceA.setValue(sett.value("IsotopicAbundanceA").toDouble()[0]*100.)
             if sett.contains("LabellingElementB") and self.labellingExperiment==METABOLOME:
                 self.ui.isotopeBText.setText(str(sett.value("LabellingElementB").toString()))
             if sett.contains("IsotopicAbundanceB") and self.labellingExperiment==METABOLOME:
-                self.ui.isotopicAbundanceB.setValue(sett.value("IsotopicAbundanceB").toDouble()[0])
+                self.ui.isotopicAbundanceB.setValue(sett.value("IsotopicAbundanceB").toDouble()[0]*100.)
             if sett.contains("useCValidation") and self.labellingExperiment==METABOLOME:
                 self.ui.useCValidation.setCheckState(sett.value("useCValidation").toInt()[0])
             if sett.contains("useRatio") and self.labellingExperiment==METABOLOME:
@@ -2221,16 +2247,15 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 self.ui.scanStartTime.setValue(sett.value("ScanStart").toDouble()[0])
             if sett.contains("ScanEnd"):
                 self.ui.scanEndTime.setValue(sett.value("ScanEnd").toDouble()[0])
-            xCountsStr=""
-            if sett.contains("xCounts"):
-                xCountsStr=str(sett.value("xCounts").toString())
 
-            if xCountsStr=="":
-                if sett.contains("MinXCount") and sett.contains("MaxXCount"):
-                    minX=sett.value("MinXCount").toInt()[0]
-                    maxX=sett.value("MaxXCount").toInt()[0]
-                    xCountsStr="%d-%d"%(minX, maxX)
-            self.ui.xCountSearch.setText(xCountsStr)
+            if sett.contains("xCounts"):
+                self.ui.xCountSearch.setText(str(sett.value("xCounts").toString()))
+            elif xCountsStr=="":
+                if self.labellingExperiment==TRACER:
+                    self.ui.xCountSearch.setText("10-15, 30, 45")
+                elif self.labellingExperiment==METABOLOME:
+                    self.ui.xCountSearch.setText("3-60")
+
             if sett.contains("MaxLoading"):
                 self.ui.maxLoading.setValue(sett.value("MaxLoading").toInt()[0])
             if sett.contains("MaxMassDeviation"):
@@ -2242,9 +2267,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             if sett.contains("lowAbundanceIsotopeCutoff"):
                 self.ui.isoAbundance.setChecked(sett.value("lowAbundanceIsotopeCutoff").toBool())
             if sett.contains("IntensityAbundanceErrorA"):
-                self.ui.baseRange.setValue(sett.value("IntensityAbundanceErrorA").toDouble()[0])
+                self.ui.baseRange.setValue(sett.value("IntensityAbundanceErrorA").toDouble()[0]*100.)
             if sett.contains("IntensityAbundanceErrorB"):
-                self.ui.isotopeRange.setValue(sett.value("IntensityAbundanceErrorB").toDouble()[0])
+                self.ui.isotopeRange.setValue(sett.value("IntensityAbundanceErrorB").toDouble()[0]*100.)
 
             if sett.contains("ClustPPM"):
                 self.ui.clustPPM.setValue(sett.value("ClustPPM").toDouble()[0])
@@ -2285,7 +2310,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             if sett.contains("Peak_WidthError"):
                 self.ui.peak_scaleError.setValue(sett.value("Peak_WidthError").toInt()[0])
             if sett.contains("Peak_minPeakCorr"):
-                self.ui.minPeakCorr.setValue(sett.value("Peak_minPeakCorr").toDouble()[0])
+                self.ui.minPeakCorr.setValue(sett.value("Peak_minPeakCorr").toDouble()[0]*100.)
             if sett.contains("checkBox_checkPeakRatio"):
                 self.ui.checkBox_checkPeakRatio.setChecked(sett.value("checkBox_checkPeakRatio").toBool())
             if sett.contains("doubleSpinBox_minPeakRatio"):
@@ -2301,7 +2326,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 self.ui.calcIsoRatioMoiety_spinBox.setValue(sett.value("calcIsoRatioMoiety").toInt()[0])
 
             if sett.contains("hAIntensityError"):
-                self.ui.hAIntensityError.setValue(sett.value("hAIntensityError").toDouble()[0])
+                self.ui.hAIntensityError.setValue(sett.value("hAIntensityError").toDouble()[0]*100.)
             if sett.contains("hAMinScans"):
                 self.ui.hAMinScans.setValue(sett.value("hAMinScans").toInt()[0])
             if sett.contains("heteroAtoms") or sett.contains("heteroElements"):
@@ -2330,9 +2355,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 self.ui.savePDF.setChecked(sett.value("savePDF").toBool())
 
             if sett.contains("minCorrelation"):
-                self.ui.minCorrelation.setValue(sett.value("minCorrelation").toDouble()[0])
+                self.ui.minCorrelation.setValue(sett.value("minCorrelation").toDouble()[0]*100.)
             if sett.contains("minCorrelationConnections"):
-                self.ui.minCorrelationConnections.setValue(sett.value("minCorrelationConnections").toDouble()[0])
+                self.ui.minCorrelationConnections.setValue(sett.value("minCorrelationConnections").toDouble()[0]*100.)
             if sett.contains("adducts"):
                 self.adducts = loads(str(base64.b64decode(sett.value("adducts").toString())))
                 if any([not(isinstance(d, ConfiguredAdduct)) for d in self.adducts]):
@@ -2375,7 +2400,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             if sett.contains("useSILRatioForConvolution"):
                 self.ui.useSILRatioForConvolution.setChecked(sett.value("useSILRatioForConvolution").toBool())
             if sett.contains("minConnectionRate"):
-                self.ui.minConnectionRate.setValue(sett.value("minConnectionRate").toDouble()[0])
+                self.ui.minConnectionRate.setValue(sett.value("minConnectionRate").toDouble()[0]*100.)
 
             if sett.contains("GroupIntegrateMissedPeaks"):
                 self.ui.integratedMissedPeaks.setChecked(sett.value("GroupIntegrateMissedPeaks").toBool())
@@ -2465,9 +2490,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 sett.setValue("tracerConfiguration", base64.b64encode(dumps([self.configuredTracer])))
             else:
                 sett.setValue("LabellingElementA", self.ui.isotopeAText.text())
-                sett.setValue("IsotopicAbundanceA", self.ui.isotopicAbundanceA.value())
+                sett.setValue("IsotopicAbundanceA", self.ui.isotopicAbundanceA.value()/100.)
                 sett.setValue("LabellingElementB", self.ui.isotopeBText.text())
-                sett.setValue("IsotopicAbundanceB", self.ui.isotopicAbundanceB.value())
+                sett.setValue("IsotopicAbundanceB", self.ui.isotopicAbundanceB.value()/100.)
                 sett.setValue("useCValidation", str(self.ui.useCValidation.checkState()))
                 sett.setValue("useRatio", self.ui.useRatio.isChecked())
                 sett.setValue("minRatio", self.ui.minRatio.value())
@@ -2484,8 +2509,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             sett.setValue("IsotopicPatternCountB", self.ui.isotopePatternCountB.value())
             sett.setValue("lowAbundanceIsotopeCutoff", self.ui.isoAbundance.checkState() == QtCore.Qt.Checked)
             sett.setValue("intensityThresholdIsotopologs", self.ui.intensityThresholdIsotopologs.value())
-            sett.setValue("IntensityAbundanceErrorA", self.ui.baseRange.value())
-            sett.setValue("IntensityAbundanceErrorB", self.ui.isotopeRange.value())
+            sett.setValue("IntensityAbundanceErrorA", self.ui.baseRange.value()/100.)
+            sett.setValue("IntensityAbundanceErrorB", self.ui.isotopeRange.value()/100.)
 
             sett.setValue("ClustPPM", self.ui.clustPPM.value())
             sett.setValue("minSpectraCount", self.ui.minSpectraCount.value())
@@ -2502,7 +2527,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             sett.setValue("Wavelet_SNRTh", self.ui.wavelet_SNRThreshold.value())
             sett.setValue("Peak_CenterError", self.ui.peak_centerError.value())
             sett.setValue("Peak_WidthError", self.ui.peak_scaleError.value())
-            sett.setValue("Peak_minPeakCorr", self.ui.minPeakCorr.value())
+            sett.setValue("Peak_minPeakCorr", self.ui.minPeakCorr.value()/100.)
             sett.setValue("checkBox_checkPeakRatio", self.ui.checkBox_checkPeakRatio.isChecked())
             sett.setValue("doubleSpinBox_minPeakRatio", self.ui.doubleSpinBox_minPeakRatio.value())
             sett.setValue("doubleSpinBox_maxPeakRatio", self.ui.doubleSpinBox_maxPeakRatio.value())
@@ -2511,7 +2536,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             sett.setValue("calcIsoRatioLabelled", self.ui.calcIsoRatioLabelled_spinBox.value())
             sett.setValue("calcIsoRatioMoiety", self.ui.calcIsoRatioMoiety_spinBox.value())
 
-            sett.setValue("hAIntensityError", self.ui.hAIntensityError.value())
+            sett.setValue("hAIntensityError", self.ui.hAIntensityError.value()/100.)
             sett.setValue("hAMinScans", self.ui.hAMinScans.value())
             sett.setValue("heteroElements", base64.b64encode(dumps(self.heteroElements)))
 
@@ -2531,8 +2556,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
             sett.setValue("savePDF", self.ui.savePDF.checkState() == QtCore.Qt.Checked)
 
-            sett.setValue("minCorrelation", self.ui.minCorrelation.value())
-            sett.setValue("minCorrelationConnections", self.ui.minCorrelationConnections.value())
+            sett.setValue("minCorrelation", self.ui.minCorrelation.value()/100.)
+            sett.setValue("minCorrelationConnections", self.ui.minCorrelationConnections.value()/100.)
             sett.setValue("adducts", base64.b64encode(dumps(self.adducts)))
             sett.setValue("elementsForNL", base64.b64encode(dumps(self.elementsForNL)))
             sett.setValue("simplifyInSourceFragments", self.ui.checkBox_simplifyInSourceFragments.checkState() == QtCore.Qt.Checked)
@@ -2549,7 +2574,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             sett.setValue("maxAnnotationTimeWindow", self.ui.maxAnnotationTimeWindow.value())
             sett.setValue("MetaboliteClusterMinConnections", self.ui.metaboliteClusterMinConnections.value())
             sett.setValue("useSILRatioForConvolution", self.ui.useSILRatioForConvolution.checkState() == QtCore.Qt.Checked)
-            sett.setValue("minConnectionRate", self.ui.minConnectionRate.value())
+            sett.setValue("minConnectionRate", self.ui.minConnectionRate.value()/100.)
 
             sett.setValue("GroupIntegrateMissedPeaks", self.ui.integratedMissedPeaks.isChecked())
             sett.setValue("integrationMaxTimeDifference", self.ui.integrationMaxTimeDifference.value())
@@ -2637,7 +2662,13 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         file = str(QtGui.QFileDialog.getExistingDirectory(self, "Select new working directory. The current one is '%s'"%os.getcwd()))
         if file!="":
             os.chdir(file)
+            LoggingSetup.LoggingSetup.Instance().initLogging(location=file)
             logging.info("CWD set to '%s'"%file)
+
+
+    def openTempDir(self):
+        import subprocess
+        subprocess.Popen('explorer "' + os.environ["LOCALAPPDATA"] + '\\MetExtractII"')
 
 
     def aboutMe(self):
@@ -2649,7 +2680,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             "OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN "\
             "THE SOFTWARE."
         QtGui.QMessageBox.information(self, "MetExtract",
-                                      "MetExtract %s\n\n(c) Centre for Analytical Chemistry, IFA Tulln\nUniversity of Natural Resources and Life Sciences, Vienna\n\n%s" % (MetExtractVersion, lic),
+                                      "MetExtract %s\n\n(c) Institute for Bioanalytics and Agrometabolomics (iBAM), IFA-Tulln\nUniversity of Natural Resources and Life Sciences, Vienna\n\n%s" % (MetExtractVersion, lic),
                                       QtGui.QMessageBox.Ok)
 
     # open local MetExtract documentation
@@ -2713,7 +2744,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         if not dontSave:
             z = QtGui.QMessageBox.question(self, "MetExtract",
-                                           "Do you want to save the loaded files and configuration?",
+                                           "Do you want to save the loaded files and group compilation?",
                                            QtGui.QMessageBox.Yes | QtGui.QMessageBox.No | QtGui.QMessageBox.Abort)
             if z == QtGui.QMessageBox.Yes:
                 self.saveGroupsClicked()
@@ -2812,9 +2843,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                   isotopicPatternCountRight=self.ui.isotopePatternCountB.value(),
                                   lowAbundanceIsotopeCutoff=self.ui.isoAbundance.checkState() == QtCore.Qt.Checked,
                                   intensityThresholdIsotopologs=self.ui.intensityThresholdIsotopologs.value(),
-                                  purityN=self.ui.isotopicAbundanceA.value(),
-                                  purityL=self.ui.isotopicAbundanceB.value(), intensityErrorN=self.ui.baseRange.value(),
-                                  intensityErrorL=self.ui.isotopeRange.value(),
+                                  purityN=self.ui.isotopicAbundanceA.value()/100.,
+                                  purityL=self.ui.isotopicAbundanceB.value()/100., intensityErrorN=self.ui.baseRange.value()/100.,
+                                  intensityErrorL=self.ui.isotopeRange.value()/100.,
                                   minSpectraCount=self.ui.minSpectraCount.value(), clustPPM=self.ui.clustPPM.value(),
                                   chromPeakPPM=self.ui.wavelet_EICppm.value(),
                                   eicSmoothingWindow=str(self.ui.eicSmoothingWindow.currentText()),
@@ -2826,19 +2857,19 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                   snrTh=self.ui.wavelet_SNRThreshold.value(),
                                   peakCenterError=self.ui.peak_centerError.value(),
                                   peakScaleError=self.ui.peak_scaleError.value(),
-                                  minPeakCorr=self.ui.minPeakCorr.value(),
+                                  minPeakCorr=self.ui.minPeakCorr.value()/100.,
                                   checkPeaksRatio=self.ui.checkBox_checkPeakRatio.isChecked(),
                                   minPeaksRatio=self.ui.doubleSpinBox_minPeakRatio.value(),
                                   maxPeaksRatio=self.ui.doubleSpinBox_maxPeakRatio.value(),
                                   calcIsoRatioNative=self.ui.calcIsoRatioNative_spinBox.value(),
                                   calcIsoRatioLabelled=self.ui.calcIsoRatioLabelled_spinBox.value(),
                                   calcIsoRatioMoiety=self.ui.calcIsoRatioMoiety_spinBox.value(),
-                                  minCorrelationConnections=self.ui.minCorrelationConnections.value(),
+                                  minCorrelationConnections=self.ui.minCorrelationConnections.value()/100.,
                                   positiveScanEvent=str(self.ui.positiveScanEvent.currentText()),
                                   negativeScanEvent=str(self.ui.negativeScanEvent.currentText()),
                                   correctCCount=self.ui.correctcCount.checkState() == QtCore.Qt.Checked,
-                                  minCorrelation=self.ui.minCorrelation.value(),
-                                  hAIntensityError=self.ui.hAIntensityError.value(),
+                                  minCorrelation=self.ui.minCorrelation.value()/100.,
+                                  hAIntensityError=self.ui.hAIntensityError.value()/100.,
                                   hAMinScans=self.ui.hAMinScans.value(), adducts=self.adducts, elements=self.elementsForNL,
                                   heteroAtoms=self.heteroElements,
                                   simplifyInSourceFragments=self.ui.checkBox_simplifyInSourceFragments.isChecked(),
@@ -3001,9 +3032,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                       isotopicPatternCountRight=self.ui.isotopePatternCountB.value(),
                                                       lowAbundanceIsotopeCutoff=self.ui.isoAbundance.checkState() == QtCore.Qt.Checked,
                                                       intensityThresholdIsotopologs=self.ui.intensityThresholdIsotopologs.value(),
-                                                      purityN=self.ui.isotopicAbundanceA.value(),
-                                                      purityL=self.ui.isotopicAbundanceB.value(), intensityErrorN=self.ui.baseRange.value(),
-                                                      intensityErrorL=self.ui.isotopeRange.value(),
+                                                      purityN=self.ui.isotopicAbundanceA.value()/100.,
+                                                      purityL=self.ui.isotopicAbundanceB.value()/100., intensityErrorN=self.ui.baseRange.value()/100.,
+                                                      intensityErrorL=self.ui.isotopeRange.value()/100.,
                                                       minSpectraCount=self.ui.minSpectraCount.value(), clustPPM=self.ui.clustPPM.value(),
                                                       chromPeakPPM=self.ui.wavelet_EICppm.value(),
                                                       eicSmoothingWindow=str(self.ui.eicSmoothingWindow.currentText()),
@@ -3015,19 +3046,19 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                       snrTh=self.ui.wavelet_SNRThreshold.value(),
                                                       peakCenterError=self.ui.peak_centerError.value(),
                                                       peakScaleError=self.ui.peak_scaleError.value(),
-                                                      minPeakCorr=self.ui.minPeakCorr.value(),
+                                                      minPeakCorr=self.ui.minPeakCorr.value()/100.,
                                                       checkPeaksRatio=self.ui.checkBox_checkPeakRatio.isChecked(),
                                                       minPeaksRatio=self.ui.doubleSpinBox_minPeakRatio.value(),
                                                       maxPeaksRatio=self.ui.doubleSpinBox_maxPeakRatio.value(),
                                                       calcIsoRatioNative=self.ui.calcIsoRatioNative_spinBox.value(),
                                                       calcIsoRatioLabelled=self.ui.calcIsoRatioLabelled_spinBox.value(),
                                                       calcIsoRatioMoiety=self.ui.calcIsoRatioMoiety_spinBox.value(),
-                                                      minCorrelationConnections=self.ui.minCorrelationConnections.value(),
+                                                      minCorrelationConnections=self.ui.minCorrelationConnections.value()/100.,
                                                       positiveScanEvent=str(self.ui.positiveScanEvent.currentText()),
                                                       negativeScanEvent=str(self.ui.negativeScanEvent.currentText()),
                                                       correctCCount=self.ui.correctcCount.checkState() == QtCore.Qt.Checked,
-                                                      minCorrelation=self.ui.minCorrelation.value(),
-                                                      hAIntensityError=self.ui.hAIntensityError.value(),
+                                                      minCorrelation=self.ui.minCorrelation.value()/100.,
+                                                      hAIntensityError=self.ui.hAIntensityError.value()/100.,
                                                       hAMinScans=self.ui.hAMinScans.value(),
                                                       adducts="[%s]"%",".join([str(a) for a in self.adducts]),
                                                       elements="[%s]"%",".join([str(e) for e in self.elementsForNL]),
@@ -3178,9 +3209,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                                 isotopicPatternCountLeft=self.ui.isotopePatternCountA.value(),
                                                                 isotopicPatternCountRight=self.ui.isotopePatternCountB.value(),
                                                                 lowAbundanceIsotopeCutoff=self.ui.isoAbundance.checkState() == QtCore.Qt.Checked,
-                                                                purityN=self.ui.isotopicAbundanceA.value(),
-                                                                purityL=self.ui.isotopicAbundanceB.value(), intensityErrorN=self.ui.baseRange.value(),
-                                                                intensityErrorL=self.ui.isotopeRange.value(),
+                                                                purityN=self.ui.isotopicAbundanceA.value()/100.,
+                                                                purityL=self.ui.isotopicAbundanceB.value()/100., intensityErrorN=self.ui.baseRange.value()/100.,
+                                                                intensityErrorL=self.ui.isotopeRange.value()/100.,
                                                                 minSpectraCount=self.ui.minSpectraCount.value(), clustPPM=self.ui.clustPPM.value(),
                                                                 chromPeakPPM=self.ui.wavelet_EICppm.value(),
                                                                 eicSmoothingWindow=str(self.ui.eicSmoothingWindow.currentText()),
@@ -3192,12 +3223,12 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                                 snrTh=self.ui.wavelet_SNRThreshold.value(),
                                                                 peakCenterError=self.ui.peak_centerError.value(),
                                                                 peakScaleError=self.ui.peak_scaleError.value(),
-                                                                minPeakCorr=self.ui.minPeakCorr.value(),
-                                                                minCorrelationConnections=self.ui.minCorrelationConnections.value(),
+                                                                minPeakCorr=self.ui.minPeakCorr.value()/100.,
+                                                                minCorrelationConnections=self.ui.minCorrelationConnections.value()/100.,
                                                                 positiveScanEvent=str(self.ui.positiveScanEvent.currentText()),
                                                                 negativeScanEvent=str(self.ui.negativeScanEvent.currentText()),
                                                                 correctCCount=self.ui.correctcCount.checkState() == QtCore.Qt.Checked,
-                                                                minCorrelation=self.ui.minCorrelation.value(),
+                                                                minCorrelation=self.ui.minCorrelation.value()/100.,
                                                                 hAIntensityError=self.ui.hAIntensityError.value() / 100.,
                                                                 hAMinScans=self.ui.hAMinScans.value(), adducts=self.adducts, elements=self.elementsForNL,
                                                                 heteroAtoms=self.heteroElements, simplifyInSourceFragments=self.ui.checkBox_simplifyInSourceFragments.isChecked(),
@@ -3211,8 +3242,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                            eicPPM=self.ui.wavelet_EICppm.value(),
                                            maxAnnotationTimeWindow=self.ui.maxAnnotationTimeWindow.value(),
                                            minConnectionsInFiles=self.ui.metaboliteClusterMinConnections.value(),
-                                           minConnectionRate=self.ui.minConnectionRate.value(),
-                                           minPeakCorrelation=self.ui.minCorrelation.value(),
+                                           minConnectionRate=self.ui.minConnectionRate.value()/100.,
+                                           minPeakCorrelation=self.ui.minCorrelation.value()/100.,
                                            useRatio=self.ui.useSILRatioForConvolution.checkState() == QtCore.Qt.Checked,
                                            runIdentificationInstance=runIdentificationInstance,
                                            cpus=min(len(files), cpus))
@@ -3361,12 +3392,18 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 for entryInd in range(self.ui.dbList_listView.model().rowCount()):
                     dbFile = str(self.ui.dbList_listView.model().item(entryInd, 0).data().toString())
                     dbName = dbFile[dbFile.rfind("/") + 1:dbFile.rfind(".")]
-                    db.addEntriesFromFile(dbName, dbFile)
-                    table.addColumn("DBs_"+dbName+"_count", "TEXT")
-                    table.addColumn("DBs_"+dbName, "TEXT")
+                    try:
+                        imported, notImported = db.addEntriesFromFile(dbName, dbFile)
+                        if notImported>0:
+                            QtGui.QMessageBox.warning(self, "MetExtract", "Warning: %d entries from the database (%s) have not been imported successfully. See Log for details"%(notImported, dbName), QtGui.QMessageBox.Ok)
 
-                    annotationColumns.append("DBs_"+dbName+"_count")
-                    annotationColumns.append("DBs_" + dbName)
+                        table.addColumn("DBs_"+dbName+"_count", "TEXT")
+                        table.addColumn("DBs_"+dbName, "TEXT")
+
+                        annotationColumns.append("DBs_"+dbName+"_count")
+                        annotationColumns.append("DBs_" + dbName)
+                    except IOError:
+                        QtGui.QMessageBox.error(self, "MetExtract","Cannot open the database file. It will be skipped" % (dbFile), QtGui.QMessageBox.Ok)
 
                 db.optimizeDB()
 
@@ -3530,12 +3567,14 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
 
             ## Organize table a bit better
-            impCols=["Num", "OGroup", "Comment", "MZ", "RT", "Xn", "Charge", "Ionisation_Mode", "AverageAbundance_N", "AverageAbundance_L", "RelativeAbundance", "Ion", "Loss", "M", "L_MZ", "D_MZ", "MZ_Range", "RT_Range", "PeakScalesNL", "ScanEvent", "Tracer"]
+            impCols=["Num", "OGroup", "Comment", "MZ", "RT", "Xn", "Charge", "Ionisation_Mode", "AverageAbundance_N", "AverageAbundance_L", "DetectedInNSamples_N", "DetectedInNSamples_L", "RelativeAbundance", "Ion", "Loss", "M", "L_MZ", "D_MZ", "MZ_Range", "RT_Range", "PeakScalesNL", "ScanEvent", "Tracer"]
             frontCols=[]
             endCols=[]
             table = TableUtils.readFile(resFileFull)
             table.addColumn("AverageAbundance_N", "FLOAT", defaultValue=0.)
             table.addColumn("AverageAbundance_L", "FLOAT", defaultValue=0.)
+            table.addColumn("DetectedInNSamples_N", "INTEGER", defaultValue=0)
+            table.addColumn("DetectedInNSamples_L", "INTEGER", defaultValue=0)
             table.addColumn("RelativeAbundance", "TEXT", defaultValue="")
             for col in table.getColumns():
                 nam=str(col.name)
@@ -3575,15 +3614,23 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 sum=0
                 for num in numsInGroup:
                     abundances=table.getData([fi+"_Area_N" for fi in filesForConvolution], where="Num=%d"%num)[0]
-                    av=mean([ab for ab in abundances if ab!=""])
-                    table.setData(["AverageAbundance_N"], [av], where="Num=%d"%num)
+                    if len(filesForConvolution)==1:
+                        table.setData(["AverageAbundance_N", "DetectedInNSamples_N"], [abundances, 1], where="Num=%d"%num)
+                    else:
+                        av=mean([ab for ab in abundances if ab!=""])
+                        table.setData(["AverageAbundance_N", "DetectedInNSamples_N"], [av, len([ab for ab in abundances if ab!=""])], where="Num=%d"%num)
 
                     abundances=table.getData([fi+"_Area_L" for fi in filesForConvolution], where="Num=%d"%num)[0]
-                    av=mean([ab for ab in abundances if ab!=""])
-                    table.setData(["AverageAbundance_L"], [av], where="Num=%d"%num)
+                    if len(filesForConvolution)==1:
+                        table.setData(["AverageAbundance_L", "DetectedInNSamples_L"], [abundances, 1], where="Num=%d"%num)
+                        abu[num]=abundances
+                        sum=sum+abundances
+                    else:
+                        av=mean([ab for ab in abundances if ab!=""])
+                        table.setData(["AverageAbundance_L", "DetectedInNSamples_L"], [av, len([ab for ab in abundances if ab!=""])], where="Num=%d"%num)
 
-                    abu[num]=av
-                    sum=sum+av
+                        abu[num]=av
+                        sum=sum+av
 
                 if len(numsInGroup)>1:
                     for num in numsInGroup:
@@ -7058,7 +7105,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
             logging.info("Configured tracers:")
             tracer = self.configuredTracer
-            logging.info(" * %s (%s/%s) ratio: %.2f (min. %.2f, max. %.2f)" % (tracer.name, tracer.isotopeA, tracer.isotopeB, tracer.monoisotopicRatio, tracer.monoisotopicRatio*tracer.maxRelNegBias, tracer.monoisotopicRatio*tracer.maxRelPosBias))
+            logging.info(" * %s (%s/%s) isotopolog-ratio: %.2f, check ratio: %s %s" % (tracer.name, tracer.isotopeA, tracer.isotopeB, tracer.monoisotopicRatio, tracer.checkRatio,
+                                                                                       ("(min. %.2f, max. %.2f)"%(tracer.monoisotopicRatio*tracer.maxRelNegBias, tracer.monoisotopicRatio*tracer.maxRelPosBias) if tracer.checkRatio else "")))
         self.updateTracerInfo()
 
     def updateTracerInfo(self):
@@ -7241,6 +7289,16 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 dbt.write("## Additional columns may be provided. These will be transfered to the results but not checked in any way. Do not include tab-stops in there.")
 
 
+        QtGui.QMessageBox.information(self, "MetExtract", "The database template has been generated successfully.\n\n"
+                                                          "Please consider the following advices:\n"
+                                                          "* Each column must have a unique name.\n"
+                                                          "* The first 6 columns are mandatory. The remaining columns can have any name and will not be considered for the annotaiton itself.\n\n"
+                                                          "* Each row must have a unique number.\n"
+                                                          "* The name and either a sum formula or a m/z value and ionisation mode are required.\n"
+                                                          "* If retention times are available, they must be a single number in minutes. If a compound has two or more retention times, generate a separate row for each retention time.",
+                                  QtGui.QMessageBox.Ok)
+
+
     # initialise main interface, triggers and command line parameters
     def __init__(self, module="TracExtract", parent=None, silent=False):
         super(Ui_MainWindow, self).__init__()
@@ -7320,9 +7378,11 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         if module=="TracExtract":
             self.labellingExperiment=TRACER
+            self.ui.xCountSearch.setText("12-15, 30, 45")
             logging.info("  Starting module TracExtract\n")
         elif module=="AllExtract":
             self.labellingExperiment=METABOLOME
+            self.ui.xCountSearch.setText("3-60")
             logging.info("  Starting module AllExtract\n")
         else:
             logging.error("Error: invalid module '%s' selected.\nPlease specify either 'TracExtract' or 'AllExtract'\n"%module)
@@ -7389,6 +7449,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.ui.saveMZXML.toggled.connect(self.saveMZXMLChanged)
         self.updateIndividualFileProcessing = True
 
+        self.ui.isotopologRatiosBox.setVisible(False)
+
         self.ui.smoothingPolynom_spinner.valueChanged.connect(self.smoothingWindowChanged)
 
         self.ui.alignChromatograms.toggled.connect(self.alignToggled)
@@ -7419,6 +7481,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         self.ui.aboutMenue.triggered.connect(self.aboutMe)
         self.ui.helpMenue.triggered.connect(self.helpMe)
+        self.ui.openTempDir.triggered.connect(self.openTempDir)
         self.ui.actionLoad_Settings.triggered.connect(self.loadSettings)
         self.ui.actionSave_Settings.triggered.connect(self.saveSettings)
         self.ui.exitMenue.triggered.connect(self.exitMe)
@@ -7661,6 +7724,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.ui.pushButton_exportAllAsPDF.clicked.connect(self.exportAsPDF)
 
         self.ui.showCustomFeature_pushButton.clicked.connect(self.showCustomFeature)
+
+        p=self.ui.scrollAreaWidgetContents_5.palette()
+        p.setColor(self.ui.scrollAreaWidgetContents_5.backgroundRole(), QtCore.Qt.white)
+        self.ui.scrollAreaWidgetContents_5.setPalette(p)
 
         # fetch provided settings and show them as a menu
         try:

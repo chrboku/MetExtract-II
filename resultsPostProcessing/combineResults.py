@@ -354,3 +354,8 @@ class CombineDialog:
 
 
 
+app = QtGui.QApplication(sys.argv)
+Dialog = QtGui.QDialog()
+ui = CombineDialog(Dialog)
+Dialog.show()
+sys.exit(app.exec_())

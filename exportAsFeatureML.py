@@ -110,13 +110,17 @@ def convertMEMatrixToFeatureML(meMatrixFile, featureMLFile=None):
     writeFeatureListToFeatureML(features, featureMLFile, ppmPM=5., rtPM=0.25*60)
 
 
-def convertMEMatrixToFeatureMLSepPolarities(meMatrixFile, featureMLFile=None, postfix=""):
+def convertMEMatrixToFeatureMLSepPolarities(meMatrixFile, featureMLFile=None, postfix="",
+                                            numCol="Num", ogrpCol="OGroup", mzCol="MZ", rtCol="RT",
+                                            xnCol="Xn", lmzCol="L_MZ", chargeCol="Charge", nameCol="Num",
+                                            ionModeCol="Ionisation_Mode",
+                                            delimiter="\t"):
     if featureMLFile is None:
         featureMLFile=meMatrixFile.replace(".tsv", ".txt").replace(".txt", "")+".featureML"
 
     features = {'+': [], '-': []}
     with open(meMatrixFile) as fIn:
-        csvReader=csv.reader(fIn, delimiter="\t", quotechar="\"")
+        csvReader=csv.reader(fIn, delimiter=delimiter, quotechar="\"")
 
         headers={}
         for linei, row in enumerate(csvReader):
@@ -126,8 +130,8 @@ def convertMEMatrixToFeatureMLSepPolarities(meMatrixFile, featureMLFile=None, po
             elif row[0].startswith("#"):
                 pass
             else:
-                b=Bunch(id=row[headers["Num"]], ogroup=row[headers["OGroup"]], mz=float(row[headers["MZ"]]), rt=float(row[headers["RT"]])*60, Xn=row[headers["Xn"]], lmz=float(row[headers["L_MZ"]]),
-                        charge=int(row[headers["Charge"]]), name=row[headers["Num"]], ionMode=row[headers["Ionisation_Mode"]])
+                b=Bunch(id=row[headers[numCol]], ogroup=row[headers[ogrpCol]], mz=float(row[headers[mzCol]]), rt=float(row[headers[rtCol]])*60, Xn=row[headers[xnCol]], lmz=float(row[headers[lmzCol]]),
+                        charge=int(row[headers[chargeCol]]), name=row[headers[nameCol]], ionMode=row[headers[ionModeCol]])
                 features[b.ionMode].append(b)
 
     if len(features['-'])>0:
@@ -135,3 +139,13 @@ def convertMEMatrixToFeatureMLSepPolarities(meMatrixFile, featureMLFile=None, po
     if len(features['+'])>0:
         writeFeatureListToFeatureML(features['+'], featureMLFile.replace(".featureML", "_posMode%s.featureML"%(postfix)), ppmPM=5., rtPM=0.25 * 60)
 
+
+
+if __name__=="__main__":
+    convertMEMatrixToFeatureMLSepPolarities("H:/180713_382_Labelboxpaper/Comparison_MZMine_MetExtractII/mzmine2results.csv",
+                                            None,
+                                            numCol="row ID", ogrpCol="row ID", mzCol="row m/z", rtCol="row retention time",
+                                            xnCol="row ID", lmzCol="row m/z", chargeCol="row ID", nameCol="row ID",
+                                            ionModeCol="row ionmode",
+                                            delimiter=";"
+                                            )

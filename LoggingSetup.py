@@ -1,27 +1,35 @@
 import logging
+import os
 from DesignPatterns.SingletonDecorator import Singleton
 
 @Singleton
 class LoggingSetup:
     def __init__(self):
-        self.initialized=False
+        self.location=None
+        pass
 
-    def initLogging(self):
+    def initLogging(self, location=None):
 
-        if not self.initialized:
-            from utils import get_main_dir
-            for handler in logging.getLogger().handlers:
-                logging.getLogger().removeHandler(handler)
+        from utils import get_main_dir
+        while len(logging.getLogger().handlers)>0:
+            handler=logging.getLogger().handlers[0]
+            logging.getLogger().removeHandler(handler)
 
-            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-            fileHandler=logging.FileHandler(get_main_dir()+"/Log.txt")
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+        ## default log to PyMetExtract's directory
+        fileHandler=logging.FileHandler(os.environ["LOCALAPPDATA"]+"/MetExtractII/Log.txt")
+        fileHandler.setFormatter(formatter)
+        logging.getLogger().addHandler(fileHandler)
+
+        if location is not None:
+            fileHandler=logging.FileHandler(location+"/Log.txt")
             fileHandler.setFormatter(formatter)
             logging.getLogger().addHandler(fileHandler)
 
-            if len(logging.getLogger().handlers)<2:     ## ugly, but it works
-                consoleHandler = logging.StreamHandler()
-                logging.getLogger().addHandler(consoleHandler)
+        consoleHandler = logging.StreamHandler()
+        logging.getLogger().addHandler(consoleHandler)
 
-            logging.getLogger().setLevel(logging.INFO)
+        logging.getLogger().setLevel(logging.INFO)
 
-            self.initialized=True
+

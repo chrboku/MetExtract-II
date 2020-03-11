@@ -43,8 +43,7 @@ class SqliteCache:
         """ Inits a new SqliteCache instance """
 
         self.path = os.path.abspath(path)
-        logger.debug('Instantiated with cache_db path as {path}'.format(
-            path=self.path))
+        logger.debug('Instantiated with cache_db path as {path}'.format(path=self.path))
 
         # prepare the directory for the cache sqlite db
         try:
@@ -66,7 +65,7 @@ class SqliteCache:
             return self.connection
 
         # specify where we want the cache db to live
-        cache_db_path = os.path.join(self.path, 'cache.sqlite')
+        cache_db_path = os.path.join(self.path, "cache.sqlite")
 
         # setup the connection
         conn = sqlite3.Connection(cache_db_path, timeout=60)

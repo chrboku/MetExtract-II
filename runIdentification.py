@@ -192,6 +192,8 @@ class RunIdentification:
         for j in a:
             if "-" in j:
                 self.xCounts.extend(range(int(j[0:j.find("-")]), int(j[j.find("-")+1:len(j)])+1))
+            elif ":" in j:
+                self.xCounts.extend(range(int(j[0:j.find(":")]), int(j[j.find(":")+1:len(j)])+1))
             elif j!="":
                 self.xCounts.append(int(j))
         self.xCounts=sorted(list(set(self.xCounts)))
@@ -236,7 +238,7 @@ class RunIdentification:
 
         self.chromPeakFile = chromPeakFile
         if self.chromPeakFile is None:
-            cpf = get_main_dir()+ "./chromPeakPicking/MassSpecWaveletIdentification.r"
+            cpf = get_main_dir()+ "/chromPeakPicking/MassSpecWaveletIdentification.r"
             self.chromPeakFile = cpf
 
         self.performCorrectCCount = correctCCount
@@ -319,7 +321,7 @@ class RunIdentification:
 
         curs.execute("DROP TABLE IF EXISTS tracerConfiguration")
         curs.execute(
-            "create table tracerConfiguration(id INTEGER PRIMARY KEY, name TEXT, elementCount INTEGER, natural TEXT, labelling TEXT, deltaMZ REAL, purityN REAL, purityL REAL, amountN REAL, amountL REAL, monoisotopicRatio REAL, lowerError REAL, higherError REAL, tracertype TEXT)")
+            "create table tracerConfiguration(id INTEGER PRIMARY KEY, name TEXT, elementCount INTEGER, natural TEXT, labelling TEXT, deltaMZ REAL, purityN REAL, purityL REAL, amountN REAL, amountL REAL, monoisotopicRatio REAL, checkRatio TEXT, lowerError REAL, higherError REAL, tracertype TEXT)")
 
         curs.execute("DROP TABLE IF EXISTS MZs")
         curs.execute(
@@ -447,7 +449,7 @@ class RunIdentification:
             tracer.id = i
             SQLInsert(curs, "tracerConfiguration", id=tracer.id, name=tracer.name, elementCount=tracer.elementCount, natural=tracer.isotopeA, labelling=tracer.isotopeB,
                   deltaMZ=getIsotopeMass(tracer.isotopeB)[0] - getIsotopeMass(tracer.isotopeA)[0], purityN=tracer.enrichmentA, purityL=tracer.enrichmentB,
-                  amountN=tracer.amountA, amountL=tracer.amountB, monoisotopicRatio=tracer.monoisotopicRatio, lowerError=tracer.maxRelNegBias,
+                  amountN=tracer.amountA, amountL=tracer.amountB, monoisotopicRatio=tracer.monoisotopicRatio, checkRatio=str(tracer.checkRatio), lowerError=tracer.maxRelNegBias,
                   higherError=tracer.maxRelPosBias, tracertype=tracer.tracerType)
 
         else:
@@ -713,16 +715,22 @@ class RunIdentification:
         pdf.drawString(240, currentHeight, "%.2f%%" % (tracer.enrichmentB * 100.));
         currentHeight -= 15
 
-        pdf.drawString(70, currentHeight, "Monoisotopic ratio (%s:%s)" % (tracer.isotopeA, tracer.isotopeB))
-        pdf.drawString(240, currentHeight,
-                       "%.5f (%.2f:%.2f [v/v])" % (tracer.monoisotopicRatio, tracer.amountA, tracer.amountB));
-        currentHeight -= 15
+        if tracer.checkRatio:
 
-        pdf.drawString(70, currentHeight, "Max. intensity error")
-        pdf.drawString(240, currentHeight, "%.1f%%, %.1f%% (%.3f - %.3f)" % (
-            tracer.maxRelNegBias * 100., tracer.maxRelPosBias * 100., tracer.monoisotopicRatio *tracer.maxRelNegBias,
-            tracer.monoisotopicRatio *tracer.maxRelPosBias));
-        currentHeight -= 15
+            pdf.drawString(70, currentHeight, "Monoisotopic ratio (%s:%s)" % (tracer.isotopeA, tracer.isotopeB))
+            pdf.drawString(240, currentHeight,
+                           "%.5f (%.2f:%.2f [v/v])" % (tracer.monoisotopicRatio, tracer.amountA, tracer.amountB));
+            currentHeight -= 15
+
+            pdf.drawString(70, currentHeight, "Max. intensity error")
+            pdf.drawString(240, currentHeight, "%.1f%%, %.1f%% (%.3f - %.3f)" % (
+                tracer.maxRelNegBias * 100., tracer.maxRelPosBias * 100., tracer.monoisotopicRatio *tracer.maxRelNegBias,
+                tracer.monoisotopicRatio *tracer.maxRelPosBias));
+            currentHeight -= 15
+
+        else:
+            pdf.drawString(70, currentHeight, "Ratio was not checked")
+            currentHeight -= 15
 
         pdf.showPage()
 
@@ -739,10 +747,9 @@ class RunIdentification:
         maxRatio=0.
 
         if self.metabolisationExperiment:
-            checkRatio=True
+            checkRatio=tracer.checkRatio
             minRatio=tracer.monoisotopicRatio*tracer.maxRelNegBias
             maxRatio=tracer.monoisotopicRatio*tracer.maxRelPosBias
-            self.printMessage("Tracer mono-isotopic ratio: %.5f (allowed: %.5f-%.5f)"%(tracer.monoisotopicRatio, minRatio, maxRatio))
         else:
             checkRatio=self.useRatio
             minRatio=self.minRatio
