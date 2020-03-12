@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1629</width>
-    <height>1099</height>
+    <width>1532</width>
+    <height>1055</height>
    </rect>
   </property>
   <property name="acceptDrops">
@@ -83,7 +83,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>3</number>
       </property>
       <widget class="QWidget" name="inputTab">
        <attribute name="title">
@@ -3194,12 +3194,15 @@ font: 7pt;</string>
                    <item>
                     <widget class="QLabel" name="label_85">
                      <property name="text">
-                      <string>min. required abundance (counts)</string>
+                      <string>Minimum required abundance</string>
                      </property>
                     </widget>
                    </item>
                    <item>
                     <widget class="QSpinBox" name="msms_minCounts">
+                     <property name="prefix">
+                      <string>≥ </string>
+                     </property>
                      <property name="minimum">
                       <number>1</number>
                      </property>
@@ -3284,12 +3287,18 @@ font: 7pt;</string>
                    <item>
                     <widget class="QLabel" name="label_87">
                      <property name="text">
-                      <string>Rt window for MSMS targets (± min)</string>
+                      <string>Retention time window for MSMS targets</string>
                      </property>
                     </widget>
                    </item>
                    <item>
                     <widget class="QDoubleSpinBox" name="msms_rtWindow">
+                     <property name="prefix">
+                      <string>± </string>
+                     </property>
+                     <property name="suffix">
+                      <string> minutes</string>
+                     </property>
                      <property name="maximum">
                       <double>1000.000000000000000</double>
                      </property>
@@ -3321,12 +3330,15 @@ font: 7pt;</string>
                    <item>
                     <widget class="QLabel" name="label_89">
                      <property name="text">
-                      <string>max. number of parallel MSMS targets</string>
+                      <string>Maximum number of parallel MSMS targets</string>
                      </property>
                     </widget>
                    </item>
                    <item>
                     <widget class="QSpinBox" name="msms_maxParallelTargets">
+                     <property name="prefix">
+                      <string>≤ </string>
+                     </property>
                      <property name="minimum">
                       <number>1</number>
                      </property>
@@ -3358,7 +3370,7 @@ font: 7pt;</string>
                    <item>
                     <widget class="QLabel" name="label_90">
                      <property name="text">
-                      <string>Number of MSMS samples</string>
+                      <string>Number of MSMS replicates per sample</string>
                      </property>
                     </widget>
                    </item>
@@ -3395,7 +3407,7 @@ font: 7pt;</string>
                    <item>
                     <widget class="QLabel" name="label_92">
                      <property name="text">
-                      <string>Generations:</string>
+                      <string>Heuristic optimisation: Generation:</string>
                      </property>
                     </widget>
                    </item>
@@ -5233,15 +5245,15 @@ font: 7pt;</string>
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1248</width>
-             <height>641</height>
+             <width>1484</width>
+             <height>968</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_40">
             <item row="4" column="1">
              <widget class="QTabWidget" name="tabWidget_3">
               <property name="currentIndex">
-               <number>0</number>
+               <number>1</number>
               </property>
               <widget class="QWidget" name="tab_5">
                <attribute name="title">
@@ -5274,8 +5286,53 @@ font: 7pt;</string>
                 <string>Separated peaks</string>
                </attribute>
                <layout class="QGridLayout" name="gridLayout_43">
-                <item row="0" column="0">
-                 <widget class="QWidget" name="resultsExperimentSeparatedPeaks_widget" native="true"/>
+                <item row="1" column="0" colspan="2">
+                 <widget class="QWidget" name="resultsExperimentSeparatedPeaks_widget" native="true">
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                 </widget>
+                </item>
+                <item row="0" column="0" colspan="2">
+                 <layout class="QHBoxLayout" name="horizontalLayout_22">
+                  <item>
+                   <widget class="QLabel" name="label_5">
+                    <property name="text">
+                     <string>Separate according to</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QComboBox" name="comboBox_separatePeaks">
+                    <item>
+                     <property name="text">
+                      <string>Group</string>
+                     </property>
+                    </item>
+                    <item>
+                     <property name="text">
+                      <string>Sample</string>
+                     </property>
+                    </item>
+                   </widget>
+                  </item>
+                  <item>
+                   <spacer name="horizontalSpacer_8">
+                    <property name="orientation">
+                     <enum>Qt::Horizontal</enum>
+                    </property>
+                    <property name="sizeHint" stdset="0">
+                     <size>
+                      <width>40</width>
+                      <height>20</height>
+                     </size>
+                    </property>
+                   </spacer>
+                  </item>
+                 </layout>
                 </item>
                </layout>
               </widget>
@@ -5490,7 +5547,7 @@ font: 7pt;</string>
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1629</width>
+     <width>1532</width>
      <height>21</height>
     </rect>
    </property>

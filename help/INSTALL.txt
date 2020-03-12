@@ -1,9 +1,0 @@
-Rfolder:=Base directory of R 2.12 installation (not bin nor bin/i386)
-
-1) download & install Microsoft Visual C++ 2008 Redistributable Package (x86) [http://www.microsoft.com/en-us/download/details.aspx?id=29] 
-2) install R-2.15.2-win.exe from http://cran.at.r-project.org/bin/windows/base/old/2.15.2/R-2.15.2-win.exe
-3) add environment variables:
-   *R_HOME=Rfolder (not bin)
-4) copy everything from R_HOME/bin/i386 to R_HOME/bin
-5) copy Rlapack.dll to MetExtract base folder
-.) on the first start of MetExtract required R-packages will be checked and installed if neccessary

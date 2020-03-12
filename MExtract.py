@@ -2440,6 +2440,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     item.setData(dbFile)
                     self.ui.dbList_listView.model().appendRow(item)
 
+
+            if sett.contains("generateMSMSInfo_CheckBox"):
+                self.ui.generateMSMSInfo_CheckBox.setChecked(sett.value("generateMSMSInfo_CheckBox").toBool())
             if sett.contains("msms_minCounts"):
                 self.ui.msms_minCounts.setValue(sett.value("msms_minCounts").toDouble()[0])
             if sett.contains("msms_rtWindow"):
@@ -2598,6 +2601,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 usedDBs.append([dbName, dbFile])
             sett.setValue("annotateMetabolites_usedDatabases", base64.b64encode(dumps(usedDBs)))
 
+            sett.setValue("generateMSMSInfo_CheckBox", self.ui.generateMSMSInfo_CheckBox.isChecked())
             sett.setValue("msms_minCounts", self.ui.msms_minCounts.value())
             sett.setValue("msms_rtWindow", self.ui.msms_rtWindow.value())
             sett.setValue("msms_maxParallelTargets", self.ui.msms_maxParallelTargets.value())
@@ -3651,7 +3655,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             pw.getCallingFunction()("text")("Preparing MSMS import and list generation")
 
             inFile=resFileFull
-            outFile=resFileFull.replace(".tsv", "_withMSMS.csv")
+            outFile=resFileFull.replace(".tsv", "_withMSMS.tsv")
 
             definedGroups = [t.data(QListWidgetItem.UserType).toPyObject() for t in
                              natSort(self.ui.groupsList.findItems('*', QtCore.Qt.MatchWildcard),
@@ -3669,28 +3673,31 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                         samplesForMSMS.append(fi)
 
+            if len(samplesForMSMS)==0:
+                QtGui.QMessageBox.warning(self, "MetExtract","Error: No sample(s) selected to be used as MSMS targets",QtGui.QMessageBox.Ok)
+            else:
 
-            opt = optimizeMSMSTargets.OptimizeMSMSTargetList()
+                opt = optimizeMSMSTargets.OptimizeMSMSTargetList()
 
-            opt.readTargetsFromFile(file=inFile, samplesToUse=samplesForMSMS)
+                opt.readTargetsFromFile(file=inFile, samplesToUse=samplesForMSMS)
 
-            opt.getMostAbundantFileList(minCounts=self.ui.msms_minCounts.value())
+                opt.getMostAbundantFileList(minCounts=self.ui.msms_minCounts.value())
 
-            opt.generateMSMSLists(samplesForMSMS,
-                                  fileTo=inFile,
-                                  minCounts=self.ui.msms_minCounts.value(),
-                                  numberOfFiles=self.ui.msms_numberOfSamples.value(),
-                                  rtPlusMinus=self.ui.msms_rtWindow.value(),
-                                  maxParallelTargets=self.ui.msms_maxParallelTargets.value(),
-                                  noffsprings=self.ui.nOffsprings.value(),
-                                  ngenerations=self.ui.nGenerations.value(),
-                                  pwSetText=pw.getCallingFunction()("text"),
-                                  pwSetMax=pw.getCallingFunction()("max"),
-                                  pwSetValue=pw.getCallingFunction()("value"))
+                opt.generateMSMSLists(samplesForMSMS,
+                                      fileTo=inFile,
+                                      minCounts=self.ui.msms_minCounts.value(),
+                                      numberOfFiles=self.ui.msms_numberOfSamples.value(),
+                                      rtPlusMinus=self.ui.msms_rtWindow.value(),
+                                      maxParallelTargets=self.ui.msms_maxParallelTargets.value(),
+                                      noffsprings=self.ui.nOffsprings.value(),
+                                      ngenerations=self.ui.nGenerations.value(),
+                                      pwSetText=pw.getCallingFunction()("text"),
+                                      pwSetMax=pw.getCallingFunction()("max"),
+                                      pwSetValue=pw.getCallingFunction()("value"))
 
-            opt.writeTargetsToFile(inFile, outFile)
+                opt.writeTargetsToFile(inFile, outFile)
 
-            shutil.copyfile(resFileFull.replace(".tsv", "_withMSMS.csv"), resFilePath + "/xxx_results__9_withMSMSInfo.csv")
+                shutil.copyfile(resFileFull.replace(".tsv", "_withMSMS.tsv"), resFilePath + "/xxx_results__9_withMSMSInfo.tsv")
 
             pw.hide()
 
@@ -6831,7 +6838,11 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             rtBorderMin=pi.rt/60.-borderOffset
             rtBorderMax=pi.rt/60.+borderOffset
 
+            singleOffset=0
+            offsetOrder=[]
             for grpInd, group in enumerate(definedGroups):
+                if self.ui.comboBox_separatePeaks.currentText() == "Group":
+                    offsetOrder.append((group.name, group.color))
                 for i in range(len(group.files)):
 
                     fi = str(group.files[i]).replace("\\", "/")
@@ -6840,6 +6851,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     pw.getCallingFunction()("text")("MZ: %.5f\nFile: '%s'"%(pi.mz, a))
                     pw.getCallingFunction()("value")(done)
                     done=done+1
+
 
                     if pi.scanEvent in self.loadedMZXMLs[fi].getFilterLines(includeMS1=True, includeMS2=False, includePosPolarity=True, includeNegPolarity=True):
 
@@ -6871,16 +6883,22 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         scan=self.loadedMZXMLs[fi].getClosestMS1Scan(pi.rt/60., filterLine=pi.scanEvent)
                         peakID=scan.findMZ(pi.mz, ppm=ppm)
                         if peakID[0]!=-1:
-
                             if mostAbundantFile is None or scan.intensity_list[peakID[0]]>mostAbundantFile[1]:
-
                                 mostAbundantFile=(fi, scan.intensity_list[peakID[0]], scan, group.color)
 
                         self.ui.resultsExperiment_plot.axes.plot([t / 60. for t in times], [e/maxN for e in eic], color=group.color, label="M: %s"%(a))
                         self.ui.resultsExperiment_plot.axes.plot([t / 60. for t in times], [-e/maxL for e in eicL], color=group.color, label="M': %s"%(a))
 
-                        self.ui.resultsExperimentSeparatedPeaks_plot.axes.plot([t / 60. + grpInd for t in times if rtBorderMin<=t/60.<=rtBorderMax], [eic[j]/maxN for j in range(len(eic)) if rtBorderMin<=times[j]/60.<=rtBorderMax], color=group.color, label="M: %s"%(a))
-                        self.ui.resultsExperimentSeparatedPeaks_plot.axes.plot([t / 60. + grpInd for t in times if rtBorderMin<=t/60.<=rtBorderMax], [-eicL[j]/maxL for j in range(len(eicL)) if rtBorderMin<=times[j]/60.<=rtBorderMax], color=group.color, label="M': %s"%(a))
+                        offset=0
+                        if self.ui.comboBox_separatePeaks.currentText()=="Group":
+                            offset=grpInd
+                        else:
+                            offset=singleOffset
+                            offsetOrder.append((a, group.color))
+                        self.ui.resultsExperimentSeparatedPeaks_plot.axes.plot([t / 60. + offset for t in times if rtBorderMin<=t/60.<=rtBorderMax], [eic[j]/maxN for j in range(len(eic)) if rtBorderMin<=times[j]/60.<=rtBorderMax], color=group.color, label="M: %s"%(a))
+                        self.ui.resultsExperimentSeparatedPeaks_plot.axes.plot([t / 60. + offset for t in times if rtBorderMin<=t/60.<=rtBorderMax], [-eicL[j]/maxL for j in range(len(eicL)) if rtBorderMin<=times[j]/60.<=rtBorderMax], color=group.color, label="M': %s"%(a))
+
+                        singleOffset+=1
 
 
             maxSigAbundance=0
@@ -6962,29 +6980,29 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     maxSigAbundance=max(maxSigAbundance, mostAbundantFile[2].intensity_list[peakID2[0]])
 
         pw.hide()
-
-        if len(plotItems)==1:
+        if done>0:
             pi=plotItems[0]
-            for grpInd, group in enumerate(definedGroups):
-                self.ui.resultsExperimentSeparatedPeaks_plot.axes.axvline(x=grpInd+pi.rt/60., color=group.color)
-                self.ui.resultsExperimentSeparatedPeaks_plot.axes.text(x=grpInd-0.05+pi.rt/60., y=intlim[1]*1.75, s=group.name, rotation=90, horizontalalignment='left', color=group.color, backgroundcolor="white")
+            for oi, o in enumerate(offsetOrder):
+                self.ui.resultsExperimentSeparatedPeaks_plot.axes.axvline(x=oi+pi.rt/60., color=o[1])
+                self.ui.resultsExperimentSeparatedPeaks_plot.axes.text(x=oi-0.05+pi.rt/60., y=intlim[1]*1.75, s=o[0], rotation=90, horizontalalignment='left', color=o[1], backgroundcolor="white")
             intlim[1]=intlim[1]*1.5
 
-        self.ui.resultsExperiment_plot.axes.set_title("Overlaid EICs of selected feature pairs or groups")
-        self.ui.resultsExperiment_plot.axes.set_xlabel("Retention time (min)")
-        self.ui.resultsExperiment_plot.axes.set_ylabel("Intensity")
-        self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_title("Overlaid EICs of selected feature pairs or groups (separated artificially by respective experimental group)")
-        if len(plotItems)==1:
-            self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_title("Overlaid EICs of %.5f (%.5f), %.2f min, %s\n(separated artificially by respective experimental group to improve comparison)\n"%(plotItems[0].mz, plotItems[0].lmz, plotItems[0].rt/60., plotItems[0].scanEvent))
-        self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_xlabel("Retention time (min) of feature + groupIndex (0-based)")
-        self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_ylabel("Intensity")
+
+            self.ui.resultsExperiment_plot.axes.set_title("Overlaid EICs of selected feature pairs or groups")
+            self.ui.resultsExperiment_plot.axes.set_xlabel("Retention time (min)")
+            self.ui.resultsExperiment_plot.axes.set_ylabel("Intensity")
+            self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_title("Overlaid EICs of selected feature pairs or groups (separated artificially by respective %s)"%("experimental group" if self.ui.comboBox_separatePeaks.currentText()=="Group" else "sample"))
+            if len(plotItems)==1:
+                self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_title("Overlaid EICs of %.5f (%.5f), %.2f min, %s\n(separated artificially by respective %s to improve comparison)\n"%(plotItems[0].mz, plotItems[0].lmz, plotItems[0].rt/60., plotItems[0].scanEvent, "experimental group" if self.ui.comboBox_separatePeaks.currentText()=="Group" else "sample"))
+            self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_xlabel("Retention time (min) of feature + %s-index (0-based)"%("experimental group" if self.ui.comboBox_separatePeaks.currentText()=="Group" else "sample"))
+            self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_ylabel("Intensity")
 
 
-        rtlim=[mean(meanRT)/60.-borderOffset, mean(meanRT)/60.+borderOffset]
-        intlim=[intlim[0]*1.1, intlim[1]*1.1]
-        self.drawCanvas(self.ui.resultsExperiment_plot, xlim=rtlim, ylim=intlim)
-        self.drawCanvas(self.ui.resultsExperimentSeparatedPeaks_plot, showLegendOverwrite=False)
-        self.drawCanvas(self.ui.resultsExperimentMSScanPeaks_plot, xlim=[pi.mz-5, pi.lmz+5], ylim=[0, maxSigAbundance])
+            rtlim=[mean(meanRT)/60.-borderOffset, mean(meanRT)/60.+borderOffset]
+            intlim=[intlim[0]*1.1, intlim[1]*1.1]
+            self.drawCanvas(self.ui.resultsExperiment_plot, xlim=rtlim, ylim=intlim)
+            self.drawCanvas(self.ui.resultsExperimentSeparatedPeaks_plot, showLegendOverwrite=False)
+            self.drawCanvas(self.ui.resultsExperimentMSScanPeaks_plot, xlim=[pi.mz-5, pi.lmz+5], ylim=[0, maxSigAbundance])
 
 
     def exportAsPDF(self, pdfFile=None):

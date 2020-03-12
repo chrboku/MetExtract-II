@@ -79,6 +79,7 @@ def convertMSMSoptFileToFeatureML(msmsFile, featureMLFile=None):
             elif row[0].startswith("#"):
                 pass
             else:
+
                 b=Bunch(id=row[headers["Comment"]], ogroup="NA", mz=float(row[headers["Mass [m/z]"]]), rt=(float(row[headers["Start [min]"]])*60+float(row[headers["End [min]"]])*60)/2,
                         Xn=0, lmz=float(row[headers["Mass [m/z]"]]),
                         charge=1, name=row[headers["Comment"]], ionMode=row[headers["Polarity"]])

@@ -113,11 +113,11 @@ class OptimizeMSMSTargetList:
                                     target.third, target.thirdCounts], where="Num='%s'"%str(target.num).replace("_L",""))
 
 
-        TableUtils.saveFile(table, fType="csv", file=toFile)
-        exportAsFeatureML.convertMSMSoptFileToFeatureML(toFile)
+        TableUtils.saveFile(table, fType="tsv", file=toFile)
+        #exportAsFeatureML.convertMSMSoptFileToFeatureML(toFile)
 
 
-    def generateMSMSLists(self, samplesToUse, fileTo, minCounts=1000000, rtPlusMinus=0.25, maxParallelTargets=5, numberOfFiles=2, noffsprings=20, permCount=5, ngenerations=500, showDebugPlot=False, pwSetText=None, pwSetMax=None, pwSetValue=None):
+    def generateMSMSLists(self, samplesToUse, fileTo, minCounts=1000000, rtPlusMinus=0.25, maxParallelTargets=5, numberOfFiles=2, noffsprings=20, permCount=5, ngenerations=500, showDebugPlot=True, pwSetText=None, pwSetMax=None, pwSetValue=None):
 
         useTargets={}
 

@@ -259,9 +259,7 @@ try:
     os.makedirs("./dist/chromPeakPicking/")
     copy("./chromPeakPicking/MassSpecWaveletIdentification.r", "./dist/chromPeakPicking/MassSpecWaveletIdentification.r")
     copy("./XICAlignment.r", "./dist/XICAlignment.r")
-    copy("./rPackages.R", "./dist/rPackages.R")
     copy("./LICENSE.txt", "./dist/LICENSE.txt")
-    copy("./calculateIsotopeEnrichment.R", "./dist/calculateIsotopeEnrichment.R")
     print "Additional resources copied\n==============================\n"
 except:
     print "Error: Could not copy all required files"
@@ -286,9 +284,6 @@ try:
     os.makedirs(dest)
     src="./documentation/figures"
     copyAllFilesInFolder(src, dest)
-
-    copy("./help/INSTALL.txt", "./dist/INSTALL.txt")
-
 
     print "Help files copied\n==============================\n"
 
@@ -390,10 +385,6 @@ print "R 2.15.2 copied"
 copy("./../distribution/RStudio-0.97.551.exe", "./distribute/RStudio-0.97.551.exe")
 
 print "RStudio copied"
-
-copy ("./calculateIsotopeEnrichment.R", "./distribute/calcIsotopicEnrichment.R")
-
-print "calcIsotopicEnrichment.R copied"
 
 try:
     rmtree("./dist/")
