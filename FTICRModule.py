@@ -453,7 +453,7 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
             ax.plot(x, y, color=color, marker=marker, linestyle=linestyle)
 
         except Exception as ex:
-            logging.warning("Exception caught", ex)
+            logging.warning("Exception caught: %s"%(ex.message))
 
 
     def draw(self):
@@ -490,6 +490,10 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
                                     y1a = []
                                     x2 = []
                                     y2 = []
+                                    x2out = []
+                                    y2out = []
+                                    x2heteroIsotope = []
+                                    y2heteroIsotope = []
                                     x3 = []
                                     y3 = []
 
@@ -502,11 +506,31 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
                                         used=False
                                         for itemSF in selectedResults:
                                             b=itemSF.data
-                                            for cn in range(0-50, b.cn+51):
+
+                                            for cn in range(0, b.cn+1):
                                                 if abs(mz-b.meanMZ-cn*1.00335484)*1E6/mz < matchppm:
                                                     used=True
                                                     x2.append(mz);x2.append(mz);x2.append(mz)
                                                     y2.append(0);y2.append(data.msScan.intensity_list[j]);y2.append(0)
+                                            for cn in range(-50, 0)+range(b.cn+1, b.cn+50):
+                                                if abs(mz-b.meanMZ-cn*1.00335484)*1E6/mz < matchppm:
+                                                    used=True
+                                                    x2out.append(mz);x2out.append(mz);x2out.append(mz)
+                                                    y2out.append(0);y2out.append(data.msScan.intensity_list[j]);y2out.append(0)
+                                            for delta in [ 2.014102- 1.007825, # H
+                                                          15.000109-14.003074, # N
+                                                          17.999160-15.994915, # O
+                                                          33.967867-31.972071, # S
+                                                          36.965903-34.968853, # Cl
+                                                          ]:
+                                                if abs(mz-b.meanMZ-delta)*1E6/mz < matchppm:
+                                                    used=True
+                                                    x2heteroIsotope.append(mz);x2heteroIsotope.append(mz);x2heteroIsotope.append(mz)
+                                                    y2heteroIsotope.append(0);y2heteroIsotope.append(data.msScan.intensity_list[j]);y2heteroIsotope.append(0)
+                                                if abs(mz-b.meanMZ-cn*1.00335484-delta)*1E6/mz < matchppm:
+                                                    used=True
+                                                    x2heteroIsotope.append(mz);x2heteroIsotope.append(mz);x2heteroIsotope.append(mz)
+                                                    y2heteroIsotope.append(0);y2heteroIsotope.append(data.msScan.intensity_list[j]);y2heteroIsotope.append(0)
 
                                         if False:
                                             for tlii in range(self.results.topLevelItemCount()):
@@ -532,11 +556,14 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
                                     self.drawPlot(x1a,y1a, color="Slategrey" if len(x2)>0 else "lightgrey", title=data.fileName, twinxsindex=shownSample%5)
                                     self.drawPlot(x3, y3, color="Dodgerblue", title=data.fileName, twinxsindex=shownSample%5)
                                     self.drawPlot(x2, y2, color="Firebrick", title=data.fileName, twinxsindex=shownSample%5)
+                                    self.drawPlot(x2out, y2out, color="Orange", title=data.fileName, twinxsindex=shownSample%5)
+                                    self.drawPlot(x2heteroIsotope, y2heteroIsotope, color="Olivedrab", title=data.fileName, twinxsindex=shownSample%5)
 
                                     if zoom and len(x2) > 0:
-                                        ylim = (max(y2 + y3) * -0.05, max(y2 + y3) * 1.05)
+                                        ylim = (max(y2 + y2out + y3) * -0.05, max(y2 + y2out + y3) * 1.05)
                                         self.setLims(ylim=ylim, twinxsind=shownSample%5)
                                     x2all.extend(x2)
+                                    x2all.extend(x2out)
                                     x3all.extend(x3)
                                     shownSample=shownSample+1
 
@@ -629,10 +656,10 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
                                         yl.append(b.isotopologRatios["labeled"][file])
 
                             self.drawPlot(xn, yn, color="Firebrick", linestyle="None",
-                                          title="Error between theoretical ratio for native carbon isotopologs", xlab="MZ", ylab="Delta observed - theoretical (%%)",
+                                          title="Error between theoretical ratio for native carbon isotopologs", xlab="MZ", ylab="Delta observed - theoretical (%)",
                                           twinxsindex=0)
                             self.drawPlot(xl, yl, color="Firebrick", linestyle="None",
-                                          title="Error between theoretical ratio for 13C-labeled carbon isotopologs", xlab="MZ", ylab="Delta observed - theoretical (%%)",
+                                          title="Error between theoretical ratio for 13C-labeled carbon isotopologs", xlab="MZ", ylab="Delta observed - theoretical (%)",
                                           twinxsindex=1)
 
                             self.pl.twinxs[0].axhline(y=0, color="black")

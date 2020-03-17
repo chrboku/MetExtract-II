@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1532</width>
-    <height>1055</height>
+    <width>1548</width>
+    <height>1063</height>
    </rect>
   </property>
   <property name="acceptDrops">
@@ -83,7 +83,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>3</number>
+       <number>1</number>
       </property>
       <widget class="QWidget" name="inputTab">
        <attribute name="title">
@@ -3200,6 +3200,9 @@ font: 7pt;</string>
                    </item>
                    <item>
                     <widget class="QSpinBox" name="msms_minCounts">
+                     <property name="showGroupSeparator" stdset="0">
+                      <bool>true</bool>
+                     </property>
                      <property name="prefix">
                       <string>≥ </string>
                      </property>
@@ -3209,8 +3212,11 @@ font: 7pt;</string>
                      <property name="maximum">
                       <number>1000000000</number>
                      </property>
+                     <property name="singleStep">
+                      <number>10000</number>
+                     </property>
                      <property name="value">
-                      <number>1000000</number>
+                      <number>100000</number>
                      </property>
                     </widget>
                    </item>
@@ -5253,7 +5259,7 @@ font: 7pt;</string>
             <item row="4" column="1">
              <widget class="QTabWidget" name="tabWidget_3">
               <property name="currentIndex">
-               <number>1</number>
+               <number>0</number>
               </property>
               <widget class="QWidget" name="tab_5">
                <attribute name="title">
@@ -5547,7 +5553,7 @@ font: 7pt;</string>
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1532</width>
+     <width>1548</width>
      <height>21</height>
     </rect>
    </property>

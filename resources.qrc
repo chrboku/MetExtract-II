@@ -23,4 +23,7 @@
   <qresource prefix="combineResults">
     <file>resources/combineResults.png</file>
   </qresource>
+  <qresource prefix="FTICRExtract">
+    <file>resources/FTICRExtract.png</file>
+  </qresource>
 </RCC>

@@ -2248,9 +2248,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             if sett.contains("ScanEnd"):
                 self.ui.scanEndTime.setValue(sett.value("ScanEnd").toDouble()[0])
 
+
             if sett.contains("xCounts"):
                 self.ui.xCountSearch.setText(str(sett.value("xCounts").toString()))
-            elif xCountsStr=="":
+            else:
                 if self.labellingExperiment==TRACER:
                     self.ui.xCountSearch.setText("10-15, 30, 45")
                 elif self.labellingExperiment==METABOLOME:
@@ -7751,7 +7752,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         try:
             try:
                 self.loadSettingsFile(get_main_dir()+"/Settings/defaultSettings.ini", checkExperimentType=False)
-            except:
+            except Exception as ex:
+                print ex.message
                 logging.warning("Warning: Default settings are invalid. Skipping..")
             if os.path.exists(get_main_dir()+"/Settings"):
                 menus = {}

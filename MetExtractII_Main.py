@@ -39,6 +39,7 @@ class ModuleSelection(QtGui.QMainWindow, Ui_MainWindow):
         self.tracExtractIcon.clicked.connect(self.openTracExtract)
         self.fragExtractIcon.clicked.connect(self.openFragExtract)
         self.combineResultsButton.clicked.connect(self.openCombineResults)
+        self.fticrExtractIcon.clicked.connect(self.openFTICR)
         self.documentationIcon.clicked.connect(self.openDocumentation)
 
         self.actionCalculate_isotopic_enrichment.triggered.connect(self.openCalcIsotopologEnrichment)
@@ -69,6 +70,13 @@ class ModuleSelection(QtGui.QMainWindow, Ui_MainWindow):
                     subprocess.Popen("combineResults.exe")
                 if platform.system() == "Linux":  #Linux
                     subprocess.Popen("combineResults")
+            elif module is "FTICRExtract":
+                if platform.system() == "Darwin":  #MAC
+                    subprocess.Popen("FTICRModule")
+                if platform.system() == "Windows":  #Windows
+                    subprocess.Popen("FTICRModule.exe")
+                if platform.system() == "Linux":  #Linux
+                    subprocess.Popen("FTICRModule")
             else:
                 QtGui.QMessageBox.warning(self, "MetExtract", "Unknown module", QtGui.QMessageBox.Ok)
         except:
@@ -94,6 +102,10 @@ class ModuleSelection(QtGui.QMainWindow, Ui_MainWindow):
     def openCombineResults(self):
         print "starting combineResults"
         self.openMetExtractModule(module="combineResults")
+
+    def openFTICR(self):
+        print "starting FTICRExtract"
+        self.openMetExtractModule(module="FTICRExtract")
 
     def openDocumentation(self):
         import subprocess

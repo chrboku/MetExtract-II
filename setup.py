@@ -23,6 +23,7 @@ from shutil import rmtree, copy, move
 import os
 import sys
 import zipfile
+from termcolor import colored
 
 from MetExtractII_Main import MetExtractVersion
 
@@ -182,7 +183,7 @@ except:
 try:
     rmtree("./distribute/")
 except:
-    print "Error: could not clean up py2exe environment prior to compilation\n==============================\n"
+    print colored("Error: could not clean up py2exe environment prior to compilation\n==============================\n", "red")
 
 # get local files (images, R-Scripts, ...)
 data_files = matplotlib.get_py2exe_datafiles()
@@ -216,13 +217,14 @@ a=Target(script = "MetExtractII_Main.py")
 b=Target(script = "FragExtract.py")
 c=Target(script = "MExtract.py")
 d=Target(script = "resultsPostProcessing/combineResults.py")
+e=Target(script = "FTICRModule.py")
 
 print "###################################################"
 print "########## Packing MetExtractII_Main"
 print "###################################################"
 import sys
 sys.setrecursionlimit(5000)
-setup(console=[a,b,c,d],
+setup(console=[a,b,c,d,e],
       options={"py2exe": {
                  "includes": ["sip", "matplotlib.backends.backend_tkagg", 'scipy', 'scipy.integrate', 'scipy.special.*','scipy.linalg.*', 'scipy.sparse.csgraph._validation'],  # use this line if above does not work
                  "dll_excludes": ["MSVCP90.dll", "api-ms-win-core-string-l1-1-0.dll","api-ms-win-core-registry-l1-1-0.dll","api-ms-win-core-errorhandling-l1-1-0.dll","api-ms-win-core-string-l2-1-0.dll",
@@ -262,7 +264,7 @@ try:
     copy("./LICENSE.txt", "./dist/LICENSE.txt")
     print "Additional resources copied\n==============================\n"
 except:
-    print "Error: Could not copy all required files"
+    print colored("Error: Could not copy all required files", "red")
     err = True
 
 
@@ -288,7 +290,7 @@ try:
     print "Help files copied\n==============================\n"
 
 except:
-    print "Error: Could not copy help files"
+    print colored("Error: Could not copy help files", "red")
     err = True
     import sys
     sys.exit(1)
@@ -303,7 +305,7 @@ try:
     print "Distribution renamed\n==============================\n"
 
 except:
-    print "Error: Could not rename dist folder"
+    print colored("Error: Could not rename dist folder", "red")
     err = True
 
 try:
@@ -346,7 +348,7 @@ if not err:
     try:
         rmtree(meDistFolder)
     except:
-        print "Cleanup failed. dist and/or build directories still there\n==============================\n"
+        print colored("Cleanup failed. dist and/or build directories still there\n==============================\n", "red")
 
 
 os.makedirs("./BootstrapKnitr_Template")
@@ -394,3 +396,7 @@ try:
     rmtree("./build/")
 except:
     pass
+
+
+print colored("Setup created..", "green")
+

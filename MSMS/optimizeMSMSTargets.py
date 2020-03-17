@@ -35,7 +35,7 @@ class OptimizeMSMSTargetList:
             self.addTarget(num=str(row[0])+"_N",
                            mz=row[1],
                            rt=row[3],
-                           ionMode=row[4],
+                           ionMode="positive" if row[4]=="+" else "negative",
                            abundancesInFiles=abundancesInFiles)
 
         for row in table.getData(cols=cols):
@@ -141,34 +141,10 @@ class OptimizeMSMSTargetList:
         print "There will be", len(useTargets), "ions used for the optimization"
 
 
-
-
-
-        if showDebugPlot:
-            import matplotlib
-            from matplotlib.patches import Rectangle
-            from matplotlib.collections import PatchCollection
-            import matplotlib.pyplot as plt
-
-            fig, ax = plt.subplots()
-
-            patches = []
-
-            soffset = {}
-            for targeti, targetNum in enumerate(sorted(useTargets.keys(), key=lambda x: useTargets[x].rt)):
-                target = useTargets[targetNum]
-                matRowi=matRowNames.index(targetNum)
-                samplei=mat[matRowi].index(1)
-                if samplei not in soffset.keys():
-                    soffset[samplei] = 0
-                soffset[samplei] = soffset[samplei] + 1
-                rect = Rectangle(
-                    (target.rt - rtPlusMinus, soffset[samplei] + samplei * len(matRowNames) / (len(matColNames))),
-                    2 * rtPlusMinus, 1)
-                patches.append(rect)
-
-            p = PatchCollection(patches, alpha=0.4, color="red")
-            ax.add_collection(p)
+        import matplotlib.pyplot as plt
+        fig=plt.figure()
+        ax=fig.add_subplot(1,1,1)
+        plt.show(block=False)
 
 
 
@@ -176,14 +152,32 @@ class OptimizeMSMSTargetList:
 
         if pwSetMax is not None:
             pwSetMax(ngenerations)
+
+        gens=[]
+        scores=[]
+        score=None
+        startScore=None
         for geni in range(ngenerations):
 
             curPermCount=int(permCount*1.*(ngenerations-geni)/ngenerations)
             #curPermCount=permCount
 
+            prevScore=score
             score=self.calculateScore(mat, matRowNames, matColNames, useTargets,
                                       minCounts=minCounts, rtPlusMinus=rtPlusMinus, maxParallelTargets=maxParallelTargets, numberOfFiles=numberOfFiles)
-            print "Generation:", "%s(/%d)"%(geni, ngenerations), "current score: %.2E"%score, "(after %.1f minutes)"%((time.time() - startProc) / 60.)
+
+            if prevScore is None:
+                prevScore=score
+            if startScore is None:
+                startScore=score
+
+            gens.append(geni)
+            scores.append(score)
+
+            ax.clear()
+            ax.plot(gens, scores)
+
+            print "Generation:", "%s(/%d)"%(geni, ngenerations), "current score: %.2E"%score, "(improvement to start score of %.1f%%)"%(abs(score/startScore-1.)*100.), "(after %.1f minutes)"%((time.time() - startProc) / 60.)
             if pwSetText is not None:
                 pwSetText(" ".join(["Generation:", "%s(/%d)"%(geni, ngenerations), "current score: %.2E"%score, "(after %.1f minutes)"%((time.time() - startProc) / 60.)]))
             if pwSetValue is not None:
@@ -207,27 +201,11 @@ class OptimizeMSMSTargetList:
             if bestOffspringScore>score and bestOffspring!=None:
                 mat=bestOffspring
 
+            fig.canvas.draw()
 
+        print "Finished.. improvement best score (%.2E) to start score (%.2E) of %.1f%%)"%(scoreD, startScore, (score/startScore-1.)*100.)
+        plt.show()
 
-        if showDebugPlot:
-
-            patches = []
-
-            soffset={}
-            for targeti, targetNum in enumerate(sorted(useTargets.keys(), key=lambda x:useTargets[x].rt)):
-                target=useTargets[targetNum]
-                matRowi=matRowNames.index(targetNum)
-                samplei=mat[matRowi].index(1)
-                if samplei not in soffset.keys():
-                    soffset[samplei]=0
-                soffset[samplei]=soffset[samplei]+1
-                rect = Rectangle((target.rt-rtPlusMinus, soffset[samplei]+samplei*len(matRowNames)/(len(matColNames))), 2*rtPlusMinus, 1)
-                patches.append(rect)
-
-            p = PatchCollection(patches, alpha=0.4)
-            ax.add_collection(p)
-
-            plt.show()
 
 
         ## export target lists
