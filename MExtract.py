@@ -7446,6 +7446,13 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         self.ui.useRatio.setChecked(False)
 
+        self.ui.groupBox_options1.hide()
+        self.ui.groupBox_options2.hide()
+        self.ui.groupBox_options3.hide()
+        self.ui.pushButton_hideOptions1.hide()
+        self.ui.pushButton_hideOptions2.hide()
+        self.ui.pushButton_hideOptions3.hide()
+
         self.configuredTracer = ConfiguredTracer()
         self.updateTracerInfo()
         self.ui.setupTracers.clicked.connect(self.showTracerEditor)
@@ -7608,8 +7615,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.ui.pl2A.pictureShown = False
 
         vbox = QtGui.QVBoxLayout()
-        vbox.addWidget(self.ui.pl2A.canvas)
         vbox.addWidget(self.ui.pl2A.mpl_toolbar)
+        vbox.addWidget(self.ui.pl2A.canvas)
         self.ui.pl2AWidget.setLayout(vbox)
 
 
@@ -7627,8 +7634,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.ui.pl2B.pictureShown = False
 
         vbox = QtGui.QVBoxLayout()
-        vbox.addWidget(self.ui.pl2B.canvas)
         vbox.addWidget(self.ui.pl2B.mpl_toolbar)
+        vbox.addWidget(self.ui.pl2B.canvas)
         self.ui.pl2BWidget.setLayout(vbox)
 
         #setup third plot
@@ -7645,8 +7652,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.ui.pl3.mpl_toolbar = NavigationToolbar(self.ui.pl3.canvas, self.ui.visualizationWidget3)
 
         vbox = QtGui.QVBoxLayout()
-        vbox.addWidget(self.ui.pl3.canvas)
         vbox.addWidget(self.ui.pl3.mpl_toolbar)
+        vbox.addWidget(self.ui.pl3.canvas)
         self.ui.visualizationWidget3.setLayout(vbox)
 
         #Setup experiment plot - overlaid EICs plot
@@ -7663,8 +7670,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.ui.resultsExperiment_plot.mpl_toolbar = NavigationToolbar(self.ui.resultsExperiment_plot.canvas, self.ui.visualizationWidget)
 
         vbox = QtGui.QVBoxLayout()
-        vbox.addWidget(self.ui.resultsExperiment_plot.canvas)
         vbox.addWidget(self.ui.resultsExperiment_plot.mpl_toolbar)
+        vbox.addWidget(self.ui.resultsExperiment_plot.canvas)
         self.ui.resultsExperiment_widget.setLayout(vbox)
 
         #Setup experiment plot - separate chrom. peaks plot
@@ -7681,8 +7688,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.ui.resultsExperimentSeparatedPeaks_plot.mpl_toolbar = NavigationToolbar(self.ui.resultsExperimentSeparatedPeaks_plot.canvas, self.ui.visualizationWidget)
 
         vbox = QtGui.QVBoxLayout()
-        vbox.addWidget(self.ui.resultsExperimentSeparatedPeaks_plot.canvas)
         vbox.addWidget(self.ui.resultsExperimentSeparatedPeaks_plot.mpl_toolbar)
+        vbox.addWidget(self.ui.resultsExperimentSeparatedPeaks_plot.canvas)
         self.ui.resultsExperimentSeparatedPeaks_widget.setLayout(vbox)
 
         #Setup experiment plot - separate chrom. peaks plot
@@ -7699,8 +7706,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.ui.resultsExperimentMSScanPeaks_plot.mpl_toolbar = NavigationToolbar(self.ui.resultsExperimentMSScanPeaks_plot.canvas, self.ui.visualizationWidget)
 
         vbox = QtGui.QVBoxLayout()
-        vbox.addWidget(self.ui.resultsExperimentMSScanPeaks_plot.canvas)
         vbox.addWidget(self.ui.resultsExperimentMSScanPeaks_plot.mpl_toolbar)
+        vbox.addWidget(self.ui.resultsExperimentMSScanPeaks_plot.canvas)
         self.ui.resultsExperimentMSScan_widget.setLayout(vbox)
 
         self.ui.pl2A.xics = []

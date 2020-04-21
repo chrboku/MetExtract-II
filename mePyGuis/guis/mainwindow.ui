@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1548</width>
-    <height>1063</height>
+    <width>1954</width>
+    <height>1700</height>
    </rect>
   </property>
   <property name="acceptDrops">
@@ -34,16 +34,7 @@
     </sizepolicy>
    </property>
    <layout class="QGridLayout" name="gridLayout_11">
-    <property name="leftMargin">
-     <number>2</number>
-    </property>
-    <property name="topMargin">
-     <number>2</number>
-    </property>
-    <property name="rightMargin">
-     <number>2</number>
-    </property>
-    <property name="bottomMargin">
+    <property name="margin">
      <number>2</number>
     </property>
     <item row="0" column="0">
@@ -83,7 +74,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>3</number>
       </property>
       <widget class="QWidget" name="inputTab">
        <attribute name="title">
@@ -124,16 +115,7 @@
         </item>
         <item row="0" column="0">
          <layout class="QGridLayout" name="gridLayout_22">
-          <property name="leftMargin">
-           <number>9</number>
-          </property>
-          <property name="topMargin">
-           <number>9</number>
-          </property>
-          <property name="rightMargin">
-           <number>9</number>
-          </property>
-          <property name="bottomMargin">
+          <property name="margin">
            <number>9</number>
           </property>
           <item row="9" column="0">
@@ -849,16 +831,7 @@ font: 7pt;</string>
            </sizepolicy>
           </property>
           <layout class="QHBoxLayout" name="horizontalLayout">
-           <property name="leftMargin">
-            <number>3</number>
-           </property>
-           <property name="topMargin">
-            <number>3</number>
-           </property>
-           <property name="rightMargin">
-            <number>3</number>
-           </property>
-           <property name="bottomMargin">
+           <property name="margin">
             <number>3</number>
            </property>
            <item>
@@ -1205,16 +1178,7 @@ font: 7pt;</string>
                       <string>Save results</string>
                      </property>
                      <layout class="QGridLayout" name="gridLayout_39">
-                      <property name="leftMargin">
-                       <number>3</number>
-                      </property>
-                      <property name="topMargin">
-                       <number>3</number>
-                      </property>
-                      <property name="rightMargin">
-                       <number>3</number>
-                      </property>
-                      <property name="bottomMargin">
+                      <property name="margin">
                        <number>3</number>
                       </property>
                       <property name="spacing">
@@ -2493,9 +2457,6 @@ font: 7pt;</string>
                           </item>
                           <item row="1" column="1">
                            <widget class="QDoubleSpinBox" name="maxRatio">
-                            <property name="showGroupSeparator" stdset="0">
-                             <bool>true</bool>
-                            </property>
                             <property name="prefix">
                              <string>≤ </string>
                             </property>
@@ -2507,6 +2468,9 @@ font: 7pt;</string>
                             </property>
                             <property name="value">
                              <double>9999.000000000000000</double>
+                            </property>
+                            <property name="showGroupSeparator" stdset="0">
+                             <bool>true</bool>
                             </property>
                            </widget>
                           </item>
@@ -2745,9 +2709,6 @@ font: 7pt;</string>
                        <layout class="QGridLayout" name="gridLayout_27">
                         <item row="0" column="1">
                          <widget class="QDoubleSpinBox" name="intensityThreshold">
-                          <property name="showGroupSeparator" stdset="0">
-                           <bool>true</bool>
-                          </property>
                           <property name="prefix">
                            <string>≥ </string>
                           </property>
@@ -2762,6 +2723,9 @@ font: 7pt;</string>
                           </property>
                           <property name="value">
                            <double>1000.000000000000000</double>
+                          </property>
+                          <property name="showGroupSeparator" stdset="0">
+                           <bool>true</bool>
                           </property>
                          </widget>
                         </item>
@@ -2786,9 +2750,6 @@ the pure Isotope Peak</string>
                         </item>
                         <item row="1" column="1">
                          <widget class="QSpinBox" name="intensityCutoff">
-                          <property name="showGroupSeparator" stdset="0">
-                           <bool>true</bool>
-                          </property>
                           <property name="suffix">
                            <string/>
                           </property>
@@ -2800,6 +2761,9 @@ the pure Isotope Peak</string>
                           </property>
                           <property name="singleStep">
                            <number>1000</number>
+                          </property>
+                          <property name="showGroupSeparator" stdset="0">
+                           <bool>true</bool>
                           </property>
                          </widget>
                         </item>
@@ -3008,9 +2972,6 @@ p, li { white-space: pre-wrap; }
                         </item>
                         <item row="3" column="1">
                          <widget class="QDoubleSpinBox" name="intensityThresholdIsotopologs">
-                          <property name="showGroupSeparator" stdset="0">
-                           <bool>true</bool>
-                          </property>
                           <property name="prefix">
                            <string>≥ </string>
                           </property>
@@ -3025,6 +2986,9 @@ p, li { white-space: pre-wrap; }
                           </property>
                           <property name="value">
                            <double>1000.000000000000000</double>
+                          </property>
+                          <property name="showGroupSeparator" stdset="0">
+                           <bool>true</bool>
                           </property>
                          </widget>
                         </item>
@@ -3200,9 +3164,6 @@ font: 7pt;</string>
                    </item>
                    <item>
                     <widget class="QSpinBox" name="msms_minCounts">
-                     <property name="showGroupSeparator" stdset="0">
-                      <bool>true</bool>
-                     </property>
                      <property name="prefix">
                       <string>≥ </string>
                      </property>
@@ -3217,6 +3178,9 @@ font: 7pt;</string>
                      </property>
                      <property name="value">
                       <number>100000</number>
+                     </property>
+                     <property name="showGroupSeparator" stdset="0">
+                      <bool>true</bool>
                      </property>
                     </widget>
                    </item>
@@ -4348,9 +4312,6 @@ font: 7pt;</string>
                       </item>
                       <item>
                        <widget class="QSpinBox" name="reintegrateIntensityCutoff">
-                        <property name="showGroupSeparator" stdset="0">
-                         <bool>true</bool>
-                        </property>
                         <property name="suffix">
                          <string/>
                         </property>
@@ -4362,6 +4323,9 @@ font: 7pt;</string>
                         </property>
                         <property name="singleStep">
                          <number>1000</number>
+                        </property>
+                        <property name="showGroupSeparator" stdset="0">
+                         <bool>true</bool>
                         </property>
                        </widget>
                       </item>
@@ -4459,16 +4423,7 @@ font: 7pt;</string>
         <string>Sample results</string>
        </attribute>
        <layout class="QGridLayout" name="gridLayout_24">
-        <property name="leftMargin">
-         <number>0</number>
-        </property>
-        <property name="topMargin">
-         <number>0</number>
-        </property>
-        <property name="rightMargin">
-         <number>0</number>
-        </property>
-        <property name="bottomMargin">
+        <property name="margin">
          <number>0</number>
         </property>
         <property name="spacing">
@@ -4554,8 +4509,8 @@ font: 7pt;</string>
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1790</width>
-             <height>887</height>
+             <width>1201</width>
+             <height>1387</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_15">
@@ -4835,138 +4790,12 @@ font: 7pt;</string>
                       </property>
                       <widget class="QWidget" name="widget" native="true">
                        <layout class="QGridLayout" name="gridLayout_19">
-                        <item row="0" column="0">
+                        <item row="1" column="0">
                          <layout class="QHBoxLayout" name="horizontalLayout_10">
                           <item>
-                           <widget class="QCheckBox" name="autoZoomPlot">
+                           <widget class="QLabel" name="label_95">
                             <property name="text">
-                             <string>Autozoom</string>
-                            </property>
-                            <property name="checked">
-                             <bool>true</bool>
-                            </property>
-                           </widget>
-                          </item>
-                          <item>
-                           <widget class="QCheckBox" name="negEIC">
-                            <property name="text">
-                             <string>Negative EIC</string>
-                            </property>
-                            <property name="checked">
-                             <bool>true</bool>
-                            </property>
-                           </widget>
-                          </item>
-                          <item>
-                           <widget class="QCheckBox" name="plotAddLabels">
-                            <property name="text">
-                             <string>Labels</string>
-                            </property>
-                            <property name="checked">
-                             <bool>true</bool>
-                            </property>
-                           </widget>
-                          </item>
-                          <item>
-                           <widget class="QCheckBox" name="plotMarkArea">
-                            <property name="text">
-                             <string>Area</string>
-                            </property>
-                            <property name="checked">
-                             <bool>false</bool>
-                            </property>
-                           </widget>
-                          </item>
-                          <item>
-                           <widget class="QCheckBox" name="showArtificialShoft_checkBox">
-                            <property name="text">
-                             <string>Show artificial M' EIC shift</string>
-                            </property>
-                           </widget>
-                          </item>
-                          <item>
-                           <widget class="QCheckBox" name="scaleFeatures">
-                            <property name="text">
-                             <string>Normalise</string>
-                            </property>
-                            <property name="checked">
-                             <bool>true</bool>
-                            </property>
-                           </widget>
-                          </item>
-                          <item>
-                           <widget class="QCheckBox" name="scaleLabelledFeatures">
-                            <property name="text">
-                             <string>Normalise separately</string>
-                            </property>
-                           </widget>
-                          </item>
-                          <item>
-                           <widget class="QCheckBox" name="showIsotopologues">
-                            <property name="text">
-                             <string>Isotopologues</string>
-                            </property>
-                           </widget>
-                          </item>
-                          <item>
-                           <widget class="QCheckBox" name="checkBox_showBaseline">
-                            <property name="text">
-                             <string>Baseline</string>
-                            </property>
-                            <property name="checked">
-                             <bool>false</bool>
-                            </property>
-                           </widget>
-                          </item>
-                          <item>
-                           <widget class="QCheckBox" name="showSmoothedEIC_checkBox">
-                            <property name="text">
-                             <string>Show smoothed signal</string>
-                            </property>
-                           </widget>
-                          </item>
-                          <item>
-                           <widget class="QCheckBox" name="flattenXIC">
-                            <property name="text">
-                             <string>Crop</string>
-                            </property>
-                           </widget>
-                          </item>
-                          <item>
-                           <widget class="QCheckBox" name="showLegend">
-                            <property name="text">
-                             <string>Legend</string>
-                            </property>
-                            <property name="checked">
-                             <bool>true</bool>
-                            </property>
-                           </widget>
-                          </item>
-                          <item>
-                           <widget class="QLabel" name="label_35">
-                            <property name="text">
-                             <string/>
-                            </property>
-                           </widget>
-                          </item>
-                          <item>
-                           <widget class="Line" name="line_19">
-                            <property name="orientation">
-                             <enum>Qt::Vertical</enum>
-                            </property>
-                           </widget>
-                          </item>
-                          <item>
-                           <widget class="QCheckBox" name="showDiagnostics">
-                            <property name="text">
-                             <string>Diagnostics</string>
-                            </property>
-                           </widget>
-                          </item>
-                          <item>
-                           <widget class="QCheckBox" name="setPeakCentersToZero">
-                            <property name="text">
-                             <string>Set peak centers to 0</string>
+                             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:12pt; font-weight:600;&quot;&gt;EICs of native and labeled metabolite ion&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                             </property>
                            </widget>
                           </item>
@@ -4983,9 +4812,36 @@ font: 7pt;</string>
                             </property>
                            </spacer>
                           </item>
+                          <item>
+                           <widget class="QLabel" name="label_35">
+                            <property name="text">
+                             <string/>
+                            </property>
+                           </widget>
+                          </item>
+                          <item>
+                           <widget class="QPushButton" name="pushButton_showOptions1">
+                            <property name="text">
+                             <string>Show options</string>
+                            </property>
+                           </widget>
+                          </item>
+                          <item>
+                           <widget class="QPushButton" name="pushButton_hideOptions1">
+                            <property name="sizePolicy">
+                             <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                              <horstretch>0</horstretch>
+                              <verstretch>0</verstretch>
+                             </sizepolicy>
+                            </property>
+                            <property name="text">
+                             <string>Hide options</string>
+                            </property>
+                           </widget>
+                          </item>
                          </layout>
                         </item>
-                        <item row="1" column="0">
+                        <item row="3" column="0">
                          <widget class="QWidget" name="visualizationWidget" native="true">
                           <property name="sizePolicy">
                            <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
@@ -5001,88 +4857,146 @@ font: 7pt;</string>
                           </property>
                          </widget>
                         </item>
+                        <item row="2" column="0">
+                         <widget class="QGroupBox" name="groupBox_options1">
+                          <property name="title">
+                           <string>Options</string>
+                          </property>
+                          <layout class="QVBoxLayout" name="verticalLayout_2">
+                           <item>
+                            <widget class="QCheckBox" name="autoZoomPlot">
+                             <property name="text">
+                              <string>Autozoom to chromatographic peaks</string>
+                             </property>
+                             <property name="checked">
+                              <bool>true</bool>
+                             </property>
+                            </widget>
+                           </item>
+                           <item>
+                            <widget class="QCheckBox" name="negEIC">
+                             <property name="text">
+                              <string>Show EIC of labeled ion form with negative intensities</string>
+                             </property>
+                             <property name="checked">
+                              <bool>true</bool>
+                             </property>
+                            </widget>
+                           </item>
+                           <item>
+                            <widget class="QCheckBox" name="plotAddLabels">
+                             <property name="text">
+                              <string>Add balloon labels to the EIC plot</string>
+                             </property>
+                             <property name="checked">
+                              <bool>true</bool>
+                             </property>
+                            </widget>
+                           </item>
+                           <item>
+                            <widget class="QCheckBox" name="plotMarkArea">
+                             <property name="text">
+                              <string>Color peak area</string>
+                             </property>
+                             <property name="checked">
+                              <bool>false</bool>
+                             </property>
+                            </widget>
+                           </item>
+                           <item>
+                            <widget class="QCheckBox" name="showArtificialShoft_checkBox">
+                             <property name="text">
+                              <string>Shift the labeled EIC artificially</string>
+                             </property>
+                            </widget>
+                           </item>
+                           <item>
+                            <widget class="QCheckBox" name="scaleFeatures">
+                             <property name="text">
+                              <string>Normalise peak abundances to 1</string>
+                             </property>
+                             <property name="checked">
+                              <bool>true</bool>
+                             </property>
+                            </widget>
+                           </item>
+                           <item>
+                            <widget class="QCheckBox" name="scaleLabelledFeatures">
+                             <property name="text">
+                              <string>Normalise native and labeled peaks separately</string>
+                             </property>
+                            </widget>
+                           </item>
+                           <item>
+                            <widget class="QCheckBox" name="showIsotopologues">
+                             <property name="text">
+                              <string>Show EICs of isotopologs M+1 and M'-1</string>
+                             </property>
+                            </widget>
+                           </item>
+                           <item>
+                            <widget class="QCheckBox" name="checkBox_showBaseline">
+                             <property name="text">
+                              <string>Subtract the baseline of the EICs</string>
+                             </property>
+                             <property name="checked">
+                              <bool>false</bool>
+                             </property>
+                            </widget>
+                           </item>
+                           <item>
+                            <widget class="QCheckBox" name="showSmoothedEIC_checkBox">
+                             <property name="text">
+                              <string>Show smoothed signal</string>
+                             </property>
+                            </widget>
+                           </item>
+                           <item>
+                            <widget class="QCheckBox" name="flattenXIC">
+                             <property name="text">
+                              <string>Crop EICs to chromatographic peaks</string>
+                             </property>
+                            </widget>
+                           </item>
+                           <item>
+                            <widget class="QCheckBox" name="showLegend">
+                             <property name="text">
+                              <string>Show legend</string>
+                             </property>
+                             <property name="checked">
+                              <bool>true</bool>
+                             </property>
+                            </widget>
+                           </item>
+                           <item>
+                            <widget class="Line" name="line_40">
+                             <property name="orientation">
+                              <enum>Qt::Horizontal</enum>
+                             </property>
+                            </widget>
+                           </item>
+                           <item>
+                            <widget class="QCheckBox" name="showDiagnostics">
+                             <property name="text">
+                              <string>Add labels to other features detected with the same m/z value</string>
+                             </property>
+                            </widget>
+                           </item>
+                           <item>
+                            <widget class="QCheckBox" name="setPeakCentersToZero">
+                             <property name="text">
+                              <string>Set peak centers to 0 to improve their comparison</string>
+                             </property>
+                            </widget>
+                           </item>
+                          </layout>
+                         </widget>
+                        </item>
                        </layout>
                       </widget>
                       <widget class="QWidget" name="widget" native="true">
                        <layout class="QGridLayout" name="gridLayout_29">
-                        <item row="2" column="0">
-                         <layout class="QHBoxLayout" name="horizontalLayout_7">
-                          <item>
-                           <widget class="QCheckBox" name="MSLabels">
-                            <property name="text">
-                             <string>Labels</string>
-                            </property>
-                            <property name="checked">
-                             <bool>true</bool>
-                            </property>
-                           </widget>
-                          </item>
-                          <item>
-                           <widget class="QCheckBox" name="MSIsos">
-                            <property name="text">
-                             <string>Isotopologues</string>
-                            </property>
-                            <property name="checked">
-                             <bool>true</bool>
-                            </property>
-                           </widget>
-                          </item>
-                          <item>
-                           <widget class="QCheckBox" name="drawFPIsotopologues">
-                            <property name="text">
-                             <string>M-1, M'+1</string>
-                            </property>
-                            <property name="checked">
-                             <bool>true</bool>
-                            </property>
-                           </widget>
-                          </item>
-                          <item>
-                           <widget class="Line" name="line_10">
-                            <property name="orientation">
-                             <enum>Qt::Vertical</enum>
-                            </property>
-                           </widget>
-                          </item>
-                          <item>
-                           <widget class="QLabel" name="label_8">
-                            <property name="text">
-                             <string>Isotopolog deviation</string>
-                            </property>
-                           </widget>
-                          </item>
-                          <item>
-                           <widget class="QDoubleSpinBox" name="doubleSpinBox_isotopologAnnotationPPM">
-                            <property name="prefix">
-                             <string>± </string>
-                            </property>
-                            <property name="suffix">
-                             <string> ppm</string>
-                            </property>
-                            <property name="decimals">
-                             <number>1</number>
-                            </property>
-                            <property name="value">
-                             <double>5.000000000000000</double>
-                            </property>
-                           </widget>
-                          </item>
-                          <item>
-                           <spacer name="horizontalSpacer_25">
-                            <property name="orientation">
-                             <enum>Qt::Horizontal</enum>
-                            </property>
-                            <property name="sizeHint" stdset="0">
-                             <size>
-                              <width>40</width>
-                              <height>20</height>
-                             </size>
-                            </property>
-                           </spacer>
-                          </item>
-                         </layout>
-                        </item>
-                        <item row="1" column="0">
+                        <item row="3" column="0">
                          <widget class="QWidget" name="visualizationWidget3" native="true">
                           <property name="sizePolicy">
                            <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
@@ -5106,6 +5020,129 @@ font: 7pt;</string>
                           <property name="orientation">
                            <enum>Qt::Horizontal</enum>
                           </property>
+                         </widget>
+                        </item>
+                        <item row="1" column="0">
+                         <layout class="QHBoxLayout" name="horizontalLayout_7">
+                          <item>
+                           <widget class="QLabel" name="label_96">
+                            <property name="text">
+                             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:12pt; font-weight:600;&quot;&gt;Mass spectra of native and labeled metabolite ion&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                            </property>
+                           </widget>
+                          </item>
+                          <item>
+                           <spacer name="horizontalSpacer_25">
+                            <property name="orientation">
+                             <enum>Qt::Horizontal</enum>
+                            </property>
+                            <property name="sizeHint" stdset="0">
+                             <size>
+                              <width>40</width>
+                              <height>20</height>
+                             </size>
+                            </property>
+                           </spacer>
+                          </item>
+                          <item>
+                           <widget class="QPushButton" name="pushButton_showOptions2">
+                            <property name="text">
+                             <string>Show options</string>
+                            </property>
+                           </widget>
+                          </item>
+                          <item>
+                           <widget class="QPushButton" name="pushButton_hideOptions2">
+                            <property name="sizePolicy">
+                             <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                              <horstretch>0</horstretch>
+                              <verstretch>0</verstretch>
+                             </sizepolicy>
+                            </property>
+                            <property name="text">
+                             <string>Hide options</string>
+                            </property>
+                           </widget>
+                          </item>
+                         </layout>
+                        </item>
+                        <item row="2" column="0">
+                         <widget class="QGroupBox" name="groupBox_options2">
+                          <property name="title">
+                           <string>Options</string>
+                          </property>
+                          <layout class="QVBoxLayout" name="verticalLayout_3">
+                           <item>
+                            <widget class="QCheckBox" name="MSLabels">
+                             <property name="text">
+                              <string>Labels</string>
+                             </property>
+                             <property name="checked">
+                              <bool>true</bool>
+                             </property>
+                            </widget>
+                           </item>
+                           <item>
+                            <widget class="QCheckBox" name="MSIsos">
+                             <property name="text">
+                              <string>Isotopologues</string>
+                             </property>
+                             <property name="checked">
+                              <bool>true</bool>
+                             </property>
+                            </widget>
+                           </item>
+                           <item>
+                            <widget class="QCheckBox" name="drawFPIsotopologues">
+                             <property name="text">
+                              <string>M-1, M'+1</string>
+                             </property>
+                             <property name="checked">
+                              <bool>true</bool>
+                             </property>
+                            </widget>
+                           </item>
+                           <item>
+                            <layout class="QHBoxLayout" name="horizontalLayout_31">
+                             <item>
+                              <widget class="QLabel" name="label_8">
+                               <property name="text">
+                                <string>Isotopolog deviation</string>
+                               </property>
+                              </widget>
+                             </item>
+                             <item>
+                              <widget class="QDoubleSpinBox" name="doubleSpinBox_isotopologAnnotationPPM">
+                               <property name="prefix">
+                                <string>± </string>
+                               </property>
+                               <property name="suffix">
+                                <string> ppm</string>
+                               </property>
+                               <property name="decimals">
+                                <number>1</number>
+                               </property>
+                               <property name="value">
+                                <double>5.000000000000000</double>
+                               </property>
+                              </widget>
+                             </item>
+                             <item>
+                              <spacer name="horizontalSpacer_18">
+                               <property name="orientation">
+                                <enum>Qt::Horizontal</enum>
+                               </property>
+                               <property name="sizeHint" stdset="0">
+                                <size>
+                                 <width>40</width>
+                                 <height>20</height>
+                                </size>
+                               </property>
+                              </spacer>
+                             </item>
+                            </layout>
+                           </item>
+                          </layout>
                          </widget>
                         </item>
                        </layout>
@@ -5251,11 +5288,256 @@ font: 7pt;</string>
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1484</width>
-             <height>968</height>
+             <width>1906</width>
+             <height>1613</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_40">
+            <item row="3" column="1">
+             <widget class="QGroupBox" name="groupBox_options3">
+              <property name="title">
+               <string>Options</string>
+              </property>
+              <layout class="QVBoxLayout" name="verticalLayout_4">
+               <item>
+                <layout class="QHBoxLayout" name="horizontalLayout_32">
+                 <item>
+                  <widget class="QLabel" name="label_63">
+                   <property name="text">
+                    <string>EIC</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QDoubleSpinBox" name="doubleSpinBox_resultsExperiment_EICppm">
+                   <property name="prefix">
+                    <string>± </string>
+                   </property>
+                   <property name="suffix">
+                    <string> ppm</string>
+                   </property>
+                   <property name="decimals">
+                    <number>1</number>
+                   </property>
+                   <property name="minimum">
+                    <double>1.000000000000000</double>
+                   </property>
+                   <property name="value">
+                    <double>5.000000000000000</double>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <spacer name="horizontalSpacer_34">
+                   <property name="orientation">
+                    <enum>Qt::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>40</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                </layout>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="horizontalLayout_33">
+                 <item>
+                  <widget class="QLabel" name="label_64">
+                   <property name="text">
+                    <string>Peak width</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QDoubleSpinBox" name="doubleSpinBox_resultsExperiment_PeakWidth">
+                   <property name="prefix">
+                    <string>± </string>
+                   </property>
+                   <property name="suffix">
+                    <string> minutes</string>
+                   </property>
+                   <property name="value">
+                    <double>0.500000000000000</double>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <spacer name="horizontalSpacer_37">
+                   <property name="orientation">
+                    <enum>Qt::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>40</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                </layout>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="resultsExperimentNormaliseXICsSeparately_checkBox">
+                 <property name="text">
+                  <string>Normalise separately</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="resultsExperimentNormaliseXICs_checkBox">
+                 <property name="text">
+                  <string>Normalise to labeled features</string>
+                 </property>
+                 <property name="checked">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item row="6" column="0">
+             <layout class="QHBoxLayout" name="horizontalLayout_16">
+              <item>
+               <widget class="QPushButton" name="pushButton_exportAllAsPDF">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="text">
+                 <string>Export all as PDF</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="horizontalSpacer">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeType">
+                 <enum>QSizePolicy::Preferred</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </item>
+            <item row="2" column="1">
+             <layout class="QHBoxLayout" name="horizontalLayout_12">
+              <item>
+               <widget class="QLabel" name="label_97">
+                <property name="text">
+                 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:12pt; font-weight:600;&quot;&gt;Visualization of native and labeled metabolite forms in all samples&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="horizontalSpacer_22">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+              <item>
+               <widget class="QPushButton" name="pushButton_showOptions3">
+                <property name="text">
+                 <string>Show options</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="pushButton_hideOptions3">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="text">
+                 <string>Hide options</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="showCustomFeature_pushButton">
+                <property name="text">
+                 <string>Show custom feature</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item row="2" column="0" rowspan="4">
+             <widget class="QTreeWidget" name="resultsExperiment_TreeWidget">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Fixed" vsizetype="Expanding">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>500</width>
+                <height>0</height>
+               </size>
+              </property>
+              <property name="selectionMode">
+               <enum>QAbstractItemView::ExtendedSelection</enum>
+              </property>
+              <property name="columnCount">
+               <number>6</number>
+              </property>
+              <attribute name="headerDefaultSectionSize">
+               <number>40</number>
+              </attribute>
+              <column>
+               <property name="text">
+                <string>1</string>
+               </property>
+              </column>
+              <column>
+               <property name="text">
+                <string>2</string>
+               </property>
+              </column>
+              <column>
+               <property name="text">
+                <string>3</string>
+               </property>
+              </column>
+              <column>
+               <property name="text">
+                <string>4</string>
+               </property>
+              </column>
+              <column>
+               <property name="text">
+                <string>5</string>
+               </property>
+              </column>
+              <column>
+               <property name="text">
+                <string>6</string>
+               </property>
+              </column>
+             </widget>
+            </item>
             <item row="4" column="1">
              <widget class="QTabWidget" name="tabWidget_3">
               <property name="currentIndex">
@@ -5344,181 +5626,6 @@ font: 7pt;</string>
               </widget>
              </widget>
             </item>
-            <item row="2" column="1">
-             <layout class="QHBoxLayout" name="horizontalLayout_12">
-              <item>
-               <widget class="QLabel" name="label_63">
-                <property name="text">
-                 <string>EIC</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QDoubleSpinBox" name="doubleSpinBox_resultsExperiment_EICppm">
-                <property name="prefix">
-                 <string>± </string>
-                </property>
-                <property name="suffix">
-                 <string> ppm</string>
-                </property>
-                <property name="decimals">
-                 <number>1</number>
-                </property>
-                <property name="minimum">
-                 <double>1.000000000000000</double>
-                </property>
-                <property name="value">
-                 <double>5.000000000000000</double>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QLabel" name="label_64">
-                <property name="text">
-                 <string>Peak width</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QDoubleSpinBox" name="doubleSpinBox_resultsExperiment_PeakWidth">
-                <property name="prefix">
-                 <string>± </string>
-                </property>
-                <property name="suffix">
-                 <string> minutes</string>
-                </property>
-                <property name="value">
-                 <double>0.500000000000000</double>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QCheckBox" name="resultsExperimentNormaliseXICs_checkBox">
-                <property name="text">
-                 <string>Normalise to labeled features</string>
-                </property>
-                <property name="checked">
-                 <bool>true</bool>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QCheckBox" name="resultsExperimentNormaliseXICsSeparately_checkBox">
-                <property name="text">
-                 <string>Normalise separately</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <spacer name="horizontalSpacer_22">
-                <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
-                </property>
-                <property name="sizeHint" stdset="0">
-                 <size>
-                  <width>40</width>
-                  <height>20</height>
-                 </size>
-                </property>
-               </spacer>
-              </item>
-              <item>
-               <widget class="QPushButton" name="showCustomFeature_pushButton">
-                <property name="text">
-                 <string>Show custom feature</string>
-                </property>
-               </widget>
-              </item>
-             </layout>
-            </item>
-            <item row="6" column="0">
-             <layout class="QHBoxLayout" name="horizontalLayout_16">
-              <item>
-               <widget class="QPushButton" name="pushButton_exportAllAsPDF">
-                <property name="sizePolicy">
-                 <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-                  <horstretch>0</horstretch>
-                  <verstretch>0</verstretch>
-                 </sizepolicy>
-                </property>
-                <property name="text">
-                 <string>Export all as PDF</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <spacer name="horizontalSpacer">
-                <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
-                </property>
-                <property name="sizeType">
-                 <enum>QSizePolicy::Preferred</enum>
-                </property>
-                <property name="sizeHint" stdset="0">
-                 <size>
-                  <width>40</width>
-                  <height>20</height>
-                 </size>
-                </property>
-               </spacer>
-              </item>
-             </layout>
-            </item>
-            <item row="2" column="0" rowspan="4">
-             <widget class="QTreeWidget" name="resultsExperiment_TreeWidget">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Fixed" vsizetype="Expanding">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="minimumSize">
-               <size>
-                <width>500</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="selectionMode">
-               <enum>QAbstractItemView::ExtendedSelection</enum>
-              </property>
-              <property name="columnCount">
-               <number>6</number>
-              </property>
-              <attribute name="headerDefaultSectionSize">
-               <number>40</number>
-              </attribute>
-              <column>
-               <property name="text">
-                <string>1</string>
-               </property>
-              </column>
-              <column>
-               <property name="text">
-                <string>2</string>
-               </property>
-              </column>
-              <column>
-               <property name="text">
-                <string>3</string>
-               </property>
-              </column>
-              <column>
-               <property name="text">
-                <string>4</string>
-               </property>
-              </column>
-              <column>
-               <property name="text">
-                <string>5</string>
-               </property>
-              </column>
-              <column>
-               <property name="text">
-                <string>6</string>
-               </property>
-              </column>
-             </widget>
-            </item>
            </layout>
           </widget>
          </widget>
@@ -5553,7 +5660,7 @@ font: 7pt;</string>
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1548</width>
+     <width>1954</width>
      <height>21</height>
     </rect>
    </property>
@@ -5703,20 +5810,8 @@ font: 7pt;</string>
   <tabstop>startIdentification</tabstop>
   <tabstop>dataFilter</tabstop>
   <tabstop>tabWidget_2</tabstop>
-  <tabstop>autoZoomPlot</tabstop>
-  <tabstop>plotAddLabels</tabstop>
-  <tabstop>plotMarkArea</tabstop>
-  <tabstop>scaleFeatures</tabstop>
-  <tabstop>scaleLabelledFeatures</tabstop>
-  <tabstop>showIsotopologues</tabstop>
-  <tabstop>flattenXIC</tabstop>
-  <tabstop>showLegend</tabstop>
-  <tabstop>MSLabels</tabstop>
-  <tabstop>MSIsos</tabstop>
-  <tabstop>drawFPIsotopologues</tabstop>
   <tabstop>scrollArea</tabstop>
   <tabstop>resultsExperiment_TreeWidget</tabstop>
-  <tabstop>resultsExperimentNormaliseXICs_checkBox</tabstop>
   <tabstop>tabWidget_3</tabstop>
   <tabstop>setChromPeakName</tabstop>
   <tabstop>visualConfig</tabstop>
@@ -5729,14 +5824,298 @@ font: 7pt;</string>
   <tabstop>groupsSave</tabstop>
   <tabstop>chromPeakName</tabstop>
   <tabstop>processedFilesComboBox</tabstop>
-  <tabstop>negEIC</tabstop>
-  <tabstop>showSmoothedEIC_checkBox</tabstop>
-  <tabstop>showDiagnostics</tabstop>
-  <tabstop>setPeakCentersToZero</tabstop>
-  <tabstop>doubleSpinBox_isotopologAnnotationPPM</tabstop>
  </tabstops>
  <resources>
   <include location="../../resources.qrc"/>
  </resources>
- <connections/>
+ <connections>
+  <connection>
+   <sender>pushButton_showOptions1</sender>
+   <signal>clicked()</signal>
+   <receiver>groupBox_options1</receiver>
+   <slot>show()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pushButton_showOptions1</sender>
+   <signal>clicked()</signal>
+   <receiver>pushButton_hideOptions1</receiver>
+   <slot>show()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pushButton_showOptions1</sender>
+   <signal>clicked()</signal>
+   <receiver>pushButton_showOptions1</receiver>
+   <slot>hide()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pushButton_hideOptions1</sender>
+   <signal>clicked()</signal>
+   <receiver>groupBox_options1</receiver>
+   <slot>hide()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pushButton_hideOptions1</sender>
+   <signal>clicked()</signal>
+   <receiver>pushButton_showOptions1</receiver>
+   <slot>show()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pushButton_hideOptions1</sender>
+   <signal>clicked()</signal>
+   <receiver>pushButton_hideOptions1</receiver>
+   <slot>hide()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pushButton_showOptions2</sender>
+   <signal>clicked()</signal>
+   <receiver>groupBox_options2</receiver>
+   <slot>show()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pushButton_showOptions2</sender>
+   <signal>clicked()</signal>
+   <receiver>pushButton_hideOptions2</receiver>
+   <slot>show()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pushButton_showOptions2</sender>
+   <signal>clicked()</signal>
+   <receiver>pushButton_showOptions2</receiver>
+   <slot>hide()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pushButton_hideOptions2</sender>
+   <signal>clicked()</signal>
+   <receiver>groupBox_options2</receiver>
+   <slot>hide()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pushButton_hideOptions2</sender>
+   <signal>clicked()</signal>
+   <receiver>pushButton_showOptions2</receiver>
+   <slot>show()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pushButton_hideOptions2</sender>
+   <signal>clicked()</signal>
+   <receiver>pushButton_hideOptions2</receiver>
+   <slot>hide()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pushButton_showOptions3</sender>
+   <signal>clicked()</signal>
+   <receiver>groupBox_options3</receiver>
+   <slot>show()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pushButton_showOptions3</sender>
+   <signal>clicked()</signal>
+   <receiver>pushButton_hideOptions3</receiver>
+   <slot>show()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pushButton_showOptions3</sender>
+   <signal>clicked()</signal>
+   <receiver>pushButton_showOptions3</receiver>
+   <slot>hide()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pushButton_hideOptions3</sender>
+   <signal>clicked()</signal>
+   <receiver>groupBox_options3</receiver>
+   <slot>hide()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pushButton_hideOptions3</sender>
+   <signal>clicked()</signal>
+   <receiver>pushButton_showOptions3</receiver>
+   <slot>show()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pushButton_hideOptions3</sender>
+   <signal>clicked()</signal>
+   <receiver>pushButton_hideOptions3</receiver>
+   <slot>hide()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
 </ui>
