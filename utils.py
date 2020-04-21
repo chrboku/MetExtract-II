@@ -692,7 +692,7 @@ def corr(a, b):
     try:
         rxy = (sum([(a[i] - meana) * (b[i] - meanb) for i in range(n)])) / ( sqrt(sum([pow(a[i] - meana, 2) for i in range(n)])) * sqrt(sum([pow(b[i] - meanb, 2) for i in range(n)])))
         return rxy
-    except:
+    except RuntimeWarning:
         return -1
 
 def getLastTimeBefore(times, refTime):
