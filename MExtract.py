@@ -2432,7 +2432,12 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             if sett.contains("annotateMetabolites_maxPPM"):
                 self.ui.annotationMaxPPM_doubleSpinBox.setValue(sett.value("annotateMetabolites_maxPPM").toDouble()[0])
             if sett.contains("annotation_correctMassByPPM"):
-                self.ui.annotation_correctMassByPPM.setValue(sett.value("annotation_correctMassByPPM").toDouble()[0])
+                self.ui.annotation_correctMassByPPMposMode.setValue(sett.value("annotation_correctMassByPPM").toDouble()[0])
+                self.ui.annotation_correctMassByPPMnegMode.setValue(sett.value("annotation_correctMassByPPM").toDouble()[0])
+            if sett.contains("annotation_correctMassByPPMposMode"):
+                self.ui.annotation_correctMassByPPMposMode.setValue(sett.value("annotation_correctMassByPPMposMode").toDouble()[0])
+            if sett.contains("annotation_correctMassByPPMnegMode"):
+                self.ui.annotation_correctMassByPPMnegMode.setValue(sett.value("annotation_correctMassByPPMnegMode").toDouble()[0])
 
             if sett.contains("annotateMetabolites_usedDatabases"):
                 usedDBs=loads(base64.b64decode(str(sett.value("annotateMetabolites_usedDatabases").toString())))
@@ -2593,7 +2598,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             sett.setValue("annotateMetabolites_checkRT", self.ui.checkRTInHits_checkBox.isChecked())
             sett.setValue("annotateMetabolites_maxRTError", self.ui.maxRTErrorInHits_spinnerBox.value())
             sett.setValue("annotateMetabolites_maxPPM", self.ui.annotationMaxPPM_doubleSpinBox.value())
-            sett.setValue("annotation_correctMassByPPM", self.ui.annotation_correctMassByPPM.value())
+            sett.setValue("annotation_correctMassByPPMposMode", self.ui.annotation_correctMassByPPMposMode.value())
+            sett.setValue("annotation_correctMassByPPMnegMode", self.ui.annotation_correctMassByPPMnegMode.value())
 
             usedDBs=[]
             for entryInd in range(self.ui.dbList_listView.model().rowCount()):
@@ -3413,9 +3419,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 db.optimizeDB()
 
                 class dbSearch:
-                    def __init__(self, dbs, ppm, correctppm, rtError, useRt=True, checkXnInHits=True, processedElement="C"):
+                    def __init__(self, dbs, ppm, correctppmPosMode, correctppmNegMode, rtError, useRt=True, checkXnInHits=True, processedElement="C"):
                         self.ppm = ppm
-                        self.correctppm = correctppm
+                        self.correctppmPosMode = correctppmPosMode
+                        self.correctppmNegMode = correctppmNegMode
                         self.rtError=rtError
                         self.useRt=useRt
                         self.checkXnInHits=checkXnInHits
@@ -3427,16 +3434,16 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     def updateDBCols(self, x):
                         mass=float(x["M"]) if x["M"]!="" and "," not in str(x["M"]) else None
                         mz=float(x["MZ"])
+                        polarity=x["Ionisation_Mode"]
 
                         massO=mass
                         mzO=mz
                         if mass is not None:
-                            mass=mass+mass*1.*self.correctppm/1E6
-                        mz=mz+mz*1.*self.correctppm/1E6
+                            mass=mass + mass*1.* (self.correctppmPosMode if polarity=="+" else self.correctppmNegMode) /1E6
+                        mz=mz + mz*1.* (self.correctppmPosMode if polarity=="+" else self.correctppmNegMode) /1E6
 
                         rt_min=float(x["RT"])
                         charges=int(x["Charge"])
-                        polarity=x["Ionisation_Mode"]
                         xn=0
                         try:
                             xn=int(x["Xn"])
@@ -3463,11 +3470,11 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 if useExactXn.lower()=="plusminus":
                     useExactXn="PlusMinus_%d"%(self.ui.sumFormulasPlusMinus_spinBox.value())
 
-                x = dbSearch(db, ppm=self.ui.annotationMaxPPM_doubleSpinBox.value(), correctppm=self.ui.annotation_correctMassByPPM.value(), rtError=self.ui.maxRTErrorInHits_spinnerBox.value(), useRt=self.ui.checkRTInHits_checkBox.isChecked(),
+                x = dbSearch(db, ppm=self.ui.annotationMaxPPM_doubleSpinBox.value(), correctppmPosMode=self.ui.annotation_correctMassByPPMposMode.value(), correctppmNegMode=self.ui.annotation_correctMassByPPMnegMode.value(), rtError=self.ui.maxRTErrorInHits_spinnerBox.value(), useRt=self.ui.checkRTInHits_checkBox.isChecked(),
                 checkXnInHits=useExactXn, processedElement=getElementOfIsotope(str(self.ui.isotopeAText.text())))
                 table.applyFunction(x.updateDBCols, showProgress=True, pwMaxSet=pw.getCallingFunction()("max"), pwValSet=pw.getCallingFunction()("value"))
 
-                table.addComment("## Database search: checkXn %s, ppm: %.5f, correctppm: %.5f, Adducts: %s"%(useExactXn, self.ui.annotationMaxPPM_doubleSpinBox.value(), self.ui.annotation_correctMassByPPM.value(), str(useAdducts)))
+                table.addComment("## Database search: checkXn %s, ppm: %.5f, correctppm: pos.mode: %.5f / neg.mode: %.5f, Adducts: %s"%(useExactXn, self.ui.annotationMaxPPM_doubleSpinBox.value(), self.ui.annotation_correctMassByPPMposMode.value(), self.ui.annotation_correctMassByPPMnegMode.value(), str(useAdducts)))
 
                 TableUtils.saveFile(table, resFileFull)
                 shutil.copyfile(resFileFull, resFilePath + "/xxx_results__6_afterDBSearch.tsv")
@@ -3544,7 +3551,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                                         getElementOfIsotope(str(self.ui.isotopeAText.text())),
                                                                         useExactXn,
                                                                         ppm=self.ui.annotationMaxPPM_doubleSpinBox.value(),
-                                                                        ppmCorrection=self.ui.annotation_correctMassByPPM.value(),
+                                                                        ppmCorrectionPosMode=self.ui.annotation_correctMassByPPMposMode.value(),
+                                                                        ppmCorrectionNegMode=self.ui.annotation_correctMassByPPMnegMode.value(),
                                                                         adducts=useAdducts,
                                                                         pwMaxSet=pw.getCallingFunction()("max"),
                                                                         pwValSet=pw.getCallingFunction()("value"),
@@ -4022,7 +4030,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
 
             try:
-                it = QtGui.QTreeWidgetItem(["Feature groups"])
+                it = QtGui.QTreeWidgetItem(["Metabolites" if self.labellingExperiment == METABOLOME else "Biotransformation products"])
                 self.ui.res_ExtractedData.addTopLevelItem(it)
                 it.myType = "Feature Groups"
                 it.setExpanded(True)
@@ -7289,11 +7297,11 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 dbt.write("\n")
                 dbt.write("1\tPhenylalanine\tC9H11NO2\t\t\t")
                 dbt.write("\n")
-                dbt.write("1\tPhenylalanine\tC9H11NO2\t5.5\t\t")
+                dbt.write("2\tPhenylalanine\tC9H11NO2\t5.5\t\t")
                 dbt.write("\n")
-                dbt.write("1\tPhenylalanine\t\t5.5\t166.085706\t+")
+                dbt.write("3\tPhenylalanine\t\t5.5\t166.085706\t+")
                 dbt.write("\n")
-                dbt.write("1\tPhenylalanine\tC9H11NO2\t5.5\t166.085706\t+")
+                dbt.write("4\tPhenylalanine\tC9H11NO2\t5.5\t166.085706\t+")
                 dbt.write("\n")
                 dbt.write("## Any line starting with the hash-symbol (#) is a comment and will be skipped")
                 dbt.write("\n")
@@ -7306,6 +7314,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 dbt.write("## The retention time is optional and must be specified in minutes. If several retention times are possible, use different rows. Use the dot (.) as the decimal separator")
                 dbt.write("\n")
                 dbt.write("## Additional columns may be provided. These will be transfered to the results but not checked in any way. Do not include tab-stops in there.")
+                dbt.write("\n")
+                dbt.write("## Do not use any tab-characters inside of cells. Save the file as a .tsv file or rename the file after saving it as a tab-delimited file in Excel")
 
 
         QtGui.QMessageBox.information(self, "MetExtract", "The database template has been generated successfully.\n\n"

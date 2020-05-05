@@ -24,7 +24,7 @@ exIonMode = "Ionisation_Mode"
 exCharge = "Charge"
 
 
-def processFile(file, columns, adducts, ppm=5., ppmCorrection=0, useAtoms=[], atomsRange=[], smCol="sumFormula_", toFile=None, useSevenGoldenRules=True, useCn=True, pwMaxSet=None, pwValSet=None, nCores=1):
+def processFile(file, columns, adducts, ppm=5., ppmCorrectionPosMode=0, ppmCorrectionNegMode=0, useAtoms=[], atomsRange=[], smCol="sumFormula_", toFile=None, useSevenGoldenRules=True, useCn=True, pwMaxSet=None, pwValSet=None, nCores=1):
 
     if toFile is None:
         toFile = file.replace(".tsv", ".SFs.tsv").replace(".txt", ".SFs.txt")
@@ -80,11 +80,12 @@ def processFile(file, columns, adducts, ppm=5., ppmCorrection=0, useAtoms=[], at
 
 
     class formulaSearch:
-        def __init__(self, columns, adducts, ppm, ppmCorrection, useAtoms, atomsRange, useSevenGoldenRules, useCn, lock=None, counter=None):
+        def __init__(self, columns, adducts, ppm, ppmCorrectionPosMode, ppmCorrectionNegMode, useAtoms, atomsRange, useSevenGoldenRules, useCn, lock=None, counter=None):
             self.columns = columns
             self.adducts = adducts
             self.ppm = ppm
-            self.ppmCorrection = ppmCorrection
+            self.ppmCorrectionPosMode = ppmCorrectionPosMode
+            self.ppmCorrectionNegMode = ppmCorrectionNegMode
             self.useAtoms = useAtoms
             self.atomsRange = atomsRange
             self.useSevenGoldenRules=useSevenGoldenRules
@@ -99,8 +100,9 @@ def processFile(file, columns, adducts, ppm=5., ppmCorrection=0, useAtoms=[], at
 
         def generateSumFormulaCalcObjects(self, x):
 
+            ionMode = x[self.columns[exIonMode]]
             mz = x[self.columns[exMZ]]
-            mz = mz+mz*1.*self.ppmCorrection/1E6
+            mz = mz + mz*1.* (self.ppmCorrectionPosMode if ionMode=="+" else self.ppmCorrectionNegMode) /1E6
             if self.columns[exAccMass] in x.keys():
                 accMass = x[self.columns[exAccMass]]
             else:
@@ -109,7 +111,6 @@ def processFile(file, columns, adducts, ppm=5., ppmCorrection=0, useAtoms=[], at
             xCount = int(x[self.columns[exXCount]])
             atomsRange = deepcopy(self.atomsRange)
             charge = x[self.columns[exCharge]]
-            ionMode = x[self.columns[exIonMode]]
 
             if self.useCn.lower()=="exact":
                 atomsRange[0] = xCount
@@ -153,8 +154,10 @@ def processFile(file, columns, adducts, ppm=5., ppmCorrection=0, useAtoms=[], at
                 for m in str(accMass).split(","):
                     m = m.replace("\"", "")
                     m = m.strip()
+                    m = float(m)
+                    m = m + m * 1. * (self.ppmCorrectionPosMode if ionMode == "+" else self.ppmCorrectionNegMode) / 1E6
 
-                    calcObj=Bunch(m=float(m),
+                    calcObj=Bunch(m=m,
                                   ppm=self.ppm,
                                   useAtoms=useAtoms,
                                   atomsRange=atomsRange,
@@ -170,8 +173,9 @@ def processFile(file, columns, adducts, ppm=5., ppmCorrection=0, useAtoms=[], at
 
         def updateSumFormulaCol(self, x):
 
+            ionMode = x[self.columns[exIonMode]]
             mz = x[self.columns[exMZ]]
-            mz = mz+mz*1.*self.ppmCorrection/1E6
+            mz = mz + mz*1.* (self.ppmCorrectionPosMode if ionMode=="+" else self.ppmCorrectionNegMode) /1E6
             if self.columns[exAccMass] in x.keys():
                 accMass = x[self.columns[exAccMass]]
             else:
@@ -180,7 +184,6 @@ def processFile(file, columns, adducts, ppm=5., ppmCorrection=0, useAtoms=[], at
             xCount = int(x[self.columns[exXCount]])
             atomsRange = deepcopy(self.atomsRange)
             charge = x[self.columns[exCharge]]
-            ionMode = x[self.columns[exIonMode]]
 
             if self.useCn.lower()=="exact":
                 atomsRange[0] = xCount
@@ -249,10 +252,9 @@ def processFile(file, columns, adducts, ppm=5., ppmCorrection=0, useAtoms=[], at
                     m = m.replace("\"", "")
                     m = m.strip()
                     m = float(m)
-                    #ret = sfg.findFormulas(float(m), self.ppm, useAtoms=useAtoms, atomsRange=atomsRange, fixed="C",
-                    #                       useSevenGoldenRules=self.useSevenGoldenRules)
+                    m = m + m * 1. * (self.ppmCorrectionPosMode if ionMode == "+" else self.ppmCorrectionNegMode) / 1E6
 
-                    ret = calcSumFormulas(Bunch(m=float(m),
+                    ret = calcSumFormulas(Bunch(m=m,
                                   ppm=self.ppm,
                                   useAtoms=useAtoms,
                                   atomsRange=atomsRange,
@@ -395,7 +397,7 @@ def processFile(file, columns, adducts, ppm=5., ppmCorrection=0, useAtoms=[], at
 
 
 
-    x = formulaSearch(columns, adducts, ppm, ppmCorrection, useAtoms, atomsRange, useSevenGoldenRules=useSevenGoldenRules, useCn=useCn, lock=lock, counter=counter)
+    x = formulaSearch(columns, adducts, ppm, ppmCorrectionPosMode, ppmCorrectionNegMode, useAtoms, atomsRange, useSevenGoldenRules=useSevenGoldenRules, useCn=useCn, lock=lock, counter=counter)
 
     table.applyFunction(x.generateSumFormulaCalcObjects, showProgress=False, pwMaxSet=None, pwValSet=None)
 
@@ -443,7 +445,7 @@ def natSort(l, key=lambda ent: ent):
 
 
 
-def annotateResultsWithSumFormulas(resultsFile, useAtoms, atomsRange, Xn, useExactXn, ppm=5., ppmCorrection=0, adducts=adductsN+adductsP, pwMaxSet=None, pwValSet=None, nCores=1, toFile=None):
+def annotateResultsWithSumFormulas(resultsFile, useAtoms, atomsRange, Xn, useExactXn, ppm=5., ppmCorrectionPosMode=0, ppmCorrectionNegMode=0, adducts=adductsN+adductsP, pwMaxSet=None, pwValSet=None, nCores=1, toFile=None):
 
     if toFile is None:
         toFile=resultsFile
@@ -451,7 +453,7 @@ def annotateResultsWithSumFormulas(resultsFile, useAtoms, atomsRange, Xn, useExa
     processFile(resultsFile, toFile=toFile,
                 columns={exID: exID, exMZ: exMZ, exRT: exRT, exAccMass: exAccMass, exXCount: exXCount,
                          exIonMode: exIonMode, exCharge: exCharge},
-                adducts=adducts, ppm=ppm, ppmCorrection=ppmCorrection,
+                adducts=adducts, ppm=ppm, ppmCorrectionPosMode=ppmCorrectionPosMode, ppmCorrectionNegMode=ppmCorrectionNegMode,
                 smCol="SFs",
                 useAtoms=deepcopy(useAtoms), atomsRange=deepcopy(atomsRange), useCn=useExactXn,
                 useSevenGoldenRules=True,

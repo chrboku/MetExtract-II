@@ -34,7 +34,16 @@
     </sizepolicy>
    </property>
    <layout class="QGridLayout" name="gridLayout_11">
-    <property name="margin">
+    <property name="leftMargin">
+     <number>2</number>
+    </property>
+    <property name="topMargin">
+     <number>2</number>
+    </property>
+    <property name="rightMargin">
+     <number>2</number>
+    </property>
+    <property name="bottomMargin">
      <number>2</number>
     </property>
     <item row="0" column="0">
@@ -74,7 +83,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>3</number>
+       <number>1</number>
       </property>
       <widget class="QWidget" name="inputTab">
        <attribute name="title">
@@ -115,7 +124,16 @@
         </item>
         <item row="0" column="0">
          <layout class="QGridLayout" name="gridLayout_22">
-          <property name="margin">
+          <property name="leftMargin">
+           <number>9</number>
+          </property>
+          <property name="topMargin">
+           <number>9</number>
+          </property>
+          <property name="rightMargin">
+           <number>9</number>
+          </property>
+          <property name="bottomMargin">
            <number>9</number>
           </property>
           <item row="9" column="0">
@@ -831,7 +849,16 @@ font: 7pt;</string>
            </sizepolicy>
           </property>
           <layout class="QHBoxLayout" name="horizontalLayout">
-           <property name="margin">
+           <property name="leftMargin">
+            <number>3</number>
+           </property>
+           <property name="topMargin">
+            <number>3</number>
+           </property>
+           <property name="rightMargin">
+            <number>3</number>
+           </property>
+           <property name="bottomMargin">
             <number>3</number>
            </property>
            <item>
@@ -924,7 +951,7 @@ font: 7pt;</string>
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1568</width>
+             <width>1889</width>
              <height>1919</height>
             </rect>
            </property>
@@ -1178,7 +1205,16 @@ font: 7pt;</string>
                       <string>Save results</string>
                      </property>
                      <layout class="QGridLayout" name="gridLayout_39">
-                      <property name="margin">
+                      <property name="leftMargin">
+                       <number>3</number>
+                      </property>
+                      <property name="topMargin">
+                       <number>3</number>
+                      </property>
+                      <property name="rightMargin">
+                       <number>3</number>
+                      </property>
+                      <property name="bottomMargin">
                        <number>3</number>
                       </property>
                       <property name="spacing">
@@ -2457,6 +2493,9 @@ font: 7pt;</string>
                           </item>
                           <item row="1" column="1">
                            <widget class="QDoubleSpinBox" name="maxRatio">
+                            <property name="showGroupSeparator" stdset="0">
+                             <bool>true</bool>
+                            </property>
                             <property name="prefix">
                              <string>≤ </string>
                             </property>
@@ -2468,9 +2507,6 @@ font: 7pt;</string>
                             </property>
                             <property name="value">
                              <double>9999.000000000000000</double>
-                            </property>
-                            <property name="showGroupSeparator" stdset="0">
-                             <bool>true</bool>
                             </property>
                            </widget>
                           </item>
@@ -2709,6 +2745,9 @@ font: 7pt;</string>
                        <layout class="QGridLayout" name="gridLayout_27">
                         <item row="0" column="1">
                          <widget class="QDoubleSpinBox" name="intensityThreshold">
+                          <property name="showGroupSeparator" stdset="0">
+                           <bool>true</bool>
+                          </property>
                           <property name="prefix">
                            <string>≥ </string>
                           </property>
@@ -2723,9 +2762,6 @@ font: 7pt;</string>
                           </property>
                           <property name="value">
                            <double>1000.000000000000000</double>
-                          </property>
-                          <property name="showGroupSeparator" stdset="0">
-                           <bool>true</bool>
                           </property>
                          </widget>
                         </item>
@@ -2750,6 +2786,9 @@ the pure Isotope Peak</string>
                         </item>
                         <item row="1" column="1">
                          <widget class="QSpinBox" name="intensityCutoff">
+                          <property name="showGroupSeparator" stdset="0">
+                           <bool>true</bool>
+                          </property>
                           <property name="suffix">
                            <string/>
                           </property>
@@ -2761,9 +2800,6 @@ the pure Isotope Peak</string>
                           </property>
                           <property name="singleStep">
                            <number>1000</number>
-                          </property>
-                          <property name="showGroupSeparator" stdset="0">
-                           <bool>true</bool>
                           </property>
                          </widget>
                         </item>
@@ -2972,6 +3008,9 @@ p, li { white-space: pre-wrap; }
                         </item>
                         <item row="3" column="1">
                          <widget class="QDoubleSpinBox" name="intensityThresholdIsotopologs">
+                          <property name="showGroupSeparator" stdset="0">
+                           <bool>true</bool>
+                          </property>
                           <property name="prefix">
                            <string>≥ </string>
                           </property>
@@ -2986,9 +3025,6 @@ p, li { white-space: pre-wrap; }
                           </property>
                           <property name="value">
                            <double>1000.000000000000000</double>
-                          </property>
-                          <property name="showGroupSeparator" stdset="0">
-                           <bool>true</bool>
                           </property>
                          </widget>
                         </item>
@@ -3164,6 +3200,9 @@ font: 7pt;</string>
                    </item>
                    <item>
                     <widget class="QSpinBox" name="msms_minCounts">
+                     <property name="showGroupSeparator" stdset="0">
+                      <bool>true</bool>
+                     </property>
                      <property name="prefix">
                       <string>≥ </string>
                      </property>
@@ -3178,9 +3217,6 @@ font: 7pt;</string>
                      </property>
                      <property name="value">
                       <number>100000</number>
-                     </property>
-                     <property name="showGroupSeparator" stdset="0">
-                      <bool>true</bool>
                      </property>
                     </widget>
                    </item>
@@ -3852,9 +3888,39 @@ font: 7pt;</string>
                     </widget>
                    </item>
                    <item>
-                    <widget class="QDoubleSpinBox" name="annotation_correctMassByPPM">
+                    <widget class="QLabel" name="label_98">
+                     <property name="text">
+                      <string>positive mode</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QDoubleSpinBox" name="annotation_correctMassByPPMposMode">
                      <property name="suffix">
                       <string> ppm</string>
+                     </property>
+                     <property name="minimum">
+                      <double>-20.000000000000000</double>
+                     </property>
+                     <property name="maximum">
+                      <double>20.000000000000000</double>
+                     </property>
+                     <property name="singleStep">
+                      <double>0.500000000000000</double>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QLabel" name="label_99">
+                     <property name="text">
+                      <string>negative mode</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QDoubleSpinBox" name="annotation_correctMassByPPMnegMode">
+                     <property name="suffix">
+                      <string>ppm</string>
                      </property>
                      <property name="minimum">
                       <double>-20.000000000000000</double>
@@ -4312,6 +4378,9 @@ font: 7pt;</string>
                       </item>
                       <item>
                        <widget class="QSpinBox" name="reintegrateIntensityCutoff">
+                        <property name="showGroupSeparator" stdset="0">
+                         <bool>true</bool>
+                        </property>
                         <property name="suffix">
                          <string/>
                         </property>
@@ -4323,9 +4392,6 @@ font: 7pt;</string>
                         </property>
                         <property name="singleStep">
                          <number>1000</number>
-                        </property>
-                        <property name="showGroupSeparator" stdset="0">
-                         <bool>true</bool>
                         </property>
                        </widget>
                       </item>
@@ -4423,7 +4489,16 @@ font: 7pt;</string>
         <string>Sample results</string>
        </attribute>
        <layout class="QGridLayout" name="gridLayout_24">
-        <property name="margin">
+        <property name="leftMargin">
+         <number>0</number>
+        </property>
+        <property name="topMargin">
+         <number>0</number>
+        </property>
+        <property name="rightMargin">
+         <number>0</number>
+        </property>
+        <property name="bottomMargin">
          <number>0</number>
         </property>
         <property name="spacing">
