@@ -849,6 +849,26 @@ def merge_dicts(*dict_args):
 
 
 
+
+
+
+import hashlib
+def getFileHash_sha1(filePath):
+    BLOCKSIZE = 65536
+    hasher = hashlib.sha1()
+    with open('anotherfile.txt', 'rb') as afile:
+        buf = afile.read(BLOCKSIZE)
+        while len(buf) > 0:
+            hasher.update(buf)
+            buf = afile.read(BLOCKSIZE)
+    return hasher.hexdigest()
+
+
+
+
+
+
+
 ########################################################################################################################
 ########################################################################################################################
 ########################################################################################################################

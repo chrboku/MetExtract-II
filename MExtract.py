@@ -346,6 +346,7 @@ from formulaTools import formulaTools, getIsotopeMass, getElementOfIsotope
 from utils import natSort, ChromPeakPair, getNormRatio, mean, SampleGroup
 from utils import Bunch, SQLInsert, SQLSelectAsObject, get_main_dir, smoothDataSeries, sd
 from utils import FuncProcess, CallBackMethod
+from utils import getFileHash_sha1
 import HCA_general
 
 from TableUtils import TableUtils
@@ -362,7 +363,7 @@ from SGR import SGRGenerator
 from SqliteCache import SqliteCache
 sfCache=SqliteCache(os.environ["LOCALAPPDATA"]+"/MetExtractII/sfcache.db")
 if __name__=="__main__":
-    logging.info("Using sum formula generation cache at"+ os.environ["LOCALAPPDATA"]+"/MetExtractII/sfcache.db")
+    logging.info("Using sum formula generation cache at "+ os.environ["LOCALAPPDATA"]+"/MetExtractII/sfcache.db")
     logging.info("")
 
 
@@ -1721,10 +1722,10 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             self.lastOpenDir = str(groupFile).replace("\\", "/")
             self.lastOpenDir = self.lastOpenDir[:self.lastOpenDir.rfind("/")]
 
-            self.saveGroups(groupFile)
+            self.saveGroups(groupFile, saveSettings=True)
 
     # save group compilation and settings
-    def saveGroups(self, groupFile=None):
+    def saveGroups(self, groupFile=None, saveSettings=False):
 
         if groupFile is not None and len(groupFile) > 0:
             grps = QtCore.QSettings(groupFile, QtCore.QSettings.IniFormat)
@@ -1767,7 +1768,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             grps.endGroup()
 
             # ask user, if currently loaded settings shall also be saved to this compilation
-            if QtGui.QMessageBox.question(self, "MetExtract", "Do you want to save the current settings with this group?",
+            if saveSettings or QtGui.QMessageBox.question(self, "MetExtract", "Do you want to save the current settings with this group?",
                                           QtGui.QMessageBox.Yes | QtGui.QMessageBox.No) == QtGui.QMessageBox.Yes:
                 self.saveSettingsFile(groupFile, clear=False)
 
@@ -2753,9 +2754,34 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                        QtGui.QMessageBox.Ok)
             return 1
 
+        ## TODO copy DB files to working directory..
+        ## here66
+        if False:
+            if not os.path.exists("./DBs"):
+                os.makedirs("./DBs")
+
+            for entryInd in range(self.ui.dbList_listView.model().rowCount()):
+                dbFile = str(self.ui.dbList_listView.model().item(entryInd, 0).data().toString())
+                dbName = dbFile[dbFile.rfind("/") + 1:dbFile.rfind(".")]
+
+                try:
+                    print dbName, dbFile
+                    if dbFile!="./DBs/%s.tsv"%dbName:
+
+                        z=QtGui.QMessageBox.question(self, "MetExtract", "Do you want to copy the database (%s) to the current directory for documentation?"%(dbName),
+                                                   QtGui.QMessageBox.Yes | QtGui.QMessageBox.No | QtGui.QMessageBox.Abort)
+
+                        if z == QtGui.QMessageBox.Yes:
+                            shutil.copyfile(dbFile, "./DBs/%s.tsv"%dbName)
+                            self.ui.dbList_listView.model().item(entryInd, 0).setData("./DBs/%s.tsv")
+                        elif z==QtGui.QMessageBox.Abort:
+                            return 1
+                except Exception:
+                    pass
+
         if not dontSave:
             z = QtGui.QMessageBox.question(self, "MetExtract",
-                                           "Do you want to save the loaded files and group compilation?",
+                                           "Do you want to save the loaded files, the group compilation and the settings?",
                                            QtGui.QMessageBox.Yes | QtGui.QMessageBox.No | QtGui.QMessageBox.Abort)
             if z == QtGui.QMessageBox.Yes:
                 self.saveGroupsClicked()
@@ -3413,8 +3439,14 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                         annotationColumns.append("DBs_"+dbName+"_count")
                         annotationColumns.append("DBs_" + dbName)
+
+                        table.addColumn("DBs_RT_"+dbName+"_count", "TEXT")
+                        table.addColumn("DBs_RT_"+dbName, "TEXT")
+
+                        annotationColumns.append("DBs_RT_"+dbName+"_count")
+                        annotationColumns.append("DBs_RT_" + dbName)
                     except IOError:
-                        QtGui.QMessageBox.error(self, "MetExtract","Cannot open the database file. It will be skipped" % (dbFile), QtGui.QMessageBox.Ok)
+                        QtGui.QMessageBox.warning(self, "MetExtract","Cannot open the database file (%s at %s). It will be skipped" % (dbName, dbFile), QtGui.QMessageBox.Ok)
 
                 db.optimizeDB()
 
@@ -3451,6 +3483,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             pass
 
                         hits={}
+                        hitsRT={}
                         for hit in self.dbs.searchDB(mass=mass, mz=mz, polarity=polarity, charges=charges,
                                                rt_min=rt_min if self.useRt else None,
                                                ppm=self.ppm, rt_error=self.rtError,
@@ -3458,12 +3491,22 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                adducts=useAdducts):
                             if hit.dbName not in hits.keys():
                                 hits[hit.dbName]=[]
+                                hitsRT[hit.dbName]=[]
 
-                            hits[hit.dbName].append("%s (%s, Num: %s, Formula: %s, RT: %s, MassErrorPPM: %.5f, MassErrorMass: %.5f, Additional information: %s)" % (hit.name, hit.hitType, hit.num, hit.sumFormula, hit.rt_min, hit.matchErrorPPM, hit.matchErrorMass, hit.additionalInfo))
+                            hits[hit.dbName].append("(Name: %s, Type: %s, Num: %s, Formula: %s, RT: %s, MassErrorPPM: %.5f, MassErrorMass: %.5f, Additional information: %s)" % (hit.name, hit.hitType, hit.num, hit.sumFormula, hit.rt_min, hit.matchErrorPPM, hit.matchErrorMass, hit.additionalInfo))
+                            if hit.rt_min!="":
+                                try:
+                                    hitsRT[hit.dbName].append((abs(float(hit.rt_min)-rt_min), "RT delta: %.2f (Name: %s Type: %s, Num: %s, Formula: %s, RT: %s, MassErrorPPM: %.5f, MassErrorMass: %.5f, Additional information: %s)" % (abs(float(hit.rt_min)-rt_min), hit.name, hit.hitType, hit.num, hit.sumFormula, hit.rt_min, hit.matchErrorPPM, hit.matchErrorMass, hit.additionalInfo)))
+                                except :
+                                    logging.error("   Error in database entry hit: %s"%("(Name: %s, Type: %s, Num: %s, Formula: %s, RT: %s, MassErrorPPM: %.5f, MassErrorMass: %.5f, Additional information: %s)" % (hit.name, hit.hitType, hit.num, hit.sumFormula, hit.rt_min, hit.matchErrorPPM, hit.matchErrorMass, hit.additionalInfo)))
 
                         for dbName in hits.keys():
                             x["DBs_"+dbName] = "\"%s\""%(";".join(hits[dbName]))
                             x["DBs_" + dbName + "_count"] = len(hits[dbName])
+
+                            if len(hitsRT[dbName])>0:
+                                x["DBs_RT_"+dbName] = "\"%s\""%(";".join([b[1] for b in sorted(hitsRT[dbName], key=lambda x: x[0])]))
+                                x["DBs_RT_" + dbName + "_count"] = len(hitsRT[dbName])
                         return x
 
                 useExactXn=str(self.ui.sumFormulasUseExactXn_ComboBox.currentText())

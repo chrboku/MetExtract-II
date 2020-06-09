@@ -2252,7 +2252,7 @@ class Ui_MainWindow(object):
         self.resultsExperimentNormaliseXICsSeparately_checkBox.setObjectName(_fromUtf8("resultsExperimentNormaliseXICsSeparately_checkBox"))
         self.verticalLayout_4.addWidget(self.resultsExperimentNormaliseXICsSeparately_checkBox)
         self.resultsExperimentNormaliseXICs_checkBox = QtGui.QCheckBox(self.groupBox_options3)
-        self.resultsExperimentNormaliseXICs_checkBox.setChecked(True)
+        self.resultsExperimentNormaliseXICs_checkBox.setChecked(False)
         self.resultsExperimentNormaliseXICs_checkBox.setObjectName(_fromUtf8("resultsExperimentNormaliseXICs_checkBox"))
         self.verticalLayout_4.addWidget(self.resultsExperimentNormaliseXICs_checkBox)
         self.gridLayout_40.addWidget(self.groupBox_options3, 3, 1, 1, 1)
@@ -2411,7 +2411,7 @@ class Ui_MainWindow(object):
         self.menuBar.addAction(self.menuHelp.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.tabWidget.setCurrentIndex(1)
+        self.tabWidget.setCurrentIndex(3)
         self.tabWidget_2.setCurrentIndex(0)
         self.tabWidget_3.setCurrentIndex(0)
         QtCore.QObject.connect(self.pushButton_showOptions1, QtCore.SIGNAL(_fromUtf8("clicked()")), self.groupBox_options1.show)
