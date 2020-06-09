@@ -8037,6 +8037,14 @@ if __name__ == '__main__':
 
             if opts.start:
                 mainWin.runProcess(dontSave=True, askStarting=False)
+            else:
+                QtGui.QMessageBox.information(None, "MetExtract",
+                                              "When you start a new experiment, please change the working directory to your experimental folder.\nYou can set the working directory via the menu ('Tools'->'Set working directory')\n\n" \
+                                              "Please also consider copying any databases or other resources to that folder for documentation",
+                                              QtGui.QMessageBox.Ok)
+                QtGui.QMessageBox.warning(None, "MetExtract",
+                                          "WARNING\n\nPlease be carful to not accidently change parameters with your mouse wheel when hovering over a parameter setting (e.g. ppm value). \n\nThis bug is currently not fixed in MetExtract II.",
+                                          QtGui.QMessageBox.Ok)
 
             if opts.plotResults:
                 mainWin.exportAsPDF(pdfFile="./results.pdf")
