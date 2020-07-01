@@ -119,22 +119,22 @@ def generatePageFor(feature, mzXMLs, experimentalGroups, pdf, ppm=5., plotLabeld
     AreaLCols = []
 
 
-    AreaDD.append([((feature.rt - feature.rtBorders*3) -.1, -2.75 * ppm)])
+    AreaDD.append([((feature.rt - feature.rtBorders) -.1, -2.75 * ppm)])
     AreaCols.append("Black")
-    AreaDD.append([((feature.rt - feature.rtBorders*3) -.1, 2.75 * ppm)])
+    AreaDD.append([((feature.rt - feature.rtBorders) -.1, 2.75 * ppm)])
     AreaCols.append("Black")
-    AreaDD.append([((feature.rt + feature.rtBorders*3) +.1, 2.75 * ppm)])
+    AreaDD.append([((feature.rt + feature.rtBorders) +.1, 2.75 * ppm)])
     AreaCols.append("Black")
-    AreaDD.append([((feature.rt + feature.rtBorders*3) +.1, -2.75 * ppm)])
+    AreaDD.append([((feature.rt + feature.rtBorders) +.1, -2.75 * ppm)])
     AreaCols.append("Black")
 
-    AreaLDD.append([((feature.rt - feature.rtBorders*3) -.1, -2.75 * ppm)])
+    AreaLDD.append([((feature.rt - feature.rtBorders) -.1, -2.75 * ppm)])
     AreaLCols.append("Black")
-    AreaLDD.append([((feature.rt - feature.rtBorders*3) -.1, 2.75 * ppm)])
+    AreaLDD.append([((feature.rt - feature.rtBorders) -.1, 2.75 * ppm)])
     AreaLCols.append("Black")
-    AreaLDD.append([((feature.rt + feature.rtBorders*3) +.1, 2.75 * ppm)])
+    AreaLDD.append([((feature.rt + feature.rtBorders) +.1, 2.75 * ppm)])
     AreaLCols.append("Black")
-    AreaLDD.append([((feature.rt + feature.rtBorders*3) +.1, -2.75 * ppm)])
+    AreaLDD.append([((feature.rt + feature.rtBorders) +.1, -2.75 * ppm)])
     AreaLCols.append("Black")
 
     for i, expGroup in enumerate(experimentalGroups):
@@ -155,19 +155,19 @@ def generatePageFor(feature, mzXMLs, experimentalGroups, pdf, ppm=5., plotLabeld
 
                 if normEICs:
                     mval = max(maxEICValue, max([eic[j] for j in range(len(eic)) if
-                                                        (feature.rt - feature.rtBorders*3) <= (times[j] / 60.) <= (feature.rt + feature.rtBorders*3)]))
+                                                        (feature.rt - feature.rtBorders) <= (times[j] / 60.) <= (feature.rt + feature.rtBorders)]))
                     eic=[e/mval for e in eic]
 
                 maxEICValue=max(maxEICValue, max([eic[j] for j in range(len(eic)) if
-                               (feature.rt - feature.rtBorders*3) <= (times[j] / 60.) <= (feature.rt + feature.rtBorders*3)]))
+                               (feature.rt - feature.rtBorders) <= (times[j] / 60.) <= (feature.rt + feature.rtBorders)]))
 
                 ## plot overlaied EICs to drawing
                 eicsDD.append([(times[j] / 60., eic[j]) for j in range(len(eic)) if
-                               (feature.rt - feature.rtBorders*3) <= (times[j] / 60.) <= (feature.rt + feature.rtBorders*3)])
+                               (feature.rt - feature.rtBorders) <= (times[j] / 60.) <= (feature.rt + feature.rtBorders)])
 
                 ## plot separated EICs to drawing
                 eicsSeparatedDD.append([((times[j] + showGroupRTShift*(i+3) * 60) / 60. - feature.rt, eic[j]) for j in range(len(eic)) if
-                                        (feature.rt - feature.rtBorders*3) <= (times[j] / 60.) <= (feature.rt + feature.rtBorders*3)])
+                                        (feature.rt - feature.rtBorders) <= (times[j] / 60.) <= (feature.rt + feature.rtBorders)])
 
                 eicsCols.append(expGroup.color)
 
@@ -182,19 +182,19 @@ def generatePageFor(feature, mzXMLs, experimentalGroups, pdf, ppm=5., plotLabeld
 
                 if normEICs:
                     mval = max(maxEICValue, max([eic[j] for j in range(len(eic)) if
-                                                        (feature.rt - feature.rtBorders*3) <= (times[j] / 60.) <= (feature.rt + feature.rtBorders*3)]))
+                                                        (feature.rt - feature.rtBorders) <= (times[j] / 60.) <= (feature.rt + feature.rtBorders)]))
                     eic=[e/mval for e in eic]
 
                 maxEICValue=max(maxEICValue, max([eic[j] for j in range(len(eic)) if
-                               (feature.rt - feature.rtBorders*3) <= (times[j] / 60.) <= (feature.rt + feature.rtBorders*3)]))
+                               (feature.rt - feature.rtBorders) <= (times[j] / 60.) <= (feature.rt + feature.rtBorders)]))
 
                 ## plot overlaied EICs to drawing
                 eicsLDD.append([(times[j] / 60., eic[j]) for j in range(len(eic)) if
-                               (feature.rt - feature.rtBorders*3) <= (times[j] / 60.) <= (feature.rt + feature.rtBorders*3)])
+                               (feature.rt - feature.rtBorders) <= (times[j] / 60.) <= (feature.rt + feature.rtBorders)])
 
                 ## plot separated EICs to drawing
                 eicsLSeparatedDD.append([((times[j] + showGroupRTShift*(i+3) * 60) / 60. - feature.rt, eic[j]) for j in range(len(eic)) if
-                                        (feature.rt - feature.rtBorders*3) <= (times[j] / 60.) <= (feature.rt + feature.rtBorders*3)])
+                                        (feature.rt - feature.rtBorders) <= (times[j] / 60.) <= (feature.rt + feature.rtBorders)])
 
                 eicsLCols.append(expGroup.color)
 
@@ -235,8 +235,8 @@ def generatePageFor(feature, mzXMLs, experimentalGroups, pdf, ppm=5., plotLabeld
 
             ## get chromatogram area
             scans, times, scanIDs= \
-                mzXMLs[file].getSpecificArea((feature.rt - feature.rtBorders*3)*60,
-                                             (feature.rt + feature.rtBorders*3)*60,
+                mzXMLs[file].getSpecificArea((feature.rt - feature.rtBorders)*60,
+                                             (feature.rt + feature.rtBorders)*60,
                                              feature.mz*(1E6-ppm*2.5)/1E6,
                                              feature.mz*(1E6+ppm*2.5)/1E6,
                                              filterLine=useFilterLine)
@@ -252,8 +252,8 @@ def generatePageFor(feature, mzXMLs, experimentalGroups, pdf, ppm=5., plotLabeld
 
             ## get chromatogram area for lmz
             scans, times, scanIDs= \
-                mzXMLs[file].getSpecificArea((feature.rt - feature.rtBorders*3)*60,
-                                             (feature.rt + feature.rtBorders*3)*60,
+                mzXMLs[file].getSpecificArea((feature.rt - feature.rtBorders)*60,
+                                             (feature.rt + feature.rtBorders)*60,
                                              feature.lmz*(1E6-ppm*2.5)/1E6,
                                              feature.lmz*(1E6+ppm*2.5)/1E6,
                                              filterLine=useFilterLine)
@@ -446,7 +446,7 @@ def generatePageFor(feature, mzXMLs, experimentalGroups, pdf, ppm=5., plotLabeld
 
     pdf.drawString(3, 3, "Notes: Raw-data is shown, no processing has been performed, axis labels missing (bug in library), order/color of separated EICs corresponds to group table, names for groups in separated EICs cannot be set")
 
-    data=[["", "Group number", "Groupname / order"]]
+    data=[["", "G", "Name"]]
     style=[('FONTSIZE', (0, 0), (-1, -1), 8)]
     for i, expGroup in enumerate(experimentalGroups):
         data.append(["", str(i+1), expGroup.name])
@@ -454,7 +454,7 @@ def generatePageFor(feature, mzXMLs, experimentalGroups, pdf, ppm=5., plotLabeld
 
     table = Table(data, style=style)
     w, h = table.wrapOn(pdf, 150, len(data))
-    table.drawOn(pdf, 470, 50)
+    table.drawOn(pdf, 1050, 220)
 
 
 

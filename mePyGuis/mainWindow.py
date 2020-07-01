@@ -2392,6 +2392,8 @@ class Ui_MainWindow(object):
         self.actionSet_working_directory.setObjectName(_fromUtf8("actionSet_working_directory"))
         self.openTempDir = QtGui.QAction(MainWindow)
         self.openTempDir.setObjectName(_fromUtf8("openTempDir"))
+        self.actionShow_summary_of_previous_current_results = QtGui.QAction(MainWindow)
+        self.actionShow_summary_of_previous_current_results.setObjectName(_fromUtf8("actionShow_summary_of_previous_current_results"))
         self.menuHelp.addAction(self.helpMenue)
         self.menuHelp.addSeparator()
         self.menuHelp.addAction(self.aboutMenue)
@@ -2406,12 +2408,14 @@ class Ui_MainWindow(object):
         self.menuTools.addAction(self.actionSet_working_directory)
         self.menuTools.addSeparator()
         self.menuTools.addAction(self.openTempDir)
+        self.menuTools.addSeparator()
+        self.menuTools.addAction(self.actionShow_summary_of_previous_current_results)
         self.menuBar.addAction(self.menuFile.menuAction())
         self.menuBar.addAction(self.menuTools.menuAction())
         self.menuBar.addAction(self.menuHelp.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.tabWidget.setCurrentIndex(3)
+        self.tabWidget.setCurrentIndex(1)
         self.tabWidget_2.setCurrentIndex(0)
         self.tabWidget_3.setCurrentIndex(0)
         QtCore.QObject.connect(self.pushButton_showOptions1, QtCore.SIGNAL(_fromUtf8("clicked()")), self.groupBox_options1.show)
@@ -2855,6 +2859,7 @@ class Ui_MainWindow(object):
         self.actionIsotopic_enrichment.setText(_translate("MainWindow", "Isotopic enrichment", None))
         self.actionSet_working_directory.setText(_translate("MainWindow", "Set working directory", None))
         self.openTempDir.setText(_translate("MainWindow", "Open temporary directory (logfile and caches)", None))
+        self.actionShow_summary_of_previous_current_results.setText(_translate("MainWindow", "Show summary of previous current results", None))
 
 import resources_rc
 

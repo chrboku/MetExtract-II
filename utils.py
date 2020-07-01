@@ -881,7 +881,7 @@ def getFileHash_sha1(filePath):
 
 
 
-def readTSVFileAsBunch(file, delim="\t", parseToNumbers=True, useColumns=None, omitFirstNRows=0, renameRows=None):
+def readTSVFileAsBunch(file, delim="\t", parseToNumbers=True, useColumns=None, omitFirstNRows=0, renameRows=None, commentChar="#"):
     if renameRows is None:
         renameRows={}
 
@@ -893,6 +893,8 @@ def readTSVFileAsBunch(file, delim="\t", parseToNumbers=True, useColumns=None, o
 
         for line in fin:
             if omitFirstNRows>0:
+                continue
+            if line.startswith(commentChar):
                 continue
 
             hs=line.split(delim)
@@ -1057,6 +1059,12 @@ def SQLSelectAsObject(curs, selectStatement, returnColumns=False, newObject=Bunc
             yield names, b
         else:
             yield b
+
+def SQLgetSingleFieldFromOneRow(curs, selectStatement):
+    curs.execute(selectStatement)
+    for row in curs:
+        return row[0]
+
 
 def SQLInsert(curs, tableName, **kwargs):
     keys=kwargs.keys()

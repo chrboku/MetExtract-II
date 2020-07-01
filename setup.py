@@ -37,6 +37,12 @@ from TableUtils import TableUtils
 
 
 
+import os, stat
+def on_rm_error( func, path, exc_info):
+    # path contains the path of the file that couldn't be removed
+    # let's just assume that it's read-only and unlink it.
+    os.chmod( path, stat.S_IWRITE )
+    os.unlink( path )
 
 
 
@@ -266,31 +272,19 @@ try:
 except:
     print colored("Error: Could not copy all required files", "red")
     err = True
+    import sys
+    sys.exit(1)
 
-
-# copy documentation
-def copyAllFilesInFolder(src, dest):
-    src_files = os.listdir(src)
-    for file_name in src_files:
-        full_file_name = os.path.join(src, file_name)
-        if (os.path.isfile(full_file_name)):
-            shutil.copy(full_file_name, dest)
 try:
     import shutil
     dest="./dist/documentation"
-    os.makedirs(dest)
     src="./documentation"
-
-    copyAllFilesInFolder(src, dest)
-    dest="./dist/documentation/figures/"
-    os.makedirs(dest)
-    src="./documentation/figures"
-    copyAllFilesInFolder(src, dest)
+    shutil.copytree(src, dest)
 
     print "Help files copied\n==============================\n"
 
-except:
-    print colored("Error: Could not copy help files", "red")
+except Exception as ex:
+    print colored("Error: Could not copy help files: "+ex.message, "red")
     err = True
     import sys
     sys.exit(1)
@@ -345,40 +339,65 @@ if not err:
     print "MetExtract (%s) created\n see %s\n==============================\n" % (
         MetExtractVersion, './distribute/%s' % zipFileName)
 
-    try:
-        rmtree(meDistFolder)
-    except:
-        print colored("Cleanup failed. dist and/or build directories still there\n==============================\n", "red")
+try:
+    sleep(3)
+    rmtree("./BootstrapKnitr_Template")
+except:
+    pass
+sleep(3)
+print "\n\n\n\n"
+shutil.copytree("./../BootstrapKnitr_Template", "./BootstrapKnitr_Template")
+shutil.rmtree("./BootstrapKnitr_Template/.git", onerror = on_rm_error)
+shutil.rmtree("./BootstrapKnitr_Template/versions", onerror = on_rm_error)
+shutil.rmtree("./BootstrapKnitr_Template/WSImages", onerror = on_rm_error)
+zipF = zipfile.ZipFile("./distribute/BootstrapKnitr_Example.zip", 'w', allowZip64 = True)
+zipdir("./BootstrapKnitr_Template", zipF)
+zipF.close()
+rmtree("./BootstrapKnitr_Template", onerror = on_rm_error)
+sleep(3)
+print "BootstrapKnitr example zipped"
 
 
-os.makedirs("./BootstrapKnitr_Template")
-os.makedirs("./BootstrapKnitr_Template/dataIn")
-os.makedirs("./BootstrapKnitr_Template/dataOut")
-os.makedirs("./BootstrapKnitr_Template/figure")
-os.makedirs("./BootstrapKnitr_Template/documentation")
-os.makedirs("./BootstrapKnitr_Template/documentation/figures")
-os.makedirs("./BootstrapKnitr_Template/scripts")
-os.makedirs("./BootstrapKnitr_Template/scripts/templateScripts")
-os.makedirs("./BootstrapKnitr_Template/scripts/extLib")
-os.makedirs("./BootstrapKnitr_Template/scripts/js")
 
-copyAllFilesInFolder("./../BootstrapKnitr_Template", "./BootstrapKnitr_Template")
-copyAllFilesInFolder("./../BootstrapKnitr_Template/dataIn", "./BootstrapKnitr_Template/dataIn")
-copyAllFilesInFolder("./../BootstrapKnitr_Template/dataOut", "./BootstrapKnitr_Template/dataOut")
-copyAllFilesInFolder("./../BootstrapKnitr_Template/figure", "./BootstrapKnitr_Template/figure")
-copyAllFilesInFolder("./../BootstrapKnitr_Template/documentation", "./BootstrapKnitr_Template/documentation")
-copyAllFilesInFolder("./../BootstrapKnitr_Template/documentation/figures", "./BootstrapKnitr_Template/documentation/figures")
-copyAllFilesInFolder("./../BootstrapKnitr_Template/documentation/importantPackagesWithVersion", "./BootstrapKnitr_Template/documentation/importantPackagesWithVersion")
-copyAllFilesInFolder("./../BootstrapKnitr_Template/scripts/templateScripts", "./BootstrapKnitr_Template/scripts/templateScripts")
-copyAllFilesInFolder("./../BootstrapKnitr_Template/scripts/extLib", "./BootstrapKnitr_Template/scripts/extLib")
-copyAllFilesInFolder("./../BootstrapKnitr_Template/scripts/js", "./BootstrapKnitr_Template/scripts/js")
+
+try:
+    sleep(3)
+    rmtree("./BootstrapKnitr_Template")
+except:
+    pass
+shutil.copytree("./../BootstrapKnitr_Template", "./BootstrapKnitr_Template")
+shutil.rmtree("./BootstrapKnitr_Template/.git", onerror = on_rm_error)
+shutil.rmtree("./BootstrapKnitr_Template/.Rproj.user", onerror = on_rm_error)
+shutil.rmtree("./BootstrapKnitr_Template/convolutedFeatures", onerror = on_rm_error)
+shutil.rmtree("./BootstrapKnitr_Template/dataIn", onerror = on_rm_error)
+shutil.rmtree("./BootstrapKnitr_Template/dataOut", onerror = on_rm_error)
+shutil.rmtree("./BootstrapKnitr_Template/demoData", onerror = on_rm_error)
+shutil.rmtree("./BootstrapKnitr_Template/figure", onerror = on_rm_error)
+shutil.rmtree("./BootstrapKnitr_Template/versions", onerror = on_rm_error)
+shutil.rmtree("./BootstrapKnitr_Template/WSImages", onerror = on_rm_error)
+os.unlink("./BootstrapKnitr_Template/BootstrapKnitr_Template.html")
+os.unlink("./BootstrapKnitr_Template/BootstrapKnitr_Template.md")
+os.unlink("./BootstrapKnitr_Template/lastVersion.R")
+os.unlink("./BootstrapKnitr_Template/BootstrapKnitr_Template.Rproj")
 
 zipF = zipfile.ZipFile("./distribute/BootstrapKnitr_Template.zip", 'w')
 zipdir("./BootstrapKnitr_Template", zipF)
 zipF.close()
-rmtree("./BootstrapKnitr_Template")
+rmtree("./BootstrapKnitr_Template", onerror = on_rm_error)
 
 print "BootstrapKnitr_Template zipped"
+
+
+
+
+
+zipF = zipfile.ZipFile("./distribute/R_winLibrary_3.5.zip", "w")
+zipdir("C:/Users/cbueschl/Documents/R/win-library/3.5", zipF)
+zipF.close()
+
+print "R win-library 3.5 zipped"
+
+
 
 copy("./../distribution/R-3.3.2-win.exe", "./distribute/R-3.3.2-win.exe")
 
@@ -388,15 +407,32 @@ copy("./../distribution/RStudio-0.97.551.exe", "./distribute/RStudio-0.97.551.ex
 
 print "RStudio copied"
 
-try:
-    rmtree("./dist/")
-except:
-    pass
-try:
-    rmtree("./build/")
-except:
-    pass
-
-
 print colored("Setup created..", "green")
 
+
+
+
+
+print "\n\n\n\n"
+
+
+try:
+    sleep(3)
+    rmtree("./build", onerror = on_rm_error)
+except:
+    print colored(
+        "Cleanup failed (./build) dist and/or build directories still there\n==============================\n", "red")
+    import traceback
+
+    traceback.print_exc()
+
+try:
+    sleep(3)
+    rmtree(meDistFolder, onerror = on_rm_error)
+except:
+    print colored(
+        "Cleanup failed (" + meDistFolder + ") dist and/or build directories still there\n==============================\n",
+        "red")
+    import traceback
+
+    traceback.print_exc()

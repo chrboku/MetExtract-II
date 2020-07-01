@@ -4,6 +4,8 @@ from PyQt4 import QtGui, QtCore
 
 from mePyGuis.groupEditor import Ui_GroupEditor
 
+from utils import natSort
+
 
 class groupEdit(QtGui.QDialog, Ui_GroupEditor):
     def __init__(self, parent=None, initDir=None, colors=["Red", "Blue", "Green"], activeColor=0):
@@ -96,6 +98,9 @@ class groupEdit(QtGui.QDialog, Ui_GroupEditor):
     def selectFiles(self):
         filenames = QtGui.QFileDialog.getOpenFileNames(self, caption="Select group file(s)", directory=self.initDir,
                                                        filter="mzXML (*.mzxml);;mzML (*.mzml);;group file (*.grp);;All files (*.*)")
+
+        filenames=natSort(filenames)
+
         for filename in filenames:
             self.groupFiles.addItem(filename.replace("\\", "/"))
             self.groupfiles.append(filename)
@@ -173,6 +178,7 @@ class groupEdit(QtGui.QDialog, Ui_GroupEditor):
             for url in event.mimeData().urls():
                 links.append(str(url.toLocalFile()).replace("\\", "/"))
 
+            links=natSort(links)
             for link in links:
                 if link.lower().endswith(".mzxml") or link.lower().endswith(".mzml"):
                     self.groupFiles.addItem(link)

@@ -83,7 +83,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>3</number>
+       <number>1</number>
       </property>
       <widget class="QWidget" name="inputTab">
        <attribute name="title">
@@ -5772,6 +5772,8 @@ font: 7pt;</string>
     <addaction name="actionSet_working_directory"/>
     <addaction name="separator"/>
     <addaction name="openTempDir"/>
+    <addaction name="separator"/>
+    <addaction name="actionShow_summary_of_previous_current_results"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuTools"/>
@@ -5815,6 +5817,11 @@ font: 7pt;</string>
   <action name="openTempDir">
    <property name="text">
     <string>Open temporary directory (logfile and caches)</string>
+   </property>
+  </action>
+  <action name="actionShow_summary_of_previous_current_results">
+   <property name="text">
+    <string>Show summary of previous current results</string>
    </property>
   </action>
  </widget>

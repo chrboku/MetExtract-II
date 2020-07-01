@@ -14,6 +14,9 @@ class RegExTestDialog(QtGui.QDialog):
         self.setWindowTitle("RegEx group import")
         self.strings=strings
 
+        self.setMinimumHeight(700)
+        self.setMinimumWidth(400)
+
 
         l = QtGui.QGridLayout(self)
 
@@ -40,9 +43,12 @@ class RegExTestDialog(QtGui.QDialog):
         self.regExRes.textChanged.connect(self.updateReg)
         o.addWidget(self.regExRes, 1, 1)
 
+        self.scroll = QtGui.QScrollArea()
+        self.scroll.setWidgetResizable(True)
 
         self.res=QtGui.QLabel("Parsed: \n\nEnter Regex")
-        o.addWidget(self.res, 2, 1)
+        self.scroll.setWidget(self.res)
+        o.addWidget(self.scroll, 2, 1)
 
         self.okBut=QtGui.QPushButton("OK")
         self.okBut.clicked.connect(self.hide)
