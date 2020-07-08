@@ -402,6 +402,36 @@ class Chromatogram():
                 curScan.compression=str(attrs["compressionType"])
             curScan.precision = int(attrs['precision'])
 
+    def _findMZGeneric(self, mzleft, mzright, mzlist):
+        if len(mzlist) == 0:
+            return -1, -1
+
+        min = 0
+        max = len(mzlist) - 1
+        peakCount = len(mzlist)
+
+        while min <= max:
+            cur = int((max + min) // 2)
+
+            if mzleft <= mzlist[cur] <= mzright:
+                leftBound = cur
+                while leftBound > 0 and mzlist[leftBound - 1] >= mzleft:
+                    leftBound -= 1
+
+                rightBound = cur
+                while (rightBound + 1) < peakCount and mzlist[rightBound + 1] <= mzright:
+                    rightBound += 1
+
+                return leftBound, rightBound
+
+            if mzlist[cur] > mzright:
+                max = cur - 1
+            else:
+                min = cur + 1
+
+        return -1, -1
+
+
     # xml parser - end element handler
     def _end_element(self, name):
         #print "end tag", name
@@ -413,20 +443,23 @@ class Chromatogram():
                 curScan=self.MS2_list[-1]
 
             mz_list, intensity_list = self.decode_spectrum(curScan.encodedData, compression=curScan.compression, precision=curScan.precision)
-            assert len(mz_list) == len(intensity_list)
-            mz_list = [mz_list[i] for i in range(len(intensity_list)) if intensity_list[i] > self.intensityCutoff]
-            intensity_list = [intensity_list[i] for i in range(len(intensity_list)) if intensity_list[i] > self.intensityCutoff]
-            assert len(mz_list) == len(intensity_list)
 
+            ## Remove peaks below threshold
+            if self.intensityCutoff>0:
+                mz_list = [mz_list[i] for i in range(len(intensity_list)) if intensity_list[i] > self.intensityCutoff]
+                intensity_list = [intensity_list[i] for i in range(len(intensity_list)) if intensity_list[i] > self.intensityCutoff]
+
+            ## Remove peaks with unwanted mz values
             if self.mzFilter != None:
-
                 keep = []
-                for mzInd, mz in enumerate(mz_list):
-                    for ps, pe in self.mzFilter:
-                        if ps <= mz <= pe:
-                            keep.append(mzInd)
-                mz_list = [mz_list[i] for i in keep]
-                intensity_list = [intensity_list[i] for i in keep]
+                for ps, pe in self.mzFilter:
+                    a,b=self._findMZGeneric(ps, pe, mz_list)
+                    if a!=-1:
+                        keep.extend(range(a,b+1))
+                mz_list = [mz_list[i] for i in sorted(keep)]
+                intensity_list = [intensity_list[i] for i in sorted(keep)]
+
+            assert len(mz_list) == len(intensity_list)
 
             curScan.mz_list=mz_list
             curScan.intensity_list=intensity_list

@@ -363,9 +363,6 @@ import pyperclip
 from SGR import SGRGenerator
 from SqliteCache import SqliteCache
 sfCache=SqliteCache(os.environ["LOCALAPPDATA"]+"/MetExtractII/sfcache.db")
-if __name__=="__main__":
-    logging.info("Using sum formula generation cache at "+ os.environ["LOCALAPPDATA"]+"/MetExtractII/sfcache.db")
-    logging.info("")
 
 
 def getCallStr(m, ppm, useAtoms, atomsRange, fixed, useSGR):
@@ -1033,8 +1030,15 @@ def interruptConvolutingOfFeaturePairs(selfObj, funcProc):
 
 def loadMZXMLFile(params):
     #{"File":fi, "Group":group.name, "IntensityThreshold":intensityThrehold}
+
+    mzFilter=None
+    if params["selectedMZs"]!=None:
+        mzFilter=[]
+        for selMZ in params["selectedMZs"]:
+            mzFilter.append((selMZ*(1.-params["ppm"]/1.E6), selMZ*(1.+params["ppm"]/1.E6)))
+
     mzXML = Chromatogram()
-    mzXML.parse_file(params["File"], intensityCutoff=params["IntensityThreshold"])
+    mzXML.parse_file(params["File"], intensityCutoff=params["IntensityThreshold"], mzFilter=mzFilter)
 
     ret={"File":params["File"], "Group":params["Group"], "IntensityThreshold":params["IntensityThreshold"]}
     ret["mzXMLFile"]=mzXML
@@ -3794,15 +3798,25 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             for file in natSort(group.files):
                 maxFileNameLength=max(maxFileNameLength, len(file))
 
-
+        texts.append("Note: \n")
+        texts.append("All calculated numbers shown here are based on the last data processing that was done for this dataset.\n")
+        texts.append("Thus, these calculated values are influenced and distorted by used parameters. \n")
+        texts.append("For example, an incorrect value for the parameter M:M' ratio will have a dramatic impact on the results and\n")
+        texts.append("consequently also on these number. Please only consider these numbers for a quick overview of the generated last results. \n")
+        texts.append("\n")
+        texts.append("Caution:\n")
+        texts.append("Do not use these numbers as the only means of further improving your data processing parameters. This could\n")
+        texts.append("potentially lead to a deadlock and an incorrect data processing with many false-positive results and/or false-negatives. \n")
+        texts.append("If you are unsure always try to contact an expert in data processing and/or ask a colleague of yours to\nhelp you with optimizing these values.\n\n\n\n")
         texts.append("Results of individual files\n-=-=-=-=-=-=-=-=-=-=-=-=-=-\n\n")
-        texts.append(("%%%ds   %%12s %%12s %%12s %%12s      %%20s %%20s %%20s %%20s\n"%(maxFileNameLength)) % ("File", "MZs", "MZ Bins", "Features", "Metabolites", "avg M:M' MZs", "avg M:M' Area", "avg M:M' Abundance", "avg L-Enrichment"))
+        texts.append(("%%%ds   %%12s %%12s %%12s %%12s      %%20s %%40s %%25s\n"%(maxFileNameLength)) % ("File", "MZs", "MZ Bins", "Features", "Metabolites",
+                                                                                                               "mz delta ppm MZs","avg M:M' MZs; Area;Abundance", "avg L-Enrichment"))
         indGroups = {}
         for group in definedGroups:
             grName = str(group.name)
             indGroups[grName] = []
             texts.append(" Group "+grName+" [%d files%s%s%s%s, color %s]\n" %(len(group.files), ", Omit (minFound %d)"%group.minFound if group.omitFeatures else "", ", use for grouping" if group.useForMetaboliteGrouping else "", ", False positives remove", ", use as MSMS targets" if group.useAsMSMSTarget else "", group.color))
-            texts.append("%s\n"%("-"*(2+6+maxFileNameLength+12*4+7+20*4)))
+            texts.append("%s\n"%("-"*(2+6+maxFileNameLength+12*4+6+20*3+25)))
             for file in natSort(group.files):
                 indGroups[grName].append(str(file))
 
@@ -3810,23 +3824,33 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     conn = connect(file+".identified.sqlite")
                     curs = conn.cursor()
 
+                    from utils import StdevFunc
+                    conn.create_aggregate("stdev", 1, StdevFunc)
+
                     nMZs = SQLgetSingleFieldFromOneRow(curs, "SELECT COUNT(*) FROM MZs")
+                    nMZsPPMDelta = SQLgetSingleFieldFromOneRow(curs, "SELECT AVG((lmz-mz-tmz)*1000000/mz) FROM MZs")
+                    nMZsPPMDeltaStd = SQLgetSingleFieldFromOneRow(curs, "SELECT STDEV((lmz-mz-tmz)*1000000/mz) FROM MZs")
                     nMZBins = SQLgetSingleFieldFromOneRow(curs, "SELECT COUNT(*) FROM MZBins")
                     nFeatures=SQLgetSingleFieldFromOneRow(curs, "SELECT COUNT(*) FROM chromPeaks")
                     nMetabolites = SQLgetSingleFieldFromOneRow(curs, "SELECT COUNT(*) FROM featureGroups")
                     avgRatioSignals=SQLgetSingleFieldFromOneRow(curs, "SELECT AVG(intensity/intensityL) FROM MZs")
+                    avgRatioSignalsStd=SQLgetSingleFieldFromOneRow(curs, "SELECT STDEV(intensity/intensityL) FROM MZs")
                     avgRatioFeaturesArea = SQLgetSingleFieldFromOneRow(curs, "SELECT AVG(NPeakArea/LPeakArea) FROM chromPeaks")
                     avgRatioFeaturesAbundance = SQLgetSingleFieldFromOneRow(curs, "SELECT AVG(NPeakAbundance/LPeakAbundance) FROM chromPeaks")
                     avgEnrichmentL = SQLgetSingleFieldFromOneRow(curs, "SELECT AVG(xcount/(xcount+peaksRatioMPm1)) FROM chromPeaks WHERE peaksRatioMPm1 > 0")
-                    texts.append(("%%%ds   %%12s %%12s %%12s %%12s      %%20s %%20s %%20s %%20s\n"%(maxFileNameLength))%(file,
+                    avgEnrichmentLStd = SQLgetSingleFieldFromOneRow(curs, "SELECT STDEV(xcount/(xcount+peaksRatioMPm1)) FROM chromPeaks WHERE peaksRatioMPm1 > 0")
+                    texts.append(("%%%ds   %%12s %%12s %%12s %%12s      %%20s %%40s %%25s\n"%(maxFileNameLength))%(file,
                                                                                                   nMZs if nMZs>0 else "",
                                                                                                   nMZBins if nMZBins>0 else "",
                                                                                                   nFeatures if nFeatures>0 else "",
                                                                                                   nMetabolites if nMetabolites>0 else "",
-                                                                                                  "%.2f"%avgRatioSignals if avgRatioSignals!=None else "",
-                                                                                                  "%.2f"%avgRatioFeaturesArea if avgRatioFeaturesArea!=None else "",
-                                                                                                  "%.2f"%avgRatioFeaturesAbundance if avgRatioFeaturesAbundance!=None else "",
-                                                                                                  "%.2f %%"%(100*avgEnrichmentL) if avgEnrichmentL!=None else ""))
+                                                                                                  "%s (+/- %s)"%("%.2f"%nMZsPPMDelta if nMZsPPMDelta!=None else "", "%.2f"%nMZsPPMDeltaStd if nMZsPPMDeltaStd!=None else ""),
+                                                                                                  "%s; %s; %s"%(
+                                                                                                      "%6.2f (+/- %s)"%(avgRatioSignals, "%.2f"%avgRatioSignalsStd if avgRatioSignalsStd!=None else "") if avgRatioSignals!=None else "-",
+                                                                                                      "%6.2f"%avgRatioFeaturesArea if avgRatioFeaturesArea!=None else "-",
+                                                                                                      "%6.2f"%avgRatioFeaturesAbundance if avgRatioFeaturesAbundance!=None else "-",
+                                                                                                  ),
+                                                                                                  "%.2f%% (+/- %s%%)"%(100*avgEnrichmentL, "%.2f"%(100*avgEnrichmentLStd) if avgEnrichmentLStd!=None else "") if avgEnrichmentL!=None else ""))
                 else:
                     texts.append(("%%%ds   File not processed successfully\n"%(maxFileNameLength))%file)
 
@@ -3875,11 +3899,25 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             texts.append("\n")
             texts.append("\n")
 
+        resFileFullOmitted = str(self.ui.groupsSave.text()).replace(".tsv", ".omittedFPs.tsv")
+        if os.path.exists(resFileFullOmitted):
+            texts.append("Omitted features\n-=-=-=-=-=-=-=-=-\n\n")
+
+            from utils import readTSVFileAsBunch
+            headers, table=readTSVFileAsBunch(resFileFullOmitted, delim="\t", parseToNumbers=True, useColumns=None, omitFirstNRows=0,renameRows=None)
+
+            features=set()
+
+            for row in table:
+                features.add(row.Num)
+
+            texts.append(" Features    %12d\n"%(len(features)))
+
 
 
         #logging.info("".join(texts))
 
-        pw = QScrollableMessageBox(parent=None, text="".join(texts), title="Processing results", width=1000, height=1300)
+        pw = QScrollableMessageBox(parent=None, text="".join(texts), title="Processing results", width=700, height=700)
         pw.exec_()
 
 
@@ -6911,7 +6949,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
 
 
-    def loadAllSamples(self):
+    def loadAllSamples(self, selectedMZs=None, ppm=25.):
         from utilities import RunImapUnordered
         intensityThreshold = float(QtGui.QInputDialog.getDouble(self, "Intensity threshold", "Please enter the minimal threshold used for importing the data", value=10000, min=0, decimals=0)[0])
 
@@ -6923,16 +6961,21 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         for group in definedGroups:
             for i in range(len(group.files)):
                 fi = str(group.files[i]).replace("\\", "/")
+                filesToLoad.append({"File":fi, "Group":group.name, "IntensityThreshold":intensityThreshold, "selectedMZs":selectedMZs, "ppm":ppm})
 
-                filesToLoad.append({"File":fi, "Group":group.name, "IntensityThreshold":intensityThreshold})
-
+        startTime=time.time()
+        startMemory=memory_usage_psutil()
         res=RunImapUnordered.runImapUnordered(loadMZXMLFile, filesToLoad, processes=int(min(cpu_count()/2, self.ui.cpuCores.value())), pw="createNewPW")
-        ## {"File":fi, "Group":group.name, "IntensityThreshold":intensityThrehold, "mzXMLFile": mzXML}
+        duration=time.time()-startTime
+        usedMemory=memory_usage_psutil()-startMemory
 
         for re in res:
             self.loadedMZXMLs[re["File"]]=re["mzXMLFile"]
             self.loadedMZXMLs[re["Group"]] = re["mzXMLFile"]
 
+        logging.info("Loading (%s, intensity threshold %d counts) took %.1f minutes and used %s of Memory" % (
+                                "entire chromatograms" if selectedMZs == None else "only detected feature pairs", intensityThreshold,
+                                duration / 60., "%.1f MB" % usedMemory if usedMemory < 1024 else "%.1f GB" % (usedMemory / 1024)))
 
     def showCustomFeature(self):
         self.resultsExperimentChangedNew(askForFeature=True)
@@ -6942,7 +6985,33 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             pass
 
         if self.loadedMZXMLs is None:
-            self.loadAllSamples()
+            selectedMZs=None
+            if QtGui.QMessageBox.question(self, "MetExtract", "Do you want to load the entire chromatograms (Yes) or just the m/z values of the detected results (No)\n"+
+                    "If you don't have a lot of main memory (RAM) then the entire chromatograms should not be loaded.\n"+
+                    "Please not that if you don't load the entire chromatograms, you won't be able to show a custom feature.",
+                                      QtGui.QMessageBox.Yes | QtGui.QMessageBox.No) == QtGui.QMessageBox.No:
+                selectedMZs=[]
+                mzs=[]
+                for itemI in range(self.ui.resultsExperiment_TreeWidget.topLevelItemCount()):
+                    item=self.ui.resultsExperiment_TreeWidget.topLevelItem(itemI)
+                    if item.bunchData.type == "metaboliteGroup":
+                        for i in range(item.childCount()):
+                            child = item.child(i)
+                            if child.bunchData.type == "featurePair":
+                                mzs.append(child.bunchData.mz)
+                                mzs.append(child.bunchData.lmz)
+                    if item.bunchData.type == "featurePair":
+                        mzs.append(item.bunchData.mz)
+                        mzs.append(item.bunchData.lmz)
+                for mz in mzs:
+                    selectedMZs.append(mz)
+                    if False:
+                        for i in range(1, 10):
+                            selectedMZs.append(mz+i*1.00335/2)
+                            if i!=0:
+                                selectedMZs.append(lmz-i*1.00335/2)
+
+            self.loadAllSamples(selectedMZs=selectedMZs, ppm=25.)
 
         definedGroups = [t.data(QListWidgetItem.UserType).toPyObject() for t in natSort(self.ui.groupsList.findItems('*', QtCore.Qt.MatchWildcard), key=lambda x: str(x.data(QListWidgetItem.UserType).toPyObject().name))]
 
@@ -7151,7 +7220,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             pi=plotItems[0]
             for oi, o in enumerate(offsetOrder):
                 self.ui.resultsExperimentSeparatedPeaks_plot.axes.axvline(x=oi+pi.rt/60., color=o[1])
-                self.ui.resultsExperimentSeparatedPeaks_plot.axes.text(x=oi-0.05+pi.rt/60., y=intlim[1]*1.05, s=o[0], rotation=0, horizontalalignment='left', color=o[1], backgroundcolor="white", weight='bold')
+                self.ui.resultsExperimentSeparatedPeaks_plot.axes.text(x=oi-0.05+pi.rt/60., y=intlim[1]*1.05, s=o[0], rotation=90, horizontalalignment='left', color=o[1], backgroundcolor="white", weight='bold')
             intlim[1]=intlim[1]*1.5
 
 
@@ -7502,6 +7571,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
 
         logging.info("MetExtract II started")
+
+        logging.info("  Using sum formula generation cache at " + os.environ["LOCALAPPDATA"] + "/MetExtractII/sfcache.db")
 
 
         self.preConfigured_adducts = [
@@ -8052,6 +8123,10 @@ if __name__ == '__main__':
         v = r("R.Version()$version.string")
         if not opts.silentStart:
             logging.info("  %s" % (str(v)[5:(len(str(v)) - 1)]))
+
+        v = r("paste0(.libPaths(), collapse=', ') ")
+        if not opts.silentStart:
+            logging.info("  R-libraries: %s"%v)
 
         rAvailable = True
 
