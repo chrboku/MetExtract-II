@@ -16,6 +16,8 @@
 #    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 
+app=None
+
 import os
 if not os.path.exists(os.environ["LOCALAPPDATA"]+"/MetExtractII"):
     os.makedirs(os.environ["LOCALAPPDATA"]+"/MetExtractII")
@@ -86,6 +88,8 @@ if "R_HOME" in os.environ.keys():
 
 os.environ["R_USER"]=get_main_dir()+"/Ruser"
 # try to load r configuration file (does not require any environment variables or registry keys)
+
+rFound=False
 if not loadRConfFile(path=get_main_dir()) or not checkR():
     os.environ["R_HOME"]=get_main_dir()+"/R"
 
@@ -98,7 +102,8 @@ if not loadRConfFile(path=get_main_dir()) or not checkR():
             from os import sys
             from PyQt4 import QtGui, QtCore
 
-            app = QtGui.QApplication(sys.argv)
+            if app is None:
+                app = QtGui.QApplication(sys.argv)
 
             QtGui.QMessageBox.information(None, "MetExtract",
                       "R successfully configured\nUsing MetExtract R-Installation\nPlease restart",
@@ -116,7 +121,8 @@ if not loadRConfFile(path=get_main_dir()) or not checkR():
             from os import sys
             from PyQt4 import QtGui, QtCore
 
-            app = QtGui.QApplication(sys.argv)
+            if app is None:
+                app = QtGui.QApplication(sys.argv)
 
             if QtGui.QMessageBox.warning(None, "MetExtract",
                                       "Error: R could not be loaded\nPlease make sure it is installed and accessible\n"
@@ -129,7 +135,7 @@ if not loadRConfFile(path=get_main_dir()) or not checkR():
                 while tryLoad:
                     folder = str(QtGui.QFileDialog.getExistingDirectory(None, "Select R-directory (not bin folder)", directory=lastDir))
                     if folder=="":
-                        sys.exit(1)
+                        rFound=False
                     else:
                         lastDir=folder
                         os.environ["R_HOME"]=folder
@@ -153,9 +159,9 @@ if not loadRConfFile(path=get_main_dir()) or not checkR():
                                           QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)==QtGui.QMessageBox.Yes:
                                 pass
                             else:
-                                sys.exit(1)
+                                rFound=False
             else:
-                sys.exit(1)
+                rFound=False
 else:
     os.environ["R_HOME_FROM"]="RPATH.conf of MetExtract II"
 #</editor-fold>
@@ -7559,7 +7565,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
 
     # initialise main interface, triggers and command line parameters
-    def __init__(self, module="TracExtract", parent=None, silent=False):
+    def __init__(self, module="TracExtract", parent=None, silent=False, disableR=False):
         super(Ui_MainWindow, self).__init__()
         QtGui.QMainWindow.__init__(self, parent)
         self.ui = Ui_MainWindow()
@@ -8040,6 +8046,9 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             logging.error("Error in %s: %s" % (self.file, str(ex)))
             QtGui.QMessageBox.information(self, "MetExtract", "Cannot load settings", QtGui.QMessageBox.Ok)
 
+        if disableR:
+            self.ui.runTasksContainer.setVisible(False)
+            QtGui.QMessageBox.warning(None, "MetExtract", "Error: R is not available. Processing of new samples is disabled, however\nalready processed results can be illustrated. ", QtGui.QMessageBox.Ok)
 
     def closeEvent(self, event):
         mainWin._contMemoryWatcher = False
@@ -8102,7 +8111,8 @@ if __name__ == '__main__':
         logging.info("")
 
     #start PyQT GUI application
-    app = QtGui.QApplication(sys.argv)
+    if app is None:
+        app = QtGui.QApplication(sys.argv)
 
     #search for R-packages and install them if necessary
     if not opts.silentStart:
@@ -8142,125 +8152,126 @@ if __name__ == '__main__':
             rPackagesAvailable = True
 
     except:
+        QtGui.QMessageBox.warning(None, "MetExtract", "Error: R is not available", QtGui.QMessageBox.Ok)
         logging.info("  Error: R could not be loaded..")
     logging.info("")
 
-    if rAvailable and rPackagesAvailable:
+    # show main window
+    try:
 
-        # show main window
-        try:
-            mainWin = mainWindow(module=opts.module, silent=opts.silentStart)
+        mainWin = mainWindow(module=opts.module, silent=opts.silentStart, disableR=not(rAvailable) or not(rPackagesAvailable))
 
-            if USEGRADIENTDESCENDPEAKPICKING:
-                p = mainWin.palette()
-                p.setColor(mainWin.backgroundRole(), QtCore.Qt.red)
-                mainWin.setPalette(p)
-                if not opts.start:
-                    QtGui.QMessageBox.warning(None, "MetExtract",
-                                  "WARNING: Gradient descend algorithm for chromatographic peak picking is selected",
-                                  QtGui.QMessageBox.Ok)
-        except:
-            mainWin=None
-
-        if mainWin is not None:
-            mainWin.show()
-
-
-            if opts.groupdest is not None:
-                groupFile = opts.groupdest.replace("\\", "/")
-                logging.info("Loading LC-HRMS data compilation from '%s'" % groupFile)
-                mainWin.loadGroups(groupFile, forceLoadSettings=False, askLoadSettings=False)
-                mainWin.lastOpenDir = groupFile[0:(groupFile.rfind("/") + 1)]
-
-            if opts.settings is not None:
-                settFile = opts.settings
-                if opts.settings == 'group':
-                    settFile = opts.groupdest
-                settFile = settFile.replace("\\", "/")
-                logging.info("Loading settings from '%s'" % settFile)
-                mainWin.loadSettingsFile(settFile, silent=True)
-
-            mainWin.ui.cpuCores.setValue(opts.cores)
-
-
-            if opts.processIndFiles is not None:
-                mainWin.ui.processIndividualFiles.setChecked(opts.processIndFiles.lower() in ["true", "t", "yes", "y", "1"])
-
-            if opts.processMultFiles is not None:
-                mainWin.ui.processMultipleFiles.setChecked(opts.processMultFiles.lower() in ["true", "t", "yes", "y", "1"])
-
-            if opts.groupResults is not None:
-                mainWin.ui.groupResults.setChecked(opts.groupResults.lower() in ["true", "t", "yes", "y", "1"])
-
-            if opts.reintegrateResults is not None:
-                mainWin.ui.integratedMissedPeaks.setChecked(opts.reintegrateResults.lower() in ["true", "t", "yes", "y", "1"])
-
-
-
-
-            # print development messages
-            if False:
-                import textwrap
-
-                messages={"Severe":[], "Error":[], "Warning":[], "Info":[]}
-                messages["Severe"].append("Metabolite cluster calculation is in beta testing. Please review the process and report issues!")
-                messages["Info"].append("Beta version")
-                messages["Info"].append("Remove those messages (and the GUI-component)")
-                messages["Info"].append("Add gradient descend peak picking")
-
-                allMessages=[]
-
-                logging.info("   -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=")
-                logging.info("   -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=")
-
-                for k in sorted(messages.keys()):
-                    vs=messages[k]
-                    if len(vs)>0:
-                        allMessages.append("<span style=\"color: yellow\">%s</span>:"%k)
-                    for v in sorted(vs):
-                        logging.info("   -=-=-  "+"\033[91m"+"%-8s"%k+"\033[0m",)
-                        k=""
-                        logging.info(textwrap.fill(v).replace("\r", ""))
-                        allMessages.append(v)
-
-                logging.info("   -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=")
-                logging.info("   -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=")
-
-                mainWin.ui.INFOLabel.setText("<div style=\"background-color: red\">%s</div>"%(", ".join(allMessages)))
-            else:
-                mainWin.ui.INFOLabel.setVisible(False)
-
-
-            if opts.start:
-                mainWin.runProcess(dontSave=True, askStarting=False)
-            else:
-                QtGui.QMessageBox.information(None, "MetExtract",
-                                              "When you start a new experiment, please change the working directory to your experimental folder.\nYou can set the working directory via the menu ('Tools'->'Set working directory')\n\n" \
-                                              "Please also consider copying any databases or other resources to that folder for documentation",
-                                              QtGui.QMessageBox.Ok)
+        if USEGRADIENTDESCENDPEAKPICKING:
+            p = mainWin.palette()
+            p.setColor(mainWin.backgroundRole(), QtCore.Qt.red)
+            mainWin.setPalette(p)
+            if not opts.start:
                 QtGui.QMessageBox.warning(None, "MetExtract",
-                                          "WARNING\n\nPlease be careful to not accidently change parameters with your mouse wheel when hovering over a parameter setting (e.g. ppm value). \n\nThis bug is currently not fixed in MetExtract II.",
+                              "WARNING: Gradient descend algorithm for chromatographic peak picking is selected",
+                              QtGui.QMessageBox.Ok)
+    except:
+        mainWin=None
+        logging.error("Could not construct main window")
+
+    if mainWin is not None:
+        mainWin.show()
+
+
+        if opts.groupdest is not None:
+            groupFile = opts.groupdest.replace("\\", "/")
+            logging.info("Loading LC-HRMS data compilation from '%s'" % groupFile)
+            mainWin.loadGroups(groupFile, forceLoadSettings=False, askLoadSettings=False)
+            mainWin.lastOpenDir = groupFile[0:(groupFile.rfind("/") + 1)]
+
+        if opts.settings is not None:
+            settFile = opts.settings
+            if opts.settings == 'group':
+                settFile = opts.groupdest
+            settFile = settFile.replace("\\", "/")
+            logging.info("Loading settings from '%s'" % settFile)
+            mainWin.loadSettingsFile(settFile, silent=True)
+
+        mainWin.ui.cpuCores.setValue(opts.cores)
+
+
+        if opts.processIndFiles is not None:
+            mainWin.ui.processIndividualFiles.setChecked(opts.processIndFiles.lower() in ["true", "t", "yes", "y", "1"])
+
+        if opts.processMultFiles is not None:
+            mainWin.ui.processMultipleFiles.setChecked(opts.processMultFiles.lower() in ["true", "t", "yes", "y", "1"])
+
+        if opts.groupResults is not None:
+            mainWin.ui.groupResults.setChecked(opts.groupResults.lower() in ["true", "t", "yes", "y", "1"])
+
+        if opts.reintegrateResults is not None:
+            mainWin.ui.integratedMissedPeaks.setChecked(opts.reintegrateResults.lower() in ["true", "t", "yes", "y", "1"])
+
+
+
+
+        # print development messages
+        if False:
+            import textwrap
+
+            messages={"Severe":[], "Error":[], "Warning":[], "Info":[]}
+            messages["Severe"].append("Metabolite cluster calculation is in beta testing. Please review the process and report issues!")
+            messages["Info"].append("Beta version")
+            messages["Info"].append("Remove those messages (and the GUI-component)")
+            messages["Info"].append("Add gradient descend peak picking")
+
+            allMessages=[]
+
+            logging.info("   -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=")
+            logging.info("   -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=")
+
+            for k in sorted(messages.keys()):
+                vs=messages[k]
+                if len(vs)>0:
+                    allMessages.append("<span style=\"color: yellow\">%s</span>:"%k)
+                for v in sorted(vs):
+                    logging.info("   -=-=-  "+"\033[91m"+"%-8s"%k+"\033[0m",)
+                    k=""
+                    logging.info(textwrap.fill(v).replace("\r", ""))
+                    allMessages.append(v)
+
+            logging.info("   -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=")
+            logging.info("   -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=")
+
+            mainWin.ui.INFOLabel.setText("<div style=\"background-color: red\">%s</div>"%(", ".join(allMessages)))
+        else:
+            mainWin.ui.INFOLabel.setVisible(False)
+
+
+        if opts.start:
+            mainWin.runProcess(dontSave=True, askStarting=False)
+        else:
+            QtGui.QMessageBox.information(None, "MetExtract",
+                                          "When you start a new experiment, please change the working directory to your experimental folder.\nYou can set the working directory via the menu ('Tools'->'Set working directory')\n\n" \
+                                          "Please also consider copying any databases or other resources to that folder for documentation",
                                           QtGui.QMessageBox.Ok)
+            QtGui.QMessageBox.warning(None, "MetExtract",
+                                      "WARNING\n\nPlease be careful to not accidently change parameters with your mouse wheel when hovering over a parameter setting (e.g. ppm value). \n\nThis bug is currently not fixed in MetExtract II.",
+                                      QtGui.QMessageBox.Ok)
 
-            if opts.plotResults:
-                mainWin.exportAsPDF(pdfFile="./results.pdf")
-
-
-            import threading
-            mainWin._contMemoryWatcher=True
-            def updateMemoryInfo():
-                mainWin.ui.version.setText("%.0f MB memory used, %s"%(memory_usage_psutil(), mainWin.ui.version.versionText))
-                if mainWin._contMemoryWatcher:
-                    threading.Timer(1, updateMemoryInfo).start()
-            updateMemoryInfo()
+        if opts.plotResults:
+            mainWin.exportAsPDF(pdfFile="./results.pdf")
 
 
+        import threading
+        mainWin._contMemoryWatcher=True
+        def updateMemoryInfo():
+            mainWin.ui.version.setText("%.0f MB memory used, %s"%(memory_usage_psutil(), mainWin.ui.version.versionText))
+            if mainWin._contMemoryWatcher:
+                threading.Timer(1, updateMemoryInfo).start()
+        updateMemoryInfo()
 
-            if opts.exit:
-                QtGui.QApplication.exit()
-                mainWin._contMemoryWatcher=False
-            else:
-                sys.exit(app.exec_())
+
+
+        if opts.exit:
+            QtGui.QApplication.exit()
+            mainWin._contMemoryWatcher=False
+        else:
+            sys.exit(app.exec_())
 
 
 
