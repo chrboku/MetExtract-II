@@ -89,81 +89,83 @@ if "R_HOME" in os.environ.keys():
 os.environ["R_USER"]=get_main_dir()+"/Ruser"
 # try to load r configuration file (does not require any environment variables or registry keys)
 
-rFound=False
-if not loadRConfFile(path=get_main_dir()) or not checkR():
-    os.environ["R_HOME"]=get_main_dir()+"/R"
+if __name__=="__main__":
 
-    if checkR():
-        with open("RPATH.conf", "wb") as rconf:
-            rconf.write(get_main_dir()+"/R")
-            tryLoad=False
+    rFound=False
+    if not loadRConfFile(path=get_main_dir()) or not checkR():
+        os.environ["R_HOME"]=get_main_dir()+"/R"
 
-            # Show a dialog box to the user that R could not be started
-            from os import sys
-            from PyQt4 import QtGui, QtCore
+        if checkR():
+            with open("RPATH.conf", "wb") as rconf:
+                rconf.write(get_main_dir()+"/R")
+                tryLoad=False
 
-            if app is None:
-                app = QtGui.QApplication(sys.argv)
+                # Show a dialog box to the user that R could not be started
+                from os import sys
+                from PyQt4 import QtGui, QtCore
 
-            QtGui.QMessageBox.information(None, "MetExtract",
-                      "R successfully configured\nUsing MetExtract R-Installation\nPlease restart",
-                      QtGui.QMessageBox.Ok)
-            sys.exit(0)
-    else:
+                if app is None:
+                    app = QtGui.QApplication(sys.argv)
 
-        os.environ["R_HOME"]=__RHOMEENVVAR
-        os.environ["R_HOME_FROM"]="RPATH environment variable"
-        if not checkR():
+                QtGui.QMessageBox.information(None, "MetExtract",
+                          "R successfully configured\nUsing MetExtract R-Installation\nPlease restart",
+                          QtGui.QMessageBox.Ok)
+                sys.exit(0)
+        else:
 
-            logging.error("Error: R could not be loaded correctly (No RPATH.conf file or R_HOME environment variable found)\nPlease make sure it is installed and accessible")
+            os.environ["R_HOME"]=__RHOMEENVVAR
+            os.environ["R_HOME_FROM"]="RPATH environment variable"
+            if not checkR():
 
-            # Show a dialog box to the user that R could not be started
-            from os import sys
-            from PyQt4 import QtGui, QtCore
+                logging.error("Error: R could not be loaded correctly (No RPATH.conf file or R_HOME environment variable found)\nPlease make sure it is installed and accessible")
 
-            if app is None:
-                app = QtGui.QApplication(sys.argv)
+                # Show a dialog box to the user that R could not be started
+                from os import sys
+                from PyQt4 import QtGui, QtCore
 
-            if QtGui.QMessageBox.warning(None, "MetExtract",
-                                      "Error: R could not be loaded\nPlease make sure it is installed and accessible\n"
-                                      "The default installation path is C:\\Program Files\\R\n"
-                                      "Do you want to specify the folder?",
-                                      QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)==QtGui.QMessageBox.Yes:
-                tryLoad=True
-                from utils import get_main_dir
-                lastDir=get_main_dir()
-                while tryLoad:
-                    folder = str(QtGui.QFileDialog.getExistingDirectory(None, "Select R-directory (not bin folder)", directory=lastDir))
-                    if folder=="":
-                        rFound=False
-                    else:
-                        lastDir=folder
-                        os.environ["R_HOME"]=folder
-                        print os.environ["R_HOME"]
-                        if checkR():
-                            with open("RPATH.conf", "wb") as rconf:
-                                rconf.write(folder)
-                                tryLoad=False
+                if app is None:
+                    app = QtGui.QApplication(sys.argv)
 
-                                QtGui.QMessageBox.information(None, "MetExtract",
-                                          "R successfully configured\nPlease restart",
-                                          QtGui.QMessageBox.Ok)
-                                sys.exit(0)
-                        else:
-                            if QtGui.QMessageBox.warning(None, "MetExtract",
-                                          "Error: R could not be loaded from the specified location\n"
-                                          "%s\n\n"
-                                          "Please make sure it is installed and accessible\n"
+                if QtGui.QMessageBox.warning(None, "MetExtract",
+                                          "Error: R could not be loaded\nPlease make sure it is installed and accessible\n"
                                           "The default installation path is C:\\Program Files\\R\n"
-                                          "Do you want to specify the folder?"%folder,
+                                          "Do you want to specify the folder?",
                                           QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)==QtGui.QMessageBox.Yes:
-                                pass
+                    tryLoad=True
+                    from utils import get_main_dir
+                    lastDir=get_main_dir()
+                    while tryLoad:
+                        folder = str(QtGui.QFileDialog.getExistingDirectory(None, "Select R-directory (not bin folder)", directory=lastDir))
+                        if folder=="":
+                            rFound=False
+                        else:
+                            lastDir=folder
+                            os.environ["R_HOME"]=folder
+                            print os.environ["R_HOME"]
+                            if checkR():
+                                with open("RPATH.conf", "wb") as rconf:
+                                    rconf.write(folder)
+                                    tryLoad=False
+
+                                    QtGui.QMessageBox.information(None, "MetExtract",
+                                              "R successfully configured\nPlease restart",
+                                              QtGui.QMessageBox.Ok)
+                                    sys.exit(0)
                             else:
-                                rFound=False
-            else:
-                rFound=False
-else:
-    os.environ["R_HOME_FROM"]="RPATH.conf of MetExtract II"
+                                if QtGui.QMessageBox.warning(None, "MetExtract",
+                                              "Error: R could not be loaded from the specified location\n"
+                                              "%s\n\n"
+                                              "Please make sure it is installed and accessible\n"
+                                              "The default installation path is C:\\Program Files\\R\n"
+                                              "Do you want to specify the folder?"%folder,
+                                              QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)==QtGui.QMessageBox.Yes:
+                                    pass
+                                else:
+                                    rFound=False
+                else:
+                    rFound=False
+    else:
+        os.environ["R_HOME_FROM"]="RPATH.conf of MetExtract II"
 #</editor-fold>
 #<editor-fold desc="### Check if R-dependencies are installed. If not try to fetch them from CRAN and Bioconductor">
 
@@ -330,13 +332,25 @@ def noaxis(ax):
 from Chromatogram import Chromatogram
 #</editor-fold>
 #<editor-fold desc="### MassSpecWavelet Processing Class Import">
-from chromPeakPicking.MassSpecWavelet import MassSpecWavelet
+try:
+    from chromPeakPicking.MassSpecWavelet import MassSpecWavelet
+except:
+    if __name__=="__main__":
+        logging.error("R is missing: Peak-picking via MassSpecWavelet is not available")
 #</editor-fold>
 #<editor-fold desc="### RunIdentification Import">
-from runIdentification import RunIdentification
+try:
+    from runIdentification import RunIdentification
+except:
+    if __name__ == "__main__":
+        logging.error("R is missing: Identification/Processing of new files is not available")
 #</editor-fold>
 #<editor-fold desc="### Group Results Import">
-from bracketResults import bracketResults, calculateMetaboliteGroups, getDBSuffix
+try:
+    from bracketResults import bracketResults, calculateMetaboliteGroups, getDBSuffix
+except:
+    if __name__ == "__main__":
+        logging.error("R is missing: Annotation is not available")
 from annotateResultMatrix import addGroup as grpAdd
 from annotateResultMatrix import addStatsColumnToResults
 from annotateResultMatrix import performGroupOmit as grpOmit
@@ -434,11 +448,14 @@ def calcSumFormulas(args):
 
 
 def memory_usage_psutil():
-    # return the memory usage in MB
-    import psutil
-    process = psutil.Process(os.getpid())
-    mem = process.memory_info()[0] / float(2 ** 20)
-    return mem
+    try:
+        # return the memory usage in MB
+        import psutil
+        process = psutil.Process(os.getpid())
+        mem = process.memory_info()[0] / float(2 ** 20)
+        return mem
+    except:
+        return -1
 #</editor-fold>
 
 #<editor-fold desc="### debug imports">
@@ -3850,12 +3867,12 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                                                                   nMZBins if nMZBins>0 else "",
                                                                                                   nFeatures if nFeatures>0 else "",
                                                                                                   nMetabolites if nMetabolites>0 else "",
-                                                                                                  "%s (+/- %s)"%("%.2f"%nMZsPPMDelta if nMZsPPMDelta!=None else "", "%.2f"%nMZsPPMDeltaStd if nMZsPPMDeltaStd!=None else ""),
+                                                                                                  "%s (+/- %s)"%("%.2f"%nMZsPPMDelta if nMZsPPMDelta!=None else "", "%.2f"%nMZsPPMDeltaStd if nMZsPPMDeltaStd!=None else "") if nMZsPPMDelta!=None else "",
                                                                                                   "%s; %s; %s"%(
                                                                                                       "%6.2f (+/- %s)"%(avgRatioSignals, "%.2f"%avgRatioSignalsStd if avgRatioSignalsStd!=None else "") if avgRatioSignals!=None else "-",
                                                                                                       "%6.2f"%avgRatioFeaturesArea if avgRatioFeaturesArea!=None else "-",
                                                                                                       "%6.2f"%avgRatioFeaturesAbundance if avgRatioFeaturesAbundance!=None else "-",
-                                                                                                  ),
+                                                                                                  ) if avgRatioSignalsStd!=None or avgRatioFeaturesArea!=None or avgRatioFeaturesAbundance!=None else "",
                                                                                                   "%.2f%% (+/- %s%%)"%(100*avgEnrichmentL, "%.2f"%(100*avgEnrichmentLStd) if avgEnrichmentLStd!=None else "") if avgEnrichmentL!=None else ""))
                 else:
                     texts.append(("%%%ds   File not processed successfully\n"%(maxFileNameLength))%file)
@@ -6970,10 +6987,18 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 filesToLoad.append({"File":fi, "Group":group.name, "IntensityThreshold":intensityThreshold, "selectedMZs":selectedMZs, "ppm":ppm})
 
         startTime=time.time()
-        startMemory=memory_usage_psutil()
+        startMemory=0
+        try:
+            startMemory=memory_usage_psutil()
+        except:
+            pass
         res=RunImapUnordered.runImapUnordered(loadMZXMLFile, filesToLoad, processes=int(min(cpu_count()/2, self.ui.cpuCores.value())), pw="createNewPW")
         duration=time.time()-startTime
-        usedMemory=memory_usage_psutil()-startMemory
+        usedMemory=-1
+        try:
+            usedMemory=memory_usage_psutil()-startMemory
+        except:
+            pass
 
         for re in res:
             self.loadedMZXMLs[re["File"]]=re["mzXMLFile"]
@@ -8056,7 +8081,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
 
 if __name__ == '__main__':
-    # add freeze support (required for multiprocessing)
+    ## add freeze_support for multiprocessing
     freeze_support()
 
     # parse supplied options
@@ -8260,7 +8285,10 @@ if __name__ == '__main__':
         import threading
         mainWin._contMemoryWatcher=True
         def updateMemoryInfo():
-            mainWin.ui.version.setText("%.0f MB memory used, %s"%(memory_usage_psutil(), mainWin.ui.version.versionText))
+            try:
+                mainWin.ui.version.setText("%.0f MB memory used, %s"%(memory_usage_psutil(), mainWin.ui.version.versionText))
+            except:
+                mainWin.ui.version.setText("%s" % (mainWin.ui.version.versionText))
             if mainWin._contMemoryWatcher:
                 threading.Timer(1, updateMemoryInfo).start()
         updateMemoryInfo()
