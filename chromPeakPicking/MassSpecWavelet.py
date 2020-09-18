@@ -13,13 +13,31 @@ errorIndex = 2
 
 
 class MassSpecWavelet:
-    def __init__(self, scriptLocation):
-        r('source(\"' + scriptLocation + '\")')
+    def __init__(self, scriptLocation=None, scales=None, snrTh=None, minScans=None):
+        self.scriptLocation=scriptLocation
+        if self.scriptLocation==None:
+            from utils import get_main_dir
+            self.scriptLocation=get_main_dir() + "/chromPeakPicking/MassSpecWaveletIdentification.r"
+
+        r('source(\"' + self.scriptLocation + '\")')
+
+        self.scales=scales
+        if self.scales==None:
+            self.scales=[11,66]
+
+        self.snrTh=snrTh
+        if self.snrTh==None:
+            self.snrTh=0.1
+
+        self.minScans=minScans
+        if self.minScans==None:
+            self.minScans=3
+
 
     def cleanUp(self):
         r('rm(list=ls());gc();')
 
-    def getPeaksFor(self, timesi, eici, scales=[11, 66], snrTh=0.1, minScans=3, startIndex=None, endIndex=None):
+    def getPeaksFor(self, timesi, eici, startIndex=None, endIndex=None):
 
         snrTh=3
 
@@ -38,7 +56,7 @@ class MassSpecWavelet:
         timesi=timesi[startIndex:endIndex]
 
         # add scales at begin and end of eic
-        eicAdd = int(scales[1]) *2
+        eicAdd = int(self.scales[1]) *2
         eic = [0 for u in range(0, eicAdd)]
         times = [0 for u in range(0, eicAdd)]
         eic.extend(eici)
@@ -54,7 +72,7 @@ class MassSpecWavelet:
 
         # call R-MassSpecWavelet
         try:   #eic, times, scales=c(5,33), snrTh=1, eicSmoothing="None", minCorr=0.85, testCorr=TRUE
-            ret = r('getMajorPeaks(eic=c(' + eicRC + '), times=c(' + timesRC + '), scales=c(' + str(scales[0]) + ', ' + str(scales[1]) + '), snrTh=' + str(snrTh) + ')')
+            ret = r('getMajorPeaks(eic=c(' + eicRC + '), times=c(' + timesRC + '), scales=c(' + str(self.scales[0]) + ', ' + str(self.scales[1]) + '), snrTh=' + str(self.snrTh) + ')')
         except Exception as e:
             ret = []
 
@@ -85,7 +103,7 @@ class MassSpecWavelet:
                 for i in range(max(0, int(peakCenter - retl[f].peakScale)), min(len(eic) - 1, int(peakCenter + retl[f].peakScale))):
                     if eic[i] > 0:
                         count = count + 1
-                if count < minScans:
+                if count < self.minScans:
                     todel.append(f)
 
             # remove very close-by peaks
@@ -121,8 +139,6 @@ if __name__ == '__main__':
 
     import matplotlib
     import matplotlib.pyplot as plt
-
-    CP = MassSpecWavelet("./MassSpecWaveletIdentification.r")
 
 
     import Chromatogram
@@ -169,13 +185,16 @@ if __name__ == '__main__':
     
     from utils import printObjectsAsTable
     print "Startindex", startIndex, "EndIndex", endIndex
-    ret = CP.getPeaksFor(times, eic, scales=scales, startIndex=startIndex, endIndex=endIndex, minScans=1)
+
+
+    CP=MassSpecWavelet("./MassSpecWaveletIdentification.R", scales=scales, minScans=1)
+    ret = CP.getPeaksFor(times, eic, startIndex=startIndex, endIndex=endIndex)
     for peak in ret:
         peak.peakAtTime=times[peak.peakIndex] / 60.
     print "Native"
     printObjectsAsTable(ret, ["peakAtTime", "peakIndex", "peakScale", "peakArea", "peakLeftFlank", "peakIndex", "peakRightFlank", "peakSNR"])
 
-    ret = CP.getPeaksFor(times, eicL, scales=scales, startIndex=startIndex, endIndex=endIndex, minScans=1)
+    ret = CP.getPeaksFor(times, eicL, startIndex=startIndex, endIndex=endIndex)
     for peak in ret:
         peak.peakAtTime=times[peak.peakIndex] / 60.
     print "Labeled"
