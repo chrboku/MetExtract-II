@@ -3212,7 +3212,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                    [grp[(grp.rfind("/") + 1):max(grp.lower().rfind(".mzxml"), grp.lower().rfind(".mzml"))] + "_fold" for grp in
                                     natSort(group.files)])
                             outputOrder.append(grpName)
-                            grpStats.append((str(group.name+"_Stat_fold"), group.minFound, group.omitFeatures))
+                            grpStats.append((str(group.name+"_Stat_fold"), group.minFound, group.omitFeatures, group.removeAsFalsePositive))
 
                         addStatsColumnToResults(resFileFull, groups, resFileFull, outputOrder)
 

@@ -82,6 +82,7 @@ def addStatsColumnToResults(metaFile, groups, toFile, outputOrder, commentStarti
 def performGroupOmit(infile, groupStats, outfile, commentStartingCharacter="#"):
     data = []
     notUsed = []
+    falsePositives = []
     headers = {}
     hrow = []
     comments = []
@@ -101,13 +102,18 @@ def performGroupOmit(infile, groupStats, outfile, commentStartingCharacter="#"):
                     headers[line[i]] = i
 
             else:
-                use = False          ## determine if fp should be used due to an omit
-                allGomit = True      ## determine if no omit was used at all
-                for gname, gmin, gomit in groupStats:
+                use = False
+                allGomit = True
+                isFalsePositive = False
+                for gname, gmin, gomit, gremoveAsFalsePositive in groupStats:
                     if gomit:
                         use = use or (int(line[headers[gname]]) >= gmin)
                         allGomit=False
+                    if gremoveAsFalsePositive:
+                        isFalsePositive = isFalsePositive or int(line[headers[gname]]) > 0
 
+                if isFalsePositive:
+                    falsePositives.append(line)
                 if use or allGomit:     ## either use it because it was found more than n times in a group or because no omit was used
                     data.append(line)
                 else:
@@ -121,14 +127,27 @@ def performGroupOmit(infile, groupStats, outfile, commentStartingCharacter="#"):
             metaWriter.writerow(row)
         for comment in comments:
             metaWriter.writerow([comment])
+        metaWriter.writerow(["## most likely true positives"])
 
 
     if len(notUsed)>0:
-        with open(outfile.replace(".tsv", ".omittedFPs.tsv"), "wb") as x:
+        with open(outfile.replace(".tsv", ".omitteds.tsv"), "wb") as x:
             metaWriter = csv.writer(x, delimiter="\t")
             metaWriter.writerow(hrow)
             for row in notUsed:
                 metaWriter.writerow(row)
             for comment in comments:
                 metaWriter.writerow([comment])
+        metaWriter.writerow(["## features that have not been detected in a sufficiently high number of samples (group parameters omit)"])
+
+
+    if len(notUsed)>0:
+        with open(outfile.replace(".tsv", ".falsePositives.tsv"), "wb") as x:
+            metaWriter = csv.writer(x, delimiter="\t")
+            metaWriter.writerow(hrow)
+            for row in falsePositives:
+                metaWriter.writerow(row)
+            for comment in comments:
+                metaWriter.writerow([comment])
+        metaWriter.writerow(["## features that have  been detected in at least one 'blank' sample"])
 
