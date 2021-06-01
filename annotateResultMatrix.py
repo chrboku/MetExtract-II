@@ -138,7 +138,7 @@ def performGroupOmit(infile, groupStats, outfile, commentStartingCharacter="#"):
                 metaWriter.writerow(row)
             for comment in comments:
                 metaWriter.writerow([comment])
-        metaWriter.writerow(["## features that have not been detected in a sufficiently high number of samples (group parameters omit)"])
+            metaWriter.writerow(["## features that have not been detected in a sufficiently high number of samples (group parameters omit)"])
 
 
     if len(notUsed)>0:
@@ -149,5 +149,5 @@ def performGroupOmit(infile, groupStats, outfile, commentStartingCharacter="#"):
                 metaWriter.writerow(row)
             for comment in comments:
                 metaWriter.writerow([comment])
-        metaWriter.writerow(["## features that have  been detected in at least one 'blank' sample"])
+            metaWriter.writerow(["## features that have  been detected in at least one 'blank' sample"])
 

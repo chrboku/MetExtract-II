@@ -487,13 +487,13 @@ class procAreaInFile:
         self.forFile = forFile
 
     # find chromatographic peak for one detected feature
-    def processAreaFor(self, colToProc, mz, rt, ppm, scanEvent, maxRTShift, scales, snrTH, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom):
+    def processAreaFor(self, colToProc, mz, rt, ppm, scanEvent, maxRTShift, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom):
 
         if colToProc == "":
 
             eic, times, scanids, mzs = self.t.getEIC(mz, ppm, filterLine=scanEvent)
             eicSmoothed = smoothDataSeries(times, eic, windowLen=smoothingWindowSize, window=smoothingWindow, polynom=smoothingWindowPolynom)
-            ret = self.CP.getPeaksFor(times, eicSmoothed, scales=scales, snrTh=snrTH)
+            ret = self.CP.getPeaksFor(times, eicSmoothed)
 
             best = None
 
@@ -518,7 +518,7 @@ class procAreaInFile:
 
     # re-integrate one detected feature pair
     def processArea(self, oldData, colToProc, colmz, colrt, colLmz, colIonMode, positiveScanEvent, negativeScanEvent,
-                    ppm, maxRTShift, scales, snrTH, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom):
+                    ppm, maxRTShift, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom):
 
         scanEvent = ""
         if oldData[self.colInd[colIonMode]] == "+":
@@ -532,7 +532,7 @@ class procAreaInFile:
         r = None
         try:
             r = self.processAreaFor(oldData[self.colInd[colToProc + "_Area_N"]], oldData[self.colInd[colmz]],
-                                    oldData[self.colInd[colrt]], ppm, scanEvent, maxRTShift, scales, snrTH, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom)
+                                    oldData[self.colInd[colrt]], ppm, scanEvent, maxRTShift, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom)
         except Exception as exc:
             logging.error("   - Reintegration failed for feature pair (N) %s (%s %s) [%s]" % (self.forFile, oldData[self.colInd[colmz]], oldData[self.colInd[colrt]], exc.message))
 
@@ -547,7 +547,7 @@ class procAreaInFile:
         r = None
         try:
             r = self.processAreaFor(oldData[self.colInd[colToProc + "_Area_L"]], oldData[self.colInd[colLmz]],
-                                    oldData[self.colInd[colrt]], ppm, scanEvent, maxRTShift, scales, snrTH, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom)
+                                    oldData[self.colInd[colrt]], ppm, scanEvent, maxRTShift, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom)
         except Exception as exc:
             logging.error("   Reintegration failed for feature pair (L) %s (%s %s) [%s]" % (self.forFile, oldData[self.colInd[colmz]], oldData[self.colInd[colrt]], exc.message))
 
@@ -569,7 +569,7 @@ class procAreaInFile:
 
     # re-integrate all detected feature pairs in a given LC-HRMS data file
     def processFile(self, oldData, colToProc, colmz, colrt, colLmz, colIonMode, positiveScanEvent, negativeScanEvent,
-                    ppm, maxRTShift, scales, snrTH, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom):
+                    ppm, maxRTShift, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom):
         startProc=time.time()
         logging.info("   Reintegration started for file %s" % self.forFile)
 
@@ -586,7 +586,7 @@ class procAreaInFile:
             try:
                 if (nDat[self.colInd[colIonMode]]=="+" and positiveScanEvent in scanEventsPerPolarity["+"]) or (nDat[self.colInd[colIonMode]]=="-" and negativeScanEvent in scanEventsPerPolarity["-"]):
                     nDat = self.processArea(nDat, colToProc, colmz, colrt, colLmz, colIonMode, positiveScanEvent,
-                                            negativeScanEvent, ppm, maxRTShift, scales, snrTH, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom)
+                                            negativeScanEvent, ppm, maxRTShift, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom)
             except Exception as ex:
                 import traceback
                 traceback.print_exc()
@@ -653,7 +653,7 @@ class procAreaInFile:
 
         # initialise peak picking algorithm
         if not USEGRADIENTDESCENDPEAKPICKING:
-                self.CP = MassSpecWavelet(self.chromPeakFile)
+                self.CP = MassSpecWavelet(self.chromPeakFile, scales=self.scales, snrTh=self.snrTH, minScans=1)
         else:
             from chromPeakPicking.GradientPeaks import GradientPeaks
             self.CP=GradientPeaks()                                                                      ## generic gradient descend peak picking
@@ -664,8 +664,8 @@ class procAreaInFile:
 
         # re-integrate all detected feature pairs from the grouped results in this LC-HRMS data file
         self.processFile(self.oldData, self.colToProc, self.colmz, self.colrt, self.colLmz, self.colIonMode,
-                         self.positiveScanEvent, self.negativeScanEvent, self.ppm, self.maxRTShift, self.scales,
-                         self.snrTH, self.smoothingWindow, self.smoothingWindowSize, self.smoothingWindowPolynom)
+                         self.positiveScanEvent, self.negativeScanEvent, self.ppm, self.maxRTShift,
+                         self.smoothingWindow, self.smoothingWindowSize, self.smoothingWindowPolynom)
 
         # ask to release used memory
         self.t.freeMe()

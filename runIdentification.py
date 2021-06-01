@@ -1054,17 +1054,13 @@ class RunIdentification:
 
                     peaksN = []
                     try:
-                        peaksN = self.CP.getPeaksFor(times,
-                                                     eicSmoothed,
-                                                     scales=self.scales, snrTh=self.snrTh, startIndex=startIndex, endIndex=endIndex)
+                        peaksN = self.CP.getPeaksFor(times,eicSmoothed,startIndex=startIndex, endIndex=endIndex)
                     except Exception as ex:
                         self.printMessage("Errora: %s" % str(ex), type="error")
 
                     peaksL = []
                     try:
-                        peaksL = self.CP.getPeaksFor(times,
-                                                     eicLSmoothed,
-                                                     scales=self.scales, snrTh=self.snrTh, startIndex=startIndex, endIndex=endIndex)
+                        peaksL = self.CP.getPeaksFor(times,eicLSmoothed,startIndex=startIndex, endIndex=endIndex)
                     except Exception as ex:
                         self.printMessage("Errorb: %s" % str(ex), type="error")
 
@@ -2296,10 +2292,10 @@ class RunIdentification:
         features=[]
 
         for chromPeak in SQLSelectAsObject(curs,
-                                           "SELECT c.id AS id, c.mz AS mz, c.lmz AS lmz, c.xcount AS xCount, c.Loading AS loading, c.NPeakCenterMin AS NPeakCenterMin FROM chromPeaks c",
+                                           "SELECT c.id AS id, c.mz AS mz, c.lmz AS lmz, c.xcount AS xCount, c.Loading AS loading, c.NPeakCenterMin AS NPeakCenterMin, c.ionMode AS ionMode FROM chromPeaks c",
                                            newObject=ChromPeakPair):
             b = Bunch(id=chromPeak.id, ogroup="-1", mz=chromPeak.mz, rt=chromPeak.NPeakCenterMin, Xn=chromPeak.xCount,
-                      lmz=chromPeak.lmz, charge=chromPeak.loading, name=chromPeak.id)
+                      lmz=chromPeak.lmz, charge=chromPeak.loading, name=chromPeak.id, ionMode=chromPeak.ionMode)
             features.append(b)
 
         exportAsFeatureML.writeFeatureListToFeatureML(features, forFile+".featureML", ppmPM=self.ppm, rtPM=0.25*60)
@@ -3128,7 +3124,7 @@ class RunIdentification:
             self.postMessageToProgressWrapper("text", "Initialising")
 
             if not USEGRADIENTDESCENDPEAKPICKING:
-                self.CP = MassSpecWavelet(self.chromPeakFile)
+                self.CP = MassSpecWavelet(self.chromPeakFile, scales=self.scales, snrTh=self.snrTh, minScans=self.hAMinScans)
             else:
                 from chromPeakPicking.GradientPeaks import GradientPeaks
                 self.CP=GradientPeaks()                                                                       ## generic gradient descend peak picking - do not use. Parameters need to be optimized

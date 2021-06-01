@@ -28,9 +28,10 @@ def writeFeatureListToFeatureML(features, toFile, ppmPM=5, rtPM=0.25*60):
         z      =feature.charge
         name   =feature.name
         xn     =feature.Xn
+        ionMode = feature.ionMode
 
         fileLineArray.append('		<feature id="%s">'%(num))
-        fileLineArray.append('			<UserParam type="string" name="label" value="%s (Num: %s, OGroup: %s, MZ: %.5f, RT (min): %.2f, Charge: %d, Xn: %s)"/>'%(name, num, grpNum, mz, rt, z, xn))
+        fileLineArray.append('			<UserParam type="string" name="label" value="%s (Num: %s, OGroup: %s, MZ: %.5f, RT (min): %.2f, Charge: %d, Xn: %s, ionMode: %s)"/>'%(name, num, grpNum, mz, rt, z, xn, ionMode))
         fileLineArray.append('			<position dim="0">%f</position>'%(rt))
         fileLineArray.append('			<position dim="1">%f</position>'%(mz))
         fileLineArray.append('			<charge>%d</charge>'%(z))
