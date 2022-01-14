@@ -232,7 +232,7 @@ import sys
 sys.setrecursionlimit(5000)
 setup(console=[a,b,c,d,e],
       options={"py2exe": {
-                 "includes": ["sip", "matplotlib.backends.backend_tkagg", 'scipy', 'scipy.integrate', 'scipy.special.*','scipy.linalg.*', 'scipy.sparse.csgraph._validation'],  # use this line if above does not work
+                 "includes": ["sip", "matplotlib.backends.backend_tkagg", 'scipy', 'scipy.integrate', 'scipy.special.*','scipy.linalg.*', 'scipy.sparse.csgraph._validation', 'scipy._lib.messagestream'],  # use this line if above does not work
                  "dll_excludes": ["MSVCP90.dll", "api-ms-win-core-string-l1-1-0.dll","api-ms-win-core-registry-l1-1-0.dll","api-ms-win-core-errorhandling-l1-1-0.dll","api-ms-win-core-string-l2-1-0.dll",
                                   "api-ms-win-core-profile-l1-1-0.dll","api-ms-win*.dll","api-ms-win-core-processthreads-l1-1-2.dll","api-ms-win-core-libraryloader-l1-2-1.dll","api-ms-win-core-file-l1-2-1.dll",
                                   "api-ms-win-security-base-l1-2-0.dll","api-ms-win-eventing-provider-l1-1-0.dll","api-ms-win-core-heap-l2-1-0.dll","api-ms-win-core-libraryloader-l1-2-0.dll","api-ms-win-core-localization-l1-2-1.dll",
@@ -346,46 +346,8 @@ except:
     pass
 sleep(3)
 print "\n\n\n\n"
-shutil.copytree("./../BootstrapKnitr_Template", "./BootstrapKnitr_Template")
-shutil.rmtree("./BootstrapKnitr_Template/.git", onerror = on_rm_error)
-shutil.rmtree("./BootstrapKnitr_Template/versions", onerror = on_rm_error)
-shutil.rmtree("./BootstrapKnitr_Template/WSImages", onerror = on_rm_error)
-zipF = zipfile.ZipFile("./distribute/BootstrapKnitr_Example.zip", 'w', allowZip64 = True)
-zipdir("./BootstrapKnitr_Template", zipF)
-zipF.close()
-rmtree("./BootstrapKnitr_Template", onerror = on_rm_error)
-sleep(3)
-print "BootstrapKnitr example zipped"
 
 
-
-
-try:
-    sleep(3)
-    rmtree("./BootstrapKnitr_Template")
-except:
-    pass
-shutil.copytree("./../BootstrapKnitr_Template", "./BootstrapKnitr_Template")
-shutil.rmtree("./BootstrapKnitr_Template/.git", onerror = on_rm_error)
-shutil.rmtree("./BootstrapKnitr_Template/.Rproj.user", onerror = on_rm_error)
-shutil.rmtree("./BootstrapKnitr_Template/convolutedFeatures", onerror = on_rm_error)
-shutil.rmtree("./BootstrapKnitr_Template/dataIn", onerror = on_rm_error)
-shutil.rmtree("./BootstrapKnitr_Template/dataOut", onerror = on_rm_error)
-shutil.rmtree("./BootstrapKnitr_Template/demoData", onerror = on_rm_error)
-shutil.rmtree("./BootstrapKnitr_Template/figure", onerror = on_rm_error)
-shutil.rmtree("./BootstrapKnitr_Template/versions", onerror = on_rm_error)
-shutil.rmtree("./BootstrapKnitr_Template/WSImages", onerror = on_rm_error)
-os.unlink("./BootstrapKnitr_Template/BootstrapKnitr_Template.html")
-os.unlink("./BootstrapKnitr_Template/BootstrapKnitr_Template.md")
-os.unlink("./BootstrapKnitr_Template/lastVersion.R")
-os.unlink("./BootstrapKnitr_Template/BootstrapKnitr_Template.Rproj")
-
-zipF = zipfile.ZipFile("./distribute/BootstrapKnitr_Template.zip", 'w')
-zipdir("./BootstrapKnitr_Template", zipF)
-zipF.close()
-rmtree("./BootstrapKnitr_Template", onerror = on_rm_error)
-
-print "BootstrapKnitr_Template zipped"
 
 
 

@@ -87,9 +87,9 @@ def combineResults(experiments, experimentsOrder, saveToFile,
         results[expDesc]={}
         for row in res.data:
             num = getattr(row, numCol)
-            setattr(row, numCol, str(int(int(num)+(expi+1)*1E6)))
+            setattr(row, numCol, expDesc+str(num))
             ogroup = getattr(row, "OGroup")
-            setattr(row, "OGroup", str(int(int(ogroup)+(expi+1)*1E6)))
+            setattr(row, "OGroup", expDesc+str(ogroup))
 
             results[expDesc][num] = row
 
@@ -169,7 +169,7 @@ def combineResults(experiments, experimentsOrder, saveToFile,
                         for t in importantCols:
                             rowVals.append(getattr(results[expDesc][possibleHits[expDesc][0]], t))
                     else:
-                        rowVals.extend([";".join([str(t) for t in possibleHits[expDesc]]),
+                        rowVals.extend([";".join([expDesc+str(t) for t in possibleHits[expDesc]]),
                                         "%f"%(sum([getattr(results[expDesc][t], mzCol) for t in possibleHits[expDesc]])/len(possibleHits[expDesc])),
                                         ";".join(["%.2f"%getattr(results[expDesc][t], rtCol) for t in possibleHits[expDesc]]),
                                         ";".join([str(getattr(results[expDesc][t], xnCol)) for t in possibleHits[expDesc]]),

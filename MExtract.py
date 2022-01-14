@@ -199,18 +199,25 @@ def checkRDependencies(r):
 
     antiVirusMessage=True
 
-
     # Check each dependency, if it is installed and update the dialog accordingly
     missingDependency = False
-    for dep in ["waveslim", "signal", "ptw", "MASS", "baseline"]:
+    for dep in ["waveslim", "ptw", "MASS", "baseline"]:
         if str(r("is.installed(\"%s\")" % dep)[0]).lower() == "true":
             dialog.setDependencyStatus(dep, RPackageAvailable)
         else:
-            if antiVirusMessage:
-                QtGui.QMessageBox.warning(None, "MetExtract", "Certain antivirus programs may cause problems during the installation of R-packages. Please deactivate them now for a proper installation of the software and make sure that you are connected to the internet.", QtGui.QMessageBox.Ok)
-                antiVirusMessage = False
             logging.info("installing %s.." % dep)
             r("install.packages(\"%s\", repos='http://cran.us.r-project.org')" % dep)
+            if str(r("is.installed(\"%s\")" % dep)[0]).lower() == "true":
+                dialog.setDependencyStatus(dep, RPackageAvailable)
+            else:
+                dialog.setDependencyStatus(dep, RPackageError)
+                missingDependency = True
+    for dep in ["signal"]:
+        if str(r("is.installed(\"%s\")" % dep)[0]).lower() == "true":
+            dialog.setDependencyStatus(dep, RPackageAvailable)
+        else:
+            logging.info("installing %s.." % dep)
+            r("install.packages(\"%s\", repos='https://cran.microsoft.com/snapshot/2019-10-04/')" % dep)
             if str(r("is.installed(\"%s\")" % dep)[0]).lower() == "true":
                 dialog.setDependencyStatus(dep, RPackageAvailable)
             else:
@@ -221,10 +228,6 @@ def checkRDependencies(r):
         if str(r("is.installed(\"%s\")" % dep)[0]).lower() == "true":
             dialog.setDependencyStatus(dep, RPackageAvailable)
         else:
-            if antiVirusMessage:
-                QtGui.QMessageBox.warning(None, "MetExtract", "Certain antivirus programs may cause problems during the installation of R-packages. Please deactivate them now for a proper installation of the software and make sure that you are connected to the internet.",QtGui.QMessageBox.Ok)
-                antiVirusMessage = False
-
             logging.info("installing %s.." % dep)
             r("source(\"http://bioconductor.org/biocLite.R\")")
             r("biocLite(\"%s\", suppressUpdates=TRUE)" % dep)
@@ -234,11 +237,14 @@ def checkRDependencies(r):
                 dialog.setDependencyStatus(dep, RPackageError)
                 missingDependency = True
 
+    dialog.hide()
+
     if not antiVirusMessage:
         QtGui.QMessageBox.warning(None, "MetExtract", "The antivirus protection can now be reactivated", QtGui.QMessageBox.Ok)
 
     if missingDependency:
         QtGui.QMessageBox.warning(None, "MetExtract", "Error: some packages have not been installed successfully. Please retry or contact your system administrator.\nSee the console for further informatin about the installation errors.", QtGui.QMessageBox.Ok)
+
 
     dialog.hide()
 
@@ -539,8 +545,10 @@ class procAreaInFile:
         nFound = False
         if r is not None:
             area, abundance = r
-            oldData[self.colInd[colToProc + "_Area_N"]] = area
-            oldData[self.colInd[colToProc + "_Abundance_N"]] = abundance
+            if self.addPeakArea:
+                oldData[self.colInd[colToProc + "_Area_N"]] = area
+            if self.addPeakAbundance:
+                oldData[self.colInd[colToProc + "_Abundance_N"]] = abundance
 
             nFound = True
 
@@ -554,13 +562,12 @@ class procAreaInFile:
         lFound = False
         if r is not None:
             area, abundance = r
-            oldData[self.colInd[colToProc + "_Area_L"]] = area
-            oldData[self.colInd[colToProc + "_Abundance_L"]] = abundance
+            if self.addPeakArea:
+                oldData[self.colInd[colToProc + "_Area_L"]] = area
+            if self.addPeakAbundance:
+                oldData[self.colInd[colToProc + "_Abundance_L"]] = abundance
 
             lFound = True
-
-        if nFound and lFound:
-            oldData[self.colInd[colToProc + "_fold"]] = oldData[self.colInd[colToProc + "_Area_N"]] / oldData[self.colInd[colToProc + "_Area_L"]]
 
 
         self.done += 1
@@ -600,7 +607,7 @@ class procAreaInFile:
     # set re-integration parameters for the current sub-process
     def setParams(self, oldDataFile, headers, colToProc, colmz, colrt, colxcount, colloading, colLmz, colIonMode,
                   positiveScanEvent, negativeScanEvent, colnum, ppm, maxRTShift, scales, reintegrateIntensityCutoff, snrTH,
-                  smoothingWindow, smoothingWindowSize, smoothingWindowPolynom):
+                  smoothingWindow, smoothingWindowSize, smoothingWindowPolynom, addPeakArea, addPeakAbundance):
         self.oldDataFile = oldDataFile
         self.headers = headers
 
@@ -627,6 +634,9 @@ class procAreaInFile:
         self.smoothingWindow=smoothingWindow
         self.smoothingWindowSize=smoothingWindowSize
         self.smoothingWindowPolynom=smoothingWindowPolynom
+
+        self.addPeakArea = addPeakArea
+        self.addPeakAbundance = addPeakAbundance
 
         self.queue = None
         self.pID = None
@@ -706,7 +716,7 @@ def interruptReIntegrateFilesProcessing(pool, selfObj):
     else:
         return False # don't close progresswrapper and continue processing files
 
-def integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colloading, colLmz, colIonMode, colnum,
+def integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colloading, colLmz, colIonMode, colnum, addPeakArea, addPeakAbundance,
                           ppm=5., maxRTShift=0.25, scales=[3,19], reintegrateIntensityCutoff=0, snrTH=1, smoothingWindow=None, smoothingWindowSize=0, smoothingWindowPolynom=0,
                           positiveScanEvent="None", negativeScanEvent="None", pw=None, selfObj=None, cpus=1, start=0):
 
@@ -730,7 +740,7 @@ def integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colloadi
         #     writeConfig=False
 
     if len(colToProcCur)>0:
-        _integrateResultsFile(file, toF, colToProcCur, colmz, colrt, colxcount, colloading, colLmz, colIonMode, colnum,
+        _integrateResultsFile(file, toF, colToProcCur, colmz, colrt, colxcount, colloading, colLmz, colIonMode, colnum, addPeakArea, addPeakAbundance,
                               ppm, maxRTShift, scales, reintegrateIntensityCutoff, snrTH, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom,
                               positiveScanEvent, negativeScanEvent, pw, selfObj, cpus, pwOffset=pwOffset, totalFilesToProc=len(colToProc),
                               writeConfig=writeConfig, start=start)
@@ -749,7 +759,7 @@ def writeReintegrateConfigToDB(curs, maxRTShift, negativeScanEvent, positiveScan
     SQLInsert(curs, "config", key="FPREINT_negativeScanEvent", value=str(negativeScanEvent))
 
 
-def _integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colloading, colLmz, colIonMode, colnum,
+def _integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colloading, colLmz, colIonMode, colnum, addPeakArea, addPeakAbundance,
                          ppm=5.,maxRTShift=0.25, scales=[3, 19], reintegrateIntensityCutoff=0, snrTH=1, smoothingWindow=None, smoothingWindowSize=0, smoothingWindowPolynom=0,
                          positiveScanEvent="None", negativeScanEvent="None",pw=None, selfObj=None, cpus=1, pwOffset=0,totalFilesToProc=1,
                          writeConfig=True, start=0):
@@ -776,18 +786,17 @@ def _integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colload
         if str.isdigit(col[0]):
             col = "_" + col
 
-        if col + "_Area_N" not in cols:
+
+        if col + "_Area_N" not in cols and addPeakArea:
             table.addColumn(col + "_Area_N", "FLOAT")
-        if col + "_Area_L" not in cols:
+        if col + "_Area_L" not in cols and addPeakArea:
             table.addColumn(col + "_Area_L", "FLOAT")
 
-        if col + "_Abundance_N" not in cols:
+        if col + "_Abundance_N" not in cols and addPeakAbundance:
             table.addColumn(col + "_Abundance_N", "FLOAT")
-        if col + "_Abundance_L" not in cols:
+        if col + "_Abundance_L" not in cols and addPeakAbundance:
             table.addColumn(col + "_Abundance_L", "FLOAT")
 
-        if col + "_fold" not in cols:
-            table.addColumn(col + "_fold", "FLOAT")
 
 
     TableUtils.saveFile(table, file+".tmp.tsv")
@@ -823,7 +832,7 @@ def _integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colload
 
         u.setParams(file+".tmp.tsv", [x.getName() for x in table.getColumns()], s, colmz, colrt, colxcount, colloading,
                     colLmz, colIonMode, positiveScanEvent, negativeScanEvent, colnum, ppm, maxRTShift, scales, reintegrateIntensityCutoff, snrTH,
-                    smoothingWindow, smoothingWindowSize, smoothingWindowPolynom)
+                    smoothingWindow, smoothingWindowSize, smoothingWindowPolynom, addPeakArea, addPeakAbundance)
         u.setMultiProcessingQueue(queue, i)
 
         toProcFiles.append(u)
@@ -2966,70 +2975,74 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             freeSlots = range(min(len(files), cpus))
             assignedThreads = {}
             while loop and not self.terminateJobs:
-                completed = res._index
-                if completed == len(files):
-                    loop = False
-                else:
-                    pwMain("value")(completed)
+                try:
+                    completed = res._index
+                    if completed == len(files):
+                        loop = False
+                    else:
+                        pwMain("value")(completed)
 
-                    mess = {}
-                    while not (queue.empty()):
-                        mes = queue.get(block=False, timeout=1)
-                        if mes.pid not in mess:
-                            mess[mes.pid] = {}
-                        mess[mes.pid][mes.mes] = mes
+                        mess = {}
+                        while not (queue.empty()):
+                            mes = queue.get(block=False, timeout=1)
+                            if mes.pid not in mess:
+                                mess[mes.pid] = {}
+                            mess[mes.pid][mes.mes] = mes
 
-                    for v in mess.values():
-                        if "end" in v.keys() or "failed" in v.keys():
-                            mes = None
-                            if "end" in v.keys():
-                                mes = v["end"]
-                            elif "failed" in v.keys():
-                                mes = v["failed"]
-                                failedFiles.append(pIds[mes.pid])
-                            freeS = assignedThreads[mes.pid]
-                            pw.getCallingFunction(assignedThreads[mes.pid] + 1)("text")("")
-                            pw.getCallingFunction(assignedThreads[mes.pid] + 1)("value")(0)
+                        for v in mess.values():
+                            if "end" in v.keys() or "failed" in v.keys():
+                                mes = None
+                                if "end" in v.keys():
+                                    mes = v["end"]
+                                elif "failed" in v.keys():
+                                    mes = v["failed"]
+                                    failedFiles.append(pIds[mes.pid])
+                                freeS = assignedThreads[mes.pid]
+                                pw.getCallingFunction(assignedThreads[mes.pid] + 1)("text")("")
+                                pw.getCallingFunction(assignedThreads[mes.pid] + 1)("value")(0)
 
-                            pw.getCallingFunction()("statuscolor")(pIds[mes.pid],"olivedrab" if mes.mes == "end" else "firebrick")
-                            pw.getCallingFunction()("statustext")(pIds[mes.pid], text="File: %s\nStatus: %s" % (pIds[mes.pid], "finished" if mes.mes == "end" else "failed"))
+                                pw.getCallingFunction()("statuscolor")(pIds[mes.pid],"olivedrab" if mes.mes == "end" else "firebrick")
+                                pw.getCallingFunction()("statustext")(pIds[mes.pid], text="File: %s\nStatus: %s" % (pIds[mes.pid], "finished" if mes.mes == "end" else "failed"))
 
-                            if freeS == -1:
-                                logging.error("Something went wrong..")
-                                logging.error("Progress bars do not work correctly, but files will be processed and \"finished..\" will be printed..")
-                            else:
-                                assignedThreads[mes.pid] = -1
-                                freeSlots.append(freeS)
-
-                    for v in mess.values():
-                        if "start" in v.keys():
-                            mes = v["start"]
-                            if len(freeSlots) > 0:
-                                w = freeSlots.pop()
-                                assignedThreads[mes.pid] = w
-
-                                pw.getCallingFunction()("statuscolor")(pIds[mes.pid], "orange")
-                                pw.getCallingFunction()("statustext")(pIds[mes.pid],text="File: %s\nStatus: %s\nProcess ID: %d" % (pIds[mes.pid], "processing", mes.pid))
-                            else:
-                                logging.error("Something went wrong..")
-                                logging.error("Progress bars do not work correctly, but files will be processed and \"finished..\" will be printed..")
-
-                    for v in mess.values():
-                        for mes in v.values():
-                            if mes.mes in ["log", "text", "max", "value"]:
-                                if assignedThreads.has_key(mes.pid):
-                                    pw.getCallingFunction(assignedThreads[mes.pid] + 1)(mes.mes)(mes.val)
+                                if freeS == -1:
+                                    logging.error("Something went wrong..")
+                                    logging.error("Progress bars do not work correctly, but files will be processed and \"finished..\" will be printed..")
                                 else:
-                                    logging.error("Error %d" % mes.pid)
+                                    assignedThreads[mes.pid] = -1
+                                    freeSlots.append(freeS)
 
-                    elapsed = (time.time() - start) / 60.
-                    hours = ""
-                    if elapsed >= 60.:
-                        hours = "%d hours " % (elapsed // 60)
-                    mins = "%.2f mins" % (elapsed % 60.)
-                    pwMain("text")("<p align='right' >%s%s elapsed</p>\n\n%d / %d files done (%d parallel)" % (
-                        hours, mins, completed, len(files), min(cpus, len(files))))
-                    time.sleep(.5)
+                        for v in mess.values():
+                            if "start" in v.keys():
+                                mes = v["start"]
+                                if len(freeSlots) > 0:
+                                    w = freeSlots.pop()
+                                    assignedThreads[mes.pid] = w
+
+                                    pw.getCallingFunction()("statuscolor")(pIds[mes.pid], "orange")
+                                    pw.getCallingFunction()("statustext")(pIds[mes.pid],text="File: %s\nStatus: %s\nProcess ID: %d" % (pIds[mes.pid], "processing", mes.pid))
+                                else:
+                                    logging.error("Something went wrong..")
+                                    logging.error("Progress bars do not work correctly, but files will be processed and \"finished..\" will be printed..")
+
+                        for v in mess.values():
+                            for mes in v.values():
+                                if mes.mes in ["log", "text", "max", "value"]:
+                                    if assignedThreads.has_key(mes.pid):
+                                        pw.getCallingFunction(assignedThreads[mes.pid] + 1)(mes.mes)(mes.val)
+                                    else:
+                                        logging.error("Error %d" % mes.pid)
+
+                        elapsed = (time.time() - start) / 60.
+                        hours = ""
+                        if elapsed >= 60.:
+                            hours = "%d hours " % (elapsed // 60)
+                        mins = "%.2f mins" % (elapsed % 60.)
+                        pwMain("text")("<p align='right' >%s%s elapsed</p>\n\n%d / %d files done (%d parallel)" % (
+                            hours, mins, completed, len(files), min(cpus, len(files))))
+                        time.sleep(.5)
+                except Exception as exc:
+                    import traceback
+                    traceback.print_exc()
 
             # Log time used for processing of individual files
             elapsed = (time.time() - start) / 60.
@@ -3140,6 +3153,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                 positiveScanEvent=str(self.ui.positiveScanEvent.currentText()),
                                                 negativeScanEvent=str(self.ui.negativeScanEvent.currentText()),
                                                 file=resFileFull,
+                                                expApexIntensity = bool(self.ui.checkBox_expPeakApexIntensity.checkState() == QtCore.Qt.Checked),
+                                                expPeakArea = bool(self.ui.checkBox_expPeakArea.checkState() == QtCore.Qt.Checked),
                                                 align=(self.ui.alignChromatograms.checkState() == QtCore.Qt.Checked),
                                                 nPolynom=self.ui.polynomValue.value(),
                                                 rVersion=getRVersion(), meVersion="MetExtract (%s)" % MetExtractVersion,
@@ -3189,30 +3204,15 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                         outputOrder = []
 
                         pw.getCallingFunction()("text")("Adding statistics columns\n")
-                        if False:
-                            for group in definedGroups:
-                                preFix="_Stat_N"
-                                grpName=group.name+preFix
-                                grpAdd(groups, group.name+preFix, group.minFound,
-                                       [grp[(grp.rfind("/") + 1):max(grp.lower().rfind(".mzxml"), grp.lower().rfind(".mzml"))] + "_Area_N" for grp in
-                                        natSort(group.files)])
-                                outputOrder.append(grpName)
-                            for group in definedGroups:
-                                preFix="_Stat_L"
-                                grpName=group.name+preFix
-                                grpAdd(groups, group.name+preFix, group.minFound,
-                                       [grp[(grp.rfind("/") + 1):max(grp.lower().rfind(".mzxml"), grp.lower().rfind(".mzml"))] + "_Area_L" for grp in
-                                        natSort(group.files)])
-                                outputOrder.append(grpName)
                         grpStats=[]
                         for group in definedGroups:
-                            preFix="_Stat_fold"
+                            preFix="_Stat"
                             grpName=group.name+preFix
                             grpAdd(groups, group.name+preFix, group.minFound,
-                                   [grp[(grp.rfind("/") + 1):max(grp.lower().rfind(".mzxml"), grp.lower().rfind(".mzml"))] + "_fold" for grp in
+                                   [grp[(grp.rfind("/") + 1):max(grp.lower().rfind(".mzxml"), grp.lower().rfind(".mzml"))] + ("_FID")  for grp in
                                     natSort(group.files)])
                             outputOrder.append(grpName)
-                            grpStats.append((str(group.name+"_Stat_fold"), group.minFound, group.omitFeatures, group.removeAsFalsePositive))
+                            grpStats.append((str(group.name+"_Stat"), group.minFound, group.omitFeatures, group.removeAsFalsePositive))
 
                         addStatsColumnToResults(resFileFull, groups, resFileFull, outputOrder)
 
@@ -3393,6 +3393,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                     integrateResultsFile(resFileFull, resFileFull, fDict, "MZ",
                                          "RT", "Xn", "Charge", "L_MZ", "Ionisation_Mode", "Num",
+                                         addPeakArea = bool(self.ui.checkBox_expPeakArea.checkState() == QtCore.Qt.Checked),
+                                         addPeakAbundance = bool(self.ui.checkBox_expPeakApexIntensity.checkState() == QtCore.Qt.Checked),
                                          ppm=self.ui.groupPpm.value(),
                                          maxRTShift=self.ui.integrationMaxTimeDifference.value(),
                                          scales=[self.ui.wavelet_minScale.value(), self.ui.wavelet_maxScale.value()],
@@ -3526,7 +3528,13 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             hits[hit.dbName].append("(Name: %s, Type: %s, Num: %s, Formula: %s, RT: %s, MassErrorPPM: %.5f, MassErrorMass: %.5f, Additional information: %s)" % (hit.name, hit.hitType, hit.num, hit.sumFormula, hit.rt_min, hit.matchErrorPPM, hit.matchErrorMass, hit.additionalInfo))
                             if hit.rt_min!="":
                                 try:
-                                    hitsRT[hit.dbName].append((abs(float(hit.rt_min)-rt_min), "RT delta: %.2f (Name: %s Type: %s, Num: %s, Formula: %s, RT: %s, MassErrorPPM: %.5f, MassErrorMass: %.5f, Additional information: %s)" % (abs(float(hit.rt_min)-rt_min), hit.name, hit.hitType, hit.num, hit.sumFormula, hit.rt_min, hit.matchErrorPPM, hit.matchErrorMass, hit.additionalInfo)))
+                                    rtDelta = -1
+                                    try:
+                                        rtDelta = abs(float(hit.rt_min)-rt_min)
+                                    except:
+                                        pass
+
+                                    hitsRT[hit.dbName].append((rtDelta, "RT delta: %.2f (Name: %s Type: %s, Num: %s, Formula: %s, RT: %s, MassErrorPPM: %.5f, MassErrorMass: %.5f, Additional information: %s)" % (rtDelta, hit.name, hit.hitType, hit.num, hit.sumFormula, hit.rt_min, hit.matchErrorPPM, hit.matchErrorMass, hit.additionalInfo)))
                                 except :
                                     logging.error("   Error in database entry hit: %s"%("(Name: %s, Type: %s, Num: %s, Formula: %s, RT: %s, MassErrorPPM: %.5f, MassErrorMass: %.5f, Additional information: %s)" % (hit.name, hit.hitType, hit.num, hit.sumFormula, hit.rt_min, hit.matchErrorPPM, hit.matchErrorMass, hit.additionalInfo)))
 
@@ -3653,15 +3661,15 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
 
             ## Organize table a bit better
-            impCols=["Num", "OGroup", "Comment", "MZ", "RT", "Xn", "Charge", "Ionisation_Mode", "AverageAbundance_N", "AverageAbundance_L", "DetectedInNSamples_N", "DetectedInNSamples_L", "RelativeAbundance", "Ion", "Loss", "M", "L_MZ", "D_MZ", "MZ_Range", "RT_Range", "PeakScalesNL", "ScanEvent", "Tracer"]
+            impCols=["Num", "OGroup", "Comment", "MZ", "RT", "Xn", "Charge", "Ionisation_Mode", "Ion", "Loss", "M", "L_MZ", "D_MZ", "MZ_Range", "RT_Range", "PeakScalesNL", "ScanEvent", "Tracer"]
             frontCols=[]
             endCols=[]
             table = TableUtils.readFile(resFileFull)
-            table.addColumn("AverageAbundance_N", "FLOAT", defaultValue=0.)
-            table.addColumn("AverageAbundance_L", "FLOAT", defaultValue=0.)
-            table.addColumn("DetectedInNSamples_N", "INTEGER", defaultValue=0)
-            table.addColumn("DetectedInNSamples_L", "INTEGER", defaultValue=0)
-            table.addColumn("RelativeAbundance", "TEXT", defaultValue="")
+            #table.addColumn("Average_N", "FLOAT", defaultValue=0.)
+            #table.addColumn("Average_L", "FLOAT", defaultValue=0.)
+            #table.addColumn("DetectedInNSamples_N", "INTEGER", defaultValue=0)
+            #table.addColumn("DetectedInNSamples_L", "INTEGER", defaultValue=0)
+            #table.addColumn("RelativeAbundance", "TEXT", defaultValue="")
             for col in table.getColumns():
                 nam=str(col.name)
 
@@ -3672,7 +3680,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     frontCols.append(nam)
                     continue
 
-                if nam.endswith("_Stat_fold") or nam=="doublePeak":
+                if nam.endswith("_Stat") or nam=="doublePeak":
                     continue
 
                 endCols.append(nam)
@@ -3696,31 +3704,32 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
             for ogroup in ogroups:
                 numsInGroup=set([ogroup for ogroup in table.getData(["Num"], where="OGroup=%d"%ogroup)])
 
-                abu={}
-                sum=0
-                for num in numsInGroup:
-                    abundances=table.getData([fi+"_Area_N" for fi in filesForConvolution], where="Num=%d"%num)[0]
-                    if len(filesForConvolution)==1:
-                        table.setData(["AverageAbundance_N", "DetectedInNSamples_N"], [abundances, 1], where="Num=%d"%num)
-                    else:
-                        av=mean([ab for ab in abundances if ab!=""])
-                        table.setData(["AverageAbundance_N", "DetectedInNSamples_N"], [av, len([ab for ab in abundances if ab!=""])], where="Num=%d"%num)
-
-                    abundances=table.getData([fi+"_Area_L" for fi in filesForConvolution], where="Num=%d"%num)[0]
-                    if len(filesForConvolution)==1:
-                        table.setData(["AverageAbundance_L", "DetectedInNSamples_L"], [abundances, 1], where="Num=%d"%num)
-                        abu[num]=abundances
-                        sum=sum+abundances
-                    else:
-                        av=mean([ab for ab in abundances if ab!=""])
-                        table.setData(["AverageAbundance_L", "DetectedInNSamples_L"], [av, len([ab for ab in abundances if ab!=""])], where="Num=%d"%num)
-
-                        abu[num]=av
-                        sum=sum+av
-
-                if len(numsInGroup)>1:
+                if False:
+                    abu={}
+                    sum=0
                     for num in numsInGroup:
-                        table.setData(["RelativeAbundance"], ["%.1f%%"%(abu[num]/sum*100.)], where="Num=%d"%num)
+                        abundances=table.getData([fi+"_Area_N" for fi in filesForConvolution], where="Num=%d"%num)[0]
+                        if len(filesForConvolution)==1:
+                            table.setData(["Average_N", "DetectedInNSamples_N"], [abundances, 1], where="Num=%d"%num)
+                        else:
+                            av=mean([ab for ab in abundances if ab!=""])
+                            table.setData(["Average_N", "DetectedInNSamples_N"], [av, len([ab for ab in abundances if ab!=""])], where="Num=%d"%num)
+
+                        abundances=table.getData([fi+"_Area_L" for fi in filesForConvolution], where="Num=%d"%num)[0]
+                        if len(filesForConvolution)==1:
+                            table.setData(["Average_L", "DetectedInNSamples_L"], [abundances, 1], where="Num=%d"%num)
+                            abu[num]=abundances
+                            sum=sum+abundances
+                        else:
+                            av=mean([ab for ab in abundances if ab!=""])
+                            table.setData(["Average_L", "DetectedInNSamples_L"], [av, len([ab for ab in abundances if ab!=""])], where="Num=%d"%num)
+
+                            abu[num]=av
+                            sum=sum+av
+
+                    if len(numsInGroup)>1:
+                        for num in numsInGroup:
+                            table.setData(["Relative"], ["%.1f%%"%(abu[num]/sum*100.)], where="Num=%d"%num)
 
             TableUtils.saveFile(table, resFileFull, cols=order)
 
@@ -4209,7 +4218,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     try:
                         row.xcount=int(row.xcount)
                     except Exception:
-                        pass  ## double labeling experiment. That's fine
+                        import traceback
+                        traceback.print_exc()  ## double labeling experiment. That's fine
 
                     xp = ChromPeakPair(NPeakCenter=int(row.NPeakCenter), LPeakScale=float(row.LPeakScale), LPeakCenter=int(row.LPeakCenter),
                                    NPeakScale=float(row.NPeakScale), NSNR=0, NPeakArea=-1, mz=float(row.mz), lmz=float(row.lmz), xCount=row.xcount,
@@ -4245,7 +4255,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 it.setText(1, "%d" % count)
 
             except:
-                pass
+                import traceback
+                traceback.print_exc()
 
 
             try:

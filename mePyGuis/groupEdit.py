@@ -98,7 +98,7 @@ class groupEdit(QtGui.QDialog, Ui_GroupEditor):
     def selectFiles(self):
         filenames = QtGui.QFileDialog.getOpenFileNames(self, caption="Select group file(s)", directory=self.initDir,
                                                        filter="mzXML (*.mzxml);;mzML (*.mzml);;group file (*.grp);;All files (*.*)")
-
+        filenames = list(filenames)
         filenames=natSort(filenames)
 
         for filename in filenames:

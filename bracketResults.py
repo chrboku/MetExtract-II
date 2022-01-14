@@ -83,6 +83,7 @@ def writeConfigToDB(curs, align, file, groupSizePPM, maxLoading, maxTimeDeviatio
 # bracket results
 def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, negativeScanEvent=None,
                  maxTimeDeviation=0.36 * 60, maxLoading=1, file="./results.tsv", align=True, nPolynom=1,
+                 expPeakArea = True, expApexIntensity = True,
                  pwMaxSet=None, pwValSet=None, pwTextSet=None, rVersion="", meVersion="", generalProcessingParams=Bunch(), start=0):
 
 
@@ -91,6 +92,8 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
     if os.path.exists(file+getDBSuffix()) and os.path.isfile(file+getDBSuffix()):
         os.remove(file+getDBSuffix())
     resDB.conn=connect(file+getDBSuffix())
+    #conn.execute('''PRAGMA synchronous = OFF''')
+    #conn.execute('''PRAGMA journal_mode = OFF''')
     resDB.curs=resDB.conn.cursor()
 
     try:
@@ -130,7 +133,9 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
             SQLInsert(resDB.curs, "FileGroups", groupName=key, id=i)
 
             for ident in files:
-                conn = connect(ident + getDBSuffix())
+                conn = connect(ident + getDBSuffix(), isolation_level="DEFERRED")
+                conn.execute('''PRAGMA synchronous = OFF''')
+                conn.execute('''PRAGMA journal_mode = OFF''')
                 curs = conn.cursor()
                 fname=ident
                 if ".mzxml" in ident.lower():
@@ -150,14 +155,15 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
 
             f.write("Num\tComment\tMZ\tL_MZ\tD_MZ\tMZ_Range\tRT\tRT_Range\tPeakScalesNL\tXn\tCharge\tScanEvent\tIonisation_Mode\tTracer\tOGroup\tIon\tLoss\tM")
             for res in results:
-                f.write("\t" + res.fileName + "_Area_N")
-                f.write("\t" + res.fileName + "_Area_L")
-                f.write("\t" + res.fileName + "_Abundance_N")
-                f.write("\t" + res.fileName + "_Abundance_L")
-                f.write("\t" + res.fileName + "_FID")
-                f.write("\t" + res.fileName + "_GroupID")
-            for res in results:
-                f.write("\t" + res.fileName + "_fold")
+                if expPeakArea:
+                    f.write("\t" + res.fileName + "_Area_N")
+                    f.write("\t" + res.fileName + "_Area_L")
+                if expApexIntensity:
+                    f.write("\t" + res.fileName + "_Abundance_N")
+                    f.write("\t" + res.fileName + "_Abundance_L")
+                if True:
+                    f.write("\t" + res.fileName + "_FID")
+                    f.write("\t" + res.fileName + "_GroupID")
 
             f.write("\tdoublePeak")
             f.write("\n")
@@ -581,11 +587,8 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                                                     tracer=str(tracer))
 
                                                         doublePeak = 0
-                                                        toapp = ""
                                                         for j in range(len(results)):
                                                             res = results[j].filePath
-                                                            f.write("\t")
-                                                            toapp = toapp + "\t"
                                                             if groupedChromPeaks[i].has_key(res) and len(groupedChromPeaks[i][res]) > 0:
 
                                                                 for peak in groupedChromPeaks[i][res]:
@@ -595,81 +598,42 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                                                               LBorderLeft=peak[1].LBorderLeft, LBorderRight=peak[1].LBorderRight,
                                                                               areaN=peak[1].NPeakArea, areaL=peak[1].LPeakArea, featureType="foundPattern")
 
-                                                                appe = False
-                                                                for peak in groupedChromPeaks[i][res]:
-                                                                    if appe:
-                                                                        toapp = toapp + ";"
-                                                                        doublePeak = doublePeak + 1
-                                                                    else:
-                                                                        appe = True
-                                                                    toapp = toapp + str(peak[1].NPeakArea / peak[1].LPeakArea)
+                                                                doublePeak += 1 if len(groupedChromPeaks[i][res])>1 else 0
 
-                                                                # Area of native, monoisotopic isotopolog
-                                                                appe = False
-                                                                for peak in groupedChromPeaks[i][res]:
-                                                                    if appe:
-                                                                        f.write(";")
-                                                                    else:
-                                                                        appe = True
-                                                                    f.write(str(peak[1].NPeakArea))
+                                                                if expPeakArea:
+                                                                    f.write("\t")
+                                                                    # Area of native, monoisotopic isotopolog
+                                                                    f.write(";".join([str(peak[1].NPeakArea) for peak in groupedChromPeaks[i][res]]))
 
-                                                                f.write("\t")
-                                                                # Area of labeled isotopolog
-                                                                appe = False
-                                                                for peak in groupedChromPeaks[i][res]:
-                                                                    if appe:
-                                                                        f.write(";")
-                                                                    else:
-                                                                        appe = True
-                                                                    f.write(str(peak[1].LPeakArea))
+                                                                    f.write("\t")
+                                                                    # Area of labeled isotopolog
+                                                                    f.write(";".join([str(peak[1].LPeakArea) for peak in groupedChromPeaks[i][res]]))
 
-                                                                f.write("\t")
-                                                                # Abundance of native, monoisotopic isotopolog
-                                                                appe = False
-                                                                for peak in groupedChromPeaks[i][res]:
-                                                                    if appe:
-                                                                        f.write(";")
-                                                                    else:
-                                                                        appe = True
-                                                                    f.write(str(peak[1].NPeakAbundance))
+                                                                if expApexIntensity:
+                                                                    f.write("\t")
+                                                                    # Abundance of native, monoisotopic isotopolog
+                                                                    f.write(";".join([str(peak[1].NPeakAbundance) for peak in groupedChromPeaks[i][res]]))
 
-                                                                f.write("\t")
-                                                                # Abundance of labeled isotopolog
-                                                                appe = False
-                                                                for peak in groupedChromPeaks[i][res]:
-                                                                    if appe:
-                                                                        f.write(";")
-                                                                    else:
-                                                                        appe = True
-                                                                    f.write(str(peak[1].LPeakAbundance))
+                                                                    f.write("\t")
+                                                                    # Abundance of labeled isotopolog
+                                                                    f.write(";".join([str(peak[1].LPeakAbundance) for peak in groupedChromPeaks[i][res]]))
 
-                                                                f.write("\t")
-                                                                # Feature ID
-                                                                appe = False
-                                                                for peak in groupedChromPeaks[i][res]:
-                                                                    if appe:
-                                                                        f.write(";")
-                                                                    else:
-                                                                        appe = True
-                                                                    f.write("%d" % peak[1].id)
+                                                                if True:
+                                                                    f.write("\t")
+                                                                    # Feature ID
+                                                                    f.write(";".join([str(peak[1].id) for peak in groupedChromPeaks[i][res]]))
 
-                                                                f.write("\t")
-                                                                # Group ID
-                                                                appe = False
-                                                                for peak in groupedChromPeaks[i][res]:
-                                                                    if appe:
-                                                                        f.write(";")
-                                                                    else:
-                                                                        appe = True
-                                                                    try:
-                                                                        f.write("%d" % peak[1].fGroupID)
-                                                                    except Exception:
-                                                                        f.write("-1")
-                                                                        print peak[1], peak[1].fGroupID, results[j].fileName, peak[1].id
+                                                                    f.write("\t")
+                                                                    # Group ID
+                                                                    f.write(";".join([str(peak[1].fGroupID) for peak in groupedChromPeaks[i][res]]))
 
                                                             else:
-                                                                f.write("\t\t\t\t\t")
-                                                        f.write(toapp)
+                                                                if expPeakArea:
+                                                                    f.write("\t\t")
+                                                                if expApexIntensity:
+                                                                    f.write("\t\t")
+                                                                if True:
+                                                                    f.write("\t\t")
                                                         f.write("\t%d" % doublePeak)
                                                         f.write("\n")
 
@@ -759,6 +723,8 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
         resDB.curs.close()
         resDB.conn.close()
 
+        logging.info("Bracketing done...")
+
 
 
 
@@ -840,6 +806,8 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[], eicPPM=10., maxAn
 
     resDB=Bunch(conn=None, curs=None)
     resDB.conn=connect(file+getDBSuffix())
+    #conn.execute('''PRAGMA synchronous = OFF''')
+    #conn.execute('''PRAGMA journal_mode = OFF''')
     resDB.curs=resDB.conn.cursor()
 
     try:
@@ -965,8 +933,6 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[], eicPPM=10., maxAn
                 time.sleep(.5)
 
         p.close()
-        p.terminate()
-        p.join()
 
         ## fetch multiprocessing results
         for rei, re in enumerate(res):

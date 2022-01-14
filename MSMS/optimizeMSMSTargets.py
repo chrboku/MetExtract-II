@@ -203,7 +203,8 @@ class OptimizeMSMSTargetList:
 
             fig.canvas.draw()
 
-        print "Finished.. improvement best score (%.2E) to start score (%.2E) of %.1f%%)"%(scoreD, startScore, (score/startScore-1.)*100.)
+        #print "Finished.. improvement best score (%.2E) to start score (%.2E) of %.1f%%)"%(scoreD, startScore, (score/startScore-1.)*100.)
+        print "Finished"
         plt.show()
 
 
@@ -224,6 +225,7 @@ class OptimizeMSMSTargetList:
 
             if writeFile:
                 with open(fileTo.replace(".tsv", "__MSMSTargets_%s.tsv"%samp), "wb") as fout:
+                    print("Writing file..", fileTo.replace(".tsv", "__MSMSTargets_%s.tsv"%samp))
                     fout.write("\t".join(["Mass [m/z]","Formula [M]","Formula type","Species","CS [z]","Polarity","Start [min]","End [min]","(N)CE","MSXID","Comment"])+"\n")
 
                     for rowi in range(len(matRowNames)):

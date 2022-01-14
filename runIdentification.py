@@ -821,7 +821,9 @@ class RunIdentification:
 
     # store detected signal pairs (1st data processing step) in the database
     def writeSignalPairsToDB(self, mzs, mzxml, tracerID):
-        conn = connect(self.file + getDBSuffix())
+        conn = connect(self.file + getDBSuffix(), isolation_level="DEFERRED")
+        conn.execute('''PRAGMA synchronous = OFF''')
+        conn.execute('''PRAGMA journal_mode = OFF''')
         curs = conn.cursor()
 
         for mz in mzs:
@@ -926,7 +928,9 @@ class RunIdentification:
 
     # store signal pair clusters (2nd data processing step) in the database
     def writeFeaturePairClustersToDB(self, mzbins):
-        conn = connect(self.file + getDBSuffix())
+        conn = connect(self.file + getDBSuffix(), isolation_level="DEFERRED")
+        conn.execute('''PRAGMA synchronous = OFF''')
+        conn.execute('''PRAGMA journal_mode = OFF''')
         curs = conn.cursor()
 
         for ionMode in ['+', '-']:
@@ -986,7 +990,9 @@ class RunIdentification:
     # present in both EICs at approximately the same retention time and very their chromatographic peak shapes.
     # if all criteria are passed, write this detected feature pair to the database
     def findChromatographicPeaksAndWriteToDB(self, mzbins, mzxml, tracerID, reportFunction=None):
-        conn = connect(self.file + getDBSuffix())
+        conn = connect(self.file + getDBSuffix(), isolation_level="DEFERRED")
+        conn.execute('''PRAGMA synchronous = OFF''')
+        conn.execute('''PRAGMA journal_mode = OFF''')
         curs = conn.cursor()
         chromPeaks = []
 
@@ -1262,7 +1268,9 @@ class RunIdentification:
     # and increased mz value and/or a decreased number of labelled carbon atoms. Such identified
     # incorrect pairings are then removed from the database and thus the processing results
     def removeFalsePositiveFeaturePairsAndUpdateDB(self, chromPeaks, reportFunction=None):
-        conn = connect(self.file + getDBSuffix())
+        conn = connect(self.file + getDBSuffix(), isolation_level="DEFERRED")
+        conn.execute('''PRAGMA synchronous = OFF''')
+        conn.execute('''PRAGMA journal_mode = OFF''')
         curs = conn.cursor()
 
         todel = {}
@@ -1373,7 +1381,9 @@ class RunIdentification:
     # peak picking is performed)
     def annotateFeaturePairs(self, chromPeaks, mzxml, tracer, reportFunction=None):
 
-        conn = connect(self.file + getDBSuffix())
+        conn = connect(self.file + getDBSuffix(), isolation_level="DEFERRED")
+        conn.execute('''PRAGMA synchronous = OFF''')
+        conn.execute('''PRAGMA journal_mode = OFF''')
         curs = conn.cursor()
 
         self.postMessageToProgressWrapper("text", "%s: Annotating feature pairs" % tracer.name)
@@ -1541,6 +1551,7 @@ class RunIdentification:
                                                      mzxml, scanEvent, self.ppm)
             peak.mzDiffErrors=Bunch(mean=mean(diffs), sd=sd(diffs), vals=diffs)
 
+        ## TODO this is really, really slow as
         for i in range(len(chromPeaks)):
             peak = chromPeaks[i]
             curs.execute("UPDATE chromPeaks SET heteroAtoms=? WHERE id=?",
@@ -1987,7 +1998,9 @@ class RunIdentification:
     # profiles of different metabolite ions
     def groupFeaturePairsUntargetedAndWriteToDB(self, chromPeaks, mzxml, tracer, tracerID, reportFunction=None):
         try:
-            conn = connect(self.file + getDBSuffix())
+            conn = connect(self.file + getDBSuffix(), isolation_level="DEFERRED")
+            conn.execute('''PRAGMA synchronous = OFF''')
+            conn.execute('''PRAGMA journal_mode = OFF''')
             curs = conn.cursor()
 
             nodes = {}
@@ -2247,7 +2260,9 @@ class RunIdentification:
 
     # store one MS scan for each detected feature pair in the database
     def writeMassSpectraToDB(self, chromPeaks, mzxml, reportFunction=None):
-        conn = connect(self.file + getDBSuffix())
+        conn = connect(self.file + getDBSuffix(), isolation_level="DEFERRED")
+        conn.execute('''PRAGMA synchronous = OFF''')
+        conn.execute('''PRAGMA journal_mode = OFF''')
         curs = conn.cursor()
         massSpectraWrittenPos = {}
         massSpectraWrittenNeg = {}
@@ -2286,7 +2301,9 @@ class RunIdentification:
 
     ## write a new featureML file
     def writeResultsToFeatureML(self, forFile):
-        conn = connect(forFile + getDBSuffix())
+        conn = connect(forFile + getDBSuffix(), isolation_level="DEFERRED")
+        conn.execute('''PRAGMA synchronous = OFF''')
+        conn.execute('''PRAGMA journal_mode = OFF''')
         curs = conn.cursor()
 
         features=[]
@@ -2303,7 +2320,9 @@ class RunIdentification:
     # write feature pairs detected in this LC-HRMS data file into a new TSV file.
     # Each row represent one feature pair
     def writeResultsToTSVFile(self, forFile):
-        conn = connect(forFile + getDBSuffix())
+        conn = connect(forFile + getDBSuffix(), isolation_level="DEFERRED")
+        conn.execute('''PRAGMA synchronous = OFF''')
+        conn.execute('''PRAGMA journal_mode = OFF''')
         curs = conn.cursor()
 
         chromPeaks = []
@@ -2823,7 +2842,9 @@ class RunIdentification:
     # create a PDF file illustrating the detected feature pairs and convoluted feature groups
     def writeResultsToPDF(self, mzxml, reportFunction=None):
 
-        conn = connect(self.file + getDBSuffix())
+        conn = connect(self.file + getDBSuffix(), isolation_level="DEFERRED")
+        conn.execute('''PRAGMA synchronous = OFF''')
+        conn.execute('''PRAGMA journal_mode = OFF''')
         curs = conn.cursor()
 
         allChromPeaks = []
@@ -3080,7 +3101,9 @@ class RunIdentification:
 
     # stores the TICs of the LC-HRMS data in the database
     def writeTICsToDB(self, mzxml, scanEvents):
-        conn = connect(self.file + getDBSuffix())
+        conn = connect(self.file + getDBSuffix(), isolation_level="DEFERRED")
+        conn.execute('''PRAGMA synchronous = OFF''')
+        conn.execute('''PRAGMA journal_mode = OFF''')
         curs = conn.cursor()
 
         ## save TICs
@@ -3154,7 +3177,9 @@ class RunIdentification:
 
             if os.path.exists(self.file + getDBSuffix()) and os.path.isfile(self.file + getDBSuffix()):
                 os.remove(self.file + getDBSuffix())
-            conn = connect(self.file + getDBSuffix())
+            conn = connect(self.file + getDBSuffix(), isolation_level="DEFERRED")
+            conn.execute('''PRAGMA synchronous = OFF''')
+            conn.execute('''PRAGMA journal_mode = OFF''')
             curs = conn.cursor()
 
             self.writeConfigurationToDB(conn, curs)
