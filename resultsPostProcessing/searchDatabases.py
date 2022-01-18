@@ -194,7 +194,7 @@ class DBSearch:
                             if entry.sumFormula!="":
                                 fT=formulaTools()
                                 elems=fT.parseFormula(entry.sumFormula)
-                            if element in elems and (checkXN=="Don't use" or elems is None or (checkXN=="Exact" and elems[element]==Xn) or (checkXN=="Minimum" and elems[element]>=Xn) or (checkXN.startswith("PlusMinus_") and abs(elems[element]-Xn)<=int(checkXN[10:len(checkXN)]))):
+                            if checkXN=="Don't use" or elems is None or (checkXN=="Exact" and element in elems.keys() and elems[element]==Xn) or (checkXN=="Minimum" and element in elems.keys() and elems[element]>=Xn) or (checkXN.startswith("PlusMinus_") and element in elems.keys() and abs(elems[element]-Xn)<=int(checkXN[10:len(checkXN)])):
                                 entry=deepcopy(entry)
                                 entry.hitType=adduct[0]
                                 entry.matchErrorPPM=(mass-entry.mass)*1E6/mass
@@ -212,7 +212,7 @@ class DBSearch:
                     if entry.sumFormula!="":
                         fT=formulaTools()
                         elems=fT.parseFormula(entry.sumFormula)
-                    if checkXN=="Don't use" or elems is None or (checkXN=="Exact" and elems[element]==Xn) or (checkXN=="Minimum" and elems[element]>=Xn) or (checkXN.startswith("PlusMinus_") and abs(elems[element]-Xn)<=int(checkXN[10:len(checkXN)])):
+                    if checkXN=="Don't use" or elems is None or (checkXN=="Exact" and element in elems.keys() and elems[element]==Xn) or (checkXN=="Minimum" and element in elems.keys() and elems[element]>=Xn) or (checkXN.startswith("PlusMinus_") and element in elems.keys() and abs(elems[element]-Xn)<=int(checkXN[10:len(checkXN)])):
                         entry=deepcopy(entry)
                         entry.hitType="MZ match"
                         entry.matchErrorPPM=(mz-entry.mz)*1E6/mz
@@ -245,7 +245,7 @@ class DBSearch:
                             if entry.sumFormula!="":
                                 fT=formulaTools()
                                 elems=fT.parseFormula(entry.sumFormula)
-                            if checkXN=="Don't use" or elems is None or (checkXN=="Exact" and elems[element]==Xn) or (checkXN=="Minimum" and elems[element]>=Xn) or (checkXN.startswith("PlusMinus_") and abs(elems[element]-Xn)<=int(checkXN[10:len(checkXN)])):
+                            if checkXN=="Don't use" or elems is None or (checkXN=="Exact" and element in elems.keys() and elems[element]==Xn) or (checkXN=="Minimum" and element in elems.keys() and elems[element]>=Xn) or (checkXN.startswith("PlusMinus_") and element in elems.keys() and abs(elems[element]-Xn)<=int(checkXN[10:len(checkXN)])):
                                 entry = deepcopy(entry)
                                 entry.hitType = adduct[0]
                                 entry.matchErrorPPM=(mz-entry.mz)*1E6/mz
@@ -262,7 +262,7 @@ class DBSearch:
                     if entry.sumFormula!="":
                         fT=formulaTools()
                         elems=fT.parseFormula(entry.sumFormula)
-                    if checkXN=="Don't use" or elems is None or (checkXN=="Exact" and elems[element]==Xn) or (checkXN=="Minimum" and elems[element]>=Xn) or (checkXN.startswith("PlusMinus_") and abs(elems[element]-Xn)<=int(checkXN[10:len(checkXN)])):
+                    if checkXN=="Don't use" or elems is None or (checkXN=="Exact" and element in elems.keys() and elems[element]==Xn) or (checkXN=="Minimum" and element in elems.keys() and elems[element]>=Xn) or (checkXN.startswith("PlusMinus_") and element in elems.keys() and abs(elems[element]-Xn)<=int(checkXN[10:len(checkXN)])):
                         entry = deepcopy(entry)
                         entry.hitType = "M match"
                         entry.matchErrorPPM=(mass-entry.mass)*1E6/mass
