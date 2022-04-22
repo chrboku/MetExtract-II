@@ -133,10 +133,13 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
             SQLInsert(resDB.curs, "FileGroups", groupName=key, id=i)
 
             for ident in files:
-                conn = connect(ident + getDBSuffix(), isolation_level="DEFERRED")
-                conn.execute('''PRAGMA synchronous = OFF''')
-                conn.execute('''PRAGMA journal_mode = OFF''')
-                curs = conn.cursor()
+                conn = None
+                curs = None
+                if os.path.isfile(ident + getDBSuffix()):
+                    conn = connect(ident + getDBSuffix(), isolation_level="DEFERRED")
+                    conn.execute('''PRAGMA synchronous = OFF''')
+                    conn.execute('''PRAGMA journal_mode = OFF''')
+                    curs = conn.cursor()
                 fname=ident
                 if ".mzxml" in ident.lower():
                     fname=ident[max(ident.rfind("/") + 1, ident.rfind("\\") + 1):ident.lower().rfind(".mzxml")]
@@ -182,35 +185,39 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
 
 
             ## TODO this used the last open file. May be invalid. improve
-            rows = []
-            for row in res.curs.execute("SELECT key, value FROM config WHERE key='metabolisationExperiment'"):
-                rows.append(str(row[1]))
-            assert len(rows) == 1
-            isMetabolisationExperiment = rows[0].lower() == "true"
+            isMetabolisationExperiment = False
+            for res in results:
+                    if res.curs is not None:
+                        for row in res.curs.execute("SELECT key, value FROM config WHERE key='metabolisationExperiment'"):
+                            isMetabolisationExperiment = str(row[1]).lower() == "true"
+                            break
+
 
             ## TODO this used the last open file. May be invalid. improve
             if isMetabolisationExperiment:
-                for row in res.curs.execute("SELECT id, name, deltaMZ FROM tracerConfiguration"):
-                    tracerName = str(row[1])
-                    dmz = float(row[2])
-                    if tracerName not in tracersDeltaMZ:
-                        tracersDeltaMZ[tracerName] = dmz
+                for res in results:
+                    if res.curs is not None:
+                        for row in res.curs.execute("SELECT id, name, deltaMZ FROM tracerConfiguration"):
+                            tracerName = str(row[1])
+                            dmz = float(row[2])
 
-                    if tracersDeltaMZ[tracerName] != dmz:
-                        logging.warning("Warning: Tracers have not been configured identical in all measurement files")
+                            if tracerName not in tracersDeltaMZ:
+                                tracersDeltaMZ[tracerName] = dmz
+
+                            if abs(tracersDeltaMZ[tracerName] - dmz) < 0.00001:
+                                logging.warning("Warning: Tracers have not been configured identical in all measurement files")
             else:
-                rows = []
                 ## TODO this used the last open file. May be invalid. improve
-                for row in res.curs.execute("SELECT key, value FROM config WHERE key='xOffset'"):
-                    rows.append(str(row[1]))
-                assert len(rows) == 1
+                for res in results:
+                    if res.curs is not None:
+                        for row in res.curs.execute("SELECT key, value FROM config WHERE key='xOffset'"):
+                            dmz = float(row[1])
 
-                dmz = float(rows[0])
-                if "FLE" not in tracersDeltaMZ:
-                    tracersDeltaMZ["FLE"] = dmz
+                            if "FLE" not in tracersDeltaMZ:
+                                tracersDeltaMZ["FLE"] = dmz
 
-                if tracersDeltaMZ["FLE"] != dmz:
-                    logging.warning("Warning: Tracers have not been configured identical in all measurement files")
+                            if abs(tracersDeltaMZ["FLE"] - dmz) < 0.00001:
+                                logging.warning("Warning: Tracers have not been configured identical in all measurement files")
 
 
 
@@ -224,8 +231,9 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
 
             xCounts=set()
             for res in results:
-                for row in res.curs.execute("SELECT DISTINCT xcount FROM chromPeaks"):
-                    xCounts.add(str(row[0]))
+                if res.curs is not None:
+                    for row in res.curs.execute("SELECT DISTINCT xcount FROM chromPeaks"):
+                        xCounts.add(str(row[0]))
             xCounts=sorted(list(xCounts))
 
             # xCountshelp = []
@@ -269,26 +277,26 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                 mins = "%.2f mins" % (elapsed % 60.)
                                 pwTextSet.put(Bunch(mes="text", val="<p align='right' >%s%s elapsed</p>\n\n\n\nProcessing \n  (Ionmode: %s, XCount: %s, Charge: %d) \n  File: %s" % (
                                                     hours, mins, ionMode, xCount, cLoading, res.fileName)))
+                            if res.curs is not None:
+                                for row in res.curs.execute(
+                                        "SELECT c.id, c.tracer, c.NPeakCenter, c.NPeakCenterMin, c.NPeakScale, c.NSNR, c.NPeakArea, c.mz, c.lmz, c.tmz, c.xcount, c.LPeakCenter, c.LPeakCenterMin, c.LPeakScale, c.LSNR, c.LPeakArea, "
+                                        "c.Loading, (SELECT f.fGroupId FROM featureGroupFeatures f WHERE f.fID=c.id) AS fGroupId, (SELECT t.name FROM tracerConfiguration t WHERE t.id=c.tracer) AS tracerName, c.ionMode, "
+                                        "c.NPeakAbundance, c.LPeakAbundance, c.NBorderLeft, c.NBorderRight, c.LBorderLeft, c.LBorderRight "
+                                        "FROM chromPeaks c WHERE c.ionMode='%s' AND c.xcount='%s' and c.Loading=%d"%(ionMode, xCount, cLoading)):
+                                    try:
+                                        cp = ChromPeakPair(id=row[0], tracer=row[1], NPeakCenter=row[2], NPeakCenterMin=row[3],
+                                                       NPeakScale=row[4], NSNR=row[5], NPeakArea=row[6], mz=row[7], lmz=row[8], tmz=row[9], xCount=str(row[10]),
+                                                       LPeakCenter=row[11], LPeakCenterMin=row[12], LPeakScale=row[13], LSNR=row[14],
+                                                       LPeakArea=row[15], loading=row[16], fGroupID=row[17], tracerName=row[18],
+                                                       ionMode=str(row[19]), NPeakAbundance=float(row[20]), LPeakAbundance=float(row[21]),
+                                                       NBorderLeft=float(row[22]), NBorderRight=float(row[23]), LBorderLeft=float(row[24]), LBorderRight=float(row[25]))
 
-                            for row in res.curs.execute(
-                                    "SELECT c.id, c.tracer, c.NPeakCenter, c.NPeakCenterMin, c.NPeakScale, c.NSNR, c.NPeakArea, c.mz, c.lmz, c.tmz, c.xcount, c.LPeakCenter, c.LPeakCenterMin, c.LPeakScale, c.LSNR, c.LPeakArea, "
-                                    "c.Loading, (SELECT f.fGroupId FROM featureGroupFeatures f WHERE f.fID=c.id) AS fGroupId, (SELECT t.name FROM tracerConfiguration t WHERE t.id=c.tracer) AS tracerName, c.ionMode, "
-                                    "c.NPeakAbundance, c.LPeakAbundance, c.NBorderLeft, c.NBorderRight, c.LBorderLeft, c.LBorderRight "
-                                    "FROM chromPeaks c WHERE c.ionMode='%s' AND c.xcount='%s' and c.Loading=%d"%(ionMode, xCount, cLoading)):
-                                try:
-                                    cp = ChromPeakPair(id=row[0], tracer=row[1], NPeakCenter=row[2], NPeakCenterMin=row[3],
-                                                   NPeakScale=row[4], NSNR=row[5], NPeakArea=row[6], mz=row[7], lmz=row[8], tmz=row[9], xCount=str(row[10]),
-                                                   LPeakCenter=row[11], LPeakCenterMin=row[12], LPeakScale=row[13], LSNR=row[14],
-                                                   LPeakArea=row[15], loading=row[16], fGroupID=row[17], tracerName=row[18],
-                                                   ionMode=str(row[19]), NPeakAbundance=float(row[20]), LPeakAbundance=float(row[21]),
-                                                   NBorderLeft=float(row[22]), NBorderRight=float(row[23]), LBorderLeft=float(row[24]), LBorderRight=float(row[25]))
-
-                                    assert cp.ionMode in ionModes.keys()
-                                    res.featurePairs.append(cp)
-                                except TypeError as err:
-                                    print "  TypeError in file %s, id %s, (Ionmode: %s, XCount: %s, Charge: %d)"%(str(res.fileName), str(row[0]), ionMode, xCount, cLoading), err.message
-                                except:
-                                    print "  some general error in file %s, id %s, (Ionmode: %s, XCount: %s, Charge: %d)"%(str(res.fileName), str(row[0]), ionMode, xCount, cLoading)
+                                        assert cp.ionMode in ionModes.keys()
+                                        res.featurePairs.append(cp)
+                                    except TypeError as err:
+                                        print "  TypeError in file %s, id %s, (Ionmode: %s, XCount: %s, Charge: %d)"%(str(res.fileName), str(row[0]), ionMode, xCount, cLoading), err.message
+                                    except:
+                                        print "  some general error in file %s, id %s, (Ionmode: %s, XCount: %s, Charge: %d)"%(str(res.fileName), str(row[0]), ionMode, xCount, cLoading)
 
                             totalChromPeaks = totalChromPeaks + len(res.featurePairs)
 
@@ -372,22 +380,23 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                                             allChromPeaks.append(chromPeak)
                                                             maxMZInGroup = max(maxMZInGroup, chromPeak.mz)
 
-                                                    xics = []
-                                                    # get EICs of current subCluster
-                                                    for chromPeak in chromPeaks:
-
-                                                        res.curs.execute("SELECT x.xicL, x.times, x.scanCount, eicid FROM XICs x, chromPeaks c WHERE c.id=%d AND c.eicID=x.id" % chromPeak.id)
-                                                        i = 0
-                                                        for row in res.curs:
-                                                            scanCount = float(row[2])
-                                                            times = [float(r) for r in row[1].split(";")]
-                                                            xicL = [float(r) for r in row[0].split(";")]
-                                                            eicID = int(row[3])
-                                                            i = i + 1
-                                                        assert (i == 1)
-                                                        xics.append([scanCount, times, xicL, eicID])
+                                                    if align:
+                                                        xics = []
+                                                        # get EICs of current subCluster
+                                                        for chromPeak in chromPeaks:
+                                                            res.curs.execute("SELECT x.xicL, x.times, x.scanCount, eicid FROM XICs x, chromPeaks c WHERE c.id=%d AND c.eicID=x.id" % chromPeak.id)
+                                                            i = 0
+                                                            for row in res.curs:
+                                                                scanCount = float(row[2])
+                                                                times = [float(r) for r in row[1].split(";")]
+                                                                xicL = [float(r) for r in row[0].split(";")]
+                                                                eicID = int(row[3])
+                                                                i = i + 1
+                                                            assert (i == 1)
+                                                            xics.append([scanCount, times, xicL, eicID])
                                                     partChromPeaks[res.filePath] = chromPeaks
-                                                    partXICs[res.filePath] = xics
+                                                    if align:
+                                                        partXICs[res.filePath] = xics
 
 
                                                 xy = xy + 1
@@ -476,9 +485,10 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                                     for i in range(len(partChromPeaks[k])):
                                                         do.append(k)
                                                         dd.append(partChromPeaks[k][i].mz)
-                                                        eics.append(partXICs[k][i][2])
+                                                        if align:
+                                                            eics.append(partXICs[k][i][2])
+                                                            scantimes.append(partXICs[k][i][1])
                                                         peaks.append([partChromPeaks[k][i]])
-                                                        scantimes.append(partXICs[k][i][1])
 
                                                 # optional: align EICs; get bracketed chromatographic peaks
                                                 aligned = xicAlign.alignXIC(eics, peaks, scantimes, align=align, maxTimeDiff=maxTimeDeviation, nPolynom=nPolynom)
@@ -646,7 +656,7 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                                 traceback.print_exc()
                                                 logging.error(str(traceback))
 
-                                                logging.error("Error", str(e))
+                                                logging.error("Error: %s"%(str(e)))
                                             grp = grp + 1
 
                                             for res in results:

@@ -201,7 +201,7 @@ def checkRDependencies(r):
 
     # Check each dependency, if it is installed and update the dialog accordingly
     missingDependency = False
-    for dep in ["waveslim", "ptw", "MASS", "baseline"]:
+    for dep in []:
         if str(r("is.installed(\"%s\")" % dep)[0]).lower() == "true":
             dialog.setDependencyStatus(dep, RPackageAvailable)
         else:
@@ -212,7 +212,7 @@ def checkRDependencies(r):
             else:
                 dialog.setDependencyStatus(dep, RPackageError)
                 missingDependency = True
-    for dep in ["signal"]:
+    for dep in ["signal", "waveslim", "ptw", "MASS", "baseline"]:
         if str(r("is.installed(\"%s\")" % dep)[0]).lower() == "true":
             dialog.setDependencyStatus(dep, RPackageAvailable)
         else:
@@ -242,8 +242,8 @@ def checkRDependencies(r):
     if not antiVirusMessage:
         QtGui.QMessageBox.warning(None, "MetExtract", "The antivirus protection can now be reactivated", QtGui.QMessageBox.Ok)
 
-    if missingDependency:
-        QtGui.QMessageBox.warning(None, "MetExtract", "Error: some packages have not been installed successfully. Please retry or contact your system administrator.\nSee the console for further informatin about the installation errors.", QtGui.QMessageBox.Ok)
+    if missingDependency or True:
+        QtGui.QMessageBox.warning(None, "MetExtract", "Error: some packages have not been installed successfully. Please retry or contact your system administrator.\nSee the console for further information about the installation errors.\nTo install the packages manually, please download them from https://metabolomics-ifa.boku.ac.at/metextractii and place them into either of the folders '%s'"%(r("paste0(.libPaths(), collapse=', ')")[0]), QtGui.QMessageBox.Ok)
 
 
     dialog.hide()
@@ -3807,8 +3807,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         else:
             logging.warning("Processing finished with %d errors (%s%s)..\n" % (errorCount, hours, mins))
 
-
-        self.showResultsSummary()
+        QtGui.QMessageBox.information(self, "MetExtract II", "Processing finished %sin %s%s"%("(%d errors) "%errorCount if errorCount > 0 else "", hours, mins), QtGui.QMessageBox.Ok)
 
 
     def showResultsSummary(self):
@@ -7461,7 +7460,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                    QtGui.QMessageBox.question(self, "MetExtract", "Do you want to load the settings saved in this file?",
                                       QtGui.QMessageBox.Yes | QtGui.QMessageBox.No) == QtGui.QMessageBox.Yes:
                     self.loadSettingsFile(link)
-                self.showResultsSummary()
+
             else:
                 incorrectFiles=[]
 
@@ -8170,7 +8169,7 @@ if __name__ == '__main__':
         if not opts.silentStart:
             logging.info("  %s" % (str(v)[5:(len(str(v)) - 1)]))
 
-        v = r("paste0(.libPaths(), collapse=', ') ")
+        v = r("paste0(.libPaths(), collapse=', ') ")[0]
         if not opts.silentStart:
             logging.info("  R-libraries: %s"%v)
 

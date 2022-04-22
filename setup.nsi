@@ -109,7 +109,7 @@ Function installR
     MessageBox MB_YESNO "Install R? (3.3.2; This will not affect other installation/versions of R currently installed and no registry or environment variables will be created)\nPlease make sure that you are connected to the internet. " /SD IDYES IDNO endinstallR
         File "resources\setupR_minimal.inf"
 
-        NSISdl::download "https://cran.r-project.org/bin/windows/base/old/3.3.2/R-3.3.2-win.exe" "$INSTDIR\R-3.3.2-win.exe"
+        NSISdl::download "https://cran-archive.r-project.org/bin/windows/base/old/3.3.2/R-3.3.2-win.exe" "$INSTDIR\R-3.3.2-win.exe"
         Pop $0
         ${If} $0 == "success"
             ExecWait "R-3.3.2-win.exe /SILENT /DIR=$\"$INSTDIR\R$\" /LOADINF=$\"$INSTDIR\setupR_minimal.inf$\""

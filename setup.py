@@ -339,43 +339,6 @@ if not err:
     print "MetExtract (%s) created\n see %s\n==============================\n" % (
         MetExtractVersion, './distribute/%s' % zipFileName)
 
-try:
-    sleep(3)
-    rmtree("./BootstrapKnitr_Template")
-except:
-    pass
-sleep(3)
-print "\n\n\n\n"
-
-
-
-
-
-
-
-zipF = zipfile.ZipFile("./distribute/R_winLibrary_3.5.zip", "w")
-zipdir("C:/Users/cbueschl/Documents/R/win-library/3.5", zipF)
-zipF.close()
-
-print "R win-library 3.5 zipped"
-
-
-
-copy("./../distribution/R-3.3.2-win.exe", "./distribute/R-3.3.2-win.exe")
-
-print "R 2.15.2 copied"
-
-copy("./../distribution/RStudio-0.97.551.exe", "./distribute/RStudio-0.97.551.exe")
-
-print "RStudio copied"
-
-print colored("Setup created..", "green")
-
-
-
-
-
-print "\n\n\n\n"
 
 
 try:

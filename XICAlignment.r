@@ -33,20 +33,19 @@ getAlignXICs<-function(eics, ncol, align=TRUE, npoly=2, ra=c(1:length(eics[0])))
 
 alignPeaks<-function(eics, refTimes, peaks, ncol, scanDuration=1, align=TRUE, npoly=2, ra=c(1000:1200), maxGroupDist=22){
 
-  mdat<-matrix(eics, ncol=ncol)
-  len<-dim(mdat)[1]
   mpeaks<-matrix(peaks, ncol=ncol)
-
-  for(i in 1:ncol){
-    #mdat[,i]=filtfilt(rep(1, filtSmooth)/filtSmooth,1,mdat[,i])
-  }
-  
-  eicCum=mdat[,1]
-
   allpeaks=rep(0, length(peaks))
   k=1
 
   if(align){
+      mdat<-matrix(eics, ncol=ncol)
+      len<-dim(mdat)[1]
+
+      for(i in 1:ncol){
+        #mdat[,i]=filtfilt(rep(1, filtSmooth)/filtSmooth,1,mdat[,i])
+      }
+
+      eicCum=mdat[,1]
     for(i in 1:ncol){
       poly<-rep(0, npoly)
       poly[2]=1
@@ -69,7 +68,7 @@ alignPeaks<-function(eics, refTimes, peaks, ncol, scanDuration=1, align=TRUE, np
   }else{
     for(i in 1:ncol){
       for(peak in mpeaks[,i]){
-      	allpeaks[k]=refTimes[peak[1]]
+      	allpeaks[k]=peak[1]
 	    k=k+1
       }
     }

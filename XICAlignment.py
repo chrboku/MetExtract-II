@@ -69,63 +69,65 @@ class XICAlignment:
 
     # aligns the EICs and matches the chromatographic peaks detected earlier
     def alignXIC(self, eics, peakss, scantimes, align=True, nPolynom=3, maxTimeDiff=0.36 * 60, pretend=100, scanDuration=1):
-        assert (len(eics) == len(peakss) == len(scantimes))
+        #assert (len(eics) == len(peakss) == len(scantimes))
 
 
         nPolynom = max(nPolynom, 1)
 
-        if len(eics) == 0:
+        if len(peakss) == 0:
             return []
 
-        if len(eics) == 1:
+        if len(peakss) == 1:
             ret = []
             for i in range(len(peakss[0])):
-                ret.append([[i, peakss[0][i].NPeakCenter]])
+                ret.append([[i, peakss[0][i].NPeakCenterMin]])
             return ret
 
-        # add a constant part before and after the actual EIC as an anchor for the alignment
-        eics, scantimesEnlarged= preAppendEICs(eics, scantimes, pretend=pretend, scanDuration=scanDuration)
-
-        maxTime = max([max(scanTime) for scanTime in scantimes])
-        refTimes = [i*scanDuration for i in range(int(maxTime/scanDuration))]
-
-        for i in range(len(eics)):
-            eics[i] = mapArrayToRefTimes(eics[i], scantimesEnlarged[i], refTimes)
-            # peak translation to ref Time
-            for j in range(len(peakss[i])):
-                peakTime = scantimes[i][peakss[i][j].NPeakCenter]+pretend*scanDuration
-                minindex, minvalue = min(enumerate([abs(z - peakTime) for z in refTimes]), key=lambda x:x[1])
-                peakss[i][j].NPeakCenter = minindex
-
-
-        # convert the EICs to R-function parameters
-        maxLen = max([len(eic) for eic in eics])
+        refTimes = ""
         eicsR = ""
-        append = False
-        for eic in eics:
-            if append:
-                eicsR = eicsR + ","
-            else:
-                append = True
-            eicsR = eicsR + ",".join([str(d) for d in eic])
-            if len(eic) < maxLen:
-                eicsR = eicsR + "," + ",".join([str(0) for p in range(len(eic), maxLen)])
+        peakssR = ""
+        if align:
+            # add a constant part before and after the actual EIC as an anchor for the alignment
+            eics, scantimesEnlarged= preAppendEICs(eics, scantimes, pretend=pretend, scanDuration=scanDuration)
+
+            maxTime = max((max(scanTime) for scanTime in scantimes))
+            refTimes = [i*scanDuration for i in range(int(maxTime/scanDuration))]
+
+            for i in range(len(eics)):
+                eics[i] = mapArrayToRefTimes(eics[i], scantimesEnlarged[i], refTimes)
+                # peak translation to ref Time
+                for j in range(len(peakss[i])):
+                    peakTime = scantimes[i][peakss[i][j].NPeakCenter]+pretend*scanDuration
+                    minindex, minvalue = min(enumerate((abs(z - peakTime) for z in refTimes)), key=lambda x:x[1])
+                    peakss[i][j].NPeakCenter = refTimes[minindex]
+
+
+            # convert the EICs to R-function parameters
+            maxLen = max([len(eic) for eic in eics])
+            append = False
+            for eic in eics:
+                if append:
+                    eicsR = eicsR + ","
+                else:
+                    append = True
+                eicsR = eicsR + ",".join((str(d) for d in eic))
+                if len(eic) < maxLen:
+                    eicsR = eicsR + "," + ",".join((str(0) for p in range(len(eic), maxLen)))
 
         # convert the detected chromatographic peaks to R-function parameters
         maxPeaks = max([len(peaks) for peaks in peakss])
-        peakssR = ""
         append = False
         for peaks in peakss:
             if append:
                 peakssR = peakssR + ","
             else:
                 append = True
-            peakssR = peakssR + ",".join([str(peak.NPeakCenter) for peak in peaks])
+            peakssR = peakssR + ",".join((str(peak.NPeakCenter) if align else str(peak.NPeakCenterMin) for peak in peaks))
             if len(peaks) < maxPeaks:
-                peakssR = peakssR + "," + ",".join([str(0) for p in range(len(peaks), maxPeaks)])
+                peakssR = peakssR + "," + ",".join((str(0) for p in range(len(peaks), maxPeaks)))
 
         # align the EICs and bracket the chromatographic peaks
-        ret = r('alignPeaks(c(' + eicsR + '), c(' + peakssR + '), ' + str(len(eics)) + ', refTimes=c(' + ",".join([str(f) for f in refTimes]) + '), align=' + ("TRUE" if align else "FALSE") + ', npoly=' + str(nPolynom) + ', maxGroupDist=' + str(int(maxTimeDiff)) + ', scanDuration=' + str(scanDuration) + ')')
+        ret = r('alignPeaks(c(' + eicsR + '), c(' + ",".join([str(f) for f in refTimes]) + '), c(' + peakssR + '), ' + str(len(peakss)) + ', align=' + ("TRUE" if align else "FALSE") + ', npoly=' + str(nPolynom) + ', maxGroupDist=' + str(int(maxTimeDiff)) + ', scanDuration=' + str(scanDuration) + ')')
 
         # convert R-results object to python arrays
         retl = []
