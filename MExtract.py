@@ -242,7 +242,7 @@ def checkRDependencies(r):
     if not antiVirusMessage:
         QtGui.QMessageBox.warning(None, "MetExtract", "The antivirus protection can now be reactivated", QtGui.QMessageBox.Ok)
 
-    if missingDependency or True:
+    if missingDependency:
         QtGui.QMessageBox.warning(None, "MetExtract", "Error: some packages have not been installed successfully. Please retry or contact your system administrator.\nSee the console for further information about the installation errors.\nTo install the packages manually, please download them from https://metabolomics-ifa.boku.ac.at/metextractii and place them into either of the folders '%s'"%(r("paste0(.libPaths(), collapse=', ')")[0]), QtGui.QMessageBox.Ok)
 
 
