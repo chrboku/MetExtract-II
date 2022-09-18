@@ -98,7 +98,7 @@ Section "uninstall"
     DeleteRegKey /ifempty ${INSTDIR_REG_ROOT} "${INSTDIR_REG_KEY}"
 
     # second, remove the links from the start menu
-    RmDir /r "$SMPROGRAMS\MetExtractII $$METEXTRACTVERSION$$"
+    RmDir /r "$SMPROGRAMS\MetExtractII\$$METEXTRACTVERSION$$"
     delete "$DESKTOP\MetExtract II $$METEXTRACTVERSION$$.lnk"
  
 # uninstaller section end

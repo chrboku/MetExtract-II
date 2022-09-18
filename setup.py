@@ -361,3 +361,25 @@ except:
     import traceback
 
     traceback.print_exc()
+
+try:
+    sleep(3)
+    rmtree(meDistFolder, onerror = on_rm_error)
+except:
+    print colored(
+        "Cleanup failed (" + meDistFolder + ") dist and/or build directories still there\n==============================\n",
+        "red")
+    import traceback
+
+    traceback.print_exc()
+
+try:
+    sleep(3)
+    rmtree(meDistFolder, onerror = on_rm_error)
+except:
+    print colored(
+        "Cleanup failed (" + meDistFolder + ") dist and/or build directories still there\n==============================\n",
+        "red")
+    import traceback
+
+    traceback.print_exc()

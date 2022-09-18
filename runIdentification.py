@@ -1181,8 +1181,8 @@ class RunIdentification:
                         peakN = eic[lb:rb]
                         peakL = eicL[lb:rb]
 
-                        peak.NPeakAbundance=mean(peakN)
-                        peak.LPeakAbundance=mean(peakL)
+                        peak.NPeakAbundance = max(peakN) # mean(peakN)
+                        peak.LPeakAbundance = max(peakL) #mean(peakL)
 
                     # write detected feature pair to the database
                     if len(curChromPeaks) > 0:

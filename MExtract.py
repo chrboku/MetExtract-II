@@ -511,13 +511,11 @@ class procAreaInFile:
                 ri += 1
 
             if best is not None:
-                peakArea = ret[best].peakArea
-
                 lb = int(min(ret[best].peakIndex - peakAbundanceUseSignalsSides, ret[best].peakIndex - peakAbundanceUseSignalsSides))
                 rb = int(max(ret[best].peakIndex + peakAbundanceUseSignalsSides, ret[best].peakIndex + peakAbundanceUseSignalsSides)) + 1
                 peak = eic[lb:rb]
 
-                peakAbundance = mean(peak)
+                peakAbundance = max(peak) # mean(peak)
                 return ret[best].peakArea, peakAbundance
 
         return None

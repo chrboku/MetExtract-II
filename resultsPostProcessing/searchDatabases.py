@@ -43,6 +43,9 @@ class DBEntry:
 
         self.hitType=hitType
 
+    def __str__(self):
+        return "DB: " + str(self.dbName) + " Num: " + str(self.num) + " Name: " + str(self.name) + " SumFormula: " + str(self.sumFormula) + " Mass: " + str(self.mass) + " matchErrorPPM: " + str(self.matchErrorPPM) + " matchErrorMass: " + str(self.matchErrorMass) + " rtMin: " + str(self.rt_min) + " mz: " + str(self.mz) + " polarity: " + str(self.polarity) + " additionalInfo: " + str(self.additionalInfo)
+
 
 
 
@@ -182,8 +185,8 @@ class DBSearch:
 
         ## search for non-charged DB entries by subtracting putative adducts from the provided mz value
         for adduct in adducts:
-            if polarity==adduct[2] and charges==adduct[3]:
-                mass=(mz - adduct[1])*adduct[3]/adduct[4]
+            if polarity == adduct[2] and charges == adduct[3]:
+                mass = (mz - adduct[1])*adduct[3]/adduct[4]
 
                 ph=self._findGeneric(self.dbEntriesNeutral, lambda x: x.mass, mass-mass*ppm/1000000., mass+mass*ppm/1000000.)
                 if ph[0]!=-1:
@@ -196,25 +199,27 @@ class DBSearch:
                                 elems=fT.parseFormula(entry.sumFormula)
                             if checkXN=="Don't use" or elems is None or (checkXN=="Exact" and element in elems.keys() and elems[element]==Xn) or (checkXN=="Minimum" and element in elems.keys() and elems[element]>=Xn) or (checkXN.startswith("PlusMinus_") and element in elems.keys() and abs(elems[element]-Xn)<=int(checkXN[10:len(checkXN)])):
                                 entry=deepcopy(entry)
-                                entry.hitType=adduct[0]
+                                entry.hitType="MZ with %s to DB-mass match"%(adduct[0])
                                 entry.matchErrorPPM=(mass-entry.mass)*1E6/mass
                                 entry.matchErrorMass=mass-entry.mass
                                 possibleHits.append(entry)
 
 
         ## search for charged DB entries by the provided mz value
+
         ph=self._findGeneric(self.dbEntriesMZ, lambda x: x.mz, mz-mz*ppm/1000000., mz+mz*ppm/1000000.)
         if ph[0]!=-1:
             for entryi in range(ph[0], ph[1]+1):
                 entry=self.dbEntriesMZ[entryi]
-                if rt_min==None or entry.rt_min==None or (abs(rt_min-entry.rt_min)<=rt_error):
+                print(entry)
+                if entry.polarity == polarity and (rt_min==None or entry.rt_min==None or (abs(rt_min-entry.rt_min)<=rt_error)):
                     elems=None
                     if entry.sumFormula!="":
                         fT=formulaTools()
                         elems=fT.parseFormula(entry.sumFormula)
                     if checkXN=="Don't use" or elems is None or (checkXN=="Exact" and element in elems.keys() and elems[element]==Xn) or (checkXN=="Minimum" and element in elems.keys() and elems[element]>=Xn) or (checkXN.startswith("PlusMinus_") and element in elems.keys() and abs(elems[element]-Xn)<=int(checkXN[10:len(checkXN)])):
                         entry=deepcopy(entry)
-                        entry.hitType="MZ match"
+                        entry.hitType="MZ to DB-MZ match"
                         entry.matchErrorPPM=(mz-entry.mz)*1E6/mz
                         entry.matchErrorMass=mz-entry.mz
                         possibleHits.append(entry)
@@ -232,22 +237,21 @@ class DBSearch:
 
         ## search for charged DB entries by adding adducts to the provided mass
         for adduct in adducts:
-            if polarity == adduct[2] and charges == adduct[3]:
-                mz = mass * adduct[4]/adduct[3]-adduct[1]
+            if charges == adduct[3]:
+                mz = mass * adduct[4]/adduct[3] + adduct[1]
 
-                ph = self._findGeneric(self.dbEntriesMZ, lambda x: x.mz, mz - mz * ppm / 1000000.,
-                                       mz + mz * ppm / 1000000.)
+                ph = self._findGeneric(self.dbEntriesMZ, lambda x: x.mz, mz - mz * ppm / 1000000., mz + mz * ppm / 1000000.)
                 if ph[0]!=-1:
                     for entryi in range(ph[0], ph[1]+1):
                         entry=self.dbEntriesMZ[entryi]
-                        if rt_min==None or entry.rt_min==None or (abs(rt_min - entry.rt_min) <= rt_error):
+                        if entry.polarity == adduct[2] and (rt_min==None or entry.rt_min==None or (abs(rt_min - entry.rt_min) <= rt_error)):
                             elems=None
                             if entry.sumFormula!="":
                                 fT=formulaTools()
                                 elems=fT.parseFormula(entry.sumFormula)
                             if checkXN=="Don't use" or elems is None or (checkXN=="Exact" and element in elems.keys() and elems[element]==Xn) or (checkXN=="Minimum" and element in elems.keys() and elems[element]>=Xn) or (checkXN.startswith("PlusMinus_") and element in elems.keys() and abs(elems[element]-Xn)<=int(checkXN[10:len(checkXN)])):
                                 entry = deepcopy(entry)
-                                entry.hitType = adduct[0]
+                                entry.hitType = "Mass to DB-MZ match with %s"%(adduct[0])
                                 entry.matchErrorPPM=(mz-entry.mz)*1E6/mz
                                 entry.matchErrorMass=mz-entry.mz
                                 possibleHits.append(entry)
@@ -264,7 +268,7 @@ class DBSearch:
                         elems=fT.parseFormula(entry.sumFormula)
                     if checkXN=="Don't use" or elems is None or (checkXN=="Exact" and element in elems.keys() and elems[element]==Xn) or (checkXN=="Minimum" and element in elems.keys() and elems[element]>=Xn) or (checkXN.startswith("PlusMinus_") and element in elems.keys() and abs(elems[element]-Xn)<=int(checkXN[10:len(checkXN)])):
                         entry = deepcopy(entry)
-                        entry.hitType = "M match"
+                        entry.hitType = "Mass to DB-Mass match"
                         entry.matchErrorPPM=(mass-entry.mass)*1E6/mass
                         entry.matchErrorMass=mass-entry.mass
                         possibleHits.append(entry)
@@ -287,27 +291,30 @@ class DBSearch:
 
 if True and __name__=="__main__":
     db=DBSearch()
-
-    db.addEntriesFromFile("SomeMets", "C:/development/MetaboliteDBs/DBsForMetExtractII/Triticum_aestivum_literature.tsv")
-    db.addEntriesFromFile("SomeMets", "C:/development/MetaboliteDBs/DBsForMetExtractII/AntiBase_2017.tsv")
-    db.addEntriesFromFile("SomeMets", "C:/development/MetaboliteDBs/DBsForMetExtractII/CCD_Dec2013.tsv")
-    db.addEntriesFromFile("SomeMets", "C:/development/MetaboliteDBs/DBsForMetExtractII/ChEBICompounds.tsv")
-    db.addEntriesFromFile("SomeMets", "C:/development/MetaboliteDBs/DBsForMetExtractII/DB_Asja_Chemspider_Trp_metabolites.tsv")
-    db.addEntriesFromFile("SomeMets", "C:/development/MetaboliteDBs/DBsForMetExtractII/FG_literature.tsv")
-    db.addEntriesFromFile("SomeMets", "C:/development/MetaboliteDBs/DBsForMetExtractII/Flavonoids.tsv")
-    db.addEntriesFromFile("SomeMets", "C:/development/MetaboliteDBs/DBsForMetExtractII/LCMS_Standardmixe.tsv")
-    db.addEntriesFromFile("SomeMets", "C:/development/MetaboliteDBs/DBsForMetExtractII/MethanolArtefacts.tsv")
-    db.addEntriesFromFile("SomeMets", "C:/development/MetaboliteDBs/DBsForMetExtractII/PlantCyc_13t.tsv")
-    db.addEntriesFromFile("SomeMets", "C:/development/MetaboliteDBs/DBsForMetExtractII/SOS_STDs_201811.tsv")
+    db.addEntriesFromFile("SomeMets", "N:/iBAM/Christoph/Maria/DB_BiolPaper_Mets.txt")
     db.optimizeDB()
 
 
 
 
-    print "hits"
-    for hit in db.searchDB(mass=440.1947, mz=1, polarity="+", charges=1, rt_min=None, ppm=5, rt_error=0.1,
-                           checkXN="Exact", element="C", Xn=24):
-        print hit.sumFormula, hit.hitType, hit.name, str(hit.additionalInfo)
+    print "hits from mass obtained from negative ion mode"
+    for hit in db.searchDB(mass=290.1379484, mz=290.1379484-1.007276, polarity="-", charges=1, rt_min=None, ppm=5, rt_error=0.1,
+                           checkXN="Minimal", element="C", Xn=9):
+        print hit.sumFormula, hit.hitType, hit.name, str(hit.additionalInfo), str(hit)
+    print("hits from mass obtained from positive ion mode")
+    for hit in db.searchDB(mass=290.1379484, mz=290.1379484-1.007276, polarity="+", charges=1, rt_min=None, ppm=5, rt_error=0.1,
+                           checkXN="Minimal", element="C", Xn=9):
+        print hit.sumFormula, hit.hitType, hit.name, str(hit.additionalInfo), str(hit)
+
+    print("mz hits obtained from neg mode ion")
+    for hit in db.searchDB(mass=None, mz=290.1379484-1.007276, polarity="-", charges=1, rt_min=None, ppm=5, rt_error=0.1,
+                           checkXN="Minimal", element="C", Xn=9):
+        print hit.sumFormula, hit.hitType, hit.name, str(hit.additionalInfo), str(hit)
+
+    print("mz hits obtained from pos mode ion")
+    for hit in db.searchDB(mass=None, mz=290.1379484+1.007276, polarity="+", charges=1, rt_min=None, ppm=5, rt_error=0.1,
+                           checkXN="Minimal", element="C", Xn=9):
+        print hit.sumFormula, hit.hitType, hit.name, str(hit.additionalInfo), str(hit)
 
 
 
