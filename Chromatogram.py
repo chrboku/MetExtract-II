@@ -379,7 +379,7 @@ class Chromatogram():
                     self.msInstruments.values()[0]["msModel"], self.msLevel, tmp_ms.polarity)
             else:
                 tmp_ms.filter_line = "%s (MS lvl: %d, pol: %s)" % (
-                    self.msInstruments[tmp_ms.msInstrumentID]["msModel"], self.msLevel, tmp_ms.polarity)
+                    "Unknown", self.msLevel, tmp_ms.polarity)
 
             if self.msLevel == 1:
                 self.MS1_list.append(tmp_ms)
