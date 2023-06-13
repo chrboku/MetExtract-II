@@ -86,6 +86,8 @@ def average(clust):
 
     return sums
 
+import numpy as np
+
 class HCA_generic:
     def __init__(self, dist=euclidean, link=average):
         self.dist=dist
@@ -98,44 +100,52 @@ class HCA_generic:
         if ids is None:
             ids=range(len(objs))
         clusts=[HCALeaf(objs[i], _id=ids[i]) for i in range(len(objs))]
+        for c in clusts:
+            self.getLinkFor(c)
+        nClusts = len(clusts)
 
-        while len(clusts)>1:
-            (i, j), distance=self.HCA_findNearestClusts(clusts)
+        self.dists = np.ones((nClusts, nClusts), dtype = float) * 1e6
+        self._updateDist(clusts)
+
+        while nClusts > 1:
+
+            pos = np.argmin(self.dists)
+            i = pos / self.dists.shape[1]
+            j = pos % self.dists.shape[1]
+            distance = self.dists[i, j]
+
             c1=min(i,j)
             c2=max(i,j)
-            c2=clusts.pop(c2)
-            c1=clusts.pop(c1)
 
-            comp=HCAComposite(kidL=c1, kidR=c2, distance=distance)
-            clusts.append(comp)
+            comp = HCAComposite(kidL=clusts[c1], kidR=clusts[c2], distance=distance)
+            self.getLinkFor(comp)
+            clusts[i] = comp
+            clusts[j] = None
+
+            self._updateDist(clusts, updateInd=i)
+            self.dists[j,:] = 1e6
+            self.dists[:,j] = 1e6
+
+            nClusts = nClusts - 1
 
         return clusts[0]
 
-    def HCA_findNearestClusts(self, clusts):
-        nearestDist=1e6
-        nearestPair=(0,0)
-        for i in range(len(clusts)-1):
-            for j in range(i+1, len(clusts)):
-                d=self.getDistFor(clusts[i], clusts[j])     #d=self.dist(self.link(clusts[i]), self.link(clusts[j]))
-                if d<nearestDist:
-                    nearestDist=d
-                    nearestPair=(i,j)
-        return nearestPair, nearestDist
+    def _updateDist(self, clusts, updateInd = None):
+        nClusts = len(clusts)
 
-    def getDistFor(self, cl1, cl2):
-        cl1ID=cl1.getID()
-        cl2ID=cl2.getID()
-        if cl1ID in self.dists.keys() and cl2ID in self.dists[cl1ID].keys():
-            return self.dists[cl1ID][cl2ID]
-        else:
-            dist=self.dist(self.getLinkFor(cl1), self.getLinkFor(cl2))
-            if cl1ID not in self.dists.keys():
-                self.dists[cl1ID]={}
-            if cl2ID not in self.dists.keys():
-                self.dists[cl2ID]={}
-            self.dists[cl1ID][cl2ID]=dist
-            self.dists[cl2ID][cl1ID]=dist
-            return dist
+        for i in range(nClusts - 1) if updateInd is None else [updateInd]:
+            for j in range(i + 1, nClusts) if updateInd is None else range(nClusts - 1):
+
+                cl1 = clusts[i]
+                cl2 = clusts[j]
+
+                if i != j and cl1 is not None and cl2 is not None:
+                    dist = self.dist(self.getLinkFor(cl1), self.getLinkFor(cl2))
+                else:
+                    dist = 1e6
+
+                self.dists[i, j] = dist
+                self.dists[j, i] = dist
 
     def getLinkFor(self, cl):
         clID=cl.getID()
