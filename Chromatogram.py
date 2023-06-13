@@ -446,8 +446,9 @@ class Chromatogram():
 
             ## Remove peaks below threshold
             if self.intensityCutoff>0:
-                mz_list = [mz_list[i] for i in range(len(intensity_list)) if intensity_list[i] > self.intensityCutoff]
-                intensity_list = [intensity_list[i] for i in range(len(intensity_list)) if intensity_list[i] > self.intensityCutoff]
+                use = [i for i in range(len(intensity_list)) if intensity_list[i] > self.intensityCutoff and mz_list[i] > 0]
+                mz_list = [mz_list[i] for i in use]
+                intensity_list = [intensity_list[i] for i in use]
 
             ## Remove peaks with unwanted mz values
             if self.mzFilter != None:
@@ -465,7 +466,6 @@ class Chromatogram():
             curScan.intensity_list=intensity_list
             curScan.peak_count=len(mz_list)
             curScan.encodedData=None
-
 
         if name == "precursorMz":
             self.MS2_list[-1].precursor_mz = float(self.MS2_list[-1].precursor_mz_data)
