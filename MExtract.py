@@ -8285,6 +8285,9 @@ if __name__ == '__main__':
             QtGui.QMessageBox.warning(None, "MetExtract",
                                       "WARNING\n\nPlease be careful to not accidently change parameters with your mouse wheel when hovering over a parameter setting (e.g. ppm value). \n\nThis bug is currently not fixed in MetExtract II.",
                                       QtGui.QMessageBox.Ok)
+            QtGui.QMessageBox.warning(None, "MetExtract",
+                                      "NOTE\n\nIf you try to import mzML files and get the error that an OBO file is missing, please find the correct version at \nhttps://bioportal.bioontology.org/ontologies/MS.\nPlease download the corresponding obo-file and save it to the folder in the error message",
+                                      QtGui.QMessageBox.Ok)
 
         if opts.plotResults:
             mainWin.exportAsPDF(pdfFile="./results.pdf")

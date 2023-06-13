@@ -1187,7 +1187,11 @@ class ConvoluteFPsInFile:
 
         logging.info("  Convoluting feature pairs in file %s" % (fi))
         b = fi.replace("\\", "/")
-        fiName = b[(b.rfind("/") + 1):b.rfind(".mzXML")]
+        fiName = ""
+        if ".mzXML" in b:
+            fiName = b[(b.rfind("/") + 1):b.rfind(".mzXML")]
+        if ".mzML" in b:
+            fiName = b[(b.rfind("/") + 1):b.rfind(".mzML")]
         mzXML = Chromatogram()
         mzXML.parse_file(fi)
         for fpNumA in nodes.keys():
