@@ -201,23 +201,13 @@ def checkRDependencies(r):
 
     # Check each dependency, if it is installed and update the dialog accordingly
     missingDependency = False
-    for dep in []:
-        if str(r("is.installed(\"%s\")" % dep)[0]).lower() == "true":
-            dialog.setDependencyStatus(dep, RPackageAvailable)
-        else:
-            logging.info("installing %s.." % dep)
-            r("install.packages(\"%s\", repos='http://cran.us.r-project.org')" % dep)
-            if str(r("is.installed(\"%s\")" % dep)[0]).lower() == "true":
-                dialog.setDependencyStatus(dep, RPackageAvailable)
-            else:
-                dialog.setDependencyStatus(dep, RPackageError)
-                missingDependency = True
     for dep in ["signal", "waveslim", "ptw", "MASS", "baseline"]:
         if str(r("is.installed(\"%s\")" % dep)[0]).lower() == "true":
             dialog.setDependencyStatus(dep, RPackageAvailable)
+            logging.info("  - R package '%s' found"%(dep))
         else:
             logging.info("installing %s.." % dep)
-            r("install.packages(\"%s\", repos='https://cran.microsoft.com/snapshot/2019-10-04/')" % dep)
+            r("install.packages(\"%s\", repos='http://cran.us.r-project.org')" % dep)
             if str(r("is.installed(\"%s\")" % dep)[0]).lower() == "true":
                 dialog.setDependencyStatus(dep, RPackageAvailable)
             else:
@@ -227,6 +217,7 @@ def checkRDependencies(r):
     for dep in ["MassSpecWavelet"]:
         if str(r("is.installed(\"%s\")" % dep)[0]).lower() == "true":
             dialog.setDependencyStatus(dep, RPackageAvailable)
+            logging.info("  - R package '%s' found"%(dep))
         else:
             logging.info("installing %s.." % dep)
             r("source(\"http://bioconductor.org/biocLite.R\")")
@@ -237,14 +228,16 @@ def checkRDependencies(r):
                 dialog.setDependencyStatus(dep, RPackageError)
                 missingDependency = True
 
-    dialog.hide()
-
     if not antiVirusMessage:
         QtGui.QMessageBox.warning(None, "MetExtract", "The antivirus protection can now be reactivated", QtGui.QMessageBox.Ok)
 
     if missingDependency:
-        QtGui.QMessageBox.warning(None, "MetExtract", "Error: some packages have not been installed successfully. Please retry or contact your system administrator.\nSee the console for further information about the installation errors.\nTo install the packages manually, please download them from https://metabolomics-ifa.boku.ac.at/metextractii and place them into either of the folders '%s'"%(r("paste0(.libPaths(), collapse=', ')")[0]), QtGui.QMessageBox.Ok)
-
+        logging.error(
+            "Error: some packages have not been installed successfully.\n\nPlease retry or contact your system administrator.\n\nSee the console for further information about the installation errors.\n\nTo install the packages manually, please download them from \nhttps://metabolomics-ifa.boku.ac.at/metextractii\n(section 'R packages')\nand place them into either of the folders \n'%s'" % (
+            r("paste0(.libPaths(), collapse=', ')")[0]))
+        QtGui.QMessageBox.warning(None, "MetExtract",
+                              "Error: some packages have not been installed successfully.\n\nPlease retry or contact your system administrator.\n\nSee the console for further information about the installation errors.\n\nTo install the packages manually, please download them from \nhttps://metabolomics-ifa.boku.ac.at/metextractii\n(section 'R packages')\nand place them into either of the folders \n'%s'" % (
+                              r("paste0(.libPaths(), collapse=', ')")[0]), QtGui.QMessageBox.Ok)
 
     dialog.hide()
 
