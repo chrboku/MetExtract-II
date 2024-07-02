@@ -582,7 +582,10 @@ class Chromatogram():
                 sys.exit(1)
 
             tmp_ms.id = int(specturm["id"])
-            tmp_ms.filter_line = specturm["filter string"]
+            if "filter string" in specturm.keys():
+                tmp_ms.filter_line = specturm["filter string"]
+            else:
+                tmp_ms.filter_line = "NA"
 
             tmp_ms.peak_count = len(specturm.peaks)
             if "scan time" in specturm.keys():
@@ -714,7 +717,7 @@ class Chromatogram():
     def resetMZData(self, mzxmlfile, toFile, data):
         dom = parse(mzxmlfile)
         self.updateData(dom, data)
-        dom.writexml(open(toFile, "wb"))
+        dom.writexml(open(toFile, "w"))
 
     def freeMe(self):
         for scan in self.MS2_list:

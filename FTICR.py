@@ -358,7 +358,7 @@ class FTICRProcessing:
 
 
     def writeMatrixToFile(self, outFile, foundSFs, msScans, ppm):
-        with open(outFile, "wb") as fout:
+        with open(outFile, "w") as fout:
 
             filesOrder=sorted(msScans.keys())
             fout.write("\t".join(["Num", "MeanMZ", "Cn", "SF_all", "SF", "SFErrorPPM", "DB_all", "DB"]+[a[a.rfind("/")+1:].replace(".tsv", "") for a in filesOrder]+[a[a.rfind("/")+1:].replace(".tsv", "")+"_L" for a in filesOrder]))

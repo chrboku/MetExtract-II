@@ -125,7 +125,7 @@ fileLineArray.append('</featureMap>')
 
 
 
-with open(inF+".featureML", "wb") as fOut:
+with open(inF+".featureML", "w") as fOut:
     for line in fileLineArray:
         fOut.write(line)
         fOut.write("\r\n")

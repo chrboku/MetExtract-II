@@ -52,8 +52,8 @@ class formulaTools:
             self.elemDetails["Ho"] =   ["Holmium",      "Ho", 165, 164.930332, 1.00]
             self.elemDetails["H"] =    ["Hydrogen",     "H", 1, 1.007825, .999]
             self.elemDetails["1H"] =   ["Hydrogen",     "H", 1, 1.007825, .999]
-            self.elemDetails["D"] =    ["Hydrogen",     "H", 2, 1.007825 + 1.00627,.001]  ## ATTENTION May be wrong. Just used for Cambridge
-            self.elemDetails["2H"] =   ["Hydrogen",     "H", 2, 1.007825 + 1.00627,.001]  ## ATTENTION May be wrong. Just used for Cambridge
+            self.elemDetails["D"] =    ["Hydrogen",     "H", 2, 2.014102,.001]  ## ATTENTION May be wrong. Just used for Cambridge
+            self.elemDetails["2H"] =   ["Hydrogen",     "H", 2, 2.014102,.001]  ## ATTENTION May be wrong. Just used for Cambridge
             self.elemDetails["In"] =   ["Indium",       "In", 115, 114.903875, .957]
             self.elemDetails["I"] =    ["Iodine",       "I", 127, 126.904477, 1.00]
             self.elemDetails["Ir"] =   ["Iridium",      "Ir", 193, 192.962942, .627]

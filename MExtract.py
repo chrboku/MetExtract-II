@@ -96,7 +96,7 @@ if __name__=="__main__":
         os.environ["R_HOME"]=get_main_dir()+"/R"
 
         if checkR():
-            with open("RPATH.conf", "wb") as rconf:
+            with open("RPATH.conf", "w") as rconf:
                 rconf.write(get_main_dir()+"/R")
                 tryLoad=False
 
@@ -143,7 +143,7 @@ if __name__=="__main__":
                             os.environ["R_HOME"]=folder
                             print os.environ["R_HOME"]
                             if checkR():
-                                with open("RPATH.conf", "wb") as rconf:
+                                with open("RPATH.conf", "w") as rconf:
                                     rconf.write(folder)
                                     tryLoad=False
 
@@ -493,30 +493,28 @@ class procAreaInFile:
         self.forFile = forFile
 
     # find chromatographic peak for one detected feature
-    def processAreaFor(self, colToProc, mz, rt, ppm, scanEvent, maxRTShift, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom):
+    def processAreaFor(self, mz, rt, ppm, scanEvent, maxRTShift, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom):
 
-        if colToProc == "":
+        eic, times, scanids, mzs = self.t.getEIC(mz, ppm, filterLine=scanEvent)
+        eicSmoothed = smoothDataSeries(times, eic, windowLen=smoothingWindowSize, window=smoothingWindow, polynom=smoothingWindowPolynom)
+        ret = self.CP.getPeaksFor(times, eicSmoothed)
 
-            eic, times, scanids, mzs = self.t.getEIC(mz, ppm, filterLine=scanEvent)
-            eicSmoothed = smoothDataSeries(times, eic, windowLen=smoothingWindowSize, window=smoothingWindow, polynom=smoothingWindowPolynom)
-            ret = self.CP.getPeaksFor(times, eicSmoothed)
+        best = None
 
-            best = None
+        ri = 0
+        for r in ret:
+            if abs(times[r.peakIndex] / 60. - rt) <= maxRTShift and (
+                            best is None or abs(times[r.peakIndex] / 60. - rt) < abs(times[ret[best].peakIndex] / 60. - rt)):
+                best = ri
+            ri += 1
 
-            ri = 0
-            for r in ret:
-                if abs(times[r.peakIndex] / 60. - rt) <= maxRTShift and (
-                                best is None or abs(times[r.peakIndex] / 60. - rt) < abs(times[ret[best].peakIndex] / 60. - rt)):
-                    best = ri
-                ri += 1
+        if best is not None:
+            lb = int(min(ret[best].peakIndex - peakAbundanceUseSignalsSides, ret[best].peakIndex - peakAbundanceUseSignalsSides))
+            rb = int(max(ret[best].peakIndex + peakAbundanceUseSignalsSides, ret[best].peakIndex + peakAbundanceUseSignalsSides)) + 1
+            peak = eic[lb:rb]
 
-            if best is not None:
-                lb = int(min(ret[best].peakIndex - peakAbundanceUseSignalsSides, ret[best].peakIndex - peakAbundanceUseSignalsSides))
-                rb = int(max(ret[best].peakIndex + peakAbundanceUseSignalsSides, ret[best].peakIndex + peakAbundanceUseSignalsSides)) + 1
-                peak = eic[lb:rb]
-
-                peakAbundance = max(peak) # mean(peak)
-                return ret[best].peakArea, peakAbundance
+            peakAbundance = max(peak) # mean(peak)
+            return ret[best].peakArea, peakAbundance, ret[best].peakSNR
 
         return None
 
@@ -535,35 +533,37 @@ class procAreaInFile:
 
         r = None
         try:
-            r = self.processAreaFor(oldData[self.colInd[colToProc + "_Area_N"]], oldData[self.colInd[colmz]],
-                                    oldData[self.colInd[colrt]], ppm, scanEvent, maxRTShift, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom)
+            r = self.processAreaFor(oldData[self.colInd[colmz]], oldData[self.colInd[colrt]], ppm, scanEvent, maxRTShift, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom)
         except Exception as exc:
             logging.error("   - Reintegration failed for feature pair (N) %s (%s %s) [%s]" % (self.forFile, oldData[self.colInd[colmz]], oldData[self.colInd[colrt]], exc.message))
 
         nFound = False
         if r is not None:
-            area, abundance = r
+            area, abundance, snr = r
             if self.addPeakArea:
                 oldData[self.colInd[colToProc + "_Area_N"]] = area
             if self.addPeakAbundance:
                 oldData[self.colInd[colToProc + "_Abundance_N"]] = abundance
+            if self.addPeakSNR:
+                oldData[self.colInd[colToProc + "_SNR_N"]] = snr
 
             nFound = True
 
         r = None
         try:
-            r = self.processAreaFor(oldData[self.colInd[colToProc + "_Area_L"]], oldData[self.colInd[colLmz]],
-                                    oldData[self.colInd[colrt]], ppm, scanEvent, maxRTShift, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom)
+            r = self.processAreaFor(oldData[self.colInd[colLmz]], oldData[self.colInd[colrt]], ppm, scanEvent, maxRTShift, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom)
         except Exception as exc:
             logging.error("   Reintegration failed for feature pair (L) %s (%s %s) [%s]" % (self.forFile, oldData[self.colInd[colmz]], oldData[self.colInd[colrt]], exc.message))
 
         lFound = False
         if r is not None:
-            area, abundance = r
+            area, abundance, snr = r
             if self.addPeakArea:
                 oldData[self.colInd[colToProc + "_Area_L"]] = area
             if self.addPeakAbundance:
                 oldData[self.colInd[colToProc + "_Abundance_L"]] = abundance
+            if self.addPeakSNR:
+                oldData[self.colInd[colToProc + "_SNR_L"]] = snr
 
             lFound = True
 
@@ -605,7 +605,7 @@ class procAreaInFile:
     # set re-integration parameters for the current sub-process
     def setParams(self, oldDataFile, headers, colToProc, colmz, colrt, colxcount, colloading, colLmz, colIonMode,
                   positiveScanEvent, negativeScanEvent, colnum, ppm, maxRTShift, scales, reintegrateIntensityCutoff, snrTH,
-                  smoothingWindow, smoothingWindowSize, smoothingWindowPolynom, addPeakArea, addPeakAbundance):
+                  smoothingWindow, smoothingWindowSize, smoothingWindowPolynom, addPeakArea, addPeakAbundance, addPeakSNR):
         self.oldDataFile = oldDataFile
         self.headers = headers
 
@@ -635,6 +635,7 @@ class procAreaInFile:
 
         self.addPeakArea = addPeakArea
         self.addPeakAbundance = addPeakAbundance
+        self.addPeakSNR = addPeakSNR
 
         self.queue = None
         self.pID = None
@@ -714,7 +715,7 @@ def interruptReIntegrateFilesProcessing(pool, selfObj):
     else:
         return False # don't close progresswrapper and continue processing files
 
-def integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colloading, colLmz, colIonMode, colnum, addPeakArea, addPeakAbundance,
+def integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colloading, colLmz, colIonMode, colnum, addPeakArea, addPeakAbundance, addPeakSNR,
                           ppm=5., maxRTShift=0.25, scales=[3,19], reintegrateIntensityCutoff=0, snrTH=1, smoothingWindow=None, smoothingWindowSize=0, smoothingWindowPolynom=0,
                           positiveScanEvent="None", negativeScanEvent="None", pw=None, selfObj=None, cpus=1, start=0):
 
@@ -738,7 +739,7 @@ def integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colloadi
         #     writeConfig=False
 
     if len(colToProcCur)>0:
-        _integrateResultsFile(file, toF, colToProcCur, colmz, colrt, colxcount, colloading, colLmz, colIonMode, colnum, addPeakArea, addPeakAbundance,
+        _integrateResultsFile(file, toF, colToProcCur, colmz, colrt, colxcount, colloading, colLmz, colIonMode, colnum, addPeakArea, addPeakAbundance, addPeakSNR,
                               ppm, maxRTShift, scales, reintegrateIntensityCutoff, snrTH, smoothingWindow, smoothingWindowSize, smoothingWindowPolynom,
                               positiveScanEvent, negativeScanEvent, pw, selfObj, cpus, pwOffset=pwOffset, totalFilesToProc=len(colToProc),
                               writeConfig=writeConfig, start=start)
@@ -757,7 +758,7 @@ def writeReintegrateConfigToDB(curs, maxRTShift, negativeScanEvent, positiveScan
     SQLInsert(curs, "config", key="FPREINT_negativeScanEvent", value=str(negativeScanEvent))
 
 
-def _integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colloading, colLmz, colIonMode, colnum, addPeakArea, addPeakAbundance,
+def _integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colloading, colLmz, colIonMode, colnum, addPeakArea, addPeakAbundance, addPeakSNR,
                          ppm=5.,maxRTShift=0.25, scales=[3, 19], reintegrateIntensityCutoff=0, snrTH=1, smoothingWindow=None, smoothingWindowSize=0, smoothingWindowPolynom=0,
                          positiveScanEvent="None", negativeScanEvent="None",pw=None, selfObj=None, cpus=1, pwOffset=0,totalFilesToProc=1,
                          writeConfig=True, start=0):
@@ -795,6 +796,13 @@ def _integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colload
         if col + "_Abundance_L" not in cols and addPeakAbundance:
             table.addColumn(col + "_Abundance_L", "FLOAT")
 
+        if col + "_SNR_N" not in cols and addPeakSNR:
+            table.addColumn(col + "_SNR_N", "FLOAT")
+        if col + "_SNR_L" not in cols and addPeakSNR:
+            table.addColumn(col + "_SNR_L", "FLOAT")
+
+
+
 
 
     TableUtils.saveFile(table, file+".tmp.tsv")
@@ -830,7 +838,7 @@ def _integrateResultsFile(file, toF, colToProc, colmz, colrt, colxcount, colload
 
         u.setParams(file+".tmp.tsv", [x.getName() for x in table.getColumns()], s, colmz, colrt, colxcount, colloading,
                     colLmz, colIonMode, positiveScanEvent, negativeScanEvent, colnum, ppm, maxRTShift, scales, reintegrateIntensityCutoff, snrTH,
-                    smoothingWindow, smoothingWindowSize, smoothingWindowPolynom, addPeakArea, addPeakAbundance)
+                    smoothingWindow, smoothingWindowSize, smoothingWindowPolynom, addPeakArea, addPeakAbundance, addPeakSNR)
         u.setMultiProcessingQueue(queue, i)
 
         toProcFiles.append(u)
@@ -3156,6 +3164,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                                 file=resFileFull,
                                                 expApexIntensity = bool(self.ui.checkBox_expPeakApexIntensity.checkState() == QtCore.Qt.Checked),
                                                 expPeakArea = bool(self.ui.checkBox_expPeakArea.checkState() == QtCore.Qt.Checked),
+                                                expPeakSNR = bool(self.ui.checkBox_expPeakSNR.checkState() == QtCore.Qt.Checked),
                                                 align=(self.ui.alignChromatograms.checkState() == QtCore.Qt.Checked),
                                                 nPolynom=self.ui.polynomValue.value(),
                                                 rVersion=getRVersion(), meVersion="MetExtract (%s)" % MetExtractVersion,
@@ -3396,6 +3405,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
                                          "RT", "Xn", "Charge", "L_MZ", "Ionisation_Mode", "Num",
                                          addPeakArea = bool(self.ui.checkBox_expPeakArea.checkState() == QtCore.Qt.Checked),
                                          addPeakAbundance = bool(self.ui.checkBox_expPeakApexIntensity.checkState() == QtCore.Qt.Checked),
+                                         addPeakSNR = bool(self.ui.checkBox_expPeakSNR.checkState() == QtCore.Qt.Checked),
                                          ppm=self.ui.groupPpm.value(),
                                          maxRTShift=self.ui.integrationMaxTimeDifference.value(),
                                          scales=[self.ui.wavelet_minScale.value(), self.ui.wavelet_maxScale.value()],
@@ -7376,7 +7386,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
             self.ui.groupBox_ISOA.setVisible(False)
             self.ui.groupBox_ISOB.setVisible(False)
-            self.ui.useCValidation.setVisible(False)
+            self.ui.useCValidation.setVisible(True)
 
             self.ui.useRatio.setVisible(False)
 
@@ -7398,6 +7408,8 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
     def showTracerEditor(self):
         tracerDialog = tracerEdit()
+        print("Currently configured tracer")
+        print(self.configuredTracer.__dict__)
         tracerDialog.setTracer(deepcopy(self.configuredTracer))
         if tracerDialog.executeDialog() == QtGui.QDialog.Accepted:
 
@@ -7568,7 +7580,7 @@ class mainWindow(QtGui.QMainWindow, Ui_MainWindow):
         dbTemplateFile=str(dbTemplateFile)
 
         if len(dbTemplateFile) > 0:
-            with open(dbTemplateFile, "wb") as dbt:
+            with open(dbTemplateFile, "w") as dbt:
                 dbt.write("Num\tName\tSumFormula\tRt_min\tMZ\tIonisationMode\tAdditionalColumn1\tAdditionalColumn2")
                 dbt.write("\n")
                 dbt.write("1\tPhenylalanine\tC9H11NO2\t\t\t")

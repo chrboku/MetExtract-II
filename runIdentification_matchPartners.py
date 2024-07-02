@@ -141,7 +141,7 @@ def matchPartners(mzXMLData, forFile,
         for comb in combs:
             print comb
 
-
+    print("searching for pairs", labellingElement, useCIsotopePatternValidation, xOffset)
 
 
     # iterate over all MS scans (lvl. 1)
@@ -221,9 +221,7 @@ def matchPartners(mzXMLData, forFile,
                                         # EXPERIMENTAL: has not been tested with real data (not N or S labelled sample material
                                         #               was available)
                                         if not useDoubleLabelingCombinations and useCIsotopePatternValidation != 0:
-                                            #region
-                                            # (0.) verify that peak is M and not something else (e.g. M+1, M+1...)
-                                            ## TODO improve me. Use seven golden rules or the number of carbon atoms
+
                                             isoM_m1 = curScan.findMZ(curPeakmz - cValidationOffset, ppm*2)
                                             isoM_m1 = curScan.getMostIntensePeak(isoM_m1[0], isoM_m1[1])
                                             if isoM_m1 != -1:
@@ -473,7 +471,6 @@ def matchPartners(mzXMLData, forFile,
                                                                       nIntensity=curPeakIntensity,
                                                                       lIntensity=labPeakIntensity,
                                                                       ionMode=ionMode))
-
                                                         skipOtherLoadings = True
                                             # endregion
 
@@ -488,6 +485,7 @@ def matchPartners(mzXMLData, forFile,
                                         # NOTE: currently, the labeling elements must be defined in the code
                                         # NOTE: The option must be activated and the other two options must be deactivated
                                         if useDoubleLabelingCombinations:
+
                                             # find M+1 peak
                                             isoM_p1 = curScan.findMZ(curPeakmz + cValidationOffset / curLoading, ppm,
                                                                      start=currentPeakIndex)

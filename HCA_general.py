@@ -4,6 +4,8 @@ from abc import ABCMeta, abstractmethod
 
 from DesignPatterns.IDSingleton import IDProvider
 
+import logging
+
 
 class HCANode:
     __metaclass__=ABCMeta
@@ -22,9 +24,11 @@ class HCANode:
 
 
 class HCALeaf(HCANode):
-    def __init__(self, obj, _id):
+    def __init__(self, obj, _id, _ind):
         self.obj=obj
         self._id=_id
+
+        self._ind = _ind
 
     def getObj(self):
         return self.obj
@@ -97,15 +101,16 @@ class HCA_generic:
         self.dists={}
 
     def generateTree(self, objs, ids=None):
+        logging.info("  .. started generating tree for %d objects"%(len(objs)))
         if ids is None:
             ids=range(len(objs))
-        clusts=[HCALeaf(objs[i], _id=ids[i]) for i in range(len(objs))]
-        for c in clusts:
-            self.getLinkFor(c)
+        clusts=[HCALeaf(objs[i], _id=ids[i], _ind = i) for i in range(len(objs))]
         nClusts = len(clusts)
 
         self.dists = np.ones((nClusts, nClusts), dtype = float) * 1e6
         self._updateDist(clusts)
+
+        logging.info("  .. calculated initial distances")
 
         while nClusts > 1:
 
@@ -155,6 +160,9 @@ class HCA_generic:
             link=self.link(cl)
             self.links[clID]=link
             return link
+
+    def getIndsFor(self, c1):
+        return [leaf._ind for leaf in c1.getLeaves()]
 
     def plotTree(self, tree, intend="", newIntend="   "):
         if isinstance(tree, HCALeaf):

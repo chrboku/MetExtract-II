@@ -57,7 +57,7 @@ def writeFeatureListToFeatureML(features, toFile, ppmPM=5, rtPM=0.25*60):
     fileLineArray.append('</featureMap>')
 
 
-    with open(toFile, "wb") as fOut:
+    with open(toFile, "w") as fOut:
         for line in fileLineArray:
             fOut.write(line)
             fOut.write("\r\n")
@@ -121,7 +121,7 @@ def convertMEMatrixToFeatureMLSepPolarities(meMatrixFile, featureMLFile=None, po
         featureMLFile=meMatrixFile.replace(".tsv", ".txt").replace(".txt", "")+".featureML"
 
     features = {'+': [], '-': []}
-    with open(meMatrixFile) as fIn:
+    with open(meMatrixFile, "r") as fIn:
         csvReader=csv.reader(fIn, delimiter=delimiter, quotechar="\"")
 
         headers={}

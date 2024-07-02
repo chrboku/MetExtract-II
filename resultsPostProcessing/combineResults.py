@@ -29,7 +29,7 @@ def readDataMatrixToTable(matFile):
     res = Bunch(columns=[], data=[], comments=[])
     with open(matFile, "rb") as inF:
         for iline, line in enumerate(inF):
-            line=line.strip()
+            line=line.strip().replace("\r", "").replace("\n", "")
             if iline == 0:
                 res.columns = line.split("\t")
             else:
@@ -95,7 +95,7 @@ def combineResults(experiments, experimentsOrder, saveToFile,
 
 
     ## outer join of all results
-    with open(saveToFile, "wb") as tsvFile:
+    with open(saveToFile, "w") as tsvFile:
         resWriter = csv.writer(tsvFile, delimiter="\t", quotechar="\"", quoting=csv.QUOTE_MINIMAL)
 
         ## meta-info columns and important columns
@@ -186,7 +186,8 @@ def combineResults(experiments, experimentsOrder, saveToFile,
                             rowVals.append(getattr(results[expDesc][possibleHits[expDesc][0]], colName))
                     else:
                         for colName in experimentsData[expDesc].columns:
-                            rowVals.append("")
+                            rowVals.append(";".join([str(getattr(results[expDesc][possibleHits[expDesc][ci]], colName)) for ci in range(len(possibleHits[expDesc]))]))
+                            #rowVals.append("")
 
                 resWriter.writerow(rowVals)
 

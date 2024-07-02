@@ -939,7 +939,7 @@ font: 7pt;</string>
              <x>0</x>
              <y>0</y>
              <width>1889</width>
-             <height>1919</height>
+             <height>1965</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -4405,6 +4405,13 @@ font: 7pt;</string>
                   </widget>
                  </item>
                  <item>
+                  <widget class="QCheckBox" name="checkBox_expPeakSNR">
+                   <property name="text">
+                    <string>Export peak SNR</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
                   <widget class="Line" name="line_2">
                    <property name="orientation">
                     <enum>Qt::Horizontal</enum>
@@ -5825,7 +5832,7 @@ font: 7pt;</string>
   </action>
   <action name="actionShow_summary_of_previous_current_results">
    <property name="text">
-    <string>Show summary of previous current results</string>
+    <string>Show overview of results</string>
    </property>
   </action>
  </widget>

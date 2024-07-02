@@ -1085,7 +1085,7 @@ def writeBunchsAsTSVFile(bunchs, outFile, delim="\t", writeAttributes=None, useA
             if attributes[att]==len(bunchs) or useAllAttributes:
                 writeAttributes.append(att)
 
-    with open(outFile, "wb") as fo:
+    with open(outFile, "w") as fo:
         fo.write(delim.join([att if att not in renameRows.keys() else renameRows[att] for att in writeAttributes]))
         fo.write("\n")
         for b in bunchs:

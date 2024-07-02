@@ -70,7 +70,7 @@ def addStatsColumnToResults(metaFile, groups, toFile, outputOrder, commentStarti
     data = sorted(data, key=lambda x: (float(x[rtInd]), float(x[mzInd])))   # sort results according to rt and mz
     data.insert(0, headers)
 
-    with open(toFile, "wb") as x:
+    with open(toFile, "w") as x:
         metaWriter = csv.writer(x, delimiter="\t")
         for row in data:
             metaWriter.writerow(row)
@@ -120,7 +120,7 @@ def performGroupOmit(infile, groupStats, outfile, commentStartingCharacter="#"):
                     notUsed.append(line)
             rowNum += 1
 
-    with open(outfile, "wb") as x:
+    with open(outfile, "w") as x:
         metaWriter = csv.writer(x, delimiter="\t")
         metaWriter.writerow(hrow)
         for row in data:
@@ -131,7 +131,7 @@ def performGroupOmit(infile, groupStats, outfile, commentStartingCharacter="#"):
 
 
     if len(notUsed)>0:
-        with open(outfile.replace(".tsv", ".omitteds.tsv"), "wb") as x:
+        with open(outfile.replace(".tsv", ".omitteds.tsv"), "w") as x:
             metaWriter = csv.writer(x, delimiter="\t")
             metaWriter.writerow(hrow)
             for row in notUsed:
@@ -142,7 +142,7 @@ def performGroupOmit(infile, groupStats, outfile, commentStartingCharacter="#"):
 
 
     if len(notUsed)>0:
-        with open(outfile.replace(".tsv", ".falsePositives.tsv"), "wb") as x:
+        with open(outfile.replace(".tsv", ".falsePositives.tsv"), "w") as x:
             metaWriter = csv.writer(x, delimiter="\t")
             metaWriter.writerow(hrow)
             for row in falsePositives:

@@ -102,7 +102,7 @@ if not loadRConfFile(path=get_main_dir()) or not checkR():
     os.environ["R_HOME"]=get_main_dir()+"/R"
 
     if checkR():
-        with open("RPATH.conf", "wb") as rconf:
+        with open("RPATH.conf", "w") as rconf:
             rconf.write(get_main_dir()+"/R")
             tryLoad=False
 
@@ -146,7 +146,7 @@ if not loadRConfFile(path=get_main_dir()) or not checkR():
                         lastDir=folder
                         os.environ["R_HOME"]=folder
                         if checkR():
-                            with open("RPATH.conf", "wb") as rconf:
+                            with open("RPATH.conf", "w") as rconf:
                                 rconf.write(folder)
                                 tryLoad=False
 
@@ -272,8 +272,6 @@ try:
 except:
     print colored("Error: Could not copy all required files", "red")
     err = True
-    import sys
-    sys.exit(1)
 
 try:
     import shutil
@@ -286,8 +284,6 @@ try:
 except Exception as ex:
     print colored("Error: Could not copy help files: "+ex.message, "red")
     err = True
-    import sys
-    sys.exit(1)
 
 # rename dist folder to PyMetExtract and current version of the software
 meDistFolder="./dist"

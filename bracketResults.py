@@ -83,7 +83,7 @@ def writeConfigToDB(curs, align, file, groupSizePPM, maxLoading, maxTimeDeviatio
 # bracket results
 def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, negativeScanEvent=None,
                  maxTimeDeviation=0.36 * 60, maxLoading=1, file="./results.tsv", align=True, nPolynom=1,
-                 expPeakArea = True, expApexIntensity = True,
+                 expPeakArea = True, expApexIntensity = True, expPeakSNR = False,
                  pwMaxSet=None, pwValSet=None, pwTextSet=None, rVersion="", meVersion="", generalProcessingParams=Bunch(), start=0):
 
 
@@ -153,17 +153,27 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
 
             i+=1
 
-        with open(file, "wb") as f:
+        with open(file, "w") as f:
             # initialise TSV results file
 
             f.write("Num\tComment\tMZ\tL_MZ\tD_MZ\tMZ_Range\tRT\tRT_Range\tPeakScalesNL\tXn\tCharge\tScanEvent\tIonisation_Mode\tTracer\tOGroup\tIon\tLoss\tM")
             for res in results:
+                fname = res.fileName
+
+                if ".mzxml" in fname.lower():
+                    fname=fname[max(fname.rfind("/") + 1, fname.rfind("\\") + 1):fname.lower().rfind(".mzxml")]
+                if ".mzml" in fname.lower():
+                    fname=fname[max(fname.rfind("/") + 1, fname.rfind("\\") + 1):fname.lower().rfind(".mzml")]
+
                 if expPeakArea:
                     f.write("\t" + res.fileName + "_Area_N")
                     f.write("\t" + res.fileName + "_Area_L")
                 if expApexIntensity:
                     f.write("\t" + res.fileName + "_Abundance_N")
                     f.write("\t" + res.fileName + "_Abundance_L")
+                if expPeakSNR:
+                    f.write("\t" + res.fileName + "_SNR_N")
+                    f.write("\t" + res.fileName + "_SNR_L")
                 if True:
                     f.write("\t" + res.fileName + "_FID")
                     f.write("\t" + res.fileName + "_GroupID")
@@ -628,6 +638,15 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                                                     # Abundance of labeled isotopolog
                                                                     f.write(";".join([str(peak[1].LPeakAbundance) for peak in groupedChromPeaks[i][res]]))
 
+                                                                if expPeakSNR:
+                                                                    f.write("\t")
+                                                                    # SNR of native, monoisotopic isotopolog
+                                                                    f.write(";".join([str(peak[1].NSNR) for peak in groupedChromPeaks[i][res]]))
+
+                                                                    f.write("\t")
+                                                                    # SNR of labeled isotopolog
+                                                                    f.write(";".join([str(peak[1].LSNR) for peak in groupedChromPeaks[i][res]]))
+
                                                                 if True:
                                                                     f.write("\t")
                                                                     # Feature ID
@@ -641,6 +660,8 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                                                 if expPeakArea:
                                                                     f.write("\t\t")
                                                                 if expApexIntensity:
+                                                                    f.write("\t\t")
+                                                                if expPeakSNR:
                                                                     f.write("\t\t")
                                                                 if True:
                                                                     f.write("\t\t")
@@ -953,14 +974,12 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[], eicPPM=10., maxAn
         ## test all feature pair pairs for co-elution and similar SIL ratio
         connections={}
         for fpNumA in nodes.keys():
+            connections[fpNumA] = {}
+        for fpNumA in nodes.keys():
             nodeA=nodes[fpNumA]
-            if fpNumA not in connections.keys():
-                connections[fpNumA]={}
 
             for fpNumB in nodes.keys():
                 nodeB=nodes[fpNumB]
-                if fpNumB not in connections.keys():
-                    connections[fpNumB]={}
 
                 if nodeA.fpNum!=nodeB.fpNum and nodeA.fpNum<nodeB.fpNum and abs(nodeB.rt-nodeA.rt)<=maxAnnotationTimeWindow:
 
@@ -983,12 +1002,15 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[], eicPPM=10., maxAn
                             nodes[nodeA.fpNum].correlationToOtherFPs[nodeB.fpNum] = True
                             nodes[nodeB.fpNum].correlationToOtherFPs[nodeA.fpNum] = True
 
-                        connections[fpNumA][fpNumB]=mean(allCorrelations)
-                        connections[fpNumB][fpNumA]=mean(allCorrelations)
+                        m = mean(allCorrelations)
+                        connections[fpNumA][fpNumB] = m
+                        connections[fpNumB][fpNumA] = m
                     else:
                         connections[fpNumA][fpNumB] = 0
                         connections[fpNumB][fpNumA] = 0
 
+
+        logging.info(" .. done")
 
 
         nodes2={}
@@ -1039,20 +1061,23 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[], eicPPM=10., maxAn
                 if isinstance(tree, HCA_general.HCALeaf):
                     return False
                 elif isinstance(tree, HCA_general.HCAComposite):
-                    corrsLKid = hca.link(tree.getLeftKid())
-                    corrs = hca.link(tree)
-                    corrsRKid = hca.link(tree.getRightKid())
+                    corrs = hca.getLinkFor(tree)
+                    inds = hca.getIndsFor(tree)
 
-                    aboveThresholdLKid = sum([corr > corrThreshold for corr in corrsLKid])
-                    aboveThreshold = sum([corr > corrThreshold for corr in corrs])
-                    aboveThresholdRKid = sum([corr > corrThreshold for corr in corrsRKid])
+                    aboveThreshold = sum([corr > corrThreshold for i, corr in enumerate(corrs) if i in inds])
 
-                if (aboveThreshold * 1. / len(corrs)) >= cutOffMinRatio:
-                    return False
+                    #hc.plotTree(tree)
+                    #print(corrs)
+                    #print([corrs[i] for i in inds])
+                    #print(aboveThreshold)
+                    #print(".....")
+                    #print("")
+                    return not (aboveThreshold * 1. / len(inds)) >= cutOffMinRatio
+
                 else:
-                    return True
+                    raise Error("Unknown if-branch")
 
-            subClusts = hc.splitTreeWithCallback(tree,CallBackMethod(_target=checkSubCluster, corrThreshold=minPeakCorrelation,cutOffMinRatio=minConnectionRate).getRunMethod(),recursive=False)
+            subClusts = hc.splitTreeWithCallback(tree,CallBackMethod(_target=checkSubCluster, corrThreshold=minPeakCorrelation,cutOffMinRatio=minConnectionRate).getRunMethod(), recursive=True)
 
             # convert the subclusters into arrays of feature pairs belonging to the same metabolite
             return [[leaf.getID() for leaf in subClust.getLeaves()] for subClust in subClusts]
@@ -1061,31 +1086,17 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[], eicPPM=10., maxAn
         groups = []
         done = 0
         for tGroup in tGroups:
-            print "Group", done, "with elements", len(tGroup), "of", len(tGroups)
-            cGroups = [tGroup]
-            while len(cGroups) > 0:
-                gGroup = cGroups.pop(0)
-
-                sGroups = splitGroupWithHCA(gGroup, connections)
-
-                if len(sGroups) == 1:
-                    groups.append(sGroups[0])
-                else:
-                    cGroups.extend(sGroups)
+            sGroups = splitGroupWithHCA(tGroup, connections)
+            groups.extend(sGroups)
 
             done = done + 1
-
 
         # Separate feature pair clusters; softer
         curGroup=1
         for tGroup in groups:
-            if len(tGroup)==1:
-                # if only one feature pair is in the group, do nothing
-                table.setData(cols=["OGroup"], vals=[curGroup], where="Num=%d"%tGroup[0])
-                resDB.curs.execute("UPDATE GroupResults SET OGroup=%d WHERE id = %d"%(curGroup, tGroup[0]))
-            else:
-                table.setData(cols=["OGroup"], vals=[curGroup], where="Num IN (%s)"%(",".join([str(t) for t in tGroup])))
-                resDB.curs.execute("UPDATE GroupResults SET OGroup=%d WHERE id IN (%s)"%(curGroup, ",".join([str(t) for t in tGroup])))
+            for i in range(len(tGroup)):
+                table.setData(cols=["OGroup"], vals=[curGroup], where="Num = %s"%(tGroup[i]))
+                resDB.curs.execute("UPDATE GroupResults SET OGroup=%d WHERE id = %s"%(curGroup, tGroup[i]))
 
             curGroup+=1
 
@@ -1159,7 +1170,7 @@ def calculateMetaboliteGroups(file="./results.tsv", groups=[], eicPPM=10., maxAn
         resDB.conn.close()
 
 
-
+from utils import mapArrayToRefTimes
 
 class ConvoluteFPsInFile:
     def __init__(self, eicPPM, fi, maxAnnotationTimeWindow, nodes, borders):
@@ -1194,17 +1205,19 @@ class ConvoluteFPsInFile:
             fiName = b[(b.rfind("/") + 1):b.rfind(".mzML")]
         mzXML = Chromatogram()
         mzXML.parse_file(fi)
+
+        filterLines = mzXML.getFilterLines(includeMS1=True, includeMS2=False, includePosPolarity=True, includeNegPolarity=True)
+
+        for fpNumA in nodes.keys():
+            fileCorrelations[fpNumA] = {}
+            fileSILRatios[fpNumA] = {}
+
+
         for fpNumA in nodes.keys():
             nodeA = nodes[fpNumA]
-            if fpNumA not in fileCorrelations.keys():
-                fileCorrelations[fpNumA] = {}
-                fileSILRatios[fpNumA] = {}
 
             for fpNumB in nodes.keys():
                 nodeB = nodes[fpNumB]
-                if fpNumB not in fileCorrelations.keys():
-                    fileCorrelations[fpNumB] = {}
-                    fileSILRatios[fpNumB] = {}
 
                 if nodeA.fpNum != nodeB.fpNum and nodeA.fpNum < nodeB.fpNum and abs(nodeB.rt - nodeA.rt) <= maxAnnotationTimeWindow:
 
@@ -1219,11 +1232,7 @@ class ConvoluteFPsInFile:
                         nanbl, nanbr, nalbl, nalbr = ra
                         nbnbl, nbnbr, nblbl, nblbr = rb
 
-                        if nodeA.scanEvent in mzXML.getFilterLines(includeMS1=True, includeMS2=False,
-                                                                   includePosPolarity=True, includeNegPolarity=True) and \
-                                        nodeB.scanEvent in mzXML.getFilterLines(includeMS1=True, includeMS2=False,
-                                                                                includePosPolarity=True,
-                                                                                includeNegPolarity=True):
+                        if nodeA.scanEvent in filterLines and nodeB.scanEvent in filterLines:
 
                             meanRT = mean([nodeA.rt, nodeB.rt])
 
@@ -1246,12 +1255,10 @@ class ConvoluteFPsInFile:
                                                                      endTime=meanRT * 60 + 120)
 
 
-
                             timesMin = [t for t in timesA]
                             timesMin.extend([t for t in timesB])
                             timesMin=sorted(timesMin)
 
-                            from utils import mapArrayToRefTimes
 
                             eicAL=mapArrayToRefTimes(eicAL, timesA, timesMin)
                             eicBL=mapArrayToRefTimes(eicBL, timesB, timesMin)

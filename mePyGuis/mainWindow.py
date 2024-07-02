@@ -438,7 +438,7 @@ class Ui_MainWindow(object):
         self.scrollArea_2.setWidgetResizable(True)
         self.scrollArea_2.setObjectName(_fromUtf8("scrollArea_2"))
         self.scrollAreaWidgetContents_5 = QtGui.QWidget()
-        self.scrollAreaWidgetContents_5.setGeometry(QtCore.QRect(0, 0, 1889, 1919))
+        self.scrollAreaWidgetContents_5.setGeometry(QtCore.QRect(0, 0, 1889, 1965))
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.MinimumExpanding, QtGui.QSizePolicy.Preferred)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -1792,6 +1792,9 @@ class Ui_MainWindow(object):
         self.checkBox_expPeakApexIntensity = QtGui.QCheckBox(self.frame_bracketResults)
         self.checkBox_expPeakApexIntensity.setObjectName(_fromUtf8("checkBox_expPeakApexIntensity"))
         self.verticalLayout_9.addWidget(self.checkBox_expPeakApexIntensity)
+        self.checkBox_expPeakSNR = QtGui.QCheckBox(self.frame_bracketResults)
+        self.checkBox_expPeakSNR.setObjectName(_fromUtf8("checkBox_expPeakSNR"))
+        self.verticalLayout_9.addWidget(self.checkBox_expPeakSNR)
         self.line_2 = QtGui.QFrame(self.frame_bracketResults)
         self.line_2.setFrameShape(QtGui.QFrame.HLine)
         self.line_2.setFrameShadow(QtGui.QFrame.Sunken)
@@ -2779,6 +2782,7 @@ class Ui_MainWindow(object):
         self.reintegrateIntensityCutoff.setPrefix(_translate("MainWindow", "≤ ", None))
         self.checkBox_expPeakArea.setText(_translate("MainWindow", "Export peak areas", None))
         self.checkBox_expPeakApexIntensity.setText(_translate("MainWindow", "Export peak apex intensity", None))
+        self.checkBox_expPeakSNR.setText(_translate("MainWindow", "Export peak SNR", None))
         self.label_20.setText(_translate("MainWindow", "Save grouped results to", None))
         self.groupsSelectFile.setText(_translate("MainWindow", "Select file", None))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.pickingTab), _translate("MainWindow", "Process", None))
@@ -2866,7 +2870,7 @@ class Ui_MainWindow(object):
         self.actionIsotopic_enrichment.setText(_translate("MainWindow", "Isotopic enrichment", None))
         self.actionSet_working_directory.setText(_translate("MainWindow", "Set working directory", None))
         self.openTempDir.setText(_translate("MainWindow", "Open temporary directory (logfile and caches)", None))
-        self.actionShow_summary_of_previous_current_results.setText(_translate("MainWindow", "Show summary of previous current results", None))
+        self.actionShow_summary_of_previous_current_results.setText(_translate("MainWindow", "Show overview of results", None))
 
 import resources_rc
 

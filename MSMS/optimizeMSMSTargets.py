@@ -224,7 +224,7 @@ class OptimizeMSMSTargetList:
                     break
 
             if writeFile:
-                with open(fileTo.replace(".tsv", "__MSMSTargets_%s.tsv"%samp), "wb") as fout:
+                with open(fileTo.replace(".tsv", "__MSMSTargets_%s.tsv"%samp), "w") as fout:
                     print("Writing file..", fileTo.replace(".tsv", "__MSMSTargets_%s.tsv"%samp))
                     fout.write("\t".join(["Mass [m/z]","Formula [M]","Formula type","Species","CS [z]","Polarity","Start [min]","End [min]","(N)CE","MSXID","Comment"])+"\n")
 

@@ -642,7 +642,7 @@ class ProcessTarget:
         else:
             annotatedSpectrumLabeled.annos=[]
 
-        with open(target.lcmsmsNativeFile + "." + target.targetName + ".tsv", "wb") as fOut:
+        with open(target.lcmsmsNativeFile + "." + target.targetName + ".tsv", "w") as fOut:
 
             fOut.write("\t".join(["Num", "MZ", "L_MZ", "D_MZ_ppm", "relInt", "L_relInt", "Cn", "sumFormula", "Adduct", "NeutralLoss"]))
             fOut.write("\n")
@@ -726,7 +726,7 @@ class ProcessTarget:
 
 
 
-        with open(target.lcmsmsNativeFile + "." + target.targetName + ".ms", "wb") as fOut:
+        with open(target.lcmsmsNativeFile + "." + target.targetName + ".ms", "w") as fOut:
             fOut.write(">compound " + target.targetName + "_C%d"%target.Cn)
             fOut.write("\n")
 

@@ -135,8 +135,9 @@ class RunIdentification:
                  meVersion="NA"):
 
 
-        ma, ea = getIsotopeMass(labellingisotopeA)
-        mb, eb = getIsotopeMass(labellingisotopeB)
+        ma, ea = getIsotopeMass(configuredTracer.isotopeA if metabolisationExperiment else labellingisotopeA)
+        mb, eb = getIsotopeMass(configuredTracer.isotopeB if metabolisationExperiment else labellingisotopeB)
+        xOffset = mb - ma if metabolisationExperiment else xOffset
 
         if (not metabolisationExperiment and len(ea) > 0 and ea == eb) or metabolisationExperiment or (
                         ea == "Hydrogen" and eb == "Deuterium"):
@@ -148,6 +149,9 @@ class RunIdentification:
         if positiveScanEvent == "None" and negativeScanEvent == "None":
             self.printMessage("No scan event was specified..", type="warning")
             raise Exception("No scan event was specified..")
+
+
+
 
         self.file = file
         self.writePDF = writePDF
@@ -168,7 +172,6 @@ class RunIdentification:
         self.negativeScanEvent = negativeScanEvent
 
         self.metabolisationExperiment = metabolisationExperiment
-
         self.labellingElement = getShortName(ea)
         self.isotopeA = ma
         self.isotopeB = mb
@@ -773,8 +776,8 @@ class RunIdentification:
                               xOffset=self.xOffset,
                               ppm=self.ppm,
                               intensityErrorN=self.intensityErrorN, intensityErrorL=self.intensityErrorL,
-                              purityN=tracer.enrichmentA if self.metabolisationExperiment > 1 else self.purityN,
-                              purityL=tracer.enrichmentB if self.metabolisationExperiment > 1 else self.purityL,
+                              purityN=tracer.enrichmentA if self.metabolisationExperiment else self.purityN,
+                              purityL=tracer.enrichmentB if self.metabolisationExperiment else self.purityL,
                               startTime=self.startTime, stopTime=self.stopTime,
                               filterLine=self.positiveScanEvent,
                               ionMode="+",

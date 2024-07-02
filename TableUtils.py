@@ -284,7 +284,6 @@ class Table:
             where="WHERE "+where
         else:
             where=""
-
         self.curs.execute(self.__updateTableName("UPDATE :table: SET %s %s" % (",".join(sets), where)))
 
     # add a new column to the table (in-memory only)
@@ -505,7 +504,7 @@ class TableUtilsCSV:
             else:
                 select = "select %s from :table: %s %s" % (", ".join(cols), where, order)
 
-        with open(file, "wb") as fo:
+        with open(file, "w") as fo:
             headers = False
             rowsWritten=0
             for row in table.curs.execute(table.updateQuery(select)):
