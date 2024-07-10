@@ -141,9 +141,6 @@ def matchPartners(mzXMLData, forFile,
         for comb in combs:
             print comb
 
-    print("searching for pairs", labellingElement, useCIsotopePatternValidation, xOffset)
-
-
     # iterate over all MS scans (lvl. 1)
     curScanIndex=0
     for j in range(0, len(mzXMLData.MS1_list)):
