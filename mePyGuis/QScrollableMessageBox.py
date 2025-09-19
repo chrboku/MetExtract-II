@@ -1,7 +1,7 @@
 import sys
-from PyQt4 import QtGui
+from PySide6 import QtGui, QtWidgets
 
-class QScrollableMessageBox(QtGui.QDialog):
+class QScrollableMessageBox(QtWidgets.QDialog):
     def __init__(self, parent=None, text="", title="message", width=200, height=100):
         super(QScrollableMessageBox, self).__init__()
         self.setModal(True)
@@ -10,14 +10,14 @@ class QScrollableMessageBox(QtGui.QDialog):
         self.setMinimumHeight(height)
         self.setMinimumWidth(width)
 
-        l = QtGui.QGridLayout(self)
+        l = QtWidgets.QGridLayout(self)
 
-        k = QtGui.QWidget()
+        k = QtWidgets.QWidget()
         l.addWidget(k)
-        o = QtGui.QGridLayout(k)
+        o = QtWidgets.QGridLayout(k)
         o.setContentsMargins(10, 10, 10, 10)
 
-        self.scroll = QtGui.QScrollArea()
+        self.scroll = QtWidgets.QScrollArea()
         self.scroll.setWidgetResizable(True)
         self.res=QtGui.QPlainTextEdit(text)
         self.res.setFont(QtGui.QFont("Consolas"))
@@ -25,18 +25,18 @@ class QScrollableMessageBox(QtGui.QDialog):
         self.scroll.setWidget(self.res)
         o.addWidget(self.scroll, 2, 1)
 
-        self.okBut=QtGui.QPushButton("OK")
+        self.okBut=QtWidgets.QPushButton("OK")
         self.okBut.clicked.connect(self.hide)
         o.addWidget(self.okBut, 3,1)
 
 
 if __name__ == '__main__':
-    app = QtGui.QApplication(sys.argv)
+    app = QtWidgets.QApplication(sys.argv)
 
     pw = QScrollableMessageBox(parent=None, text="texttexttexttexttexttexttexttexttexttexttexttexttexttexttext texttexttexttexttexttexttexttexttexttexttext\n111", title="")
     pw.show()
 
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
 
 
 

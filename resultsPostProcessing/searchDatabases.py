@@ -1,5 +1,5 @@
 import sys
-sys.path.append("C:/PyMetExtract/PyMetExtract")
+sys.path.append("C:/development/PyMetExtract")
 
 from formulaTools import formulaTools
 from utils import is_float
@@ -69,6 +69,8 @@ class DBSearch:
 
             headers={}
             for rowi, row in enumerate(tsvin):
+                if len(row) == 0:  # Skip empty lines
+                    continue
                 if row[0].startswith("#"):
                     continue
                 if rowi==0:
@@ -114,7 +116,9 @@ class DBSearch:
                         logging.error("DB import error: Could not import row %d (%s)"%(rowi, ex.message))
                         notImported+=1
 
-        print "Imported DB %s with %d entries (Current number of entries: %d)"%(dbName, len(self.dbEntriesMZ)+len(self.dbEntriesNeutral)-curEntriesCount, len(self.dbEntriesMZ)+len(self.dbEntriesNeutral))
+        logging.info("Imported DB %s with %d entries (Current number of entries: %d)"%(dbName, len(self.dbEntriesMZ)+len(self.dbEntriesNeutral)-curEntriesCount, len(self.dbEntriesMZ)+len(self.dbEntriesNeutral)))
+        if notImported > 0:
+            logging.error("Not imported %d entries (see above errors)"%(notImported))
         return imported, notImported
 
     def optimizeDB(self):
@@ -182,6 +186,10 @@ class DBSearch:
      ('+Cl', 34.969402, '-', 1, 1), ('+Br', 78.918885, '-', 1, 1),
      ('-2H+', -2 * 1.007276, '-', 1, 1)]):
         possibleHits=[]
+
+        if checkXN not in ["Don't use", "Exact", "Minimum"] and not checkXN.startswith("PlusMinus_"):
+            logging.error("Unknown option '%s' for parameter checkXN, must be either of 'Don't use', 'Exact', 'Minimum' or 'PlusMinux_X' where X is a positive integer"%(checkXN))
+            raise Exception("Unknown option '%s' for parameter checkXN, must be either of 'Don't use', 'Exact', 'Minimum' or 'PlusMinux_X' where X is a positive integer"%(checkXN))
 
         ## search for non-charged DB entries by subtracting putative adducts from the provided mz value
         for adduct in adducts:
@@ -289,7 +297,7 @@ class DBSearch:
             return self.searchDBForMZ(mz, polarity, charges, ppm, rt_min, rt_error, checkXN, element, Xn, adducts)
 
 
-if True and __name__=="__main__":
+if False and __name__=="__main__":
     db=DBSearch()
     db.addEntriesFromFile("SomeMets", "N:/iBAM/Christoph/Maria/DB_BiolPaper_Mets.txt")
     db.optimizeDB()
@@ -297,30 +305,50 @@ if True and __name__=="__main__":
 
 
 
-    print "hits from mass obtained from negative ion mode"
+    print("hits from mass obtained from negative ion mode")
     for hit in db.searchDB(mass=290.1379484, mz=290.1379484-1.007276, polarity="-", charges=1, rt_min=None, ppm=5, rt_error=0.1,
                            checkXN="Minimal", element="C", Xn=9):
-        print hit.sumFormula, hit.hitType, hit.name, str(hit.additionalInfo), str(hit)
+        print(hit.sumFormula, hit.hitType, hit.name, str(hit.additionalInfo), str(hit))
     print("hits from mass obtained from positive ion mode")
     for hit in db.searchDB(mass=290.1379484, mz=290.1379484-1.007276, polarity="+", charges=1, rt_min=None, ppm=5, rt_error=0.1,
                            checkXN="Minimal", element="C", Xn=9):
-        print hit.sumFormula, hit.hitType, hit.name, str(hit.additionalInfo), str(hit)
+        print(hit.sumFormula, hit.hitType, hit.name, str(hit.additionalInfo), str(hit))
 
     print("mz hits obtained from neg mode ion")
     for hit in db.searchDB(mass=None, mz=290.1379484-1.007276, polarity="-", charges=1, rt_min=None, ppm=5, rt_error=0.1,
                            checkXN="Minimal", element="C", Xn=9):
-        print hit.sumFormula, hit.hitType, hit.name, str(hit.additionalInfo), str(hit)
+        print(hit.sumFormula, hit.hitType, hit.name, str(hit.additionalInfo), str(hit))
 
     print("mz hits obtained from pos mode ion")
     for hit in db.searchDB(mass=None, mz=290.1379484+1.007276, polarity="+", charges=1, rt_min=None, ppm=5, rt_error=0.1,
                            checkXN="Minimal", element="C", Xn=9):
-        print hit.sumFormula, hit.hitType, hit.name, str(hit.additionalInfo), str(hit)
+        print(hit.sumFormula, hit.hitType, hit.name, str(hit.additionalInfo), str(hit))
 
 
 
 
+if True and __name__=="__main__":
+    db=DBSearch()
+    #db.addEntriesFromFile("SOS", "C:/Users/cbueschl/Desktop/me2db_sos_db_250214.tsv")
+    #db.addEntriesFromFile("primary_metabolites", "C:/Users/cbueschl/Desktop/me2db_primary_metabolites.tsv")
+    #db.addEntriesFromFile("flaxCyc", "C:/Users/cbueschl/Desktop/me2db_flaxCyc.tsv")
+    db.addEntriesFromFile("KEGG", "C:/development/MetaboliteDBs/DBsForMetExtractII/KEGG_compounds.tsv")
+    db.optimizeDB()
 
+    mass = None
+    mz = 119.0503171
 
+    polarity = "-"
+    charges = 1
+
+    hits = db.searchDB(mass = mass, mz = mz, polarity = polarity, charges = charges, rt_min=None, ppm=5, checkXN="Don't use")
+
+    import sys
+    sys.stdout.flush()
+    print("\n\n")
+    print("DBName\tNum\tName\tChemicalFormula\tErrorPPM\tAdditionalInfo")
+    for hit in hits:
+        print("%s\t%s\t%s\t%s\t%s\t%s"%(hit.dbName, hit.num, hit.name, hit.sumFormula, hit.matchErrorPPM, hit.additionalInfo))
 
 
 

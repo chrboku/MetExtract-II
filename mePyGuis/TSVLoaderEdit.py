@@ -1,14 +1,15 @@
+from __future__ import print_function, division, absolute_import
 import csv
 import os
 
-from PyQt4 import QtGui, QtCore
+from PySide6 import QtCore, QtGui, QtWidgets
 
-from TSVLoaderEditor import Ui_Dialog
+from .TSVLoaderEditor import Ui_Dialog
 
 
-class TSVLoaderEdit(QtGui.QDialog, Ui_Dialog):
+class TSVLoaderEdit(QtWidgets.QDialog, Ui_Dialog):
     def __init__(self, parent=None, initDir=None, mapping={}, order=[]):
-        QtGui.QDialog.__init__(self, parent)
+        QtWidgets.QDialog.__init__(self, parent)
         self.setWindowTitle("Adducts editor")
         self.setupUi(self)
 
@@ -19,16 +20,16 @@ class TSVLoaderEdit(QtGui.QDialog, Ui_Dialog):
         self.mapping = mapping
         self.order = order
         if len(self.order) == 0:
-            self.order = self.mapping.keys()
+            self.order = list(self.mapping.keys())
         else:
             assert len(self.order) == len(self.mapping)
             for ord in self.order:
                 assert ord in self.mapping
 
         self.lastOpenDir = "."
-        if os.environ.has_key('USERPROFILE'):
+        if 'USERPROFILE' in os.environ:
             self.lastOpenDir = os.getenv('USERPROFILE')
-        elif os.environ.has_key('HOME'):
+        elif 'HOME' in os.environ:
             self.lastOpenDir = os.getenv('HOME')
         if initDir is not None:
             self.lastOpenDir = initDir
@@ -38,23 +39,23 @@ class TSVLoaderEdit(QtGui.QDialog, Ui_Dialog):
 
     def loadFiles(self):
 
-        scrollAreaWidgetContents = QtGui.QWidget()
+        scrollAreaWidgetContents = QtWidgets.QWidget()
         scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 291, 370))
-        gridLayout_3 = QtGui.QGridLayout(scrollAreaWidgetContents)
-        verticalLayout_3 = QtGui.QVBoxLayout()
-        spacerItem6 = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
+        gridLayout_3 = QtWidgets.QGridLayout(scrollAreaWidgetContents)
+        verticalLayout_3 = QtWidgets.QVBoxLayout()
+        spacerItem6 = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         verticalLayout_3.addItem(spacerItem6)
 
-        openFiles = QtGui.QFileDialog.getOpenFileNames(caption="Select TSV/CSV file", directory=self.lastOpenDir,
+        openFiles = QtWidgets.QFileDialog.getOpenFileNames(caption="Select TSV/CSV file", dir=self.lastOpenDir,
                                                      filter="TSV file (*.tsv);;CSV file (*.csv);;All files(*.*)")
 
         if len(openFiles) > 0:
             self.selectedFiles = [str(f) for f in openFiles]
             self.mappingComboBoxes = {}
 
-            horizontalLayout_5 = QtGui.QHBoxLayout()
-            l1 = QtGui.QLabel(self.scrollAreaWidgetContents)
-            sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Preferred)
+            horizontalLayout_5 = QtWidgets.QHBoxLayout()
+            l1 = QtWidgets.QLabel(self.scrollAreaWidgetContents)
+            sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Preferred)
             sizePolicy.setHorizontalStretch(0)
             sizePolicy.setVerticalStretch(0)
             sizePolicy.setHeightForWidth(l1.sizePolicy().hasHeightForWidth())
@@ -77,8 +78,8 @@ class TSVLoaderEdit(QtGui.QDialog, Ui_Dialog):
 
             headers = None
             for opFile in self.selectedFiles:
-                print opFile
-                with open(opFile, 'rb') as ofin:
+                print(opFile)
+                with open(opFile, 'r', encoding='utf-8') as ofin:
                     tsvin = csv.reader(ofin, delimiter=splitChar)
 
                     i = 0
@@ -94,10 +95,10 @@ class TSVLoaderEdit(QtGui.QDialog, Ui_Dialog):
 
             for map in self.order:
 
-                horizontalLayout_5 = QtGui.QHBoxLayout()
+                horizontalLayout_5 = QtWidgets.QHBoxLayout()
 
-                l1 = QtGui.QLabel(self.scrollAreaWidgetContents)
-                sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Preferred)
+                l1 = QtWidgets.QLabel(self.scrollAreaWidgetContents)
+                sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Preferred)
                 sizePolicy.setHorizontalStretch(0)
                 sizePolicy.setVerticalStretch(0)
                 sizePolicy.setHeightForWidth(l1.sizePolicy().hasHeightForWidth())
@@ -106,7 +107,7 @@ class TSVLoaderEdit(QtGui.QDialog, Ui_Dialog):
                     "<html><head/><body><p><span style=\" text-decoration: underline;\">%s</span>:</p></body></html>" % map)
 
                 horizontalLayout_5.addWidget(l1)
-                c1 = QtGui.QComboBox(self.scrollAreaWidgetContents)
+                c1 = QtWidgets.QComboBox(self.scrollAreaWidgetContents)
                 self.mappingComboBoxes[map] = c1
 
                 for header in headers:
@@ -120,10 +121,10 @@ class TSVLoaderEdit(QtGui.QDialog, Ui_Dialog):
             self.selectedFiles = []
             self.mappingComboBoxes = {}
 
-            horizontalLayout_5 = QtGui.QHBoxLayout()
+            horizontalLayout_5 = QtWidgets.QHBoxLayout()
 
-            l1 = QtGui.QLabel(self.scrollAreaWidgetContents)
-            sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Preferred)
+            l1 = QtWidgets.QLabel(self.scrollAreaWidgetContents)
+            sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Preferred)
             sizePolicy.setHorizontalStretch(0)
             sizePolicy.setVerticalStretch(0)
             sizePolicy.setHeightForWidth(l1.sizePolicy().hasHeightForWidth())
@@ -134,7 +135,7 @@ class TSVLoaderEdit(QtGui.QDialog, Ui_Dialog):
             horizontalLayout_5.addWidget(l1)
             verticalLayout_3.addLayout(horizontalLayout_5)
 
-        spacerItem7 = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
+        spacerItem7 = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         verticalLayout_3.addItem(spacerItem7)
         gridLayout_3.addLayout(verticalLayout_3, 0, 0, 1, 1)
         self.scrollAreaWidgetContents = scrollAreaWidgetContents
@@ -179,14 +180,14 @@ class TSVLoaderEdit(QtGui.QDialog, Ui_Dialog):
 
     def executeDialog(self):
         self.loadFiles()
-        x = self.exec_()
+        x = self.exec()
         return x
 
 
 if __name__ == "__main__":
     import sys
 
-    app = QtGui.QApplication(sys.argv)
+    app = QtWidgets.QApplication(sys.argv)
 
     dialog = TSVLoaderEdit(
         mapping={"ID": "Id", "mz": "mz", "Cn": "C_Count", "Z": "Z", "RT": "RT_min", "MS scan event": "ScanEvent"},
@@ -197,8 +198,8 @@ if __name__ == "__main__":
     dialog.setWindowTitle("Select results file")
     dialog.resize(560, 80)
 
-    if dialog.executeDialog() == QtGui.QDialog.Accepted:
-        print dialog.getUserSelectedFile(), "\n", dialog.getUserSelectedMapping()
+    if dialog.executeDialog() == QtWidgets.QDialog.Accepted:
+        print(dialog.getUserSelectedFile(), "\n", dialog.getUserSelectedMapping())
 
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
 

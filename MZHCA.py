@@ -1,5 +1,7 @@
 # generic hierarchical clustering algorithm (HCA)
 
+import functools
+
 # Generic HCA object used to store a component the tree that is either a leaf or a composite
 class HCNode(object):
     # initialise the componet with a certain value
@@ -109,7 +111,7 @@ class HierarchicalClustering:
         # iteratively merge the two closest two HCNode objects, merge them into a new HCComposite object
         # and place it back to the clustering. Stop, if only one HCNode object remains
         while len(data) > 1:
-            data.sort(lambda x, y: distCmp(x, y, dist))
+            data.sort(key=functools.cmp_to_key(lambda x, y: distCmp(x, y, dist)))
             diff = [dist(data[x + 1], data[x]) for x in range(0, len(data) - 1)]
             minindex, minvalue = min(enumerate(diff), key=lambda x:x[1])
             d = HCComposite(data[minindex], data[minindex + 1], val=val, mean=mean, add=add)
@@ -165,16 +167,16 @@ def cutTreeSized(node, ppm):
     else:
         raise Exception("HCA Clustering error")
 
-# print HCA tree (recursive with intend)
+# print(HCA tree (recursive with intend))
 def printTree(node, inlet=""):
     if isinstance(node, HCLeaf):
-        print inlet + str(node.getValue())
+        print(inlet + str(node.getValue()))
     elif isinstance(node, HCComposite):
         printTree(node.left, inlet + "  ")
-        print inlet + ":" + str(node.getValue())
+        print(inlet + ":" + str(node.getValue()))
         printTree(node.right, inlet + "  ")
     else:
-        print "Error"
+        print("Error")
 
 
 

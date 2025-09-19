@@ -4,7 +4,7 @@ import pickle
 import base64
 from copy import deepcopy
 
-from PyQt4 import QtGui, QtCore
+from PySide6 import QtCore, QtGui, QtWidgets
 
 from mePyGuis.heteroAtomEditor import Ui_Dialog
 
@@ -137,11 +137,11 @@ class HeteroAtomsTableModel(QtCore.QAbstractTableModel):
         return QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEditable
 
 
-class heteroAtomEdit(QtGui.QDialog, Ui_Dialog):
+class heteroAtomEdit(QtWidgets.QDialog, Ui_Dialog):
     def __init__(self, parent=None, initDir=None, heteroAtoms=None):
         if heteroAtoms is None:
             heteroAtoms = defaultHeteroAtoms
-        QtGui.QDialog.__init__(self, parent)
+        QtWidgets.QDialog.__init__(self, parent)
         self.setWindowTitle("Hetero atom editor")
         self.setupUi(self)
 
@@ -160,10 +160,10 @@ class heteroAtomEdit(QtGui.QDialog, Ui_Dialog):
 
         self.loadDefaults.clicked.connect(self.loadDefaultHeteroAtoms)
 
-        self.acceptButton.setFocus(True)
+        self.acceptButton.setFocus()
 
     def showPopupHA(self, position):
-        menu = QtGui.QMenu()
+        menu = QtWidgets.QMenu()
         quitAction = menu.addAction("Delete")
         action = menu.exec_(self.heteroAtoms.mapToGlobal(position))
         if action == quitAction:
@@ -189,7 +189,7 @@ class heteroAtomEdit(QtGui.QDialog, Ui_Dialog):
         return [ha for ha in self.hAtoms if ha.entryType != "empty"]
 
     def executeDialog(self):
-        x = self.exec_()
+        x = self.exec()
         self.hAtoms.pop(len(self.hAtoms) - 1)
         return x
 
@@ -197,21 +197,21 @@ class heteroAtomEdit(QtGui.QDialog, Ui_Dialog):
 if __name__ == "__main__":
     import sys
 
-    app = QtGui.QApplication(sys.argv)
+    app = QtWidgets.QApplication(sys.argv)
     Dialog = heteroAtomEdit()
 
     Dialog.show()
-    x = app.exec_()
+    x = app.exec()
 
     has = Dialog.getHeteroAtoms()
 
     import pickle
     import base64
 
-    print base64.b64encode(pickle.dumps(has)), has
+    print(base64.b64encode(pickle.dumps(has)), has)
     for ha in has:
-        print ha
-    sys.exit(app.exec_())
+        print(ha)
+    sys.exit(app.exec())
 
 
 

@@ -3,13 +3,23 @@ if __name__=="__main__":
     import os
     os.environ["R_HOME"] = "C:/development/R-3.3.2"
 
-import rpy2
-import rpy2.robjects as ro
+try:
+    import rpy2
+    R_AVAILABLE = True
+except ImportError:
+    R_AVAILABLE = False
+    rpy2 = None
+try:
+    import rpy2.robjects as ro
+    R_AVAILABLE = True
+except ImportError:
+    R_AVAILABLE = False
+    ro = None
 
 from utils import Bunch
 
 
-r = ro.r
+r = ro.r if R_AVAILABLE else None
 
 errorIndex = 2
 
@@ -75,10 +85,10 @@ if __name__ == '__main__':
 
     scanEvents = chromatogram.getFilterLines()
     for s in scanEvents:
-        print s
+        print(s)
 
     scanEvent = sorted(scanEvents)[0]
-    print "selected scan event:", scanEvent
+    print("selected scan event:", scanEvent)
 
     fig = plt.figure(facecolor='white')
     ax = fig.add_subplot(111)
@@ -96,7 +106,7 @@ if __name__ == '__main__':
         peak.peakAtTime=times[peak.peakIndex]
         ax.plot([peak.peakAtTime, peak.peakAtTime], [0, max(eic)])
         ax.plot(times[peak.peakLeftFlank:peak.peakRightFlank], eic[peak.peakLeftFlank:peak.peakRightFlank], linewidth=3)
-    print "Native"
+    print("Native")
     printObjectsAsTable(ret, ["peakAtTime", "peakIndex", "peakScale", "peakArea", "peakLeftFlank", "peakIndex", "peakRightFlank", "peakSNR"])
 
     ret = CP.getPeaksFor(times, eicL, scales=scales)
@@ -104,7 +114,7 @@ if __name__ == '__main__':
         peak.peakAtTime=times[peak.peakIndex]
         ax.plot([peak.peakAtTime, peak.peakAtTime], [-max(eicL), 0])
         ax.plot(times[peak.peakLeftFlank:peak.peakRightFlank], [-e for e in eicL[peak.peakLeftFlank:peak.peakRightFlank]], linewidth=3)
-    print "Labeled"
+    print("Labeled")
     printObjectsAsTable(ret, ["peakAtTime", "peakIndex", "peakScale", "peakArea", "peakLeftFlank", "peakIndex", "peakRightFlank", "peakSNR"])
 
 

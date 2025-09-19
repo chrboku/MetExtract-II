@@ -40,7 +40,7 @@ from reportlab.pdfgen import canvas
 from reportlab.graphics import renderPDF
 from reportlab.lib.styles import getSampleStyleSheet
 
-from PyMassBankSearchTool import PyMassBankSearchTool
+#from PyMassBankSearchTool import PyMassBankSearchTool
 
 import numpy as np
 
@@ -309,7 +309,7 @@ class ProcessTarget:
 
         TIC, timesMS2Native, scanIdsMS2Native=mzxmlNative.getTIC(filterLine=nativeMS2ScanEvent, useMS2=True)
         # limit eic to predefined time window
-        #print eic
+        #print(eic)
         for i in range(len(eic)):
             if minRT <= timesFS[i]/60. <= maxRT:
                 pass
@@ -321,7 +321,7 @@ class ProcessTarget:
 
         TICL, timesMS2Labelled, scanIdsMS2Labelled=mzxmlLabeled.getTIC(filterLine=labelledMS2ScanEvent, useMS2=True)
         # limit eic to predefined time window
-        #print eic
+        #print(eic)
         for i in range(len(eicL)):
             if minRT <= timesFSL[i]/60. <= maxRT:
                 pass
@@ -423,7 +423,7 @@ class ProcessTarget:
 
                         if n < nMz/12:
                             ppmDiff=abs(lMz-nMz-n*isotopeOffset/metaboliteCharge)*1e6/nMz
-                            if ppmDiff < 200 and _debug: print "mz native: {0: >10.3f}, mz labeled: {1: >10.3f}, Cn: {2: >2d}, ppmdiff: {3: >10.3f}, nInt: {4: >10.3f}, lInt: {5: >10.3f}".format(nMz, lMz, n, ppmDiff, nInt, lInt),
+                            if ppmDiff < 200 and _debug: print("mz native: {0: >10.3f}, mz labeled: {1: >10.3f}, Cn: {2: >2d}, ppmdiff: {3: >10.3f}, nInt: {4: >10.3f}, lInt: {5: >10.3f}".format(nMz, lMz, n, ppmDiff, nInt, lInt),)
                             # check if delta mz is explained by n carbon atoms
                             if ppmDiff<=matchingPPM:
 
@@ -434,8 +434,8 @@ class ProcessTarget:
                                         bestMatch=Bunch(nInd=i, lInd=j, Cn=n, ppmDiff=ppmDiff, ratioSimilarity=nInt/lInt)
                                         bestRat=abs(lInt-nInt)
                                         bestRatio=lInt-nInt
-                                        if ppmDiff < 200 and _debug: print " ***",
-                            if ppmDiff < 200 and _debug: print "ppmDiff less than 200"
+                                        if ppmDiff < 200 and _debug: print(" ***",)
+                            if ppmDiff < 200 and _debug: print("ppmDiff less than 200")
 
             if bestMatch.nInd!=-1:
                 retMS.newAnnotationForPeakInScan(nativeIndex=bestMatch.nInd,labelledIndex=bestMatch.lInd,
@@ -446,14 +446,14 @@ class ProcessTarget:
             intsA=[]
             intsB=[]
             for anno in retMS.peakAnnotations:
-                print "     -- ", anno.ratioSimilarity
+                print("     -- ", anno.ratioSimilarity)
                 intsA.append(scanMS2Native.intensity_list[anno.NIndex])
                 intsB.append(scanMS2Labelled.intensity_list[anno.LIndex])
                 rats.append(anno.ratioSimilarity)
 
 
             result = similarity(intsA, intsB)
-            print "   --> ", "mean", np.mean(rats), "median", np.median(rats), "similarity", result
+            print("   --> ", "mean", np.mean(rats), "median", np.median(rats), "similarity", result)
 
         return retMS
 
@@ -944,7 +944,7 @@ class ProcessTarget:
                 colors.append(Color(47 / 255., 79 / 255., 79 / 255.))
                 strokeWidth.append(.35)
         except:
-            print eic.timesList, eic.intensityList
+            print(eic.timesList, eic.intensityList)
 
         lp.data = dd
         lp.joinedLines = 1
@@ -1266,7 +1266,7 @@ class ProcessTarget:
             scanMS2Labelled=self.scaleMSScan(scanMS2Labelled, maxMZ=target.precursorMZ+self.labellingOffset*target.Cn/target.chargeCount+.5, precursorMZ=target.precursorMZ+self.labellingOffset*target.Cn/target.chargeCount, ppm=self.matchingPPM)
             scaledTo="PrecursorMZs"
         except Exception as e:
-            print "Scaling to precursor not possible. Scaling will be perfomred to max intensive peak"
+            print("Scaling to precursor not possible. Scaling will be perfomred to max intensive peak")
             self.scalePrecursorMZ=False
             try:
                 scanMS2Native = self.scaleMSScan(scanMS2Native, maxMZ=target.precursorMZ + 0.5,
@@ -1277,7 +1277,7 @@ class ProcessTarget:
                                                    ppm=self.matchingPPM)
                 scaledTo = "MaxIntensivePeaks"
             except Exception as e:
-                print "No scaling possible"
+                print("No scaling possible")
 
 
         assert maxIntFullScanTimeNative==scanFSNative.retention_time and maxIntFullScanTimeLabeled==scanFSLabeled.retention_time and \

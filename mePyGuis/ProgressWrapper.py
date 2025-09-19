@@ -1,9 +1,9 @@
 import sys
 
-from PyQt4 import QtGui
-from PyQt4.QtCore import Qt
+from PySide6 import QtGui, QtWidgets
+from PySide6.QtCore import Qt
 
-from ColoredProgressBar import ColoredProgressBar
+from .ColoredProgressBar import ColoredProgressBar
 from utils import CallBackMethod, natSort
 
 
@@ -22,7 +22,7 @@ def setLabelBackground(qlabel, colorName=None, r=255, g=0, b=0, alpha=255):
 
 
 # a dialog for showing the progress of individual calculations each having individual subtasks
-class ProgressWrapper(QtGui.QDialog):
+class ProgressWrapper(QtWidgets.QDialog):
 
     ## Disable closing of dialog with the ESC key
     def keyPressEvent(self, event):
@@ -36,7 +36,7 @@ class ProgressWrapper(QtGui.QDialog):
         self.setWindowTitle("Progress Wrapper")
 
 
-        l = QtGui.QGridLayout(self)
+        l = QtWidgets.QGridLayout(self)
 
         self.hasProgressBars = False
         if showProgressBars:
@@ -44,25 +44,25 @@ class ProgressWrapper(QtGui.QDialog):
             self.texts = []
             self.ps = []
 
-            p = QtGui.QScrollArea()
+            p = QtWidgets.QScrollArea()
             p.setStyleSheet("QScrollArea { border-width: 0px;border-style: solid;border-color: rgb(170, 170, 170);}")
             p.setWidgetResizable(True)
-            p.setVerticalScrollBarPolicy(2)
-            p.setHorizontalScrollBarPolicy(1)
+            p.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+            p.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
             #p.setMaximumHeight(min(900, 35*len(indGroups))-(10 if len(indGroups)>1 else 0))
             #p.setMinimumHeight(min(50, 35 * len(indGroups)) - (10 if len(indGroups) > 1 else 0))
             p.setContentsMargins(0, 0, 0, 0)
             l.addWidget(p)
 
-            k = QtGui.QWidget()
+            k = QtWidgets.QWidget()
             k.setContentsMargins(0, 0, 0, 0)
             p.setWidget(k)
 
-            o = QtGui.QGridLayout(k)
+            o = QtWidgets.QGridLayout(k)
             o.setContentsMargins(0, 0, 0, 0)
 
             for pw in range(pwCount):
-                text = QtGui.QLabel("#%d" % pw)
+                text = QtWidgets.QLabel("#%d" % pw)
                 text.setWordWrap(True);
                 o.addWidget(text)
                 self.texts.append(text)
@@ -77,39 +77,39 @@ class ProgressWrapper(QtGui.QDialog):
             self.statuss = {}
 
             if self.hasProgressBars:
-                line = QtGui.QFrame()
-                line.setFrameShape(QtGui.QFrame.HLine)
+                line = QtWidgets.QFrame()
+                line.setFrameShape(QtWidgets.QFrame.HLine)
                 l.addWidget(line)
 
-            p = QtGui.QScrollArea()
+            p = QtWidgets.QScrollArea()
             p.setStyleSheet("QScrollArea { border-width: 0px;border-style: solid;border-color: rgb(170, 170, 170);}")
             p.setWidgetResizable(True)
-            p.setVerticalScrollBarPolicy(2)
+            p.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
             #p.setMaximumHeight(min(900, 35*len(indGroups))-(10 if len(indGroups)>1 else 0))
             p.setMinimumHeight(min(200, 35*len(indGroups))-(10 if len(indGroups)>1 else 0))
             p.setMinimumWidth(400)
             p.setContentsMargins(0,0,0,0)
             l.addWidget(p)
 
-            k = QtGui.QWidget()
+            k = QtWidgets.QWidget()
             k.setContentsMargins(0,0,0,0)
             p.setWidget(k)
 
-            o = QtGui.QGridLayout(k)
+            o = QtWidgets.QGridLayout(k)
             o.setContentsMargins(0,0,0,0)
             for i, indGroup in enumerate(natSort(indGroups.keys())):
-                text = QtGui.QLabel(indGroup)
+                text = QtWidgets.QLabel(indGroup)
                 o.addWidget(text,i,0)
 
-                w = QtGui.QWidget()
+                w = QtWidgets.QWidget()
                 o.addWidget(w,i,1)
-                t = QtGui.QGridLayout(w)
+                t = QtWidgets.QGridLayout(w)
                 t.setContentsMargins(0, 0, 0, 0)
 
                 crow = 0
                 ccol = 0
                 for f in indGroups[indGroup]:
-                    text = QtGui.QLabel("")
+                    text = QtWidgets.QLabel("")
                     if f not in self.statuss:
                         self.statuss[f] = [text]
                     else:
@@ -122,22 +122,22 @@ class ProgressWrapper(QtGui.QDialog):
                     ccol = ccol + 1
 
                     if ccol == indProgColumns:
-                        spacerItem = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
+                        spacerItem = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
                         t.addItem(spacerItem, crow, ccol)
                         crow = crow + 1
                         ccol = 0
 
-                spacerItem = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
+                spacerItem = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
                 t.addItem(spacerItem, crow, indProgColumns)
 
                 if ccol < indProgColumns:
-                    spacerItem = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
+                    spacerItem = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
                     t.addItem(spacerItem, crow, ccol + 1, 1, indProgColumns - ccol - 1)
 
                 if i < (len(indGroups) - 1):
-                    line = QtGui.QFrame()
-                    line.setFrameShape(QtGui.QFrame.HLine)
-                    line.setFrameShadow(QtGui.QFrame.Sunken)
+                    line = QtWidgets.QFrame()
+                    line.setFrameShape(QtWidgets.QFrame.HLine)
+                    line.setFrameShadow(QtWidgets.QFrame.Sunken)
                     t.addWidget(line, crow + 1, 0, 1, indProgColumns + 1)
 
         self.hasLog = False
@@ -145,16 +145,16 @@ class ProgressWrapper(QtGui.QDialog):
             self.hasLog = True
 
             if self.hasProgressBars or self.hasIndFileGroups:
-                line = QtGui.QFrame()
-                line.setFrameShape(QtGui.QFrame.HLine)
+                line = QtWidgets.QFrame()
+                line.setFrameShape(QtWidgets.QFrame.HLine)
                 l.addWidget(line)
 
-            text = QtGui.QLabel("Log")
+            text = QtWidgets.QLabel("Log")
             l.addWidget(text)
 
             self.log = QtGui.QPlainTextEdit()
             l.addWidget(self.log)
-            self.log.setLineWrapMode(0)
+            self.log.setLineWrapMode(QtGui.QPlainTextEdit.LineWrapMode.NoWrap)
 
         self.closeCallBack=closeCallback
         self.skipCallBack=skipCallBack
@@ -217,35 +217,35 @@ class ProgressWrapper(QtGui.QDialog):
 
     def setMaxu(self, v, i=0):
         self.setMax(v, i)
-        QtGui.QApplication.processEvents();
+        QtWidgets.QApplication.processEvents();
 
     def setValueu(self, v, i=0):
         self.setValue(v, i)
-        QtGui.QApplication.processEvents()
+        QtWidgets.QApplication.processEvents()
 
     def setUntilsu(self, u, i=0):
         self.setUntils(u, i)
-        QtGui.QApplication.processEvents()
+        QtWidgets.QApplication.processEvents()
 
     def setTextu(self, t, i=0):
         self.setText(t, i)
-        QtGui.QApplication.processEvents();
+        QtWidgets.QApplication.processEvents();
 
     def setHeaderu(self, t, i=0):
         self.setHeader(t, i)
-        QtGui.QApplication.processEvents();
+        QtWidgets.QApplication.processEvents();
 
     def appendToLogu(self, t, i=0):
         self.appendToLog(t, i)
-        QtGui.QApplication.processEvents();
+        QtWidgets.QApplication.processEvents();
 
     def setStatusColoru(self, status, colorName=None, r=255, g=0, b=0):
         self.setStatusColor(status, colorName=colorName, r=r, g=g, b=b)
-        QtGui.QApplication.processEvents();
+        QtWidgets.QApplication.processEvents();
 
     def setStatusTextu(self, status, text):
         self.setStatusText(status, text)
-        QtGui.QApplication.processEvents();
+        QtWidgets.QApplication.processEvents();
 
 
     def getMaxSetter(self, i=0):
@@ -296,15 +296,15 @@ class ProgressWrapper(QtGui.QDialog):
 
 
 def callBack(a="hello", b="world", qt=None):
-    if QtGui.QMessageBox.question(qt, a+b, "Close", QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)==QtGui.QMessageBox.Yes:
-        print "closing"
+    if QtWidgets.QMessageBox.question(qt, a+b, "Close", QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)==QtWidgets.QMessageBox.Yes:
+        print("closing")
         return True
     else:
-        print "not closing"
+        print("not closing")
         return False
 
 if __name__ == '__main__':
-    app = QtGui.QApplication(sys.argv)
+    app = QtWidgets.QApplication(sys.argv)
 
     if False:
         pw=ProgressWrapper(1, showProgressBars=True, showLog=True, showIndProgress=False)
@@ -360,7 +360,7 @@ if __name__ == '__main__':
         pw.getCallingFunction()("statuscolor")("PH1_4", "Orange")
         pw.getCallingFunction()("statustext")("PH1_4", text="File: %s\nStatus: %s" % ("PH1_4", "running"))
 
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
     
     
     

@@ -146,7 +146,7 @@ def generatePageFor(feature, mzXMLs, experimentalGroups, pdf, ppm=5., plotLabeld
                     useFilterLine=fl
 
             try:
-                #print ("\rProcessing.. |%%-%ds| (%%d/%%d)"%(totalFiles)) % ("*"*filesDone, filesDone, totalFiles),
+                #print(("\rProcessing.. |%%-%ds| (%%d/%%d)"%(totalFiles)) % ("*"*filesDone, filesDone, totalFiles),)
                 filesDone+=1
 
                 ## Native EICs
@@ -172,7 +172,7 @@ def generatePageFor(feature, mzXMLs, experimentalGroups, pdf, ppm=5., plotLabeld
                 eicsCols.append(expGroup.color)
 
             except Exception as ex:
-                print "-- skipping for", file, "(message: %s)" % str(ex)
+                print("-- skipping for", file, "(message: %s)" % str(ex))
 
 
             try:
@@ -199,7 +199,7 @@ def generatePageFor(feature, mzXMLs, experimentalGroups, pdf, ppm=5., plotLabeld
                 eicsLCols.append(expGroup.color)
 
             except Exception as ex:
-                print "-- skipping for", file, "(message: %s)" % str(ex)
+                print("-- skipping for", file, "(message: %s)" % str(ex))
 
             try:
                 ## find best scan in EIC peak
@@ -230,7 +230,7 @@ def generatePageFor(feature, mzXMLs, experimentalGroups, pdf, ppm=5., plotLabeld
                         scanBackgroundCols.append("#396FAC")
                         scanBackgroundWidths.append(.1)
             except Exception as ex:
-                print "-- skipping for", file, "(message: %s)"%str(ex)
+                print("-- skipping for", file, "(message: %s)"%str(ex))
 
 
             ## get chromatogram area
@@ -442,7 +442,7 @@ def generatePageFor(feature, mzXMLs, experimentalGroups, pdf, ppm=5., plotLabeld
         renderPDF.draw(drawingEICs, pdf, 900, 20)
 
     except Exception as ex:
-        print ex
+        print(ex)
 
     pdf.drawString(3, 3, "Notes: Raw-data is shown, no processing has been performed, axis labels missing (bug in library), order/color of separated EICs corresponds to group table, names for groups in separated EICs cannot be set")
 
@@ -471,23 +471,23 @@ def generatePDF(experimentalGroups, metabolitesToPlot, saveTo, ppm=5., mzXMLs=No
 
     if mzXMLs is None:
         mzXMLs={}
-        print "Importing mzXMLs"
+        print("Importing mzXMLs")
         for i, expGroup in enumerate(experimentalGroups):
-            print "   Group: %s"%(expGroup.name)
+            print("   Group: %s"%(expGroup.name))
             for file in expGroup.files:
-                print "      File: %s"%(file)
+                print("      File: %s"%(file))
 
                 if file not in mzXMLs.keys():
                     mzXML = Chromatogram()
                     mzXML.parse_file(file, intensityCutoff=intensityCutoff)#, mzFilter=importFilter)
-                    print "         --> FilterLines:", mzXML.getFilterLines()
+                    print("         --> FilterLines:", mzXML.getFilterLines())
                     mzXMLs[file] = mzXML
 
 
 
     done=0
     ## geneate PDF page for each feature
-    print "\nGenerating PDF pages for features"
+    print("\nGenerating PDF pages for features")
 
     pdf=None
 
@@ -498,7 +498,7 @@ def generatePDF(experimentalGroups, metabolitesToPlot, saveTo, ppm=5., mzXMLs=No
     done=0
     f=0
     for metabolite in metabolitesToPlot:
-        print ("\rProcessing.. |%%-%ds| (%%d/%%d)" % (len(metabolitesToPlot))) % ("*" * done, done, len(metabolitesToPlot)),
+        print(("\rProcessing.. |%%-%ds| (%%d/%%d)" % (len(metabolitesToPlot))) % ("*" * done, done, len(metabolitesToPlot)),)
         if not done%100:
             if pdf is not None:
                 pdf.save()
@@ -516,7 +516,7 @@ def generatePDF(experimentalGroups, metabolitesToPlot, saveTo, ppm=5., mzXMLs=No
             try:
                 generatePageFor(feature, mzXMLs, experimentalGroups, pdf, ppm=ppm, plotLabeld=plotLabeld, normEICs=normEICs, showGroupRTShift=showGroupRTShift)
             except Exception as ex:
-                print ex.message
+                print(ex.message)
                 pass
 
             pdf.showPage()

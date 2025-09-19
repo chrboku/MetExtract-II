@@ -41,21 +41,21 @@ if __name__=="__main__":
     @Singleton
     class Foo:
         def __init__(self):
-            print 'Foo created'
+            print('Foo created')
 
 
     f = Foo.Instance() # Good. Being explicit is in line with the Python Zen
-    print f
+    print(f)
     g = Foo.Instance() # Returns already created instance
-    print g
+    print(g)
 
-    print "f is g:", f is g # True
+    print("f is g:", f is g)
 
     try:
         f = Foo() # Error, this isn't how you get the instance of a singleton
     except TypeError as ex:
-        print '\033[91m'
-        print "  ###############"
-        print "  ###  EXCEPTION:", ex
-        print "  ###############"
-        print '\033[0m'
+        print('\033[91m')
+        print("  ###############")
+        print("  ###  EXCEPTION:", ex)
+        print("  ###############")
+        print('\033[0m')

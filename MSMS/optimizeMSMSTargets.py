@@ -138,7 +138,7 @@ class OptimizeMSMSTargetList:
             mat[rowi][j]=1
             j=(j+1)%len(matColNames)
 
-        print "There will be", len(useTargets), "ions used for the optimization"
+        print("There will be", len(useTargets), "ions used for the optimization")
 
 
         import matplotlib.pyplot as plt
@@ -177,7 +177,7 @@ class OptimizeMSMSTargetList:
             ax.clear()
             ax.plot(gens, scores)
 
-            print "Generation:", "%s(/%d)"%(geni, ngenerations), "current score: %.2E"%score, "(improvement to start score of %.1f%%)"%(abs(score/startScore-1.)*100.), "(after %.1f minutes)"%((time.time() - startProc) / 60.)
+            print("Generation:", "%s(/%d)"%(geni, ngenerations), "current score: %.2E"%score, "(improvement to start score of %.1f%%)"%(abs(score/startScore-1.)*100.), "(after %.1f minutes)"%((time.time() - startProc) / 60.))
             if pwSetText is not None:
                 pwSetText(" ".join(["Generation:", "%s(/%d)"%(geni, ngenerations), "current score: %.2E"%score, "(after %.1f minutes)"%((time.time() - startProc) / 60.)]))
             if pwSetValue is not None:
@@ -190,21 +190,21 @@ class OptimizeMSMSTargetList:
                 newMat=self.permMatrix(deepcopy(mat), permCount=curPermCount)
                 offspringScore=self.calculateScore(newMat, matRowNames, matColNames, useTargets,
                                                    minCounts=minCounts, rtPlusMinus=rtPlusMinus, maxParallelTargets=maxParallelTargets, numberOfFiles=numberOfFiles)
-                #print "    offspring score is", offspringScore
+                #print("    offspring score is", offspringScore)
 
                 if offspringScore>bestOffspringScore:
                     bestOffspring=newMat
                     bestOffspringScore=offspringScore
 
-            #print "  Best offspring is", bestOffspringScore
+            #print("  Best offspring is", bestOffspringScore)
 
             if bestOffspringScore>score and bestOffspring!=None:
                 mat=bestOffspring
 
             fig.canvas.draw()
 
-        #print "Finished.. improvement best score (%.2E) to start score (%.2E) of %.1f%%)"%(scoreD, startScore, (score/startScore-1.)*100.)
-        print "Finished"
+        #print("Finished.. improvement best score (%.2E) to start score (%.2E) of %.1f%%)"%(scoreD, startScore, (score/startScore-1.)*100.))
+        print("Finished")
         plt.show()
 
 

@@ -1,6 +1,8 @@
 ########################################################################################################################
 ########################################################################################################################
-#############################  Imports
+#############################  Impor    def selectResultsFile(self):
+        sel = str(QtWidgets.QFileDialog.getSaveFileName(caption="Select results file", dir=self.lastOpenDir, filter="Data matrix (*.tsv);;All files(*.*)"))
+        if sel is not None:
 
 import sys
 sys.path.append("C:/PyMetExtract/PyMetExtract")
@@ -9,7 +11,7 @@ from TableUtils import TableUtils
 from utils import Bunch
 
 from mePyGuis import combineResultsDialog
-from PyQt4 import QtGui, QtCore
+from PySide6 import QtCore, QtGui, QtWidgets
 
 import csv
 import os
@@ -116,7 +118,7 @@ def combineResults(experiments, experimentsOrder, saveToFile,
             result=None
             for expDesc in experimentsOrder:
                 if len(results[expDesc])>0:
-                    result = results[expDesc].itervalues().next()
+                    result = next(iter(results[expDesc].values()))
                     break
             run = result!=None
 
@@ -243,70 +245,70 @@ class CombineDialog:
 
 
     def selectExpA(self):
-        sel = str(QtGui.QFileDialog.getOpenFileName(caption="Select experiment A file", directory=self.lastOpenDir, filter="Data matrix (*.tsv);;All files(*.*)"))
+        sel = str(QtWidgets.QFileDialog.getOpenFileName(caption="Select experiment A file", dir=self.lastOpenDir, filter="Data matrix (*.tsv);;All files(*.*)"))
         if sel is not None:
             self.ui.expASave.setText(sel)
             self.lastOpenDir=os.path.dirname(sel)
 
     def selectExpB(self):
-        sel = str(QtGui.QFileDialog.getOpenFileName(caption="Select experiment B file", directory=self.lastOpenDir, filter="Data matrix (*.tsv);;All files(*.*)"))
+        sel = str(QtWidgets.QFileDialog.getOpenFileName(caption="Select experiment B file", dir=self.lastOpenDir, filter="Data matrix (*.tsv);;All files(*.*)"))
         if sel is not None:
             self.ui.expBSave.setText(sel)
             self.lastOpenDir = os.path.dirname(sel)
 
     def selectExpC(self):
-        sel = str(QtGui.QFileDialog.getOpenFileName(caption="Select experiment C file", directory=self.lastOpenDir, filter="Data matrix (*.tsv);;All files(*.*)"))
+        sel = str(QtWidgets.QFileDialog.getOpenFileName(caption="Select experiment C file", dir=self.lastOpenDir, filter="Data matrix (*.tsv);;All files(*.*)"))
         if sel is not None:
             self.ui.expCSave.setText(sel)
             self.lastOpenDir = os.path.dirname(sel)
 
     def selectExpD(self):
-        sel = str(QtGui.QFileDialog.getOpenFileName(caption="Select experiment D file", directory=self.lastOpenDir, filter="Data matrix (*.tsv);;All files(*.*)"))
+        sel = str(QtWidgets.QFileDialog.getOpenFileName(caption="Select experiment D file", dir=self.lastOpenDir, filter="Data matrix (*.tsv);;All files(*.*)"))
         if sel is not None:
             self.ui.expDSave.setText(sel)
             self.lastOpenDir = os.path.dirname(sel)
 
     def selectExpE(self):
-        sel = str(QtGui.QFileDialog.getOpenFileName(caption="Select experiment E file", directory=self.lastOpenDir, filter="Data matrix (*.tsv);;All files(*.*)"))
+        sel = str(QtWidgets.QFileDialog.getOpenFileName(caption="Select experiment E file", dir=self.lastOpenDir, filter="Data matrix (*.tsv);;All files(*.*)"))
         if sel is not None:
             self.ui.expESave.setText(sel)
             self.lastOpenDir = os.path.dirname(sel)
 
     def selectExpF(self):
-        sel = str(QtGui.QFileDialog.getOpenFileName(caption="Select experiment F file", directory=self.lastOpenDir, filter="Data matrix (*.tsv);;All files(*.*)"))
+        sel = str(QtWidgets.QFileDialog.getOpenFileName(caption="Select experiment F file", dir=self.lastOpenDir, filter="Data matrix (*.tsv);;All files(*.*)"))
         if sel is not None:
             self.ui.expFSave.setText(sel)
             self.lastOpenDir = os.path.dirname(sel)
 
     def selectResults(self):
-        sel = str(QtGui.QFileDialog.getSaveFileName(caption="Select results file", directory=self.lastOpenDir, filter="Data matrix (*.tsv);;All files(*.*)"))
+        sel = str(QtWidgets.QFileDialog.getSaveFileName(caption="Select results file", dir=self.lastOpenDir, filter="Data matrix (*.tsv);;All files(*.*)"))
         if sel is not None:
             self.ui.saveResults.setText(sel)
             self.lastOpenDir = os.path.dirname(sel)
 
     def start(self):
         if str(self.ui.expASave.text())=="" or str(self.ui.expAPrefix.text())=="":
-            QtGui.QMessageBox.warning(None, "MetExtract", "Error: You need to specify at least the two experiments A and B", QtGui.QMessageBox.Ok)
+            QtWidgets.QMessageBox.warning(None, "MetExtract", "Error: You need to specify at least the two experiments A and B", QtWidgets.QMessageBox.Ok)
             return
         if str(self.ui.expBSave.text())=="" or str(self.ui.expBPrefix.text())=="":
-            QtGui.QMessageBox.warning(None, "MetExtract", "Error: You need to specify at least the two experiments A and B", QtGui.QMessageBox.Ok)
+            QtWidgets.QMessageBox.warning(None, "MetExtract", "Error: You need to specify at least the two experiments A and B", QtWidgets.QMessageBox.Ok)
             return
 
         if (str(self.ui.expCSave.text())=="" != str(self.ui.expCPrefix.text())==""):
-            QtGui.QMessageBox.warning(None, "MetExtract", "Error: You need to specify both the input file and the prefix of experiment C", QtGui.QMessageBox.Ok)
+            QtWidgets.QMessageBox.warning(None, "MetExtract", "Error: You need to specify both the input file and the prefix of experiment C", QtWidgets.QMessageBox.Ok)
             return
         if (str(self.ui.expDSave.text())=="" != str(self.ui.expDPrefix.text())==""):
-            QtGui.QMessageBox.warning(None, "MetExtract", "Error: You need to specify both the input file and the prefix of experiment D", QtGui.QMessageBox.Ok)
+            QtWidgets.QMessageBox.warning(None, "MetExtract", "Error: You need to specify both the input file and the prefix of experiment D", QtWidgets.QMessageBox.Ok)
             return
         if (str(self.ui.expESave.text())=="" != str(self.ui.expEPrefix.text())==""):
-            QtGui.QMessageBox.warning(None, "MetExtract", "Error: You need to specify both the input file and the prefix of experiment E", QtGui.QMessageBox.Ok)
+            QtWidgets.QMessageBox.warning(None, "MetExtract", "Error: You need to specify both the input file and the prefix of experiment E", QtWidgets.QMessageBox.Ok)
             return
         if (str(self.ui.expFSave.text())=="" != str(self.ui.expFPrefix.text())==""):
-            QtGui.QMessageBox.warning(None, "MetExtract", "Error: You need to specify both the input file and the prefix of experiment F", QtGui.QMessageBox.Ok)
+            QtWidgets.QMessageBox.warning(None, "MetExtract", "Error: You need to specify both the input file and the prefix of experiment F", QtWidgets.QMessageBox.Ok)
             return
 
         if str(self.ui.saveResults.text())=="":
-            QtGui.QMessageBox.warning(None, "MetExtract", "Error: You need to specify a file to save the results to", QtGui.QMessageBox.Ok)
+            QtWidgets.QMessageBox.warning(None, "MetExtract", "Error: You need to specify a file to save the results to", QtWidgets.QMessageBox.Ok)
             return
 
 
@@ -342,7 +344,7 @@ class CombineDialog:
             experimentsOrder.append(ex)
 
 
-        print "Combining results of experiments..."
+        print("Combining results of experiments...")
         combineResults(experiments, experimentsOrder,
                        maxPPMError=self.ui.maxPPMDev.value(),
                        maxRTShift=self.ui.maxRTDev.value(),
@@ -350,13 +352,13 @@ class CombineDialog:
                        saveToFile=str(self.ui.saveResults.text()),
                        importantCols=["OGroup", "Ion", "Loss", "M"])
 
-        QtGui.QMessageBox.information(None, "MetExtract", "Processing finished..")
+        QtWidgets.QMessageBox.information(None, "MetExtract", "Processing finished..")
         sys.exit(0)
 
 
 
-app = QtGui.QApplication(sys.argv)
-Dialog = QtGui.QDialog()
+app = QtWidgets.QApplication(sys.argv)
+Dialog = QtWidgets.QDialog()
 ui = CombineDialog(Dialog)
 Dialog.show()
-sys.exit(app.exec_())
+sys.exit(app.exec())

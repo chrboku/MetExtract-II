@@ -28,7 +28,7 @@ class FTICRProcessing:
 
     def log(self, mes):
         if self._log:
-            print mes
+            print(mes)
 
     def importMSScan(self, file, colNameMZ="MZ", colNameIntensity="Int"):
 
@@ -409,13 +409,13 @@ if __name__=="__main__":
     for file in files:
         msscan=fticr.importMSScan(file)
         msScans[file]=msscan
-        print "Read file '%s' with %d signals"%(file, len(msScans[file].mz_list))
+        print("Read file '%s' with %d signals"%(file, len(msScans[file].mz_list)))
 
     allRes=[]
     ppm=0.5
     clusteringPPM=2
     foundSFs=fticr.processMSScans(msScans, ppm=ppm, clusteringPPM=clusteringPPM)
-    print "%d signal pairs were annotated with unique sum formulas. %d non-unique sum formulas"%(len(set(foundSFs)), len([f for f in foundSFs if len(f.sfs)>1]))
+    print("%d signal pairs were annotated with unique sum formulas. %d non-unique sum formulas"%(len(set(foundSFs)), len([f for f in foundSFs if len(f.sfs)>1])))
 
     fticr.generateDataMatrix(msScans, foundSFs, ppm=ppm)
     fticr.writeMatrixToFile("H:/190318_538_AlternariaII/FT Daten/results_MEII.txt", foundSFs, msScans, ppm=ppm)

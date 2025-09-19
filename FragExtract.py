@@ -16,6 +16,7 @@
 #    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 
+from __future__ import print_function, division, absolute_import
 import logging
 import LoggingSetup
 LoggingSetup.LoggingSetup.Instance().initLogging()
@@ -24,7 +25,7 @@ LoggingSetup.LoggingSetup.Instance().initLogging()
 from FragExtract_processTarget import ProcessTarget
 
 from mePyGuis.FE_mainWindow import Ui_MainWindow
-from PyQt4 import QtGui, QtCore
+from PySide6 import QtCore, QtGui, QtWidgets
 
 import pickle
 import base64
@@ -339,7 +340,7 @@ class MSMSFileComboDelegate(QtGui.QItemDelegate):
         self.MSMSTargetModel=MSMSTargetModel
 
     def createEditor(self, parent, option, index):
-        combo = QtGui.QComboBox(parent)
+        combo = QtWidgets.QComboBox(parent)
 
         if index.column() == 9:
             combo.addItems(self.MSMSTargetModel._data[index.row()].MS2ScanEventsNative)
@@ -350,7 +351,7 @@ class MSMSFileComboDelegate(QtGui.QItemDelegate):
         elif index.column() == 12:
             combo.addItems(self.MSMSTargetModel._data[index.row()].MS1ScanEventsLabeled)
 
-        self.connect(combo, QtCore.SIGNAL("currentIndexChanged(int)"), self, QtCore.SLOT("currentIndexChanged()"))
+        self.connect(combo, QtCore.Signal("currentIndexChanged(int)"), self, QtCore.Slot("currentIndexChanged()"))
         return combo
 
     def setEditorData(self, editor, index):
@@ -372,7 +373,7 @@ def runFile(rI):
     rI.process()
 
 def interruptIndividualFilesProcessing(selfObj, pool):
-    if QtGui.QMessageBox.question(selfObj, "FragExtract", "Are you sure you want to cancel?", QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)==QtGui.QMessageBox.Yes:
+    if QtWidgets.QMessageBox.question(selfObj, "FragExtract", "Are you sure you want to cancel?", QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)==QtWidgets.QMessageBox.Yes:
         pool.close()
         pool.terminate()
         pool.join()
@@ -385,9 +386,9 @@ def interruptIndividualFilesProcessing(selfObj, pool):
         return False # don't close progresswrapper and continue processing files
 
 
-class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
+class FEMainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self, parent=None, initDir=None):
-        QtGui.QMainWindow.__init__(self, parent)
+        QtWidgets.QMainWindow.__init__(self, parent)
         self.setupUi(self)
         self.setWindowTitle("MetExtract II - FragExtract")
 
@@ -467,7 +468,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.pl1.twinxs = [self.pl1.axes]
         self.pl1.mpl_toolbar = NavigationToolbar(self.pl1.canvas, self.visualizationWidget)
 
-        vbox = QtGui.QVBoxLayout()
+        vbox = QtWidgets.QVBoxLayout()
         vbox.addWidget(self.pl1.canvas)
         vbox.addWidget(self.pl1.mpl_toolbar)
         self.visualizationWidget.setLayout(vbox)
@@ -485,7 +486,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.pl2.twinxs = [self.pl2.axes]
         self.pl2.mpl_toolbar = NavigationToolbar(self.pl2.canvas, self.eicWidget)
 
-        vbox = QtGui.QVBoxLayout()
+        vbox = QtWidgets.QVBoxLayout()
         vbox.addWidget(self.pl2.canvas)
         vbox.addWidget(self.pl2.mpl_toolbar)
         self.eicWidget.setLayout(vbox)
@@ -543,7 +544,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
 
     def showTargetPopup(self, position):
-        menu = QtGui.QMenu()
+        menu = QtWidgets.QMenu()
         quitAction = menu.addAction("Delete target")
         copyAction = menu.addAction("Duplicate target")
         none = menu.addSeparator()
@@ -575,7 +576,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
     
     def showAnnotationConfiguration(self):
         t = adductsEdit(nls=self.elements, showAdductsConfiguration=False)
-        if t.executeDialog() == QtGui.QDialog.Accepted:
+        if t.executeDialog() == QtWidgets.QDialog.Accepted:
             self.elements = t.getNeutralLosses()
 
             logging.info("Configured neutral loss elements:")
@@ -591,7 +592,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
             self.useCPUCoresSpinner.setValue(self.useCPUCoresSpinner.maximum())
 
     def addMSMSTargetHandler(self):
-        mzXMLFiles = QtGui.QFileDialog.getOpenFileNames(caption="Select chromatograms", filter="mzXML file (*.mzXML);;mzML file (*.mzML)")
+        mzXMLFiles = QtWidgets.QFileDialog.getOpenFileNames(caption="Select chromatograms", filter="mzXML file (*.mzXML);;mzML file (*.mzML)")
 
         if len(mzXMLFiles)==0:
             return
@@ -608,12 +609,12 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
         pw.getCallingFunction()("value")(0)
 
         tryMatchTargets=False
-        if QtGui.QMessageBox.question(self, "FragExtract", "Do you want to try to automatically match corresponding LC-MS/MS scans based on retention time?\n\n"
+        if QtWidgets.QMessageBox.question(self, "FragExtract", "Do you want to try to automatically match corresponding LC-MS/MS scans based on retention time?\n\n"
                                                            "The match will be performed using the start of two scanEvents and their pre-cursor MZs.\n"
                                                            "If a pair of two scanEvents is used for two targets at different retention times, it will not be separated "
                                                            "and treated as one. \n"
                                                            "Please carefully review the list",
-                                      QtGui.QMessageBox.Yes | QtGui.QMessageBox.No) == QtGui.QMessageBox.Yes:
+                                      QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No) == QtWidgets.QMessageBox.Yes:
             tryMatchTargets=True
 
         opened={}
@@ -624,10 +625,10 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
             matchFromDifferentFiles=False
             if "12C" in mzXMLFile and os.path.isfile(mzXMLFile.replace("12C", "13C")):
-                if QtGui.QMessageBox.question(self, "FragExtract",
+                if QtWidgets.QMessageBox.question(self, "FragExtract",
                                               "A file with the same name but 13C instead of 12C was found. Shall this file be used for parsing the 13C spectra?\n\n"
                                               "Files:\n%s\n%s"%(mzXMLFile, mzXMLFile.replace("12C", "13C")),
-                                              QtGui.QMessageBox.Yes | QtGui.QMessageBox.No) == QtGui.QMessageBox.Yes:
+                                              QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No) == QtWidgets.QMessageBox.Yes:
                     matchFromDifferentFiles=True
 
             a=mzXMLFile.replace("\\", "/")
@@ -686,10 +687,10 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             if vm.preCursorMz<vmp.preCursorMz:
                                 cn=round((vmp.preCursorMz-vm.preCursorMz)/1.00335484, 0)
 
-                                #print vm.preCursorMz, vm.polarity, vm.scanTimes
+                                #print(vm.preCursorMz, vm.polarity, vm.scanTimes)
                                 if vm.polarity == vmp.polarity and cn>0 and (vmp.preCursorMz-vm.preCursorMz)>1 and (abs(vmp.preCursorMz-vm.preCursorMz-cn*1.00335)*1000000./vmp.preCursorMz)<=10:
 
-                                    #print "   ", vmp.preCursorMz, vm.polarity, cn
+                                    #print("   ", vmp.preCursorMz, vm.polarity, cn)
                                     for irt in vm.scanTimes:
                                         bestMatch=None
                                         bestMatchDiff=1000000
@@ -737,9 +738,9 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 curFi += 1
                 pw.getCallingFunction()("value")(curFi)
 
-                if QtGui.QMessageBox.question(self, "FragExtract",
+                if QtWidgets.QMessageBox.question(self, "FragExtract",
                                               "%d MSMS scans were found to be potential targets. Do you want to add them?"%(len(matchedTargets)),
-                                              QtGui.QMessageBox.Yes | QtGui.QMessageBox.No) == QtGui.QMessageBox.Yes:
+                                              QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No) == QtWidgets.QMessageBox.Yes:
                     for obj in matchedTargets:
                         self.MSMSTargetModel.insertRows(len(self.MSMSTargetModel._data), 1, object=obj)
 
@@ -753,7 +754,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             self.MSMSTargetModel.index(self.MSMSTargetModel.rowCount() - 1, 12))
             else:
                 if len(scanEventsMS2Native)>2:
-                    val, okClicked = QtGui.QInputDialog.getInteger(self, "FragExtract",
+                    val, okClicked = QtWidgets.QInputDialog.getInteger(self, "FragExtract",
                                                                    "The file (%s) contains more than 2 MS/MS scan events.\nDo you want to define multiple"
                                                                    "targets for this file?\nClick 'Cancel' to add file only once"%a,
                                                                    1, 1, len(scanEventsMS2Native))
@@ -783,7 +784,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.updateResultsView()
 
         if tryMatchTargets:
-            QtGui.QMessageBox.information(self, "FragExtract", "Targets have been matched automatically.\n"
+            QtWidgets.QMessageBox.information(self, "FragExtract", "Targets have been matched automatically.\n"
                                                                "Please review carefully and correct if necessary.")
 
     def deleteMSMSTargetHandler(self):
@@ -798,7 +799,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
     def showConfigureAdductsDialog(self):
         t = adductsEdit(adds=self.MSMSTargetModel.adducts.values(), showRelationshipConfiguratio=False)
-        if t.executeDialog() == QtGui.QDialog.Accepted:
+        if t.executeDialog() == QtWidgets.QDialog.Accepted:
             self.MSMSTargetModel.adducts = {}
 
             logging.info("Configured adducts:")
@@ -807,7 +808,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
                 self.MSMSTargetModel.adducts[adduct.name]=adduct
 
     def loadSettings(self):
-        settingsFile = QtGui.QFileDialog.getOpenFileName(caption="Specify settings file", filter="Settings (*.ini);; Group compilations (*.grp)")
+        settingsFile = QtWidgets.QFileDialog.getOpenFileName(caption="Specify settings file", filter="Settings (*.ini);; Group compilations (*.grp)")
 
         if len(settingsFile)==0:
             return
@@ -865,7 +866,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
         sett.endGroup()
 
     def saveSettings(self):
-        settingsFile = QtGui.QFileDialog.getSaveFileName(caption="Specify settings file", filter="Settings (*.ini)")
+        settingsFile = QtWidgets.QFileDialog.getSaveFileName(caption="Specify settings file", filter="Settings (*.ini)")
 
         if len(settingsFile)==0:
             return
@@ -926,21 +927,21 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
             "LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, "\
             "OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN "\
             "THE SOFTWARE."
-        QtGui.QMessageBox.information(self, "MetExtract",
+        QtWidgets.QMessageBox.information(self, "MetExtract",
                                       "FragExtract %s\n\n(c) Centre for Analytical Chemistry, IFA Tulln\nUniversity of Natural Resources and Life Sciences, Vienna\n\n%s" % (MetExtractVersion, lic),
-                                      QtGui.QMessageBox.Ok)
+                                      QtWidgets.QMessageBox.Ok)
 
 
 
     def saveCompilationHandler(self):
-        groupFile = QtGui.QFileDialog.getSaveFileName(caption="Specify group file", filter="Group file (*.grp)")
+        groupFile = QtWidgets.QFileDialog.getSaveFileName(caption="Specify group file", filter="Group file (*.grp)")
 
         if len(groupFile)==0:
             return
         else:
-            saveSettings=QtGui.QMessageBox.question(self, "FragExtract",
+            saveSettings=QtWidgets.QMessageBox.question(self, "FragExtract",
                                           "Do you want to include the used settings in this compilation?",
-                                          QtGui.QMessageBox.Yes | QtGui.QMessageBox.No) == QtGui.QMessageBox.Yes
+                                          QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No) == QtWidgets.QMessageBox.Yes
 
             self.saveCompilationToFileName(groupFile, saveSettings=saveSettings)
 
@@ -965,10 +966,18 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
             grps.setValue("%d__charge"%i, configured.charge)
             grps.setValue("%d__usedAdduct"%i, configured.usedAdduct)
 
-            relFilePath = "./" + str(os.path.relpath(configured.lcmsmsNativeFileName, os.path.split(str(groupFile))[0]).replace("\\", "/"))
+            try:
+                relFilePath = "./" + str(os.path.relpath(configured.lcmsmsNativeFileName, os.path.split(str(groupFile))[0]).replace("\\", "/"))
+            except ValueError:
+                # Files are on different drives, use absolute path
+                relFilePath = str(configured.lcmsmsNativeFileName).replace("\\", "/")
             grps.setValue("%d__FileNative"%i, relFilePath)
 
-            relFilePath = "./" + str(os.path.relpath(configured.lcmsmsLabeledFileName, os.path.split(str(groupFile))[0]).replace("\\", "/"))
+            try:
+                relFilePath = "./" + str(os.path.relpath(configured.lcmsmsLabeledFileName, os.path.split(str(groupFile))[0]).replace("\\", "/"))
+            except ValueError:
+                # Files are on different drives, use absolute path
+                relFilePath = str(configured.lcmsmsLabeledFileName).replace("\\", "/")
             grps.setValue("%d__FileLabeled"%i, relFilePath)
 
         grps.endGroup()
@@ -977,7 +986,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
             self.saveSettingsToSettingsFile(groupFile)
 
     def loadCompilationHandler(self):
-        groupFile = QtGui.QFileDialog.getOpenFileName(caption="Specify group file", filter="Group file (*.grp)")
+        groupFile = QtWidgets.QFileDialog.getOpenFileName(caption="Specify group file", filter="Group file (*.grp)")
 
         if len(groupFile)==0:
             return
@@ -1069,9 +1078,9 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
         grps.endGroup()
 
         if "Settings" in grps.childGroups():
-            if QtGui.QMessageBox.question(self, "FragExtract",
+            if QtWidgets.QMessageBox.question(self, "FragExtract",
                                           "Settings detected. Do you want to load the associated settings from the compilation?",
-                                          QtGui.QMessageBox.Yes | QtGui.QMessageBox.No) == QtGui.QMessageBox.Yes:
+                                          QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No) == QtWidgets.QMessageBox.Yes:
                 self.loadSettingsFromSettingsFile(groupFile)
 
         self.updateResultsView()
@@ -1115,14 +1124,14 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
     def processTargets(self):
         self.terminateJobs=False
 
-        if QtGui.QMessageBox.question(self, "FragExtract",
+        if QtWidgets.QMessageBox.question(self, "FragExtract",
                                       "Do you want to save the compilation?",
-                                      QtGui.QMessageBox.Yes | QtGui.QMessageBox.No) == QtGui.QMessageBox.Yes:
+                                      QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No) == QtWidgets.QMessageBox.Yes:
             self.saveCompilationHandler()
 
-        if QtGui.QMessageBox.question(self, "FragExtract",
+        if QtWidgets.QMessageBox.question(self, "FragExtract",
                                       "Do you want to start the processing?",
-                                      QtGui.QMessageBox.Yes | QtGui.QMessageBox.No) == QtGui.QMessageBox.No:
+                                      QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No) == QtWidgets.QMessageBox.No:
             return
 
         self.closeActiveResultsFile()
@@ -1257,7 +1266,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
 
                     if mes.mes in ["log", "text", "max", "value"]:
-                        if assignedThreads.has_key(mes.pid):
+                        if mes.pid in assignedThreads:
                             pw.getCallingFunction(assignedThreads[mes.pid] + 1)(mes.mes)(mes.val)
                         else:
                             logging.error("Error %d" % mes.pid)
@@ -1362,7 +1371,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
             self.resultsTreeWidget.clear()
 
-            targetsItem = QtGui.QTreeWidgetItem(["MSMS targets"])
+            targetsItem = QtWidgets.QTreeWidgetItem(["MSMS targets"])
             targetsItem.myType = "MSMSTargets_TL"
             targetsItem.myID = 1
             targetsItem.myData = []
@@ -1370,7 +1379,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
             targets=[t for t in SQLSelectAsObject(self.curFileSQLiteConnection.curs, selectStatement="select id, targetName, precursorMZ, chargeCount, Cn, startRT, stopRT, scanEventMS1M, scanEventMS1Mp, scanEventMS2Native, scanEventMS2Labeled, scanIDNativeRaw, scanIDLabelledRaw, scanRTNativeRaw, scanRTLabeledRaw, parentSumFormula from Targets")]
             for target in targets:
 
-                targetItem = QtGui.QTreeWidgetItem([target.targetName, "%s"%str(target.precursorMZ), "%d"%target.Cn, str(target.parentSumFormula), "%d"%target.chargeCount, "%.2f (%s)"%(target.scanRTNativeRaw/60., target.scanIDNativeRaw), "%.2f (%s)"%(target.scanRTLabeledRaw/60., target.scanIDLabelledRaw),
+                targetItem = QtWidgets.QTreeWidgetItem([target.targetName, "%s"%str(target.precursorMZ), "%d"%target.Cn, str(target.parentSumFormula), "%d"%target.chargeCount, "%.2f (%s)"%(target.scanRTNativeRaw/60., target.scanIDNativeRaw), "%.2f (%s)"%(target.scanRTLabeledRaw/60., target.scanIDLabelledRaw),
                                                     target.scanEventMS2Native, target.scanEventMS2Labeled, target.scanEventMS1M, target.scanEventMS1Mp])
                 targetItem.myType = "MSMSTarget"
                 targetItem.myID = target.id
@@ -1401,12 +1410,12 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     b = Bunch(index=index, mz=annotatedSpectrum.mzs[index], relInt=annotatedSpectrum.ints[index],
                               Cn=annotatedSpectrum.annos[index].Cn, sumFormulas=annotatedSpectrum.annos[index].generatedSumFormulas,
                               dppmSpectra=annotatedSpectrum.annos[index].dppmSpectra, ratioError=annotatedSpectrum.annos[index].ratioError, ratioSimilarity=annotatedSpectrum.annos[index].ratioSimilarity)
-                    peakItem = QtGui.QTreeWidgetItem(["Peak %d"%b.index, "%.4f"%b.mz, "%d (mz %.4f; dppm %.2f)"%(b.Cn, b.mz+1.00335*b.Cn, b.dppmSpectra), "", "", "", "Rel.int: %.1f%%"%(b.relInt), "Ratio: %.5f"%(b.ratioSimilarity)])
+                    peakItem = QtWidgets.QTreeWidgetItem(["Peak %d"%b.index, "%.4f"%b.mz, "%d (mz %.4f; dppm %.2f)"%(b.Cn, b.mz+1.00335*b.Cn, b.dppmSpectra), "", "", "", "Rel.int: %.1f%%"%(b.relInt), "Ratio: %.5f"%(b.ratioSimilarity)])
                     peakItem.myType = "PeakAnnotation"
                     peakItem.myID = target.id
                     peakItem.myData = b
                     for io in range(8):
-                        peakItem.setBackgroundColor(io, QtGui.QColor("lightgrey"))
+                        peakItem.setBackground(io, QtGui.QColor("lightgrey"))
                     targetItem.addChild(peakItem)
 
                     totSumForms=0
@@ -1427,24 +1436,24 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
                             if len(b.sumFormulas[adduct])>0:
 
                                 for sumForm in b.sumFormulas[adduct]:
-                                    sumFormItem = QtGui.QTreeWidgetItem(["", "", "", sumForm.sumFormula, adduct, str(sumForm.neutralLossToParent)])
+                                    sumFormItem = QtWidgets.QTreeWidgetItem(["", "", "", sumForm.sumFormula, adduct, str(sumForm.neutralLossToParent)])
                                     sumFormItem.myType = "PeakAnnotation_Adduct_SumFormula"
                                     sumFormItem.myID = target.id
                                     sumFormItem.myData = b
                                     for io in range(8):
-                                        sumFormItem.setBackgroundColor(io, QtGui.QColor("lightgrey"))
+                                        sumFormItem.setBackground(io, QtGui.QColor("lightgrey"))
                                     peakItem.addChild(sumFormItem)
 
 
                 mbMatches=[p for p in SQLSelectAsObject(self.curFileSQLiteConnection.curs,
                                                         selectStatement="SELECT id, title, exactMass, formula, score FROM MassBankHits WHERE forTarget=%d"%target.id)]
                 if len(mbMatches)>0:
-                    annos = QtGui.QTreeWidgetItem(["MassBank hits (%d)"%len(mbMatches)])
+                    annos = QtWidgets.QTreeWidgetItem(["MassBank hits (%d)"%len(mbMatches)])
                     annos.myType="MassBankHits"
                     annos.myID=-1
                     annos.myData=Bunch()
                     for p in mbMatches:
-                        anno=QtGui.QTreeWidgetItem([str(d) for d in [p.title, p.id, p.formula, p.exactMass, p.score]])
+                        anno=QtWidgets.QTreeWidgetItem([str(d) for d in [p.title, p.id, p.formula, p.exactMass, p.score]])
                         anno.targetID=target.id
                         anno.myType="MassBankHit"
                         anno.myID=p.id
@@ -1588,7 +1597,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
 
                 self.pl2.twinxs[0].plot(times, intensities, color=col, linewidth=linewidth)
         except:
-            print eic.timesList, eic.intensityList
+            print(eic.timesList, eic.intensityList)
 
         try:
             for eic in eics:
@@ -1610,7 +1619,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
                     linewidth=2
                     self.pl2.twinxs[0].plot(times, intensities, color=col, linewidth=linewidth)
         except:
-            print eic.timesList, eic.intensityList
+            print(eic.timesList, eic.intensityList)
 
         ma=max(target.eicFS)
         ma=ma if ma > 0 else 1
@@ -1710,7 +1719,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
         dat=[]
 
         if len(selectedItems)==1 and selectedItems[0].myType=="MSMSTargets_TL":
-            menu = QtGui.QMenu()
+            menu = QtWidgets.QMenu()
             clipboardAction = menu.addAction("Copy")
 
             action = menu.exec_(self.resultsTreeWidget.mapToGlobal(position))
@@ -1725,7 +1734,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
         for selectedItem in selectedItems:
             if selectedItem.myType == "MSMSTarget":
 
-                menu = QtGui.QMenu()
+                menu = QtWidgets.QMenu()
                 clipboardAction = menu.addAction("Copy")
 
                 action = menu.exec_(self.resultsTreeWidget.mapToGlobal(position))
@@ -1738,7 +1747,7 @@ class FEMainWindow(QtGui.QMainWindow, Ui_MainWindow):
             pyperclip.copy("\r\n".join(dat))
 
         #else:
-        #    menu = QtGui.QMenu()
+        #    menu = QtWidgets.QMenu()
         #    menu.addAction("No action avaialble")
         #    menu.exec_(self.resultsTreeWidget.mapToGlobal(position))
 
@@ -1752,10 +1761,10 @@ if __name__ == '__main__':
 
     import sys
 
-    app = QtGui.QApplication(sys.argv)
+    app = QtWidgets.QApplication(sys.argv)
     Dialog = FEMainWindow()
 
     Dialog.show()
-    x = app.exec_()
+    x = app.exec()
 
     sys.exit(x)

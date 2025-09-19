@@ -125,7 +125,7 @@ def processFile(file, columns, adducts, ppm=5., ppmCorrectionPosMode=0, ppmCorre
 
                 atomsRange[0]=(xCount-g, xCount+g)
 
-            #print "--------"
+            #print("--------")
             dbe = {}
             dbe[smCol + "_CHO"] = []
             dbe[smCol + "_CHOS"] = []
@@ -198,7 +198,7 @@ def processFile(file, columns, adducts, ppm=5., ppmCorrectionPosMode=0, ppmCorre
 
                 atomsRange[0]=(xCount-g, xCount+g)
 
-            #print "--------"
+            #print("--------")
             dbe = {}
             dbe[smCol + "_CHO"] = []
             dbe[smCol + "_CHOS"] = []

@@ -1,13 +1,17 @@
 if __name__=="__main__":
     import MExtract
 
-import rpy2
-import rpy2.robjects as ro
+try:
+    import rpy2
+    import rpy2.robjects as ro
+    r = ro.r
+    R_AVAILABLE = True
+except ImportError:
+    print("Warning: rpy2 not available. MassSpecWavelet will use fallback methods.")
+    R_AVAILABLE = False
+    r = None
 
 from utils import Bunch
-
-
-r = ro.r
 
 errorIndex = 2
 
@@ -159,10 +163,10 @@ if __name__ == '__main__':
 
     scanEvents = chromatogram.getFilterLines()
     for s in scanEvents:
-        print s
+        print(s)
 
     scanEvent = sorted(scanEvents)[0]
-    print "selected scan event:", scanEvent
+    print("selected scan event:", scanEvent)
 
     fig = plt.figure(facecolor='white')
     ax = fig.add_subplot(111)
@@ -184,20 +188,20 @@ if __name__ == '__main__':
         eic[i]=0
     
     from utils import printObjectsAsTable
-    print "Startindex", startIndex, "EndIndex", endIndex
+    print("Startindex", startIndex, "EndIndex", endIndex)
 
 
     CP=MassSpecWavelet("./MassSpecWaveletIdentification.R", scales=scales, minScans=1)
     ret = CP.getPeaksFor(times, eic, startIndex=startIndex, endIndex=endIndex)
     for peak in ret:
         peak.peakAtTime=times[peak.peakIndex] / 60.
-    print "Native"
+    print("Native")
     printObjectsAsTable(ret, ["peakAtTime", "peakIndex", "peakScale", "peakArea", "peakLeftFlank", "peakIndex", "peakRightFlank", "peakSNR"])
 
     ret = CP.getPeaksFor(times, eicL, startIndex=startIndex, endIndex=endIndex)
     for peak in ret:
         peak.peakAtTime=times[peak.peakIndex] / 60.
-    print "Labeled"
+    print("Labeled")
     printObjectsAsTable(ret, ["peakAtTime", "peakIndex", "peakScale", "peakArea", "peakLeftFlank", "peakIndex", "peakRightFlank", "peakSNR"])
     
 

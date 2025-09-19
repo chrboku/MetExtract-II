@@ -67,13 +67,15 @@ def convertMSMSoptFileToFeatureML(msmsFile, featureMLFile=None):
     if featureMLFile is None:
         featureMLFile=msmsFile+".featureML"
 
-    with open(msmsFile, "rb") as fIn:
+    with open(msmsFile, "r", encoding='utf-8') as fIn:
         csvReader=csv.reader(fIn, delimiter=";", quotechar="\"")
 
         headers={}
         features=[]
 
         for linei, row in enumerate(csvReader):
+            if len(row) == 0:  # Skip empty lines
+                continue
             if linei==0:
                 for colInd, header in enumerate(row):
                     headers[header]=colInd
@@ -93,12 +95,14 @@ def convertMEMatrixToFeatureML(meMatrixFile, featureMLFile=None):
     if featureMLFile is None:
         featureMLFile=meMatrixFile.replace(".tsv", ".txt").replace(".txt", "")+".featureML"
 
-    with open(meMatrixFile, "rb") as fIn:
+    with open(meMatrixFile, "r", encoding='utf-8') as fIn:
         csvReader=csv.reader(fIn, delimiter="\t", quotechar="\"")
 
         headers={}
         features=[]
         for linei, row in enumerate(csvReader):
+            if len(row) == 0:  # Skip empty lines
+                continue
             if linei==0:
                 for colInd, header in enumerate(row):
                     headers[header]=colInd
@@ -126,6 +130,8 @@ def convertMEMatrixToFeatureMLSepPolarities(meMatrixFile, featureMLFile=None, po
 
         headers={}
         for linei, row in enumerate(csvReader):
+            if len(row) == 0:  # Skip empty lines
+                continue
             if linei==0:
                 for colInd, header in enumerate(row):
                     headers[header]=colInd

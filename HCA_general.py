@@ -101,7 +101,7 @@ class HCA_generic:
         self.dists={}
 
     def generateTree(self, objs, ids=None):
-        logging.info("  .. started generating tree for %d objects"%(len(objs)))
+        #logging.info("  .. started generating tree for %d objects"%(len(objs)))
         if ids is None:
             ids=range(len(objs))
         clusts=[HCALeaf(objs[i], _id=ids[i], _ind = i) for i in range(len(objs))]
@@ -110,12 +110,12 @@ class HCA_generic:
         self.dists = np.ones((nClusts, nClusts), dtype = float) * 1e6
         self._updateDist(clusts)
 
-        logging.info("  .. calculated initial distances")
+        #logging.info("  .. calculated initial distances")
 
         while nClusts > 1:
 
             pos = np.argmin(self.dists)
-            i = pos / self.dists.shape[1]
+            i = pos // self.dists.shape[1]  # Use integer division
             j = pos % self.dists.shape[1]
             distance = self.dists[i, j]
 
@@ -166,11 +166,11 @@ class HCA_generic:
 
     def plotTree(self, tree, intend="", newIntend="   "):
         if isinstance(tree, HCALeaf):
-            print intend, "Leaf ID:" ,tree.getID(), "Data:", tree.getObj()
+            print(intend, "Leaf ID:" ,tree.getID(), "Data:", tree.getObj())
 
         elif isinstance(tree, HCAComposite):
             self.plotTree(tree.getLeftKid(), intend=intend+newIntend, newIntend=newIntend)
-            print intend, "Composite + ID:" ,tree.getID(), "Distance:", tree.getDistance(), "Data:", self.getLinkFor(tree)#self.link(tree)
+            print(intend, "Composite + ID:" ,tree.getID(), "Distance:", tree.getDistance(), "Data:", self.getLinkFor(tree))#self.link(tree)
             self.plotTree(tree.getRightKid(), intend=intend+newIntend, newIntend=newIntend)
 
         else:
@@ -214,4 +214,4 @@ if __name__=="__main__":
     hc=HCA_generic()
     tree=hc.generateTree(obs)
     hc.plotTree(tree)
-    print hc.getObjsOrderInTree(tree)
+    print(hc.getObjsOrderInTree(tree))

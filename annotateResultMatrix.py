@@ -1,3 +1,4 @@
+from __future__ import print_function, division, absolute_import
 import csv
 
 import pprint
@@ -15,7 +16,7 @@ def addGroup(to, groupName, minCount, cols):
 
 # matches the input columns to the respective statistic column
 def matchRows(groups, rowNames):
-    for groupName, groupProps in groups.iteritems():
+    for groupName, groupProps in groups.items():
         for rowName in groupProps["colsNames"]:
             for i in range(len(rowNames)):
                 if rowNames[i] == rowName:
@@ -30,11 +31,13 @@ def addStatsColumnToResults(metaFile, groups, toFile, outputOrder, commentStarti
     mzInd=-1
     rtInd=-1
 
-    with open(metaFile, "rb") as x:
+    with open(metaFile, "r", encoding='utf-8') as x:
         meta = csv.reader(x, delimiter="\t")
 
         rowNum = 0
         for line in meta:
+            if len(line) == 0:  # Skip empty lines
+                continue
             if line[0].startswith(commentStartingCharacter):
                 comments.append(line[0].strip())
                 continue
@@ -87,11 +90,13 @@ def performGroupOmit(infile, groupStats, outfile, commentStartingCharacter="#"):
     hrow = []
     comments = []
 
-    with open(infile, "rb") as x:
+    with open(infile, "r", encoding='utf-8') as x:
         meta = csv.reader(x, delimiter="\t")
 
         rowNum = 0
         for line in meta:
+            if len(line) == 0:  # Skip empty lines
+                continue
             if line[0].startswith(commentStartingCharacter):
                 comments.append(line[0].strip())
                 continue

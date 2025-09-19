@@ -7,7 +7,15 @@ import errno
 import sqlite3
 import sys
 from time import time
-from cPickle import loads, dumps
+try:
+    from cPickle import loads, dumps  # Python 2
+    try:
+        buffer_func = buffer
+    except NameError:
+        buffer_func = lambda x: x
+except ImportError:
+    from pickle import loads, dumps   # Python 3
+    buffer_func = lambda x: x
 
 import logging
 
@@ -52,7 +60,7 @@ class SqliteCache:
             logger.debug('Successfully created the storage path for {path}'.format(
                 path=self.path))
 
-        except OSError, e:
+        except OSError as e:
 
             if e.errno != errno.EEXIST or not os.path.isdir(self.path):
                 raise
@@ -126,7 +134,7 @@ class SqliteCache:
 
         # serialize the value with protocol 2
         # ref: https://docs.python.org/2/library/pickle.html#data-stream-format
-        data = buffer(dumps(value, 2))
+        data = buffer_func(dumps(value, 2))
 
         # write the updated value to the db
         with self._get_conn() as conn:
@@ -144,7 +152,7 @@ class SqliteCache:
 
         # serialize the value with protocol 2
         # ref: https://docs.python.org/2/library/pickle.html#data-stream-format
-        data = buffer(dumps(value, 2))
+        data = buffer_func(dumps(value, 2))
 
         # adding a new entry that may cause a duplicate key
         # error if they key already exists. In this case
@@ -184,14 +192,14 @@ if __name__ == '__main__':
 
     # check args
     if len(sys.argv) != 3 or sys.argv[1] != 'clear':
-        print '[!] Error: You have to specify the clear with `python %s clear <path to cache.sqlite>`' % sys.argv[0]
+        print('[!] Error: You have to specify the clear with `python %s clear <path to cache.sqlite>`' % sys.argv[0])
         sys.exit(1)
 
     if not os.path.isdir(sys.argv[2]):
-        print '[!] Error: %s does not seem to be a path!' % sys.argv[2]
+        print('[!] Error: %s does not seem to be a path!' % sys.argv[2])
         sys.exit(1)
 
     # setup the cache instance and clear it.
     c = SqliteCache(sys.argv[2])
     c.clear()
-    print ' * Cache cleared'
+    print(' * Cache cleared')

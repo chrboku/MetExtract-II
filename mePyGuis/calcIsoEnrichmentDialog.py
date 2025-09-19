@@ -1,4 +1,4 @@
-from PyQt4 import QtGui, QtCore
+from PySide6 import QtCore, QtGui, QtWidgets
 from mePyGuis.calcIsotopeEnrichmentDialog import Ui_Dialog
 
 from math import factorial
@@ -10,9 +10,9 @@ def choose(n, r):
 def calcIsoEnrichment(a,s,r):
     return choose(a,s)**(1./s) / (choose(a,s)**(1./s)+r**(1./s))
 
-class calcIsoEnrichmentDialog(QtGui.QDialog, Ui_Dialog):
+class calcIsoEnrichmentDialog(QtWidgets.QDialog, Ui_Dialog):
     def __init__(self, parent=None, initDir=None):
-        QtGui.QDialog.__init__(self, parent)
+        QtWidgets.QDialog.__init__(self, parent)
         self.setupUi(self)
         self.setWindowTitle("Calculate isotopic enrichment")
 
@@ -33,7 +33,7 @@ class calcIsoEnrichmentDialog(QtGui.QDialog, Ui_Dialog):
                 mpo=float(self.tableWidget.item(rowi, 1).text())
                 cn=int(self.tableWidget.item(rowi, 4).text())
 
-                self.tableWidget.setItem(rowi, 5, QtGui.QTableWidgetItem("%.4f%%"%(100.*calcIsoEnrichment(  cn, 1, mpo/m  ))))
+                self.tableWidget.setItem(rowi, 5, QtWidgets.QTableWidgetItem("%.4f%%"%(100.*calcIsoEnrichment(  cn, 1, mpo/m  ))))
             except Exception as ex:
                 pass
             try:
@@ -41,13 +41,13 @@ class calcIsoEnrichmentDialog(QtGui.QDialog, Ui_Dialog):
                 mp=float(self.tableWidget.item(rowi, 3).text())
                 cn=int(self.tableWidget.item(rowi, 4).text())
 
-                self.tableWidget.setItem(rowi, 6, QtGui.QTableWidgetItem("%.4f%%"%(100.*calcIsoEnrichment(  cn, 1, mpmo/mp  ))))
+                self.tableWidget.setItem(rowi, 6, QtWidgets.QTableWidgetItem("%.4f%%"%(100.*calcIsoEnrichment(  cn, 1, mpmo/mp  ))))
             except Exception as ex:
                 pass
 
 
     def executeDialog(self):
-        x = self.exec_()
+        x = self.exec()
 
         return x
 
@@ -55,10 +55,10 @@ class calcIsoEnrichmentDialog(QtGui.QDialog, Ui_Dialog):
 if __name__ == "__main__":
     import sys
 
-    app = QtGui.QApplication(sys.argv)
+    app = QtWidgets.QApplication(sys.argv)
     Dialog = calcIsoEnrichmentDialog()
 
     Dialog.show()
-    app.exec_()
+    app.exec()
 
     sys.exit()

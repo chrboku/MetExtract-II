@@ -4,7 +4,7 @@ import pickle
 import base64
 from copy import copy, deepcopy
 
-from PyQt4 import QtGui, QtCore
+from PySide6 import QtCore, QtGui, QtWidgets
 
 from mePyGuis.TracerEditor import Ui_Dialog
 from utils import getRatio, getXCombinations
@@ -54,9 +54,9 @@ def getShortName(element):
 
 
 
-class tracerEdit(QtGui.QDialog, Ui_Dialog):
+class tracerEdit(QtWidgets.QDialog, Ui_Dialog):
     def __init__(self, parent=None):
-        QtGui.QDialog.__init__(self, parent)
+        QtWidgets.QDialog.__init__(self, parent)
         self.setupUi(self)
         self.setWindowTitle("Tracer editor")
 
@@ -65,7 +65,7 @@ class tracerEdit(QtGui.QDialog, Ui_Dialog):
         self.discardButton.clicked.connect(self.dialogCan)
         self.acceptButton.clicked.connect(self.dialogFin)
 
-        self.acceptButton.setFocus(True)
+        self.acceptButton.setFocus()
 
         self.tName.setText(self.configuredTracer.name)
         self.tAtomCount.setValue(self.configuredTracer.elementCount)
@@ -152,13 +152,13 @@ class tracerEdit(QtGui.QDialog, Ui_Dialog):
         if tracer.name == "":
             ok=False
             severe = True
-            QtGui.QMessageBox.question(self, "MetExtract", "Error in tracer number %d \nYou did not specify a name. \nPlease provide a name", QtGui.QMessageBox.Ok)
+            QtWidgets.QMessageBox.question(self, "MetExtract", "Error in tracer number %d \nYou did not specify a name. \nPlease provide a name", QtWidgets.QMessageBox.Ok)
 
         if len(ea) == 0 or ea != eb:
             ok = False
-            QtGui.QMessageBox.question(self, "MetExtract",
+            QtWidgets.QMessageBox.question(self, "MetExtract",
                                        "Error in tracer %s \nYou cannot use two different elements for the labelling process. \nPlease enter isotopes of the same element" % tracer.name,
-                                       QtGui.QMessageBox.Ok)
+                                       QtWidgets.QMessageBox.Ok)
 
 
         return ok and not severe
@@ -172,7 +172,7 @@ class tracerEdit(QtGui.QDialog, Ui_Dialog):
             self.accept()
 
     def executeDialog(self):
-        x = self.exec_()
+        x = self.exec()
 
         return x
 
@@ -180,13 +180,13 @@ class tracerEdit(QtGui.QDialog, Ui_Dialog):
 if __name__ == "__main__":
     import sys
 
-    app = QtGui.QApplication(sys.argv)
+    app = QtWidgets.QApplication(sys.argv)
     Dialog = tracerEdit()
 
     Dialog.show()
-    x = app.exec_()
+    x = app.exec()
 
-    print "final tracer:", Dialog.getTracer()
+    print("final tracer:", Dialog.getTracer())
 
     sys.exit(x)
     

@@ -56,7 +56,7 @@ class GradientPeaks:
 
     ### expand a local maxima by following its gradient to the bottom
     def expandPeak(self, peak, x, y):
-        ##print "peak at ", peak.peakIndex, x[peak.peakIndex]
+        ##print("peak at ", peak.peakIndex, x[peak.peakIndex])
 
         # find left border
         peak.peakLeftFlank=0
@@ -66,7 +66,7 @@ class GradientPeaks:
         while goOn and (peak.peakIndex-peak.peakLeftFlank-1)>0:
             rat=y[peak.peakIndex-peak.peakLeftFlank-1]/y[peak.peakIndex-peak.peakLeftFlank]
             delta=(y[peak.peakIndex-peak.peakLeftFlank]-y[peak.peakIndex-peak.peakLeftFlank-1])/(x[peak.peakIndex-peak.peakLeftFlank]-x[peak.peakIndex-peak.peakLeftFlank-1])
-            #print "left", y[peak.peakIndex-peak.peakLeftFlank-1], y[peak.peakIndex-peak.peakLeftFlank], rat, delta, goOnInflection, goOn
+            #print("left", y[peak.peakIndex-peak.peakLeftFlank-1], y[peak.peakIndex-peak.peakLeftFlank], rat, delta, goOnInflection, goOn)
 
             if goOnInflection and delta<=lastDelta:
                 peak.leftInflection=peak.peakLeftFlank
@@ -88,7 +88,7 @@ class GradientPeaks:
         while goOn and (peak.peakIndex+peak.peakRightFlank+1)<len(x):
             rat=y[peak.peakIndex+peak.peakRightFlank+1]/y[peak.peakIndex+peak.peakRightFlank]
             delta=(y[peak.peakIndex+peak.peakRightFlank]-y[peak.peakIndex+peak.peakRightFlank+1])/(x[peak.peakIndex+peak.peakRightFlank+1]-x[peak.peakIndex+peak.peakRightFlank])
-            #print "right", y[peak.peakIndex-peak.peakLeftFlank-1], y[peak.peakIndex-peak.peakLeftFlank], rat, delta, goOnInflection, goOn
+            #print("right", y[peak.peakIndex-peak.peakLeftFlank-1], y[peak.peakIndex-peak.peakLeftFlank], rat, delta, goOnInflection, goOn)
 
             if goOnInflection and delta<=lastDelta:
                 peak.rightInflection=peak.peakRightFlank
@@ -336,7 +336,7 @@ if __name__=="__main__":
     from MassSpecWavelet import MassSpecWavelet
 
     cp=MassSpecWavelet("./MassSpecWaveletIdentification.R")
-    print "------------"
+    print("------------")
 
     sw.start()
     for i in range(10):
@@ -351,7 +351,7 @@ if __name__=="__main__":
         peak.peakAtTime=times[peak.peakIndex] / 60.
 
     from utils import printObjectsAsTable
-    print "MassSpecWavelet"
+    print("MassSpecWavelet")
     printObjectsAsTable(peaks, ["peakAtTime", "peakLeftFlank", "peakIndex", "peakRightFlank"])
     printObjectsAsTable(peaksL, ["peakAtTime", "peakLeftFlank", "peakIndex", "peakRightFlank"])
     for peak in peaks:
@@ -367,7 +367,7 @@ if __name__=="__main__":
 
 
 
-    print "\n".join(durationMessages)
+    print("\n".join(durationMessages))
 
 
     plt.show()

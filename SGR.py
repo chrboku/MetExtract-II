@@ -39,7 +39,7 @@ class SGRGenerator:
                     atomsWithOddValences = atomsWithOddValences + curAtoms[i]
 
                 maxVal = max(maxVal, valAtom)
-        #print valences, atomsWithOddValences, maxVal, useAtoms, curAtoms, (not(bool(valences%2)) or not(bool(atomsWithOddValences%2))) and (valences>=(2*maxVal)) and (valences>=(2*(sum(curAtoms)-1)))
+        #print(valences, atomsWithOddValences, maxVal, useAtoms, curAtoms, (not(bool(valences%2)) or not(bool(atomsWithOddValences%2))) and (valences>=(2*maxVal)) and (valences>=(2*(sum(curAtoms)-1))))
         return (not (bool(valences % 2)) or not (bool(atomsWithOddValences % 2))) and (valences >= (2 * maxVal)) and (
             valences >= (2 * (sum(curAtoms) - 1)))
 
@@ -190,7 +190,7 @@ class SGRGenerator:
 
         if isinstance(fixed, str):
             ft=formulaTools()
-            fixed=ft.parseFormula(fixed).keys()
+            fixed=list(ft.parseFormula(fixed).keys())
 
         if useSevenGoldenRules:
             atomsRange = self.firstGoldenRule(molMass, useAtoms, atomsRange, fixed=fixed)
@@ -216,7 +216,7 @@ if __name__=="__main__":
     adducts=[0]
 
     for add in adducts:
-        print add
+        print(add)
         m=mz-add
 
         formsCRes=sfg.findFormulas(m, useAtoms=["C", "N", "H", "O", "P", "S"], atomsRange=[(1,32), (0,500), (0,10000), (0,400), [0, 10], [0, 20]],

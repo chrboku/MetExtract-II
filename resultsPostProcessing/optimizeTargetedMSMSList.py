@@ -23,10 +23,12 @@ if __name__=="__main__":
 
     headers={}
     data=[]
-    with open(inF, "rb") as fIn:
+    with open(inF, "r", encoding='utf-8') as fIn:
         reader=csv.reader(fIn, delimiter="\t")
 
         for rowi, row in enumerate(reader):
+            if len(row) == 0:  # Skip empty lines
+                continue
             if rowi==0:
                 for coli, header in enumerate(row):
                     headers[header]=coli

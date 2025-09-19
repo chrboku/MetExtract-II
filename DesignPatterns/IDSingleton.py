@@ -1,4 +1,4 @@
-from SingletonDecorator import Singleton
+from .SingletonDecorator import Singleton
 
 @Singleton
 class IDProvider:

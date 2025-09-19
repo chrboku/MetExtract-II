@@ -1,8 +1,8 @@
-from PyQt4 import QtGui, QtCore
+from PySide6 import QtCore, QtGui, QtWidgets
 
 # a progress bar widget that is separated in several sub-processes.
 # It can be used to better illustrate a multi-step process
-class ColoredProgressBar(QtGui.QWidget):
+class ColoredProgressBar(QtWidgets.QWidget):
     def __init__(self, untils={1.: "slategrey"}, minV=0., maxV=1., value=.0):
         super(ColoredProgressBar, self).__init__()
         self.value = value

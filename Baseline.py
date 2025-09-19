@@ -2,13 +2,23 @@
 if __name__=="__main__":
     import MExtract
 
-import rpy2
-import rpy2.robjects as ro
+try:
+    import rpy2
+    R_AVAILABLE = True
+except ImportError:
+    R_AVAILABLE = False
+    rpy2 = None
+try:
+    import rpy2.robjects as ro
+    R_AVAILABLE = True
+except ImportError:
+    R_AVAILABLE = False
+    ro = None
 
 from utils import Bunch
 
 
-r = ro.r
+r = ro.r if R_AVAILABLE else None
 
 class Baseline:
 
@@ -61,10 +71,10 @@ if __name__=="__main__":
 
     scanEvents = chromatogram.getFilterLines()
     for s in scanEvents:
-        print s
+        print(s)
 
     scanEvent = sorted(scanEvents)[0]
-    print "selected scan event:", scanEvent
+    print("selected scan event:", scanEvent)
 
     fig = plt.figure(facecolor='white')
     ax = fig.add_subplot(111)
@@ -84,7 +94,7 @@ if __name__=="__main__":
     ret = CP.getPeaksFor(times, eic, scales=scales, minScans=1)
     for peak in ret:
         peak.peakAtTime = times[peak.peakIndex] / 60.
-    print "Native"
+    print("Native")
     printObjectsAsTable(ret, ["peakAtTime", "peakIndex", "peakScale", "peakArea", "peakLeftFlank", "peakIndex",
                               "peakRightFlank", "peakSNR"])
 
@@ -92,7 +102,7 @@ if __name__=="__main__":
     ret = CP.getPeaksFor(times, [max(0, eic[i]-eicBL[i]) for i in range(len(eic))], scales=scales, minScans=1)
     for peak in ret:
         peak.peakAtTime = times[peak.peakIndex] / 60.
-    print "Native without baseline"
+    print("Native without baseline")
     printObjectsAsTable(ret, ["peakAtTime", "peakIndex", "peakScale", "peakArea", "peakLeftFlank", "peakIndex",
                               "peakRightFlank", "peakSNR"])
 

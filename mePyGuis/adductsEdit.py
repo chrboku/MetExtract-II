@@ -1,10 +1,11 @@
+from __future__ import print_function, division, absolute_import
 import sys
 import os
 import pickle
 import base64
 from copy import deepcopy
 
-from PyQt4 import QtGui, QtCore
+from PySide6 import QtCore, QtGui, QtWidgets
 
 from formulaTools import formulaTools
 
@@ -284,13 +285,13 @@ def loadANFile(filename):
     return a, n
 
 
-class adductsEdit(QtGui.QDialog, Ui_Dialog):
+class adductsEdit(QtWidgets.QDialog, Ui_Dialog):
     def __init__(self, parent=None, initDir=None, adds=None, nls=None, showAdductsConfiguration=True, showRelationshipConfiguratio=True):
         if adds is None:
             adds=defaultAdducts
         if nls is None:
             nls=defaultNeutralLosses
-        QtGui.QDialog.__init__(self, parent)
+        QtWidgets.QDialog.__init__(self, parent)
         self.setWindowTitle("Adducts editor")
         self.setupUi(self)
         
@@ -313,9 +314,9 @@ class adductsEdit(QtGui.QDialog, Ui_Dialog):
         self.neutralLoss.setModel(self.nlModel)
 
         self.initDir = "."
-        if os.environ.has_key('USERPROFILE'):
+        if 'USERPROFILE' in os.environ:
             self.initDir = os.getenv('USERPROFILE')
-        elif os.environ.has_key('HOME'):
+        elif 'HOME' in os.environ:
             self.initDir = os.getenv('HOME')
 
         self.saveConfiguration.clicked.connect(self.save)
@@ -333,10 +334,10 @@ class adductsEdit(QtGui.QDialog, Ui_Dialog):
 
         self.loadDefaults.clicked.connect(self.loadDefaultAdductsAndNeutralLosses)
 
-        self.acceptButton.setFocus(True)
+        self.acceptButton.setFocus()
 
     def showPopupA(self, position):
-        menu = QtGui.QMenu()
+        menu = QtWidgets.QMenu()
         quitAction = menu.addAction("Delete")
         action = menu.exec_(self.adducts.mapToGlobal(position))
         if action == quitAction:
@@ -344,7 +345,7 @@ class adductsEdit(QtGui.QDialog, Ui_Dialog):
                 self.addsModel.removeRows(x.row(), 1)
 
     def showPopupN(self, position):
-        menu = QtGui.QMenu()
+        menu = QtWidgets.QMenu()
         quitAction = menu.addAction("Delete")
         action = menu.exec_(self.neutralLoss.mapToGlobal(position))
         if action == quitAction:
@@ -352,7 +353,7 @@ class adductsEdit(QtGui.QDialog, Ui_Dialog):
                 self.nlModel.removeRows(x.row(), 1)
 
     def load(self):
-        filename = QtGui.QFileDialog.getOpenFileName(self, "Select configuration file", self.initDir,
+        filename = QtWidgets.QFileDialog.getOpenFileName(self, "Select configuration file", self.initDir,
                                                      "confif file (*.conf);;All files (*.*)")
         if len(filename) > 0:
             a, n = loadANFile(filename)
@@ -367,7 +368,7 @@ class adductsEdit(QtGui.QDialog, Ui_Dialog):
             self.neutralLoss.setModel(self.nlModel)
 
     def save(self):
-        filename = QtGui.QFileDialog.getSaveFileName(caption="Select configuration file",
+        filename = QtWidgets.QFileDialog.getSaveFileName(caption="Select configuration file",
                                                      filter="config file (*.conf);;All files(*.*)")
         if len(filename) > 0:
             saveANFile(filename, self.getAdducts(), self.getNeutralLosses())
@@ -400,7 +401,7 @@ class adductsEdit(QtGui.QDialog, Ui_Dialog):
         self.accept()
 
     def executeDialog(self):
-        x = self.exec_()
+        x = self.exec()
         self.adds.pop(len(self.adds) - 1)
         self.nls.pop(len(self.nls) - 1)
         return x
@@ -409,20 +410,20 @@ class adductsEdit(QtGui.QDialog, Ui_Dialog):
 if __name__ == "__main__":
     import sys
 
-    app = QtGui.QApplication(sys.argv)
+    app = QtWidgets.QApplication(sys.argv)
     Dialog = adductsEdit()
 
     Dialog.show()
-    x = app.exec_()
+    x = app.exec()
 
     nls = Dialog.getNeutralLosses()
     for nl in nls:
-        print nl
+        print(nl)
 
     adds = Dialog.getAdducts()
     for add in adds:
-        print add
+        print(add)
 
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
 
     

@@ -1,8 +1,8 @@
-from PyQt4 import QtGui, QtCore
+from PySide6 import QtCore, QtGui, QtWidgets
 
 # a progress bar widget that is separated in several sub-processes.
 # It can be used to better illustrate a multi-step process
-class MinimalBarChart(QtGui.QWidget):
+class MinimalBarChart(QtWidgets.QWidget):
     def __init__(self, blockSize=3, maxYValue=100):
         super(MinimalBarChart, self).__init__()
         self.blockSize=3

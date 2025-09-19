@@ -29,4 +29,4 @@ if __name__=="__main__":
 
     sw.stop()
 
-    print "it took %.1f seconds to sum up the values from 0 to 10.000.000"%(sw.getDurationInSeconds())
+    print("it took %.1f seconds to sum up the values from 0 to 10.000.000"%(sw.getDurationInSeconds()))

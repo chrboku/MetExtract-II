@@ -1,3 +1,4 @@
+from __future__ import print_function, division, absolute_import
 import sys
 import base64
 import zlib
@@ -283,7 +284,7 @@ class Chromatogram():
         intensity_list = []
 
         if line is not None and len(line)>0:
-            decoded = base64.decodestring(line)
+            decoded = base64.decodebytes(line.encode('utf-8'))
             if compression=="zlib":
                 decoded = zlib.decompress(decoded)
 
@@ -308,12 +309,12 @@ class Chromatogram():
     def _start_element(self, name, attrs):
         self.tag_level += 1
         self.current_tag = name
-        #print "start tag", name
+        #print("start tag", name)
 
-        if name == 'parentFile' and attrs.has_key('fileName'):
+        if name == 'parentFile' and 'fileName' in attrs:
             self.parentFile = attrs['fileName']
 
-        if name == 'msInstrument' and attrs.has_key('msInstrumentID'):
+        if name == 'msInstrument' and 'msInstrumentID' in attrs:
             self.msInstruments[attrs['msInstrumentID']] = {}
             self.lastMSInstrument = self.msInstruments[attrs['msInstrumentID']]
 
@@ -326,9 +327,9 @@ class Chromatogram():
         if name == 'precursorMz':
             self.MS2_list[-1].precursor_intensity = float(attrs['precursorIntensity'])
             self.MS2_list[-1].precursor_charge = 0
-            if attrs.has_key('precursorCharge'):
+            if 'precursorCharge' in attrs:
                 self.MS2_list[-1].precursor_charge = int(attrs['precursorCharge'])
-            if attrs.has_key("activationMethod"):
+            if "activationMethod" in attrs:
                 self.MS2_list[-1].activationMethod = str(attrs['activationMethod'])
 
         if name == 'scan':
@@ -340,7 +341,7 @@ class Chromatogram():
             elif self.msLevel == 2:
                 tmp_ms = MS2Scan()
             else:
-                print "What is it?", attrs
+                print("What is it?", attrs)
                 sys.exit(1)
 
             tmp_ms.id = int(attrs['num'])
@@ -349,15 +350,15 @@ class Chromatogram():
             tmp_ms.peak_count_tag = int(attrs['peaksCount'])
             tmp_ms.retention_time = float(attrs['retentionTime'].strip('PTS'))
             if tmp_ms.peak_count > 0:
-                if attrs.has_key('lowMz'):
+                if 'lowMz' in attrs:
                     tmp_ms.low_mz = float(attrs['lowMz'])
-                if attrs.has_key('highMz'):
+                if 'highMz' in attrs:
                     tmp_ms.high_mz = float(attrs['highMz'])
-                if attrs.has_key('basePeakMz'):
+                if 'basePeakMz' in attrs:
                     tmp_ms.base_peak_mz = float(attrs['basePeakMz'])
-                if attrs.has_key('basePeakIntensity'):
+                if 'basePeakIntensity' in attrs:
                     tmp_ms.base_peak_intensity = float(attrs['basePeakIntensity'])
-            if attrs.has_key('totIonCurrent'):
+            if 'totIonCurrent' in attrs:
                 tmp_ms.total_ion_current = float(attrs['totIonCurrent'])
             else:
                 tmp_ms.total_ion_current = 0
@@ -369,10 +370,10 @@ class Chromatogram():
             tmp_ms.mz_list = []
             tmp_ms.intensity_list = []
             tmp_ms.msInstrumentID = ""
-            if attrs.has_key('msInstrumentID'):
+            if 'msInstrumentID' in attrs:
                 tmp_ms.msInstrumentID = attrs['msInstrumentID']
             tmp_ms.filter_line = "N/A"
-            if attrs.has_key('filterLine'):
+            if 'filterLine' in attrs:
                 tmp_ms.filter_line = attrs['filterLine'] + " (pol: %s)" % tmp_ms.polarity
             elif len(self.msInstruments) == 1:
                 tmp_ms.filter_line = "%s (MS lvl: %d, pol: %s)" % (
@@ -384,7 +385,7 @@ class Chromatogram():
             if self.msLevel == 1:
                 self.MS1_list.append(tmp_ms)
             elif self.msLevel == 2:
-                if attrs.has_key("collisionEnergy"):
+                if "collisionEnergy" in attrs:
                     tmp_ms.collisionEnergy=float(attrs["collisionEnergy"])
                 else:
                     tmp_ms.collisionEnergy=-1
@@ -398,7 +399,7 @@ class Chromatogram():
                 curScan=self.MS2_list[-1]
 
             curScan.compression=None
-            if attrs.has_key("compressionType"):
+            if "compressionType" in attrs:
                 curScan.compression=str(attrs["compressionType"])
             curScan.precision = int(attrs['precision'])
 
@@ -434,7 +435,7 @@ class Chromatogram():
 
     # xml parser - end element handler
     def _end_element(self, name):
-        #print "end tag", name
+        #print("end tag", name)
 
         if name == 'scan':
             if self.msLevel==1:
@@ -502,7 +503,7 @@ class Chromatogram():
         expat.CharacterDataHandler = self._char_data
 
         ##expat.Parse(content_listd)
-        expat.ParseFile(open(filename_xml, 'r'))
+        expat.ParseFile(open(filename_xml, 'rb'))
 
         if not ignoreCharacterData:
             for scan in self.MS1_list:
@@ -542,7 +543,7 @@ class Chromatogram():
 
             for curpack in packets:
                 meanmz = sum(curpack) / len(curpack)
-                #print ionMode, meanmz, (meanmz-min(curpack))/meanmz*1E6, (max(curpack)-meanmz)/meanmz*1E6, curpack
+                #print(ionMode, meanmz, (meanmz-min(curpack))/meanmz*1E6, (max(curpack)-meanmz)/meanmz*1E6, curpack)
 
             for msmsscan in self.MS2_list:
                 if msmsscan.polarity == ionMode:
@@ -563,13 +564,13 @@ class Chromatogram():
 
         for specturm in run:
 
-            if specturm.has_key("time array") or specturm["id"] is None:
+            if "time array" in specturm or specturm["id"] is None:
                 continue
 
             try:
                 msLevel=int(specturm["ms level"])
             except :
-                print "Error: What is it?", specturm["id"], type(specturm), specturm
+                print("Error: What is it?", specturm["id"], type(specturm), specturm)
                 continue
 
 
@@ -578,7 +579,7 @@ class Chromatogram():
             elif msLevel == 2:
                 tmp_ms = MS2Scan()
             else:
-                print "What is it?", msLevel, specturm["id"]
+                print("What is it?", msLevel, specturm["id"])
                 sys.exit(1)
 
             tmp_ms.id = int(specturm["id"])
@@ -598,9 +599,9 @@ class Chromatogram():
             tmp_ms.total_ion_current = specturm["total ion current"]
             tmp_ms.list_size = 0
 
-            if specturm.has_key("positive scan"):
+            if "positive scan" in specturm:
                 tmp_ms.polarity = "+"
-            elif specturm.has_key("negative scan"):
+            elif "negative scan" in specturm:
                 tmp_ms.polarity = "-"
             else:
                 raise RuntimeError("No polarity for scan available")
@@ -639,7 +640,7 @@ class Chromatogram():
                     if len(lastmzs)>0:
                         minMZ=lastmzs[0].precursormz
                         maxMZ=lastmzs[-1].precursormz
-                        #print polarity, minMZ, maxMZ, (maxMZ-minMZ)*1000000./minMZ, "  \n --> ", (precursorsTemp[i].precursormz-lastmz)*1000000./lastmz, ": ", precursorsTemp[i].precursormz
+                        #print(polarity, minMZ, maxMZ, (maxMZ-minMZ)*1000000./minMZ, "  \n --> ", (precursorsTemp[i].precursormz-lastmz)*1000000./lastmz, ": ", precursorsTemp[i].precursormz)
 
                         for j in range(len(lastmzs)):
                             self.MS2_list[lastmzs[j].id].filter_line="MSn %s mean mz precursor: %.5f"%(polarity, mean([pc.precursormz for pc in lastmzs]))
@@ -674,7 +675,7 @@ class Chromatogram():
         scanID = int(scan.getAttribute("num"))
 
         #  tmp_ms.retention_time = float(attrs['retentionTime'].strip('PTS'))
-        if data.has_key(scanID) and hasattr(data[scanID], "rt"):
+        if scanID in data and hasattr(data[scanID], "rt"):
             scan.setAttribute("retentionTime", "PT%.3fS"%(data[scanID].rt))
 
         peaks = None
@@ -683,10 +684,10 @@ class Chromatogram():
                 peaks = kid
         assert peaks is not None and len(peaks.childNodes) == 1
 
-        if data.has_key(scanID) and len(data[scanID].mzs) > 0:
+        if scanID in data and len(data[scanID].mzs) > 0:
             h = data[scanID]
             assert len(h.mzs) == len(h.ints)
-            peaks.childNodes[0].nodeValue = base64.encodestring("".join([struct.pack(">f", h.mzs[i]) + struct.pack(">f", h.ints[i]) for i in range(len(h.mzs))])).strip().replace("\n", "")
+            peaks.childNodes[0].nodeValue = base64.encodebytes("".join([struct.pack(">f", h.mzs[i]) + struct.pack(">f", h.ints[i]) for i in range(len(h.mzs))]).encode('utf-8')).decode('utf-8').strip().replace("\n", "")
             scan.setAttribute("peaksCount", str(len(h.mzs)))
             scan.setAttribute("lowMz", str(min(h.mzs)))
             scan.setAttribute("highMz", str(max(h.mzs)))
@@ -735,11 +736,11 @@ if __name__=="__main__":
     t.parse_file(f)
 
     for i in t.getFilterLinesPerPolarity(includeMS1=False, includeMS2=True):
-        print i
+        print(i)
         for j in i:
-            print "   ", j
+            print("   ", j)
 
-    print t.getPolarities()
+    print(t.getPolarities())
 
     x=Chromatogram()
     x.parse_file(f)
@@ -748,11 +749,11 @@ if __name__=="__main__":
 
 
     scan=x.getMS1ScanByNum(0)
-    print scan.retention_time/60
+    print(scan.retention_time/60)
 
 
     for mz, inte in zip(scan.mz_list, scan.intensity_list):
-        print mz, inte
+        print(mz, inte)
 
     import matplotlib.pyplot as plt
 

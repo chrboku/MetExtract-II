@@ -110,9 +110,6 @@ def matchPartners(mzXMLData, forFile,
 
 
 
-
-
-
     labelingElements={}
     labelingElements["C"]=Bunch(nativeIsotope="12C", labelingIsotope="13C", massNative=12.      , massLabeled=13.00335 , isotopicEnrichmentNative=0.9893, isotopicEnrichmentLabeled=0.995, minXn=1, maxXn=3)
     labelingElements["H"]=Bunch(nativeIsotope= "1H", labelingIsotope= "2H", massNative=1.0078250, massLabeled=2.0141018, isotopicEnrichmentNative=0.9999, isotopicEnrichmentLabeled=0.96 , minXn=0, maxXn=9)
@@ -137,9 +134,9 @@ def matchPartners(mzXMLData, forFile,
     useDoubleLabelingCombinations=False
 
     if useDoubleLabelingCombinations:
-        print "The following labeling configurations are used:"
+        print("The following labeling configurations are used:")
         for comb in combs:
-            print comb
+            print(comb)
 
     # iterate over all MS scans (lvl. 1)
     curScanIndex=0
@@ -593,8 +590,8 @@ def matchPartners(mzXMLData, forFile,
 
                 if len(curScanDetectedIonPairs)>0 and False:
                     from utils import printObjectsAsTable
-                    print "\n"
-                    print curScan.retention_time/60.
+                    print("\n")
+                    print(curScan.retention_time/60.)
                     printObjectsAsTable(curScanDetectedIonPairs, attrs=["mz", "xCount", "loading", "nIntensity", "lIntensity", "ionMode"])
 
                 detectedIonPairs.extend(curScanDetectedIonPairs)

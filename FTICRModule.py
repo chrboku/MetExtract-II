@@ -12,7 +12,7 @@ import os
 
 from formulaTools import formulaTools
 from mePyGuis.FTICRWindow import Ui_MainWindow
-from PyQt4 import QtGui, QtCore
+from PySide6 import QtCore, QtGui, QtWidgets
 from utils import Bunch, mean
 from mePyGuis.ProgressWrapper import ProgressWrapper
 
@@ -51,14 +51,14 @@ def noaxis(ax):
 
 
 
-class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
+class FTICRModuleWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self, parent=None, initDir=None):
         logging.info("MetExtract II (module FTICRExtract)")
 
         self.fT=formulaTools()
         self.fticr=FTICR.FTICRProcessing()
 
-        QtGui.QMainWindow.__init__(self, parent)
+        QtWidgets.QMainWindow.__init__(self, parent)
         self.setupUi(self)
         self.setWindowTitle("MetExtract II - FTICRExtract")
 
@@ -89,7 +89,7 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
         self.pl.canvas = FigureCanvas(self.pl.fig)
         self.pl.canvas.setParent(self.result_MassSpectrum)
         self.pl.mpl_toolbar = NavigationToolbar(self.pl.canvas, self.result_MassSpectrum)
-        vbox = QtGui.QVBoxLayout()
+        vbox = QtWidgets.QVBoxLayout()
         vbox.addWidget(self.pl.canvas)
         vbox.addWidget(self.pl.mpl_toolbar)
         self.result_MassSpectrum.setLayout(vbox)
@@ -99,9 +99,9 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
 
     def newProcessing(self):
         if self.samplesModel.rowCount() > 0 and \
-                        QtGui.QMessageBox.question(self, "MetExtract",
+                        QtWidgets.QMessageBox.question(self, "MetExtract",
                                                    "Do you want to discard the already loaded and processed samples? ",
-                                                   QtGui.QMessageBox.Yes | QtGui.QMessageBox.No) == QtGui.QMessageBox.Yes:
+                                                   QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No) == QtWidgets.QMessageBox.Yes:
 
             self.fticr=FTICR.FTICRProcessing()
 
@@ -109,9 +109,9 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
             self.loadedSamples.setModel(self.samplesModel)
             self.loadedSamples.selectionModel().selectionChanged.connect(self.draw)
 
-            if QtGui.QMessageBox.question(self, "MetExtract",
+            if QtWidgets.QMessageBox.question(self, "MetExtract",
                                                    "Do you want to discard the loaded databases? ",
-                                                   QtGui.QMessageBox.Yes | QtGui.QMessageBox.No) == QtGui.QMessageBox.Yes:
+                                                   QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No) == QtWidgets.QMessageBox.Yes:
                 model = QtGui.QStandardItemModel()
                 self.DBs.setModel(model)
                 self.dbs=[]
@@ -133,7 +133,7 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
         dialog.setWindowTitle("Select sum formula database file(s)")
         dialog.resize(560, 80)
 
-        if dialog.executeDialog() == QtGui.QDialog.Accepted:
+        if dialog.executeDialog() == QtWidgets.QDialog.Accepted:
             mappingInfo = dialog.getUserSelectedMapping()
 
             model = QtGui.QStandardItemModel()
@@ -176,7 +176,7 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         texts=[]
 
-        if dialog.executeDialog() == QtGui.QDialog.Accepted:
+        if dialog.executeDialog() == QtWidgets.QDialog.Accepted:
             mappingInfo = dialog.getUserSelectedMapping()
 
             imported=0
@@ -217,7 +217,7 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         texts=[]
 
-        filenames = QtGui.QFileDialog.getOpenFileNames(self, caption="Select mzXML files", directory=self.initDir,
+        filenames = QtWidgets.QFileDialog.getOpenFileNames(self, caption="Select mzXML files", dir=self.initDir,
                                                        filter="mzXML (*.mzxml);;mzML (*.mzml);;All files (*.*)")
         imported=0
 
@@ -255,19 +255,19 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
         msScans = {}
         for rowi in range(self.samplesModel.rowCount()):
             item = self.samplesModel.item(rowi)
-            data=item.data().toPyObject()
+            data=item.data()
             msScans[data.fileName]=data.msScan
 
         if len(msScans)==0:
-            QtGui.QMessageBox.warning(self, "MetExtract - FT-ICR modul", "Error: FT-ICR spectra are required for processing. Please laod some samples and then rerun the analysis", QtGui.QMessageBox.Ok)
+            QtWidgets.QMessageBox.warning(self, "MetExtract - FT-ICR modul", "Error: FT-ICR spectra are required for processing. Please laod some samples and then rerun the analysis", QtWidgets.QMessageBox.Ok)
             return
 
-        saveFile=QtGui.QFileDialog.getSaveFileName(caption="Select results file", directory="./results.tsv",
+        saveFile=QtWidgets.QFileDialog.getSaveFileName(caption="Select results file", dir="./results.tsv",
                                                     filter="TSV file (*.tsv)", )
         saveFile=str(saveFile)
 
         if saveFile is None or saveFile=="":
-            QtGui.QMessageBox.warning(self, "MetExtract - FT-ICR modul", "Error: Results must be saved to a file. Please rerun the analysis and save it to a file", QtGui.QMessageBox.Ok)
+            QtWidgets.QMessageBox.warning(self, "MetExtract - FT-ICR modul", "Error: Results must be saved to a file. Please rerun the analysis and save it to a file", QtWidgets.QMessageBox.Ok)
             return
 
         enr12C=self.enr12C.value()
@@ -340,19 +340,19 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
 
         self.results.clear()
 
-        item=QtGui.QTreeWidgetItem(["Calibration"])
+        item=QtWidgets.QTreeWidgetItem(["Calibration"])
         item.data=Bunch(type="other")
         for file in sorted(msScans.keys()):
-            item2=QtGui.QTreeWidgetItem([file, "%.3f"%(averageMZErrors[file]) if file in averageMZErrors.keys() else "-"])
+            item2=QtWidgets.QTreeWidgetItem([file, "%.3f"%(averageMZErrors[file]) if file in averageMZErrors.keys() else "-"])
             item2.data=Bunch(type="other")
             item.addChild(item2)
         self.results.addTopLevelItem(item)
 
-        item=QtGui.QTreeWidgetItem(["Distribution PPM Error"])
+        item=QtWidgets.QTreeWidgetItem(["Distribution PPM Error"])
         item.data=Bunch(type="PPMErrorGenerated")
         self.results.addTopLevelItem(item)
 
-        item=QtGui.QTreeWidgetItem(["Enrichment variation"])
+        item=QtWidgets.QTreeWidgetItem(["Enrichment variation"])
         item.data=Bunch(type="EnrichmentVariation")
         self.results.addTopLevelItem(item)
 
@@ -376,18 +376,18 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
             if len(re.dbs)==0 and len(re.sfs)==0:
                 sfShow="-"
 
-            item=QtGui.QTreeWidgetItem(["%.5f"%(re.meanMZ), "%d"%(re.cn), sfShow])
+            item=QtWidgets.QTreeWidgetItem(["%.5f"%(re.meanMZ), "%d"%(re.cn), sfShow])
             item.data=re
 
             for sf in re.sfs:
                 ## re.sfs=[Bunch(sf=t, ion="[M+Cl]-", theoMZ=mz, ppmError=ppmError), ...]
-                itemKid=QtGui.QTreeWidgetItem([sf.ion, sf.sf, "%.3f"%sf.ppmError])
+                itemKid=QtWidgets.QTreeWidgetItem([sf.ion, sf.sf, "%.3f"%sf.ppmError])
                 itemKid.data=re
                 item.addChild(itemKid)
 
             for db in re.dbs:
                 ## Bunch(ion=adductName, dbName=db.DBName, name=db.name, ppmError=ppmError)
-                itemKid=QtGui.QTreeWidgetItem([db.ion, db.name, "%.3f"%db.ppmError])
+                itemKid=QtWidgets.QTreeWidgetItem([db.ion, db.name, "%.3f"%db.ppmError])
                 itemKid.data=re
                 item.addChild(itemKid)
 
@@ -473,9 +473,9 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
             types.add(selectedResult.data.type)
 
         if len(types)>1:
-            QtGui.QMessageBox.warning(self, "MetExtract - FT-ICR modul",
+            QtWidgets.QMessageBox.warning(self, "MetExtract - FT-ICR modul",
                                       "Error: Different results cannot be visualized at the same time",
-                                      QtGui.QMessageBox.Ok)
+                                      QtWidgets.QMessageBox.Ok)
         elif len(types)==0:
             return
         elif "SignalPair" in types:
@@ -498,7 +498,7 @@ class FTICRModuleWindow(QtGui.QMainWindow, Ui_MainWindow):
                                     y3 = []
 
                                     item = self.samplesModel.item(rowi)
-                                    data=item.data().toPyObject()
+                                    data=item.data()
 
                                     for j in range(len(data.msScan.mz_list)):
                                         mz=data.msScan.mz_list[j]
@@ -684,10 +684,10 @@ if __name__=="__main__":
 
     import sys
 
-    app = QtGui.QApplication(sys.argv)
+    app = QtWidgets.QApplication(sys.argv)
     Dialog = FTICRModuleWindow()
 
     Dialog.show()
-    x = app.exec_()
+    x = app.exec()
 
     sys.exit(x)

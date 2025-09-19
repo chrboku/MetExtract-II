@@ -69,7 +69,7 @@ def savitzky_golay(y, window_size, order, deriv=0, rate=1):
     try:
         window_size = np.abs(np.int(window_size))
         order = np.abs(np.int(order))
-    except ValueError, msg:
+    except ValueError as msg:
         raise ValueError("window_size and order have to be of type int")
     if window_size % 2 != 1 or window_size < 1:
         raise TypeError("window_size size must be a positive odd number")
@@ -121,20 +121,20 @@ def __smooth(x, window_len=11, window='bartlett'):
     scipy.signal.lfilter
  
     TODO: the window parameter could be the window itself if an array instead of a string
-    NOTE: length(output) != length(input), to correct this: return y[(window_len/2-1):-(window_len/2)] instead of just y.
+    NOTE: length(output) != length(input), to correct this: return y[(window_len/2-1):-(window_len // 2)] instead of just y.
     """
 
     if x.ndim != 1:
-        raise ValueError, "smooth only accepts 1 dimension arrays."
+        raise ValueError("smooth only accepts 1 dimension arrays.")
 
     if x.size < window_len:
-        raise ValueError, "Input vector needs to be bigger than window size."
+        raise ValueError("Input vector needs to be bigger than window size.")
 
     if window_len < 3:
         return x
 
     if not window in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']:
-        raise ValueError, "Window is non of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'"
+        raise ValueError("Window is non of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'")
 
     s = numpy.r_[x[window_len - 1:0:-1], x, x[-1:-window_len:-1]]
     #print(len(s))
@@ -148,7 +148,7 @@ def __smooth(x, window_len=11, window='bartlett'):
 
 def _smooth(x, window_len=11, window='hanning'):
     x = list(__smooth(array(x), window_len, window))
-    x = x[int(window_len / 2):int((len(x) - window_len / 2 + (1 if not (window_len % 2) else 0)))]
+    x = x[int(window_len // 2):int((len(x) - window_len / 2 + (1 if not (window_len % 2) else 0)))]
     return x
 
 def _smoothTriangle(data, degree, dropVals=False):
@@ -161,7 +161,7 @@ def _smoothTriangle(data, degree, dropVals=False):
         point = data[i:i + len(triangle)] * triangle
         smoothed.append(sum(point) / sum(triangle))
     if dropVals: return smoothed
-    smoothed = [smoothed[0]] * (degree + degree / 2) + smoothed
+    smoothed = [smoothed[0]] * (degree + degree // 2) + smoothed
     while len(smoothed) < len(data): smoothed.append(smoothed[-1])
     return smoothed
 
@@ -250,7 +250,7 @@ class FuncThread(threading.Thread):
 if __name__=="__main__" and False:
     # Example usage
     def someOtherFunc(data, key):
-        print "someOtherFunc was called : data=%s; key=%s" % (str(data), str(key))
+        print("someOtherFunc was called : data=%s; key=%s" % (str(data), str(key)))
 
     t1 = FuncThread(_target=someOtherFunc, data=[1,2], key=6)
     t1.start()
@@ -329,7 +329,7 @@ class FuncProcess():
 
 
 def someOtherFunc(data, key):
-    print "someOtherFunc was called in separate process (%s): data=%s; key=%s" % (os.getpid(), str(data), str(key))
+    print("someOtherFunc was called in separate process (%s): data=%s; key=%s" % (os.getpid(), str(data), str(key)))
     return "someReturn"
 
 if __name__=="__main__" and False:
@@ -337,12 +337,12 @@ if __name__=="__main__" and False:
     # Example usage
     t1 = FuncProcess(_target=someOtherFunc, data=[1,2], key=7)
     t1.start()
-    print "main process", os.getpid(), "t1 is alive:", t1.isAlive()
+    print("main process", os.getpid(), "t1 is alive:", t1.isAlive())
 
-    print "t1 is alive:", t1.isAlive()
+    print("t1 is alive:", t1.isAlive())
     t1.join()
-    print "t1 is alive:", t1.isAlive()
-    print t1.getReturn()
+    print("t1 is alive:", t1.isAlive())
+    print(t1.getReturn())
     t1.terminate()
 
 
@@ -373,7 +373,7 @@ class CallBackMethod():
 
 if False:
     def callbackMethod(a="hello", b="world"):
-        print a, b
+        print(a, b)
 
     cm=CallBackMethod(_target=callbackMethod, b="Joe").getRunMethod()
     cm()
@@ -405,7 +405,7 @@ class Bunch:
         return self.__str__()
 
     def hasMember(self, member):
-        return self.__dict__.has_key(member)
+        return member in self.__dict__
     def hasVar(self, var):
         return self.hasMember(var)
 
@@ -478,73 +478,73 @@ class ChromPeakPair:
 
         self.artificialEICLShift = artificialEICLShift
 
-        if args.has_key("tmz"):
+        if "tmz" in args:
             self.tmz = args["tmz"]
             argsUsed += 1
 
-        if args.has_key("peaksCorr"):
+        if "peaksCorr" in args:
             self.peaksCorr = args["peaksCorr"]
             argsUsed += 1
-        if args.has_key("silRatios"):
+        if "silRatios" in args:
             self.silRatios = args["silRatios"]
             argsUsed += 1
-        if args.has_key("peaksRatio"):
+        if "peaksRatio" in args:
             self.peaksRatio = args["peaksRatio"]
             argsUsed += 1
 
-        if args.has_key("NXIC"):
+        if "NXIC" in args:
             self.NXIC = args["NXIC"]
             argsUsed += 1
-        if args.has_key("LXIC"):
+        if "LXIC" in args:
             self.LXIC = args["LXIC"]
             argsUsed += 1
-        if args.has_key("NXICSmoothed"):
+        if "NXICSmoothed" in args:
             self.NXICSmoothed = args["NXICSmoothed"]
             argsUsed += 1
-        if args.has_key("LXICSmoothed"):
+        if "LXICSmoothed" in args:
             self.LXICSmoothed = args["LXICSmoothed"]
             argsUsed += 1
-        if args.has_key("times"):
+        if "times" in args:
             self.times = args["times"]
             argsUsed += 1
 
-        if args.has_key("fDesc"):
+        if "fDesc" in args:
             self.fDesc = args["fDesc"]
             argsUsed += 1
-        if args.has_key("adducts"):
+        if "adducts" in args:
             self.adducts = args["adducts"]
             argsUsed += 1
-        if args.has_key("heteroAtomsFeaturePairs"):
+        if "heteroAtomsFeaturePairs" in args:
             self.heteroAtomsFeaturePairs = args["heteroAtomsFeaturePairs"]
             argsUsed += 1
-        if args.has_key("Ms"):
+        if "Ms" in args:
             self.Ms = args["Ms"]
             argsUsed +=1
-        if args.has_key("heteroAtoms"):
+        if "heteroAtoms" in args:
             self.heteroAtoms = args["heteroAtoms"]
             argsUsed += 1
 
-        if args.has_key("NBorderLeft"):
+        if "NBorderLeft" in args:
             self.NBorderLeft = args["NBorderLeft"]
             argsUsed += 1
-        if args.has_key("NBorderRight"):
+        if "NBorderRight" in args:
             self.NBorderRight = args["NBorderRight"]
             argsUsed += 1
-        if args.has_key("LBorderLeft"):
+        if "LBorderLeft" in args:
             self.LBorderLeft = args["LBorderLeft"]
             argsUsed += 1
-        if args.has_key("LBorderRight"):
+        if "LBorderRight" in args:
             self.LBorderRight = args["LBorderRight"]
             argsUsed += 1
 
-        if args.has_key("isotopeRatios"):
+        if "isotopeRatios" in args:
             self.isotopeRatios = args["isotopeRatios"]
             argsUsed += 1
-        if args.has_key("mzDiffErrors"):
+        if "mzDiffErrors" in args:
             self.mzDiffErrors = args["mzDiffErrors"]
             argsUsed += 1
 
-        if args.has_key("correlationsToOthers"):
+        if "correlationsToOthers" in args:
             self.correlationsToOthers = args["correlationsToOthers"]
             argsUsed += 1
 
@@ -744,6 +744,9 @@ import re
 def natSort(l, key=lambda ent: ent):
     convert = lambda text: int(text) if text.isdigit() else text
     alphanum_key = lambda ent, key=key: [convert(c) for c in re.split('([0-9]+)', str(key(ent)))]
+    # Convert to list first to handle Python 3 dict_keys, dict_values, etc.
+    if not isinstance(l, list):
+        l = list(l)
     l.sort(key=alphanum_key)
     return l
 
@@ -953,7 +956,7 @@ def readTSVFileAsBunch(file, delim="\t", parseToNumbers=True, useColumns=None, o
                     else:
                         headers[j]=h
             else:
-                b=Bunch(_addFollowing=headers.values(), _addFollowingDefaultValue="")
+                b=Bunch(_addFollowing=list(headers.values()), _addFollowingDefaultValue="")
                 for j, h in enumerate(hs):
 
                     if useColumns is None or headers[j] in useColumns:
@@ -971,16 +974,16 @@ def readTSVFileAsBunch(file, delim="\t", parseToNumbers=True, useColumns=None, o
             minValTypeFound="int"
             for b in bunchs:
                 attr=getattr(b, header)
-                if minValTypeFound is "int" and is_int(attr):
+                if minValTypeFound == "int" and is_int(attr):
                     minValTypeFound="int"
 
-                elif (minValTypeFound is "float" or (minValTypeFound is "int" and not is_int(attr))) and is_float(attr):
+                elif (minValTypeFound == "float" or (minValTypeFound == "int" and not is_int(attr))) and is_float(attr):
                     minValTypeFound="float"
 
                 else:
                     minValTypeFound="str"
 
-            if minValTypeFound is not "str":
+            if minValTypeFound != "str":
                 for b in bunchs:
                     val=eval("%s('%s')"%(minValTypeFound, getattr(b, header)))
                     setattr(b, header, val)
@@ -1114,7 +1117,7 @@ def SQLgetSingleFieldFromOneRow(curs, selectStatement):
 
 
 def SQLInsert(curs, tableName, **kwargs):
-    keys=kwargs.keys()
+    keys=list(kwargs.keys())
     vals=[]
 
     for key in keys:
@@ -1176,7 +1179,7 @@ def writeObjectAsSQLInsert(curs, toTable, obj, writeFields, fieldsMappingToColum
 
 def createTableFromBunch(tableName, bunchObject, cursor, useAttrs=None, primaryKeys=None, autoIncrements=None, ifNotExists=False):
     if useAttrs is None:
-        useAttrs=bunchObject.__dict__.keys()
+        useAttrs=list(bunchObject.__dict__.keys())
     if primaryKeys is None:
         primaryKeys=[]
     if autoIncrements is None:
@@ -1239,17 +1242,17 @@ def printAsTable(heads, data, printInExcelFormat=False, excelSep="\t", sepEach=1
         row_format = excelSep.join("{%d}" % (i) for i in range(len(heads)))
     else:
         row_format = "  ".join("{%d:>%d}" % (i, widths[i]) for i in range(len(heads)))
-    print row_format.format(*heads)
+    print(row_format.format(*heads))
     if not printInExcelFormat:
         hrow = row_format.replace(" ", "-").format(*["".join(["-" for j in range(widths[i])]) for i in range(len(widths))])
-        print hrow
+        print(hrow)
 
     j = 0
     for row in data:
-        print row_format.format(*row)
+        print(row_format.format(*row))
         j += 1
         if j == sepEach and not printInExcelFormat:
-            print hrow
+            print(hrow)
             j = 0
 
 def printObjectsAsTable(objs, attrs, printInExcelFormat=False, excelSep="\t"):
@@ -1267,20 +1270,20 @@ def printObjectsAsTable(objs, attrs, printInExcelFormat=False, excelSep="\t"):
         row_format = excelSep.join("{%d}" % (i) for i in range(len(attrs)))
     else:
         row_format = "  ".join("{%d:>%d}" % (i, widths[i]) for i in range(len(attrs)))
-    print row_format.format(*attrs)
+    print(row_format.format(*attrs))
     if not printInExcelFormat:
         hrow = row_format.replace(" ", "-").format(*["".join(["-" for j in range(widths[i])]) for i in range(len(widths))])
-        print hrow
+        print(hrow)
 
     j = 0
     for obj in objs:
         row=[]
         for attr in attrs:
             row.append(getattr(obj, attr))
-        print row_format.format(*row)
+        print(row_format.format(*row))
         j += 1
         if j == 15 and not printInExcelFormat:
-            print hrow
+            print(hrow)
             j = 0
 
 def printArraysAsTable(objs, positions, printInExcelFormat=False, excelSep="\t"):
@@ -1298,25 +1301,25 @@ def printArraysAsTable(objs, positions, printInExcelFormat=False, excelSep="\t")
         row_format = excelSep.join("{%d}" % (i) for i in range(len(positions)))
     else:
         row_format = "  ".join("{%d:>%d}" % (i, widths[i]) for i in range(len(positions)))
-    print row_format.format(*positions)
+    print(row_format.format(*positions))
     if not printInExcelFormat:
         hrow = row_format.replace(" ", "-").format(*["".join(["-" for j in range(widths[i])]) for i in range(len(widths))])
-        print hrow
+        print(hrow)
 
     j = 0
     for obj in objs:
         row=[]
         for pos in positions:
             row.append(obj[pos])
-        print row_format.format(*row)
+        print(row_format.format(*row))
         j += 1
         if j == 15 and not printInExcelFormat:
-            print hrow
+            print(hrow)
             j = 0
 
 def printDictDictAsTable(rowDict, colHeads=[], rowsOrd=None, printInExcelFormat=False, excelSep="\t"):
     if rowsOrd is None:
-        rowsOrd=rowDict.keys()
+        rowsOrd=list(rowDict.keys())
 
     colHeads.insert(0, "")
     for row in rowDict.keys():
@@ -1336,10 +1339,10 @@ def printDictDictAsTable(rowDict, colHeads=[], rowsOrd=None, printInExcelFormat=
         row_format = excelSep.join("{%d}" % (i) for i in range(len(colHeads)))
     else:
         row_format = "  ".join("{%d:>%d}" % (i, widths[i]) for i in range(len(colHeads)))
-    print row_format.format(*colHeads)
+    print(row_format.format(*colHeads))
     if not printInExcelFormat:
         hrow = row_format.replace(" ", "-").format(*["".join(["-" for j in range(widths[i])]) for i in range(len(widths))])
-        print hrow
+        print(hrow)
 
 
     j = 0
@@ -1348,10 +1351,10 @@ def printDictDictAsTable(rowDict, colHeads=[], rowsOrd=None, printInExcelFormat=
         row.append(rowName)
         for i in range(1,len(colHeads)):
             row.append(rowDict[rowName][colHeads[i]])
-        print row_format.format(*row)
+        print(row_format.format(*row))
         j += 1
         if j == 4 and not printInExcelFormat:
-            print hrow
+            print(hrow)
             j = 0
 
 

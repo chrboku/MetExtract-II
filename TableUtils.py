@@ -1,3 +1,4 @@
+from __future__ import print_function, division, absolute_import
 from sqlite3 import *
 
 from os.path import basename
@@ -59,7 +60,7 @@ class Table:
 
         for row in rows:
             if len(headers)<len(row):
-                print len(headers), len(row), row
+                print(len(headers), len(row), row)
             assert len(headers) >= len(row), "Unequal data count"
 
         if tableName is None:
@@ -103,7 +104,7 @@ class Table:
             self.curs.execute(self.__updateTableName("INSERT INTO :table: (__internalID) VALUES (%d)"%rowi))
 
             last=0
-            for i in range(0, int(floor(len(cols)/250)+1)*250+1, 250)[1:]:
+            for i in range(0, int(floor(len(cols)//250)+1)*250+1, 250)[1:]:
                 i=min(i, len(cols))
                 self.curs.execute(self.__updateTableName("UPDATE :table: SET %s WHERE __internalID=%d"%(",".join(["%s=?"%t[0] for t in cols[last:i]]), rowi)), [str(c) for c in row[last:i]])
                 last=i
@@ -206,11 +207,10 @@ class Table:
                 if elapsed > printAfter:
                     doneP=(1.*done/numOfCols)
                     s=(elapsed*(1-doneP)/doneP)/60.
-                    print "\rApplying (function: %s).. |%-30s| %.1f%% (approximately %.1f minutes remaining, running for %.1f minutes, total %.1f minutes)"%(funcName, "*"*int(doneP*30), doneP*100, s, elapsed/60., s+elapsed/60.),
+                    print("\rApplying (function: %s).. |%-30s| %.1f%% (approximately %.1f minutes remaining, running for %.1f minutes, total %.1f minutes)"%(funcName, "*"*int(doneP*30), doneP*100, s, elapsed/60., s+elapsed/60.),)
         if showProgress:
             s=(time.time()-started)/60.
-            print "\rApplying (function: %s) took %.1f minutes                                                                                                                                                              "%(funcName,
-                                                                                                                                                                                                                               s)
+            print("\rApplying (function: %s) took %.1f minutes                                                                                                                                                              "%(funcName,s))
 
         if pwMaxSet!=None: pwMaxSet(len(updates))
         if pwValSet!=None: pwValSet(0)
@@ -228,10 +228,10 @@ class Table:
                 if elapsed > printAfter:
                     doneP=(1.*doneS/numOfCols)
                     s=(elapsed*(1-doneP)/doneP)/60.
-                    print "\rUpdating.. |%-30s| %.1f%% (approximately %.1f minutes remaining)"%("*"*int(doneP*30), doneP*100, s),
+                    print("\rUpdating.. |%-30s| %.1f%% (approximately %.1f minutes remaining)"%("*"*int(doneP*30), doneP*100, s),)
         if showProgress:
             s=(time.time()-started)/60.
-            print "\rUpdating took %.1f minutes                                                                                                        "%s
+            print("\rUpdating took %.1f minutes                                                                                                        "%s)
         self.conn.commit()
 
     # return the entire table
@@ -396,19 +396,19 @@ class TableUtils:
         bn = basename(file).lower()
 
         if fType == "xls" or bn.endswith(".xls") or fType == "xlsx" or bn.endswith(".xlsx"):
-            if not (args.has_key("sheetName")):
+            if not ("sheetName" in args):
                 args["sheetName"] = ""
             return TableUtilsXLS.readFile(file, sheetName=args["sheetName"], commentLineStart=commentLineStart)
         elif fType == "csv" or bn.endswith(".csv"):
-            if not (args.has_key("delim")):
+            if not ("delim" in args):
                 args["delim"] = ";"
             return TableUtilsCSV.readFile(file, delim=args["delim"], commentLineStart=commentLineStart)
         elif fType == "tsv" or bn.endswith(".tsv") or bn.endswith(".txt") or bn.endswith(".csv"):
-            if not (args.has_key("delim")):
+            if not ("delim" in args):
                 args["delim"] = "\t"
             return TableUtilsCSV.readFile(file, delim=args["delim"], commentLineStart=commentLineStart)
         elif fType == "sqlite" or bn.endswith(".sqlite"):
-            if not (args.has_key("tableName")):
+            if not ("tableName" in args):
                 args["tableName"] = ""
             return TableUtilsSQL.readFile(file, tableName=args["tableName"])
         else:
@@ -419,13 +419,13 @@ class TableUtils:
         fType = fType.lower()
         bn = basename(file).lower()
 
-        if not (args.has_key("where")):
+        if not ("where" in args):
             args["where"] = ""
-        if not (args.has_key("order")):
+        if not ("order" in args):
             args["order"] = "__internalID"
-        if not (args.has_key("select")):
+        if not ("select" in args):
             args["select"] = ""
-        if not (args.has_key("cols")):
+        if not ("cols" in args):
             args["cols"] = ["*"]
         if "*" in args["cols"]:
             for col in table.getColumns():
@@ -434,28 +434,28 @@ class TableUtils:
             args["cols"].remove("*")
 
         if fType == "xls" or bn.endswith(".xls") or fType == "xlsx" or bn.endswith(".xlsx"):
-            if not (args.has_key("sheetName")):
+            if not ("sheetName" in args):
                 args["sheetName"] = ""
             return TableUtilsXLS.saveFile(table, file, sheetName=args["sheetName"], where=args["where"],
                                           order=args["order"], select=args["select"], cols=args["cols"], writeComments=writeComments)
         elif fType == "csv" or bn.endswith(".csv"):
-            if not (args.has_key("delim")):
+            if not ("delim" in args):
                 args["delim"] = ";"
-            if not (args.has_key("newLine")):
+            if not ("newLine" in args):
                 args["newLine"] = ""
             return TableUtilsCSV.saveFile(table, file, delim=args["delim"], newLine=args["newLine"],
                                           where=args["where"], order=args["order"], select=args["select"],
                                           cols=args["cols"], writeComments=writeComments)
         elif fType == "tsv" or bn.endswith(".tsv") or bn.endswith(".txt"):
-            if not (args.has_key("delim")):
+            if not ("delim" in args):
                 args["delim"] = "\t"
-            if not (args.has_key("newLine")):
+            if not ("newLine" in args):
                 args["newLine"] = ""
             return TableUtilsCSV.saveFile(table, file, delim=args["delim"], newLine=args["newLine"],
                                           where=args["where"], order=args["order"], select=args["select"],
                                           cols=args["cols"], writeComments=writeComments)
         elif fType == "sqlite" or bn.endswith(".sqlite"):
-            if not (args.has_key("tableName")):
+            if not ("tableName" in args):
                 args["tableName"] = ""
             return TableUtilsSQL.saveFile(table, file, tableName=args["tableName"], writeComments=writeComments)
         else:
@@ -467,21 +467,25 @@ class TableUtilsCSV:
     @staticmethod
     def readFile(file, delim="\t", commentLineStart="#"):
         ret = None
+        # Convert string parameters to bytes for binary file reading
+        delim_bytes = delim.encode('utf-8')
+        commentLineStart_bytes = commentLineStart.encode('utf-8')
+        
         with open(file, "rb") as fi:
             i = 0
             headers = []
             rows = []
             comments = []
             for line in fi:
-                if len(line)>0 and not line.startswith(commentLineStart):
-                    cells = line.strip().split(delim)
+                if len(line)>0 and not line.startswith(commentLineStart_bytes):
+                    cells = line.strip().split(delim_bytes)
                     if i == 0:
-                        headers = [c.replace("-","_") for c in cells]
+                        headers = [c.decode('utf-8').replace("-","_") for c in cells]
                     else:
-                        rows.append(cells)
+                        rows.append([c.decode('utf-8') for c in cells])
                     i = i + 1
-                if line.startswith(commentLineStart):
-                    comments.append(line.strip())
+                if line.startswith(commentLineStart_bytes):
+                    comments.append(line.strip().decode('utf-8'))
             ret = Table(headers=headers, rows=rows, comments=comments)
         return ret
 
@@ -509,16 +513,16 @@ class TableUtilsCSV:
             rowsWritten=0
             for row in table.curs.execute(table.updateQuery(select)):
                 if not headers:
-                    fo.write(delim.join([str(d[0]) for d in table.curs.description]))
+                    fo.write(delim.join([str(d[0]).replace(delim, "-DELIM-") for d in table.curs.description]))
                     fo.write(newLine)
                     headers = True
                     rowsWritten+=1
-                fo.write(delim.join([str(c) if c is not None else "" for c in row]))
+                fo.write(delim.join([str(c).replace(delim, "-DELIM-") if c is not None else "" for c in row]))
                 fo.write(newLine)
                 rowsWritten+=1
 
             if not headers:
-                fo.write(delim.join([str(d[0]) for d in table.curs.description]))
+                fo.write(delim.join([str(d[0]).replace(delim, "-DELIM-") for d in table.curs.description]))
                 fo.write(newLine)
                 headers = True
                 rowsWritten+=1
@@ -526,7 +530,7 @@ class TableUtilsCSV:
 
             if writeComments:
                 for comment in table.getComments():
-                    fo.write(str(comment))
+                    fo.write(str(comment).replace(delim, "-DELIM-"))
                     fo.write(newLine)
 
 
@@ -623,7 +627,7 @@ class TableUtilsXLS:
 
             r = r + 1
 
-        #assert all([cols.has_key(x) and cols[x]!=-1 for x in columns.values()]), "Could not find all specified columns in excel file"
+        #assert all([x in cols and cols[x]!=-1 for x in columns.values()]), "Could not find all specified columns in excel file"
         ret = Table(headers=headers, rows=rows, tableName=tableName, comments=comments)
 
         return ret

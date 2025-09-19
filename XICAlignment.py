@@ -1,5 +1,10 @@
-import rpy2.robjects as ro
-r = ro.r
+try:
+    import rpy2.robjects as ro
+    R_AVAILABLE = True
+except ImportError:
+    R_AVAILABLE = False
+    ro = None
+r = ro.r if R_AVAILABLE else None
 
 from utils import mapArrayToRefTimes
 from copy import deepcopy

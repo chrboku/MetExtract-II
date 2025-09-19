@@ -20,7 +20,7 @@ MetExtractVersion = "v2.12.1"
 
 
 from mePyGuis.ModuleSelectionWindow import Ui_MainWindow
-from PyQt4 import QtGui, QtCore
+from PySide6 import QtGui, QtCore, QtWidgets
 import subprocess
 import platform
 
@@ -28,9 +28,9 @@ from mePyGuis import calcIsoEnrichmentDialog
 
 
 
-class ModuleSelection(QtGui.QMainWindow, Ui_MainWindow):
+class ModuleSelection(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self, parent=None, initDir=None):
-        QtGui.QMainWindow.__init__(self, parent)
+        QtWidgets.QMainWindow.__init__(self, parent)
         self.setupUi(self)
         self.setWindowTitle("MetExtract II: Module selection")
         self.version.setText("MetExtract II (%s)"%MetExtractVersion)
@@ -47,40 +47,36 @@ class ModuleSelection(QtGui.QMainWindow, Ui_MainWindow):
 
     def openMetExtractModule(self, module):
         try:
-            if module is "AllExtract" or module is "TracExtract":
-                modStart="MExtract"
-                if platform.system() == "Darwin":  #MAC
-                    subprocess.Popen("%s -m %s"%(modStart, module))
-                if platform.system() == "Windows":  #Windows
-                    subprocess.Popen("%s.exe -m %s"%(modStart, module))
-                if platform.system() == "Linux":  #Linux
-                    subprocess.Popen("%s -m %s"%(modStart, module))
-            elif module is "FragExtract":
-                modStart="FragExtract"
-                if platform.system() == "Darwin":  #MAC
-                    subprocess.Popen("%s"%(modStart))
-                if platform.system() == "Windows":  #Windows
-                    subprocess.Popen("%s.exe"%(modStart))
-                if platform.system() == "Linux":  #Linux
-                    subprocess.Popen("%s"%(modStart))
-            elif module is "combineResults":
-                if platform.system() == "Darwin":  #MAC
-                    subprocess.Popen("combineResults")
-                if platform.system() == "Windows":  #Windows
-                    subprocess.Popen("combineResults.exe")
-                if platform.system() == "Linux":  #Linux
-                    subprocess.Popen("combineResults")
-            elif module is "FTICRExtract":
-                if platform.system() == "Darwin":  #MAC
-                    subprocess.Popen("FTICRModule")
-                if platform.system() == "Windows":  #Windows
-                    subprocess.Popen("FTICRModule.exe")
-                if platform.system() == "Linux":  #Linux
-                    subprocess.Popen("FTICRModule")
+            import sys
+            import os
+            
+            # Get the Python executable from the current environment
+            python_exe = sys.executable
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            
+            if module == "AllExtract" or module == "TracExtract":
+                script_path = os.path.join(current_dir, "MExtract.py")
+                cmd = [python_exe, script_path, "-m", module]
+                subprocess.Popen(cmd)
+            elif module == "FragExtract":
+                script_path = os.path.join(current_dir, "FragExtract.py")
+                cmd = [python_exe, script_path]
+                subprocess.Popen(cmd)
+            elif module == "combineResults":
+                script_path = os.path.join(current_dir, "resultsPostProcessing", "combineResults.py")
+                if os.path.exists(script_path):
+                    cmd = [python_exe, script_path]
+                    subprocess.Popen(cmd)
+                else:
+                    QtWidgets.QMessageBox.warning(self, "MetExtract", "combineResults module not found", QtWidgets.QMessageBox.Ok)
+            elif module == "FTICRExtract":
+                script_path = os.path.join(current_dir, "FTICRModule.py")
+                cmd = [python_exe, script_path]
+                subprocess.Popen(cmd)
             else:
-                QtGui.QMessageBox.warning(self, "MetExtract", "Unknown module", QtGui.QMessageBox.Ok)
-        except:
-            QtGui.QMessageBox.warning(self, "MetExtract", "Requested module cannot be found. \nPlease try re-installing the software", QtGui.QMessageBox.Ok)
+                QtWidgets.QMessageBox.warning(self, "MetExtract", "Unknown module", QtWidgets.QMessageBox.Ok)
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(self, "MetExtract", f"Requested module cannot be found: {str(e)}\nPlease try re-installing the software", QtWidgets.QMessageBox.Ok)
 
 
     def openCalcIsotopologEnrichment(self):
@@ -88,23 +84,23 @@ class ModuleSelection(QtGui.QMainWindow, Ui_MainWindow):
         diag.executeDialog()
 
     def openAllExtract(self):
-        print "starting AllExtract"
+        print("starting AllExtract")
         self.openMetExtractModule(module="AllExtract")
 
     def openTracExtract(self):
-        print "starting TracExtract"
+        print("starting TracExtract")
         self.openMetExtractModule(module="TracExtract")
 
     def openFragExtract(self):
-        print "starting FragExtract"
+        print("starting FragExtract")
         self.openMetExtractModule(module="FragExtract")
 
     def openCombineResults(self):
-        print "starting combineResults"
+        print("starting combineResults")
         self.openMetExtractModule(module="combineResults")
 
     def openFTICR(self):
-        print "starting FTICRExtract"
+        print("starting FTICRExtract")
         self.openMetExtractModule(module="FTICRExtract")
 
     def openDocumentation(self):
@@ -119,13 +115,16 @@ class ModuleSelection(QtGui.QMainWindow, Ui_MainWindow):
         else:
             webbrowser.open_new_tab(url)
 
-if __name__ == "__main__":
+def main():
     import sys
 
-    app = QtGui.QApplication(sys.argv)
+    app = QtWidgets.QApplication(sys.argv)
     Dialog = ModuleSelection()
 
     Dialog.show()
-    x = app.exec_()
+    x = app.exec()
 
     sys.exit(x)
+
+if __name__ == "__main__":
+    main()

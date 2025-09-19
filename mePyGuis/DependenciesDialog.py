@@ -1,5 +1,5 @@
 import sys
-from PyQt4 import QtGui
+from PySide6 import QtGui, QtWidgets
 
 
 def setLabelBackground(qlabel, colorName=None, r=255, g=0, b=0, alpha=255):
@@ -21,7 +21,7 @@ class DependenciesDialog():
                  parent=None):
         if dependencyOrder is None:
             dependencyOrder = dependencies.keys()
-        self.pd = QtGui.QDialog(parent)
+        self.pd = QtWidgets.QDialog(parent)
         self.pd.setModal(True)
         self.pd.setWindowTitle("Progress Wrapper")
 
@@ -30,7 +30,7 @@ class DependenciesDialog():
         self.dependenciesIndicators = {}
         self.statuss = statuss
 
-        l = QtGui.QGridLayout(self.pd)
+        l = QtWidgets.QGridLayout(self.pd)
 
         i = 0
         for dependency in dependencyOrder:
@@ -40,24 +40,24 @@ class DependenciesDialog():
             self.dependencies[dependency] = status
 
             if i > 0:
-                line = QtGui.QFrame()
-                line.setFrameShape(QtGui.QFrame.HLine)
+                line = QtWidgets.QFrame()
+                line.setFrameShape(QtWidgets.QFrame.HLine)
                 l.addWidget(line)
             i += 1
 
-            k = QtGui.QWidget()
+            k = QtWidgets.QWidget()
             l.addWidget(k)
-            o = QtGui.QGridLayout(k)
+            o = QtWidgets.QGridLayout(k)
             o.setContentsMargins(0, 0, 0, 0)
 
-            text = QtGui.QLabel("")
+            text = QtWidgets.QLabel("")
             text.setFixedSize(15, 15)
             text.setToolTip("")
             setLabelBackground(text, colorName=statuss[status])
             self.dependenciesIndicators[dependency] = text
             o.addWidget(text, 0, 0)
 
-            text = QtGui.QLabel(dependency)
+            text = QtWidgets.QLabel(dependency)
             self.dependenciesTexts[dependency] = text
             o.addWidget(text, 0, 1)
 
@@ -76,14 +76,14 @@ class DependenciesDialog():
 
 
 if __name__ == '__main__':
-    app = QtGui.QApplication(sys.argv)
+    app = QtWidgets.QApplication(sys.argv)
 
     # create a DependenciesDialog with 3 tasks and different statuses
     pw = DependenciesDialog(dependencies={"first": 1, "second": 2, "third": 0},
                             dependencyOrder=["first", "second", "third"])
     pw.show()
 
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
     
     
     

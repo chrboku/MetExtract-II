@@ -79,6 +79,12 @@ def checkR():
         # The R subprocess could not be started / accessed successfully
         return False
 
+def isRRequired():
+    """Check if R is required for the current operation"""
+    # R is primarily used for advanced statistical analysis and some specific modules
+    # For basic functionality, we can run without R
+    return False
+
 def loadRConfFile(path):
     import os
     if os.path.isfile(path+"/RPATH.conf"):
@@ -98,81 +104,56 @@ if "R_HOME" in os.environ.keys():
 
 os.environ["R_USER"]=get_main_dir()+"/Ruser"
 # try to load r configuration file (does not require any environment variables or registry keys)
-if not loadRConfFile(path=get_main_dir()) or not checkR():
+# Make R configuration optional for basic functionality
+R_AVAILABLE = False
+if loadRConfFile(path=get_main_dir()) and checkR():
+    R_AVAILABLE = True
+elif checkR():
+    R_AVAILABLE = True
+else:
+    # Try to find R in common locations
     os.environ["R_HOME"]=get_main_dir()+"/R"
-
     if checkR():
         with open("RPATH.conf", "w") as rconf:
             rconf.write(get_main_dir()+"/R")
-            tryLoad=False
-
-            # Show a dialog box to the user that R could not be started
+        R_AVAILABLE = True
+        
+        # Show a dialog box to the user that R was successfully configured
+        try:
             from os import sys
-            from PyQt4 import QtGui, QtCore
+            from PySide6 import QtCore, QtGui, QtWidgets
 
-            app = QtGui.QApplication(sys.argv)
-
-            QtGui.QMessageBox.information(None, "MetExtract",
+            app = QtWidgets.QApplication(sys.argv)
+            QtWidgets.QMessageBox.information(None, "MetExtract",
                       "R successfully configured\nUsing MetExtract R-Installation\nPlease restart",
-                      QtGui.QMessageBox.Ok)
+                      QtWidgets.QMessageBox.Ok)
             sys.exit(0)
+        except:
+            pass
     else:
+        # R is not available, continue without R
+        print("Warning: R is not available. Some advanced features may not work.")
+        R_AVAILABLE = False
 
-        os.environ["R_HOME"]=__RHOMEENVVAR
-        os.environ["R_HOME_FROM"]="RPATH environment variable"
-        if not checkR():
+# Set environment variables if R was available
+if R_AVAILABLE and __RHOMEENVVAR:
+    os.environ["R_HOME"]=__RHOMEENVVAR
+    os.environ["R_HOME_FROM"]="RPATH environment variable"
 
-            print "Error: R could not be loaded correctly (No RPATH.conf file or R_HOME environment variable found)\nPlease make sure it is installed and accessible"
+# Export R availability for other modules to check
+os.environ["METEXTRACT_R_AVAILABLE"] = str(R_AVAILABLE)
 
-            # Show a dialog box to the user that R could not be started
-            from os import sys
-            from PyQt4 import QtGui, QtCore
-
-            app = QtGui.QApplication(sys.argv)
-
-            if QtGui.QMessageBox.warning(None, "MetExtract",
-                                      "Error: R could not be loaded\nPlease make sure it is installed and accessible\n"
-                                      "The default installation path is C:\\Program Files\\R\n"
-                                      "Do you want to specify the folder?",
-                                      QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)==QtGui.QMessageBox.Yes:
-                tryLoad=True
-                from utils import get_main_dir
-                lastDir=get_main_dir()
-                while tryLoad:
-                    folder = str(QtGui.QFileDialog.getExistingDirectory(None, "Select R-directory (not bin folder)", directory=lastDir))
-                    if folder=="":
-                        sys.exit(1)
-                    else:
-                        lastDir=folder
-                        os.environ["R_HOME"]=folder
-                        if checkR():
-                            with open("RPATH.conf", "w") as rconf:
-                                rconf.write(folder)
-                                tryLoad=False
-
-                                QtGui.QMessageBox.information(None, "MetExtract",
-                                          "R successfully configured\nPlease restart",
-                                          QtGui.QMessageBox.Ok)
-                                sys.exit(0)
-                        else:
-                            if QtGui.QMessageBox.warning(None, "MetExtract",
-                                          "Error: R could not be loaded from the specified location\n"
-                                          "%s\n\n"
-                                          "Please make sure it is installed and accessible\n"
-                                          "The default installation path is C:\\Program Files\\R\n"
-                                          "Do you want to specify the folder?"%folder,
-                                          QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)==QtGui.QMessageBox.Yes:
-                                pass
-                            else:
-                                sys.exit(1)
-            else:
-                sys.exit(1)
-else:
-    os.environ["R_HOME_FROM"]="RPATH.conf of MetExtract II"
+# If R is available, set up rpy2
+if R_AVAILABLE:
+    try:
+        import rpy2.robjects as ro
+        r = ro.r
+        print("R integration successfully initialized")
+    except Exception as e:
+        print(f"Warning: R integration failed to initialize: {e}")
+        R_AVAILABLE = False
+        os.environ["METEXTRACT_R_AVAILABLE"] = "False"
 #</editor-fold>
-#Used to locate R.dll (no idea why this is necessary)
-import rpy2.robjects as ro
-r = ro.r
 
 
 
@@ -189,7 +170,7 @@ except:
 try:
     rmtree("./distribute/")
 except:
-    print colored("Error: could not clean up py2exe environment prior to compilation\n==============================\n", "red")
+    print(colored("Error: could not clean up py2exe environment prior to compilation\n==============================\n", "red"))
 
 # get local files (images, R-Scripts, ...)
 data_files = matplotlib.get_py2exe_datafiles()
@@ -225,9 +206,9 @@ c=Target(script = "MExtract.py")
 d=Target(script = "resultsPostProcessing/combineResults.py")
 e=Target(script = "FTICRModule.py")
 
-print "###################################################"
-print "########## Packing MetExtractII_Main"
-print "###################################################"
+print("###################################################")
+print("########## Packing MetExtractII_Main")
+print("###################################################")
 import sys
 sys.setrecursionlimit(5000)
 setup(console=[a,b,c,d,e],
@@ -247,12 +228,12 @@ setup(console=[a,b,c,d,e],
 #rmtree("./build/")
 
 
-print "forced waiting..."
+print("forced waiting...")
 import time
 time.sleep(3)
 
 
-print "Setup finished\n==============================\n"
+print("Setup finished\n==============================\n")
 
 # copy Settings and necessary files to distribution folder
 try:
@@ -268,9 +249,9 @@ try:
     copy("./chromPeakPicking/MassSpecWaveletIdentification.r", "./dist/chromPeakPicking/MassSpecWaveletIdentification.r")
     copy("./XICAlignment.r", "./dist/XICAlignment.r")
     copy("./LICENSE.txt", "./dist/LICENSE.txt")
-    print "Additional resources copied\n==============================\n"
+    print("Additional resources copied\n==============================\n")
 except:
-    print colored("Error: Could not copy all required files", "red")
+    print(colored("Error: Could not copy all required files", "red"))
     err = True
 
 try:
@@ -279,10 +260,10 @@ try:
     src="./documentation"
     shutil.copytree(src, dest)
 
-    print "Help files copied\n==============================\n"
+    print("Help files copied\n==============================\n")
 
 except Exception as ex:
-    print colored("Error: Could not copy help files: "+ex.message, "red")
+    print(colored("Error: Could not copy help files: "+ex.message, "red"))
     err = True
 
 # rename dist folder to PyMetExtract and current version of the software
@@ -292,10 +273,10 @@ try:
     sleep(3)                # this short waiting time decreases the number of times the renaming does not work
     os.rename("./dist", "./PyMetExtract_%s"%MetExtractVersion)
     meDistFolder="./PyMetExtract_%s"%MetExtractVersion
-    print "Distribution renamed\n==============================\n"
+    print("Distribution renamed\n==============================\n")
 
 except:
-    print colored("Error: Could not rename dist folder", "red")
+    print(colored("Error: Could not rename dist folder", "red"))
     err = True
 
 try:
@@ -323,7 +304,7 @@ def zipdir(path, zip):
 # create zip archive from the executables and documentation
 if not err:
 
-    print "Zipping MetExtract (%s)" % MetExtractVersion
+    print("Zipping MetExtract (%s)" % MetExtractVersion)
     zipFileName = "PyMetExtract_%s.zip" % MetExtractVersion
 
     zipF = zipfile.ZipFile(zipFileName, 'w')
@@ -332,8 +313,8 @@ if not err:
 
     move('./%s' % zipFileName, './distribute/%s' % zipFileName)
 
-    print "MetExtract (%s) created\n see %s\n==============================\n" % (
-        MetExtractVersion, './distribute/%s' % zipFileName)
+    print("MetExtract (%s) created\n see %s\n==============================\n" % (
+        MetExtractVersion, './distribute/%s' % zipFileName))
 
 
 
@@ -341,8 +322,8 @@ try:
     sleep(3)
     rmtree("./build", onerror = on_rm_error)
 except:
-    print colored(
-        "Cleanup failed (./build) dist and/or build directories still there\n==============================\n", "red")
+    print(colored(
+        "Cleanup failed (./build) dist and/or build directories still there\n==============================\n", "red"))
     import traceback
 
     traceback.print_exc()
@@ -351,9 +332,9 @@ try:
     sleep(3)
     rmtree(meDistFolder, onerror = on_rm_error)
 except:
-    print colored(
+    print(colored(
         "Cleanup failed (" + meDistFolder + ") dist and/or build directories still there\n==============================\n",
-        "red")
+        "red"))
     import traceback
 
     traceback.print_exc()
@@ -362,9 +343,9 @@ try:
     sleep(3)
     rmtree(meDistFolder, onerror = on_rm_error)
 except:
-    print colored(
+    print(colored(
         "Cleanup failed (" + meDistFolder + ") dist and/or build directories still there\n==============================\n",
-        "red")
+        "red"))
     import traceback
 
     traceback.print_exc()
@@ -373,9 +354,9 @@ try:
     sleep(3)
     rmtree(meDistFolder, onerror = on_rm_error)
 except:
-    print colored(
+    print(colored(
         "Cleanup failed (" + meDistFolder + ") dist and/or build directories still there\n==============================\n",
-        "red")
+        "red"))
     import traceback
 
     traceback.print_exc()

@@ -15,7 +15,9 @@
 #    along with this program; if not, write to the Free Software
 #    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
+from __future__ import print_function, division, absolute_import
 import base64
+import functools
 import logging
 import os
 import platform
@@ -25,6 +27,19 @@ from copy import copy
 from math import floor
 from pickle import loads, dumps
 from sqlite3 import *
+
+try:
+    import rpy2
+    R_AVAILABLE = True
+except ImportError:
+    R_AVAILABLE = False
+    rpy2 = None
+try:
+    import rpy2.robjects as ro
+    R_AVAILABLE = True
+except ImportError:
+    R_AVAILABLE = False
+    ro = None
 
 import numpy as np
 
@@ -81,6 +96,8 @@ from utils import corr, getSubGraphs, ChromPeakPair, Bunch
 from SGR import SGRGenerator
 from mePyGuis.TracerEdit import ConfiguredTracer
 import exportAsFeatureML
+import numpy as np
+import scipy
 
 
 def getDBSuffix():
@@ -103,10 +120,128 @@ def getShortName(element):
 def countEntries(x):
     ret = {}
     for i in x:
-        if not (ret.has_key(i)):
+        if not (i in ret):
             ret[i] = 0
         ret[i] = ret[i] + 1
     return ret
+
+
+def getCorrelationShifted(xic1, xic2, peakStartMin, peakEndMin, rtShiftsMin=None):
+    if rtShiftsMin is None:
+        raise RuntimeError(
+            "parameter rtShiftsMin must be an array of retention time shifts in minutes, e.g., [-3.0, -2.6, -2.2, ... 2.2, 2.6, 3.0]")
+
+    if type(rtShiftsMin) != list and type(rtShiftsMin) != np.ndarray:
+        raise RuntimeError(
+            "parameter rtShiftsMin must be an array/numpy ndarray of retention time shifts in minutes, e.g., [-3.0, -2.6, -2.2, ... 2.2, 2.6, 3.0]")
+
+    assert xic1.shape[0] == xic2.shape[0]
+
+    corrs = []
+    nonShiftCor = correlationFor(xic1, xic2, peakStartMin, peakEndMin)
+
+    for rtShiftMini, rtShiftMin in enumerate(rtShiftsMin):
+        ## shift second EIC by current rtShiftMin
+        xic2_ = np.copy(xic2)
+        xic2_[:, 0] = xic2_[:, 0] + rtShiftMin
+
+        ## get new rts
+        newRTs = np.sort(np.concatenate((xic1[:, 0], xic2_[:, 0])))
+
+        xic1_ = interpolateToNewRTs(np.copy(xic1), np.arange(np.min(newRTs), np.max(newRTs) + 0.0001, 0.01))
+        xic2_ = interpolateToNewRTs(xic2_, np.arange(np.min(newRTs), np.max(newRTs) + 0.0001, 0.01))
+        ## calculate correlation using peak 1
+        c = correlationFor(xic1_, xic2_, peakStartMin, peakEndMin)
+        corrs.append(c)
+
+    return nonShiftCor, np.max(corrs), rtShiftsMin[np.argmax(corrs)]
+
+
+def interpolateToNewRTs(xic, newRTs):
+    newRTs = np.unique(newRTs)
+
+    nxic = np.zeros((len(newRTs), 2), dtype=xic.dtype)
+    for curPosN, rt in enumerate(newRTs):
+        nxic[curPosN, 0] = rt
+
+        if rt <= xic[0, 0]:
+            nxic[curPosN, 1] = xic[0, 1]
+
+        elif rt >= xic[xic.shape[0] - 1, 0]:
+            nxic[curPosN, 1] = xic[xic.shape[0] - 1, 1]
+        else:
+            bestNextRtInd = np.argmin(np.abs(rt - xic[:, 0]))
+
+            if xic[bestNextRtInd, 0] == rt:
+                nxic[curPosN, :] = xic[bestNextRtInd, :]
+
+            else:
+                leftInd = None
+                rightInd = None
+
+                if xic[bestNextRtInd, 0] < rt:
+                    leftInd = bestNextRtInd
+                    rightInd = bestNextRtInd + 1
+
+                elif xic[bestNextRtInd, 0] > rt:
+                    leftInd = bestNextRtInd - 1
+                    rightInd = bestNextRtInd
+
+                assert leftInd != None, "Branch should not exists..."
+
+                nxic[curPosN, 1] = xic[leftInd, 1] + (xic[rightInd, 1] - xic[leftInd, 1]) / (
+                xic[rightInd, 0] - xic[leftInd, 0]) * (rt - xic[leftInd, 0])
+
+    return np.copy(nxic)
+
+
+def smooth(abundances):
+    algorithm = "rollingaverage"
+    if algorithm.lower() == "rollingaverage":
+        kernel = np.ones(kernel_size) / kernel_size
+        data_convolved = np.convolve(abundances, kernel, mode='same')
+        return data_convolved
+
+    elif algorithm.lower() == "savgol":
+        kernel_size = self.smoothingkernel_size
+        window_length = self.smoothingwindow_length
+        polynom_degree = self.smoothingpolynom_degree
+        return scipy.signal.savgol_filter(abundances, window_length, polynom_degree)
+
+    else:
+        raise RuntimeError("Unknown algorithm '%s' for smoothing" % (algorithm))
+
+
+def correlationFor(xic1, xic2, peakStartMin, peakEndMin):
+    algorithm = "pearson"
+
+    leftInd = np.argmin(np.abs(xic1[:, 0] - peakStartMin))
+    rightInd = np.argmin(np.abs(xic1[:, 0] - peakEndMin))
+
+    if algorithm == "pearson":
+        try:
+            return corr(xic1[leftInd:rightInd, 1], xic2[leftInd:rightInd, 1])
+        except Exception as ex:
+            print("There was an error calculating the pearson correlation between the two provided XICs. these are")
+            print("XIC 1")
+            print(xic1)
+            print("")
+            print("XIC 2")
+            print(xic2)
+            print("")
+            print("Peak start and end are", peakStartMin, peakEndMin)
+            raise RuntimeError("Could not calcualte correlation: '%s'"%(ex))
+
+    else:
+        raise RuntimeError("Unknown algorithm '%s' for smoothing" % (algorithm))
+
+
+
+
+
+
+
+
 
 
 peakAbundanceUseSignals = 5
@@ -390,7 +525,7 @@ class RunIdentification:
         SQLInsert(curs, "config", key="maxRatio", value=self.maxRatio)
         SQLInsert(curs, "config", key="useRatio", value=str(self.useRatio))
         SQLInsert(curs, "config", key="metabolisationExperiment", value=str(self.metabolisationExperiment))
-        SQLInsert(curs, "config", key="configuredTracer", value=base64.b64encode(dumps(self.configuredTracer)))
+        SQLInsert(curs, "config", key="configuredTracer", value=base64.b64encode(dumps(self.configuredTracer)).decode('utf-8'))
         SQLInsert(curs, "config", key="startTime", value=self.startTime)
         SQLInsert(curs, "config", key="stopTime", value=self.stopTime)
         SQLInsert(curs, "config", key="positiveScanEvent", value=self.positiveScanEvent)
@@ -417,7 +552,7 @@ class RunIdentification:
         SQLInsert(curs, "config", key="artificialMPshift_start", value=self.artificialMPshift_start)
         SQLInsert(curs, "config", key="artificialMPshift_stop", value=self.artificialMPshift_stop)
         SQLInsert(curs, "config", key="snrTh", value=self.snrTh)
-        SQLInsert(curs, "config", key="scales", value=base64.b64encode(dumps(self.scales)))
+        SQLInsert(curs, "config", key="scales", value=base64.b64encode(dumps(self.scales)).decode('utf-8'))
         SQLInsert(curs, "config", key="peakAbundanceCriteria", value="Center +- %d signals (%d total)"%(peakAbundanceUseSignalsSides, peakAbundanceUseSignals))
         SQLInsert(curs, "config", key="peakCenterError", value=self.peakCenterError)
         SQLInsert(curs, "config", key="peakScaleError", value=self.peakScaleError)
@@ -429,13 +564,13 @@ class RunIdentification:
         SQLInsert(curs, "config", key="calcIsoRatioLabelled", value=self.calcIsoRatioLabelled)
         SQLInsert(curs, "config", key="calcIsoRatioMoiety", value=self.calcIsoRatioMoiety)
         SQLInsert(curs, "config", key="minSpectraCount", value=self.minSpectraCount)
-        SQLInsert(curs, "config", key="configuredHeteroAtoms", value=base64.b64encode(dumps(self.heteroAtoms)))
+        SQLInsert(curs, "config", key="configuredHeteroAtoms", value=base64.b64encode(dumps(self.heteroAtoms)).decode('utf-8'))
         SQLInsert(curs, "config", key="haIntensityError", value=self.hAIntensityError)
         SQLInsert(curs, "config", key="haMinScans", value=self.hAMinScans)
         SQLInsert(curs, "config", key="minCorrelation", value=self.minCorrelation)
         SQLInsert(curs, "config", key="minCorrelationConnections", value=self.minCorrelationConnections)
-        SQLInsert(curs, "config", key="adducts", value=base64.b64encode(dumps(self.adducts)))
-        SQLInsert(curs, "config", key="elements", value=base64.b64encode(dumps(self.elements)))
+        SQLInsert(curs, "config", key="adducts", value=base64.b64encode(dumps(self.adducts)).decode('utf-8'))
+        SQLInsert(curs, "config", key="elements", value=base64.b64encode(dumps(self.elements)).decode('utf-8'))
         SQLInsert(curs, "config", key="simplifyInSourceFragments", value=str(self.simplifyInSourceFragments))
 
 
@@ -444,7 +579,7 @@ class RunIdentification:
         import datetime
 
         self.processingUUID="%s_%s_%s"%(str(uuid.uuid1()), str(platform.node()), str(datetime.datetime.now()))
-        SQLInsert(curs, "config", key="processingUUID_ext", value=base64.b64encode(str(self.processingUUID)))
+        SQLInsert(curs, "config", key="processingUUID_ext", value=base64.b64encode(str(self.processingUUID).encode('utf-8')))
 
         i = 1
         if self.metabolisationExperiment:
@@ -1099,6 +1234,7 @@ class RunIdentification:
 
                         # search closest peak pair
                         for li, peakL in enumerate(peaksL):
+                            ##print(peakN.peakIndex, peakL.peakIndex, meanmz, meanmzLabelled)
                             ##if abs(peakN[0] - peakL[0]) <= self.peakCenterError:
                             if abs(peakN.peakIndex - peakL.peakIndex) <= self.peakCenterError:
                                 if closestMatch==-1 or closestOffset > abs(peakN.peakIndex - peakL.peakIndex):
@@ -1221,7 +1357,7 @@ class RunIdentification:
                                   times=";".join(["%f" % (times[i]) for i in range(0, len(times))]),
                                   scanCount=len(eic),
 
-                                  allPeaks=base64.b64encode(dumps({"peaksN":peaksN, "peaksL":peaksL})))
+                                  allPeaks=base64.b64encode(dumps({"peaksN":peaksN, "peaksL":peaksL})).decode('utf-8'))
 
 
                         # save the detected feature pairs in these EICs to the database
@@ -1242,9 +1378,9 @@ class RunIdentification:
                                       peaksCorr=peak.peaksCorr,
                                       heteroAtoms='',adducts='', heteroAtomsFeaturePairs='',
                                       massSpectrumID=0,
-                                      assignedMZs=base64.b64encode(dumps(peak.assignedMZs)), fDesc=base64.b64encode(dumps([])),
+                                      assignedMZs=base64.b64encode(dumps(peak.assignedMZs)).decode('utf-8'), fDesc=base64.b64encode(dumps([])).decode('utf-8'),
                                       peaksRatio=peak.peaksRatio, peaksRatioMp1=peak.peaksRatioMp1, peaksRatioMPm1=peak.peaksRatioMPm1,
-                                      peakType="patternFound", comments=base64.b64encode(dumps(peak.comments)), artificialEICLShift=peak.artificialEICLShift)
+                                      peakType="patternFound", comments=base64.b64encode(dumps(peak.comments)).decode('utf-8'), artificialEICLShift=peak.artificialEICLShift)
 
                             SQLInsert(curs, "allChromPeaks", id=peak.id, tracer=tracerID, eicID=peak.eicID,
                                       mz=peak.mz, lmz=peak.lmz, tmz=peak.tmz, xcount=peak.correctedXCount, xcountId=peak.xCount,Loading=peak.loading,ionMode=ionMode,
@@ -1252,9 +1388,9 @@ class RunIdentification:
                                       LPeakCenter=peak.LPeakCenter,LPeakCenterMin=peak.LPeakCenterMin, LPeakScale=peak.LPeakScale, LSNR=peak.LSNR, LPeakArea=peak.LPeakArea, LPeakAbundance=peak.LPeakAbundance, LBorderLeft=peak.LBorderLeft, LBorderRight=peak.LBorderRight,
                                       peaksCorr=peak.peaksCorr,
                                       heteroAtoms='',adducts='', heteroAtomsFeaturePairs='',
-                                      assignedMZs=len(peak.assignedMZs), fDesc=base64.b64encode(dumps([])),
+                                      assignedMZs=len(peak.assignedMZs), fDesc=base64.b64encode(dumps([])).decode('utf-8'),
                                       peaksRatio=peak.peaksRatio, peaksRatioMp1=peak.peaksRatioMp1, peaksRatioMPm1=peak.peaksRatioMPm1,
-                                      peakType="patternFound", comments=base64.b64encode(dumps(peak.comments)), artificialEICLShift=peak.artificialEICLShift)
+                                      peakType="patternFound", comments=base64.b64encode(dumps(peak.comments)).decode('utf-8'), artificialEICLShift=peak.artificialEICLShift)
 
 
                             chromPeaks.append(peak)
@@ -1441,9 +1577,9 @@ class RunIdentification:
                                     relativeIntensity = isoIntensity / peakIntensity
                                     if abs(
                                                     relativeIntensity - pIsotope.relativeAbundance * haCount) < self.hAIntensityError:
-                                        if not (peak.heteroIsotopologues.has_key(pIso)):
+                                        if not (pIso in peak.heteroIsotopologues):
                                             peak.heteroIsotopologues[pIso] = {}
-                                        if not (peak.heteroIsotopologues[pIso].has_key(haCount)):
+                                        if not (haCount in peak.heteroIsotopologues[pIso]):
                                             peak.heteroIsotopologues[pIso][haCount] = []
                                         peak.heteroIsotopologues[pIso][haCount].append(
                                             (scan.id, relativeIntensity, pIsotope.relativeAbundance * haCount))
@@ -1497,7 +1633,7 @@ class RunIdentification:
                                             mzxml, scanEvent, self.ppm)
                 observedRatioMean=weightedMean([t.ratio for t in isoRatios], [t.refInt for t in isoRatios])
                 observedRatioSD=weightedSd([t.ratio for t in isoRatios], [t.refInt for t in isoRatios])
-                if isinstance(peak.xCount, basestring):
+                if isinstance(peak.xCount, str):
                     theoreticalRatio=-1
                 else:
                     theoreticalRatio=getNormRatio(self.purityN, peak.xCount, i)
@@ -1510,7 +1646,7 @@ class RunIdentification:
                                             mzxml, scanEvent, self.ppm)
                 observedRatioMean=weightedMean([t.ratio for t in isoRatios], [t.refInt for t in isoRatios])
                 observedRatioSD=weightedSd([t.ratio for t in isoRatios], [t.refInt for t in isoRatios])
-                if isinstance(peak.xCount, basestring):
+                if isinstance(peak.xCount, str):
                     theoreticalRatio = -1
                 else:
                     theoreticalRatio=getNormRatio(self.purityL, peak.xCount, abs(i))
@@ -1558,19 +1694,19 @@ class RunIdentification:
         for i in range(len(chromPeaks)):
             peak = chromPeaks[i]
             curs.execute("UPDATE chromPeaks SET heteroAtoms=? WHERE id=?",
-                         (base64.b64encode(dumps(peak.heteroIsotopologues)), peak.id))
+                         (base64.b64encode(dumps(peak.heteroIsotopologues)).decode('utf-8'), peak.id))
             curs.execute("UPDATE allChromPeaks SET heteroAtoms=? WHERE id=?",
-                         (base64.b64encode(dumps(peak.heteroIsotopologues)), peak.id))
+                         (base64.b64encode(dumps(peak.heteroIsotopologues)).decode('utf-8'), peak.id))
 
             curs.execute("UPDATE chromPeaks SET isotopesRatios=? WHERE id=?",
-                         (base64.b64encode(dumps(peak.isotopeRatios)), peak.id))
+                         (base64.b64encode(dumps(peak.isotopeRatios)).decode('utf-8'), peak.id))
             curs.execute("UPDATE allChromPeaks SET isotopesRatios=? WHERE id=?",
-                         (base64.b64encode(dumps(peak.isotopeRatios)), peak.id))
+                         (base64.b64encode(dumps(peak.isotopeRatios)).decode('utf-8'), peak.id))
 
             curs.execute("UPDATE chromPeaks SET mzDiffErrors=? WHERE id=?",
-                         (base64.b64encode(dumps(peak.mzDiffErrors)), peak.id))
+                         (base64.b64encode(dumps(peak.mzDiffErrors)).decode('utf-8'), peak.id))
             curs.execute("UPDATE allChromPeaks SET mzDiffErrors=? WHERE id=?",
-                         (base64.b64encode(dumps(peak.mzDiffErrors)), peak.id))
+                         (base64.b64encode(dumps(peak.mzDiffErrors)).decode('utf-8'), peak.id))
 
         self.printMessage("%s: Annotating feature pairs done." % tracer.name, type="info")
 
@@ -1916,9 +2052,9 @@ class RunIdentification:
                                     if k != self.labellingElement:
                                         useAtoms.append(k)
                             else:
-                                useAtoms = self.elements.keys()
+                                useAtoms = list(self.elements.keys())
 
-                            if not(isinstance(peakA.xCount, basestring)):
+                            if not(isinstance(peakA.xCount, str)):
 
                                 atomsRange = []
                                 if self.labellingElement in useAtoms:
@@ -2015,6 +2151,19 @@ class RunIdentification:
                 allPeaks[peak.id] = peak
                 peak.correlationsToOthers=[]
 
+            rengine = ro.r
+
+            ## export model for R/3.5.3 from outside of MetExtract
+            ## in R load the model and save it as the varible model
+            ## execute
+            ## load("C:/Users/cbueschl/Desktop/PeakCorrelation/model_main_2.Rdata")
+            ## exp = list(predict = model$modelInfo$predict, finalModel = model$finalModel)
+            ## save(exp, file = "C:/Users/cbueschl/Desktop/PeakCorrelation/model.Rdata")
+            #rengine('load("C:/Users/cbueschl/Desktop/PeakCorrelation/model.Rdata")')
+            #rengine('model = exp')
+            #rengine('print("model is")')
+            #rengine('print(model)')
+
             # compare all detected feature pairs at approximately the same retention time
             for piA in range(len(chromPeaks)):
                 peakA = chromPeaks[piA]
@@ -2040,6 +2189,23 @@ class RunIdentification:
                                                                       peakA.LPeakCenter + 1 * peakA.LBorderRight])))
 
                             pb = corr(peakA.NXICSmoothed[bmin:bmax], peakB.NXICSmoothed[bmin:bmax])
+
+                            if False:
+                                ## development: test for shifted correlation, Kristina Missbach
+                                testShifts = np.arange(-3, 3.00001, 0.1)
+                                nonShiftCorr, shiftBestCorr, bestShift = getCorrelationShifted(np.transpose(np.array([peakA.times, peakA.NXICSmoothed]))[bmin:bmax],
+                                                                                               np.transpose(np.array([peakB.times, peakB.NXICSmoothed]))[bmin:bmax],
+                                                                                               peakA.times[bmin], peakA.times[bmax],
+                                                                                               rtShiftsMin=testShifts)
+                                assignedClass = "NA"
+                                try:
+                                    ret = rengine('as.character(model$predict(model$finalModel, data.frame(nonShiftedCorr = %f, bestShiftedCorr = %f, bestShift = %f)))'%(nonShiftCorr, shiftBestCorr, bestShift / 60.))
+                                    assignedClass = ret[0]
+                                except Exception as ex:
+                                    print("Exception: %s"%(ex.message))
+                                print("Correlation unshifted is %.3f/%.3f, best shifted correlation is %.3f by %.3f sec, verdict %s"%(pb, nonShiftCorr, shiftBestCorr, bestShift, assignedClass))
+
+
                             if str(pb)=="nan":
                                 pb=-1
 
@@ -2120,7 +2286,7 @@ class RunIdentification:
                 hc=HCA_general.HCA_generic()
                 tree=hc.generateTree(objs=data, ids=tGroup)
                 #hc.plotTree(tree)
-                #print "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-"
+                #print("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-")
 
                 # split the HCA tree in sub-clusters
                 def checkSubCluster(tree, hca, corrThreshold, cutOffMinRatio):
@@ -2135,7 +2301,7 @@ class RunIdentification:
                         aboveThreshold=sum([corr>corrThreshold for corr in corrs])
                         aboveThresholdRKid=sum([corr>corrThreshold for corr in corrsRKid])
 
-                        #print aboveThresholdLKid, aboveThreshold, aboveThresholdRKid
+                        #print(aboveThresholdLKid, aboveThreshold, aboveThresholdRKid)
 
                     if (aboveThresholdLKid*1./len(corrs))>=cutOffMinRatio and (aboveThreshold*1./len(corrs))>=cutOffMinRatio and (aboveThresholdRKid*1./len(corrs))>=cutOffMinRatio:
                         return False
@@ -2154,13 +2320,19 @@ class RunIdentification:
             groups=[]
             done=0
             for tGroup in tGroups:
-                #print "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-"
+                #print("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-")
                 cGroups=[tGroup]
                 while len(cGroups)>0:
-                    #print "HCA with", len(cGroups)
+                    #print("HCA with", len(cGroups))
                     gGroup=cGroups.pop(0)
+
+                    ## TODO optimize this code, it recalculates the computationally expensive HCA too often for a high number of features
+                    if False and len(gGroup) > 100:
+                        groups.append(gGroup)
+                        continue
+
                     sGroups=splitGroupWithHCA(gGroup, correlations)
-                    #print "first group", len(gGroup), gGroup, "split into", sGroups
+                    #print("first group", len(gGroup), gGroup, "split into", sGroups)
 
                     if len(sGroups)==1:
                         groups.append(sGroups[0])
@@ -2200,14 +2372,14 @@ class RunIdentification:
 
             for peak in chromPeaks:
                 adds = countEntries(peak.adducts)
-                peak.adducts = adds.keys()
-                curs.execute("UPDATE chromPeaks SET adducts='%s', fDesc='%s', correlationsToOthers='%s' WHERE id=%d" % (
-                              base64.b64encode(dumps(peak.adducts)), base64.b64encode(dumps(peak.fDesc)), base64.b64encode(dumps(peak.correlationsToOthers)), peak.id))
-                curs.execute("UPDATE allChromPeaks SET adducts='%s', fDesc='%s' WHERE id=%d" % (
-                              base64.b64encode(dumps(peak.adducts)), base64.b64encode(dumps(peak.fDesc)), peak.id))
+                peak.adducts = list(adds.keys())
+                curs.execute("UPDATE chromPeaks SET adducts=?, fDesc=?, correlationsToOthers=? WHERE id=?",
+                              (base64.b64encode(dumps(peak.adducts)).decode('utf-8'), base64.b64encode(dumps(peak.fDesc)).decode('utf-8'), base64.b64encode(dumps(peak.correlationsToOthers)).decode('utf-8'), peak.id))
+                curs.execute("UPDATE allChromPeaks SET adducts=?, fDesc=? WHERE id=?",
+                              (base64.b64encode(dumps(peak.adducts)).decode('utf-8'), base64.b64encode(dumps(peak.fDesc)).decode('utf-8'), peak.id))
 
                 curs.execute("UPDATE chromPeaks SET heteroAtomsFeaturePairs=? WHERE id=?",
-                             (base64.b64encode(dumps(peak.heteroAtomsFeaturePairs)), peak.id))
+                             (base64.b64encode(dumps(peak.heteroAtomsFeaturePairs)).decode('utf-8'), peak.id))
                 curs.execute("UPDATE allChromPeaks SET heteroAtomsFeaturePairs=? WHERE id=?",
                              (base64.b64encode(dumps(peak.heteroAtomsFeaturePairs)), peak.id))
 
@@ -2525,9 +2697,9 @@ class RunIdentification:
         dd = []
         for gi in set([peak.fGroupID for peak in chromPeaks]):
             ddd = []
-            for peak in sorted([peak for peak in chromPeaks if peak.fGroupID == gi], cmp=lambda x, y: int(
+            for peak in sorted([peak for peak in chromPeaks if peak.fGroupID == gi], key=functools.cmp_to_key(lambda x, y: int(
                             100 * (x.NPeakCenter - y.NPeakCenter)) if x.fGroupID == y.fGroupID else int(
-                            x.fGroupID - y.fGroupID)):
+                            x.fGroupID - y.fGroupID))):
                 ddd.append((peak.NPeakCenterMin, peak.mz))
             dd.append(ddd)
         sc.data = dd
@@ -2901,8 +3073,8 @@ class RunIdentification:
                 gPeaks = []
 
                 cpeak = 0
-                sortedChromPeaks = sorted(chromPeaks, cmp=lambda x, y: int(
-                    100 * (x.NPeakCenter - y.NPeakCenter)) if x.fGroupID == y.fGroupID else int(x.fGroupID - y.fGroupID))
+                sortedChromPeaks = sorted(chromPeaks, key=functools.cmp_to_key(lambda x, y: int(
+                    100 * (x.NPeakCenter - y.NPeakCenter)) if x.fGroupID == y.fGroupID else int(x.fGroupID - y.fGroupID)))
 
                 for si in range(len(sortedChromPeaks)):
                     peak = sortedChromPeaks[si]
@@ -3038,7 +3210,7 @@ class RunIdentification:
                 for w in range(len(scans)):
                     curScan = scans[w]
                     scanid = scanIds[w]
-                    if not (newMZXMLData.has_key(scanid)):
+                    if not (scanid in newMZXMLData):
                         newMZXMLData[scanid] = Bunch(mzs=[], ints=[], rt=mzxml.getScanByID(scanid).retention_time)
                     for mz, inte in curScan:
                         newMZXMLData[scanid].mzs.append(mz)
@@ -3052,7 +3224,7 @@ class RunIdentification:
                 for w in range(len(scans)):
                     curScan = scans[w]
                     scanid = scanIds[w]
-                    if not (newMZXMLData.has_key(scanid)):
+                    if not (scanid in newMZXMLData):
                         newMZXMLData[scanid] = Bunch(mzs=[], ints=[], rt=mzxml.getScanByID(scanid).retention_time)
                     for mz, inte in curScan:
                         newMZXMLData[scanid].mzs.append(mz)
@@ -3066,7 +3238,7 @@ class RunIdentification:
                 for w in range(len(scans)):
                     curScan = scans[w]
                     scanid = scanIds[w]
-                    if not (newMZXMLData.has_key(scanid)):
+                    if not (scanid in newMZXMLData):
                         newMZXMLData[scanid] = Bunch(mzs=[], ints=[], rt=mzxml.getScanByID(scanid).retention_time)
                     for mz, inte in curScan:
                         newMZXMLData[scanid].mzs.append(mz)
@@ -3080,7 +3252,7 @@ class RunIdentification:
                 for w in range(len(scans)):
                     curScan = scans[w]
                     scanid = scanIds[w]
-                    if not (newMZXMLData.has_key(scanid)):
+                    if not (scanid in newMZXMLData):
                         newMZXMLData[scanid] = Bunch(mzs=[], ints=[], rt=mzxml.getScanByID(scanid).retention_time)
                     for mz, inte in curScan:
                         newMZXMLData[scanid].mzs.append(mz)

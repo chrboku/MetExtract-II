@@ -2,6 +2,7 @@
 # a class used to parse chemical formulas
 # e.g. the formula C6H12O6 will be parsed to a dictionary {'H':12, 'C':6, 'O':6}
 # NOTE: different isotopes may be specified as [13C]C5H12O6
+from __future__ import print_function, division, absolute_import
 class formulaTools:
     def __init__(self, elemDetails=None):
         if elemDetails is None:
@@ -235,7 +236,8 @@ class formulaTools:
 
     # helper method: n over k
     def noverk(self, n, k):
-        return reduce(lambda a, b: a * (n - b) / (b + 1), xrange(k), 1)
+        from functools import reduce
+        return reduce(lambda a, b: a * (n - b) // (b + 1), range(k), 1)
 
     # helper method: calculates the isotopic ratio
     def getIsotopologueRatio(self, c, s, p):
@@ -252,13 +254,13 @@ class formulaTools:
             if self.isIso(elem):
                 curElem, iso = self.getElementFor(elem)
 
-                if not (fIso.has_key(curElem)):
+                if not (curElem in fIso):
                     fIso[curElem] = []
                 fIso[curElem].append((iso, elems[elem]))
 
         for elem in fElems:
             rem = 0
-            if fIso.has_key(elem):
+            if elem in fIso:
                 for x in fIso[elem]:
                     rem = rem + x[1]
             p = self.elemDetails[elem][4]
@@ -280,12 +282,12 @@ class formulaTools:
             if self.isIso(elem):
                 curElem, iso = self.getElementFor(elem)
 
-                if not (fIso.has_key(curElem)):
+                if not (curElem in fIso):
                     fIso[curElem] = []
                 fIso[curElem].append((iso, elems[elem]))
         for elem in fElems:
             rem = 0
-            if fIso.has_key(elem):
+            if elem in fIso:
                 for x in fIso[elem]:
                     rem = rem + x[1]
             p = self.elemDetails[elem][4]
@@ -335,13 +337,13 @@ class formulaTools:
 
                         d = {}
                         for y in x:
-                            if not (d.has_key(y)):
+                            if not (y in d):
                                 d[y] = 0
                             d[y] = d[y] + 1
                         ret.append(d)
 
                 else:
-                    #print "next level with", mzdiff-diff, "after", iso+elem, self.elemDetails[iso+elem][3],self.elemDetails[elem][3]
+                    #print("next level with", mzdiff-diff, "after", iso+elem, self.elemDetails[iso+elem][3],self.elemDetails[elem][3])
                     x = [y for y in used]
                     x.append(iso + curElem)
                     x = self.getPutativeIsotopes(mzdiff - diff, atMZ=atMZ, z=1, ppm=ppm,
@@ -372,7 +374,7 @@ class formulaTools:
             if self.isIso(elem):
                 curElem, iso = self.getElementFor(elem)
 
-                if fElems.has_key(curElem):
+                if curElem in fElems:
                     fElems[curElem] = fElems[curElem] - elems[elem]
                     fElems["[" + iso + curElem + "]"] = elems[elem]
                 else:

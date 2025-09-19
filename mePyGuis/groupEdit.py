@@ -1,25 +1,26 @@
+from __future__ import print_function, division, absolute_import
 import os
 
-from PyQt4 import QtGui, QtCore
+from PySide6 import QtCore, QtGui, QtWidgets
 
 from mePyGuis.groupEditor import Ui_GroupEditor
 
 from utils import natSort
 
 
-class groupEdit(QtGui.QDialog, Ui_GroupEditor):
+class groupEdit(QtWidgets.QDialog, Ui_GroupEditor):
     def __init__(self, parent=None, initDir=None, colors=["Red", "Blue", "Green"], activeColor=0):
         self.groupfiles = []
         if initDir is not None:
             self.initDir = initDir
         else:
             self.initDir = "."
-            if os.environ.has_key('USERPROFILE'):
+            if 'USERPROFILE' in os.environ:
                 self.initDir = os.getenv('USERPROFILE')
-            elif os.environ.has_key('HOME'):
+            elif 'HOME' in os.environ:
                 self.initDir = os.getenv('HOME')
 
-        QtGui.QDialog.__init__(self, parent)
+        QtWidgets.QDialog.__init__(self, parent)
         self.setupUi(self)
         self.setWindowTitle("Group editor")
 
@@ -31,16 +32,16 @@ class groupEdit(QtGui.QDialog, Ui_GroupEditor):
         self.addFolder.clicked.connect(self.selectFolder)
         self.removeSelected.clicked.connect(self.removeSel)
 
-        self.colors=QtCore.QStringList()
+        self.colors=[]
         for i in colors:
             self.colors.append(i)
         self.colorsComboBox.addItems(self.colors)
         self.colorsComboBox.setCurrentIndex(activeColor)
         self.col = self.colors[self.colorsComboBox.currentIndex()]
 
-        self.dialogFinished.setFocus(True)
+        self.dialogFinished.setFocus()
 
-        self.groupName.setValidator(QtGui.QRegExpValidator(QtCore.QRegExp("[0-9a-zA-Z_]*")))
+        self.groupName.setValidator(QtGui.QRegularExpressionValidator(QtCore.QRegularExpression("[0-9a-zA-Z_]*")))
         self.setAcceptDrops(True)
 
     def removeSel(self):
@@ -59,11 +60,11 @@ class groupEdit(QtGui.QDialog, Ui_GroupEditor):
 
     def dialogFin(self):
         if len(self.getGroupName()) < 1:
-            QtGui.QMessageBox.information(None, "Group name", "Please specify a group name", QtGui.QMessageBox.Ok)
+            QtWidgets.QMessageBox.information(None, "Group name", "Please specify a group name", QtWidgets.QMessageBox.Ok)
             return
         if len(self.getGroupFiles()) < 1:
-            QtGui.QMessageBox.information(None, "Group files", "Please load one or more files into this group",
-                                          QtGui.QMessageBox.Ok)
+            QtWidgets.QMessageBox.information(None, "Group files", "Please load one or more files into this group",
+                                          QtWidgets.QMessageBox.Ok)
             return
 
         self.accept()
@@ -96,7 +97,7 @@ class groupEdit(QtGui.QDialog, Ui_GroupEditor):
         return bool(self.useAsMSMSTarget.checkState() == QtCore.Qt.Checked)
 
     def selectFiles(self):
-        filenames = QtGui.QFileDialog.getOpenFileNames(self, caption="Select group file(s)", directory=self.initDir,
+        filenames = QtWidgets.QFileDialog.getOpenFileNames(self, caption="Select group file(s)", dir=self.initDir,
                                                        filter="mzXML (*.mzxml);;mzML (*.mzml);;group file (*.grp);;All files (*.*)")
         filenames = list(filenames)
         filenames=natSort(filenames)
@@ -109,7 +110,7 @@ class groupEdit(QtGui.QDialog, Ui_GroupEditor):
             self.initDir = self.initDir[:self.initDir.rfind("/")]
 
     def selectFolder(self):
-        foldername = str(QtGui.QFileDialog.getExistingDirectory(self, caption="Select folder containing mzxml files"),
+        foldername = str(QtWidgets.QFileDialog.getExistingDirectory(self, caption="Select folder containing mzxml files"),
                          directory=self.initDir)
         if len(foldername) > 0:
             self.initDir = foldername.replace("\\", "/")
@@ -161,7 +162,7 @@ class groupEdit(QtGui.QDialog, Ui_GroupEditor):
             self.useAsMSMSTarget.setCheckState(QtCore.Qt.Unchecked)
 
         self.dialogFinished.setFocus()
-        return self.exec_()
+        return self.exec()
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls:
@@ -191,9 +192,9 @@ class groupEdit(QtGui.QDialog, Ui_GroupEditor):
 if __name__ == "__main__":
     import sys
 
-    app = QtGui.QApplication(sys.argv)
+    app = QtWidgets.QApplication(sys.argv)
     Dialog = groupEdit()
 
     Dialog.executeDialog()
-    x = app.exec_()
+    x = app.exec()
     sys.exit(x)

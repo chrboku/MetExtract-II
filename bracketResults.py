@@ -1,3 +1,4 @@
+from __future__ import print_function, division, absolute_import
 import logging
 
 from sqlite3 import *
@@ -90,7 +91,19 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
     # create results SQLite tables
     resDB=Bunch(conn=None, curs=None)
     if os.path.exists(file+getDBSuffix()) and os.path.isfile(file+getDBSuffix()):
-        os.remove(file+getDBSuffix())
+        # Try to remove the file, with retry in case it's still locked
+        import time
+        for attempt in range(3):
+            try:
+                os.remove(file+getDBSuffix())
+                break
+            except PermissionError:
+                if attempt < 2:
+                    time.sleep(0.1)  # Wait 100ms before retry
+                    continue
+                else:
+                    print(f"Warning: Could not remove existing database file {file+getDBSuffix()}, proceeding anyway")
+                    break
     resDB.conn=connect(file+getDBSuffix())
     #conn.execute('''PRAGMA synchronous = OFF''')
     #conn.execute('''PRAGMA journal_mode = OFF''')
@@ -304,9 +317,9 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                         assert cp.ionMode in ionModes.keys()
                                         res.featurePairs.append(cp)
                                     except TypeError as err:
-                                        print "  TypeError in file %s, id %s, (Ionmode: %s, XCount: %s, Charge: %d)"%(str(res.fileName), str(row[0]), ionMode, xCount, cLoading), err.message
+                                        print("  TypeError in file %s, id %s, (Ionmode: %s, XCount: %s, Charge: %d)"%(str(res.fileName), str(row[0]), ionMode, xCount, cLoading), err.message)
                                     except:
-                                        print "  some general error in file %s, id %s, (Ionmode: %s, XCount: %s, Charge: %d)"%(str(res.fileName), str(row[0]), ionMode, xCount, cLoading)
+                                        print("  some general error in file %s, id %s, (Ionmode: %s, XCount: %s, Charge: %d)"%(str(res.fileName), str(row[0]), ionMode, xCount, cLoading))
 
                             totalChromPeaks = totalChromPeaks + len(res.featurePairs)
 
@@ -415,7 +428,7 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                                         pdf.save()
                                                         pdf = canvas.Canvas(file + "_%d.pdf" % xy)
                                                         _writeFirstPage(pdf, groupSizePPM, maxTimeDeviation, align, nPolynom)
-                                                        print "\r   new pdf %d metabolic features.." % xy,
+                                                        print("\r   new pdf %d metabolic features.." % xy,)
 
                                                 # debug purposes: create PDF for current subcluster
                                                 if writePDF:
@@ -539,7 +552,7 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                                 j = 0
                                                 for k in partChromPeaks.keys():
                                                     for i in range(len(partChromPeaks[k])):
-                                                        if not (groupedChromPeaks[aligned[j][1]].has_key(k)):
+                                                        if not (k in groupedChromPeaks[aligned[j][1]]):
                                                             groupedChromPeaks[aligned[j][1]][k] = []
                                                         groupedChromPeaks[aligned[j][1]][k].append((aligned[j], partChromPeaks[k][i]))
                                                         groupedChromPeaksAVGMz[aligned[j][1]].append(partChromPeaks[k][i].mz)
@@ -609,7 +622,7 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                                         doublePeak = 0
                                                         for j in range(len(results)):
                                                             res = results[j].filePath
-                                                            if groupedChromPeaks[i].has_key(res) and len(groupedChromPeaks[i][res]) > 0:
+                                                            if res in groupedChromPeaks[i] and len(groupedChromPeaks[i][res]) > 0:
 
                                                                 for peak in groupedChromPeaks[i][res]:
                                                                     SQLInsert(resDB.curs, "FoundFeaturePairs", file=results[j].fileName, featurePairID=peak[1].id, featureGroupID=peak[1].fGroupID, resID=curNum,
@@ -681,7 +694,7 @@ def bracketResults(indGroups, xCounts, groupSizePPM, positiveScanEvent=None, neg
                                             grp = grp + 1
 
                                             for res in results:
-                                                if toDel.has_key(res.filePath):
+                                                if res.filePath in toDel:
                                                     toDel[res.filePath] = [a for a in toDel[res.filePath]]
                                                     toDel[res.filePath].sort()
                                                     toDel[res.filePath].reverse()
@@ -1310,10 +1323,10 @@ class ConvoluteFPsInFile:
                                         silRatioFold = (max([ma, mb]) / min([ma, mb]))
                                     except RuntimeWarning as ex:
                                         pass
-                                    #print ma, mb, sa, sb, max([ma, mb]), min([ma, mb])
+                                    #print(ma, mb, sa, sb, max([ma, mb]), min([ma, mb]))
                                     fileSILRatios[fpNumA][fpNumB] = silRatioFold <= 1 + max(0.5, 3 * mean([sa, sb]))
 
-                                    #print fiName, nodeA.mz, nodeB.mz, meanRT, silRatioFold, co
+                                    #print(fiName, nodeA.mz, nodeB.mz, meanRT, silRatioFold, co)
                             except Exception as err:
                                 logging.error(
                                     "  Error during convolution of feature pairs (SIL-ratio, Nums: %s and %s, message: %s).." % (

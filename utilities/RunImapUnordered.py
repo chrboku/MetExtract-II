@@ -1,5 +1,5 @@
 from multiprocessing import Pool
-from PyQt4 import QtGui
+from PySide6 import QtGui, QtWidgets
 import time
 
 
@@ -34,7 +34,7 @@ def runImapUnordered(functionToCall, parameters, processes=1, pw=None, header=""
             if pw!=None: pw.getCallingFunction()("text")("%s%s%d of %d processes completed\n(%d in parallel, %.2f minutes running)"%(header, "\n\n" if header!="" else "", completed, len(parameters), processes, (time.time()-startProc)/60.))
             if pw!=None: pw.getCallingFunction()("value")(completed)
 
-            QtGui.QApplication.processEvents();
+            QtWidgets.QApplication.processEvents();
             time.sleep(5)
 
     if pw!=None: pw.getCallingFunction()("log")("Finished evalution (%.2f minutes)"%((time.time()-startProc)/60.))
@@ -48,14 +48,14 @@ def runImapUnordered(functionToCall, parameters, processes=1, pw=None, header=""
 
 
 def testFunction(params):
-    print "testFunction", str(params)
+    print("testFunction", str(params))
 
     return 1
 
 if __name__=="__main__":
     import sys
-    app = QtGui.QApplication(sys.argv)
+    app = QtWidgets.QApplication(sys.argv)
 
     runImapUnordered(testFunction, [{"id":1}, {"id":2}, {"id":3}], processes=4, pw="createNewPW", header="Test function")
 
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
