@@ -11,16 +11,21 @@ from PySide6 import QtCore, QtGui, QtWidgets
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
 except AttributeError:
+
     def _fromUtf8(s):
         return s
 
+
 try:
     _encoding = QtWidgets.QApplication.UnicodeUTF8
+
     def _translate(context, text, disambig):
         return QtWidgets.QApplication.translate(context, text, disambig, _encoding)
 except AttributeError:
+
     def _translate(context, text, disambig):
         return QtWidgets.QApplication.translate(context, text, disambig)
+
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
@@ -28,22 +33,32 @@ class Ui_MainWindow(object):
         MainWindow.resize(1954, 1700)
         MainWindow.setAcceptDrops(True)
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap(_fromUtf8(":/MEIcon/resources/MEIcon.ico")), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon.addPixmap(
+            QtGui.QPixmap(_fromUtf8(":/MEIcon/resources/MEIcon.ico")),
+            QtGui.QIcon.Normal,
+            QtGui.QIcon.Off,
+        )
         MainWindow.setWindowIcon(icon)
         MainWindow.setStyleSheet(_fromUtf8(""))
         MainWindow.setTabShape(QtWidgets.QTabWidget.Rounded)
         self.centralWidget = QtWidgets.QWidget(MainWindow)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Minimum)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Minimum
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.centralWidget.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.centralWidget.sizePolicy().hasHeightForWidth()
+        )
         self.centralWidget.setSizePolicy(sizePolicy)
         self.centralWidget.setObjectName(_fromUtf8("centralWidget"))
         self.gridLayout_11 = QtWidgets.QGridLayout(self.centralWidget)
         self.gridLayout_11.setContentsMargins(2, 2, 2, 2)
         self.gridLayout_11.setObjectName(_fromUtf8("gridLayout_11"))
         self.INFOLabel = QtWidgets.QLabel(self.centralWidget)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.INFOLabel.sizePolicy().hasHeightForWidth())
@@ -54,7 +69,9 @@ class Ui_MainWindow(object):
         self.gridLayout_11.addWidget(self.INFOLabel, 0, 0, 1, 1)
         self.tabWidget = QtWidgets.QTabWidget(self.centralWidget)
         self.tabWidget.setEnabled(True)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.tabWidget.sizePolicy().hasHeightForWidth())
@@ -68,13 +85,19 @@ class Ui_MainWindow(object):
         self.gridLayout_21 = QtWidgets.QGridLayout(self.inputTab)
         self.gridLayout_21.setContentsMargins(-1, -1, 3, 0)
         self.gridLayout_21.setObjectName(_fromUtf8("gridLayout_21"))
-        spacerItem = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Ignored)
+        spacerItem = QtWidgets.QSpacerItem(
+            20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Ignored
+        )
         self.gridLayout_21.addItem(spacerItem, 1, 0, 1, 1)
         self.ticVisualisationWidget = QtWidgets.QWidget(self.inputTab)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.ticVisualisationWidget.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.ticVisualisationWidget.sizePolicy().hasHeightForWidth()
+        )
         self.ticVisualisationWidget.setSizePolicy(sizePolicy)
         self.ticVisualisationWidget.setObjectName(_fromUtf8("ticVisualisationWidget"))
         self.gridLayout_21.addWidget(self.ticVisualisationWidget, 0, 1, 2, 1)
@@ -83,11 +106,15 @@ class Ui_MainWindow(object):
         self.gridLayout_22.setObjectName(_fromUtf8("gridLayout_22"))
         self.label_42 = QtWidgets.QLabel(self.inputTab)
         self.label_42.setStyleSheet(_fromUtf8("font: 10pt;"))
-        self.label_42.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.label_42.setAlignment(
+            QtCore.Qt.AlignRight | QtCore.Qt.AlignTrailing | QtCore.Qt.AlignVCenter
+        )
         self.label_42.setObjectName(_fromUtf8("label_42"))
         self.gridLayout_22.addWidget(self.label_42, 6, 0, 1, 1)
         self.groupsList = QtWidgets.QListWidget(self.inputTab)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.groupsList.sizePolicy().hasHeightForWidth())
@@ -103,10 +130,14 @@ class Ui_MainWindow(object):
         self.gridLayout_22.addWidget(self.line_3, 1, 0, 1, 5)
         self.horizontalLayout_4 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_4.setObjectName(_fromUtf8("horizontalLayout_4"))
-        spacerItem1 = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Minimum)
+        spacerItem1 = QtWidgets.QSpacerItem(
+            0, 0, QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Minimum
+        )
         self.horizontalLayout_4.addItem(spacerItem1)
         self.saveGroups = QtWidgets.QPushButton(self.inputTab)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.saveGroups.sizePolicy().hasHeightForWidth())
@@ -114,7 +145,9 @@ class Ui_MainWindow(object):
         self.saveGroups.setObjectName(_fromUtf8("saveGroups"))
         self.horizontalLayout_4.addWidget(self.saveGroups)
         self.loadGroups = QtWidgets.QPushButton(self.inputTab)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.loadGroups.sizePolicy().hasHeightForWidth())
@@ -127,24 +160,36 @@ class Ui_MainWindow(object):
         self.line.setObjectName(_fromUtf8("line"))
         self.horizontalLayout_4.addWidget(self.line)
         self.addGroup = QtWidgets.QPushButton(self.inputTab)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.addGroup.sizePolicy().hasHeightForWidth())
         self.addGroup.setSizePolicy(sizePolicy)
         icon1 = QtGui.QIcon()
-        icon1.addPixmap(QtGui.QPixmap(_fromUtf8(":/new/archive-insert-3.png")), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon1.addPixmap(
+            QtGui.QPixmap(_fromUtf8(":/new/archive-insert-3.png")),
+            QtGui.QIcon.Normal,
+            QtGui.QIcon.Off,
+        )
         self.addGroup.setIcon(icon1)
         self.addGroup.setObjectName(_fromUtf8("addGroup"))
         self.horizontalLayout_4.addWidget(self.addGroup)
         self.removeGroup = QtWidgets.QPushButton(self.inputTab)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.removeGroup.sizePolicy().hasHeightForWidth())
         self.removeGroup.setSizePolicy(sizePolicy)
         icon2 = QtGui.QIcon()
-        icon2.addPixmap(QtGui.QPixmap(_fromUtf8(":/delete/archive-remove.png")), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon2.addPixmap(
+            QtGui.QPixmap(_fromUtf8(":/delete/archive-remove.png")),
+            QtGui.QIcon.Normal,
+            QtGui.QIcon.Off,
+        )
         self.removeGroup.setIcon(icon2)
         self.removeGroup.setObjectName(_fromUtf8("removeGroup"))
         self.horizontalLayout_4.addWidget(self.removeGroup)
@@ -174,7 +219,9 @@ class Ui_MainWindow(object):
         self.line_33.setFrameShadow(QtWidgets.QFrame.Sunken)
         self.line_33.setObjectName(_fromUtf8("line_33"))
         self.gridLayout_22.addWidget(self.line_33, 6, 2, 1, 1)
-        spacerItem2 = QtWidgets.QSpacerItem(3, 20, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum)
+        spacerItem2 = QtWidgets.QSpacerItem(
+            3, 20, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum
+        )
         self.gridLayout_22.addItem(spacerItem2, 2, 1, 1, 1)
         self.line_32 = QtWidgets.QFrame(self.inputTab)
         self.line_32.setFrameShape(QtWidgets.QFrame.VLine)
@@ -186,19 +233,26 @@ class Ui_MainWindow(object):
         self.verticalLayout_11.setObjectName(_fromUtf8("verticalLayout_11"))
         self.label_60 = QtWidgets.QLabel(self.inputTab)
         self.label_60.setStyleSheet(_fromUtf8("font: 10pt;"))
-        self.label_60.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.label_60.setAlignment(
+            QtCore.Qt.AlignRight | QtCore.Qt.AlignTrailing | QtCore.Qt.AlignVCenter
+        )
         self.label_60.setObjectName(_fromUtf8("label_60"))
         self.verticalLayout_11.addWidget(self.label_60)
-        spacerItem3 = QtWidgets.QSpacerItem(0, 5, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        spacerItem3 = QtWidgets.QSpacerItem(
+            0, 5, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
+        )
         self.verticalLayout_11.addItem(spacerItem3)
         self.label_62 = QtWidgets.QLabel(self.inputTab)
-        self.label_62.setStyleSheet(_fromUtf8("color: rgb(90, 90, 90);\n"
-"font: 7pt;"))
+        self.label_62.setStyleSheet(_fromUtf8("color: rgb(90, 90, 90);\nfont: 7pt;"))
         self.label_62.setObjectName(_fromUtf8("label_62"))
         self.verticalLayout_11.addWidget(self.label_62)
-        spacerItem4 = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+        spacerItem4 = QtWidgets.QSpacerItem(
+            0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum
+        )
         self.verticalLayout_11.addItem(spacerItem4)
-        spacerItem5 = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        spacerItem5 = QtWidgets.QSpacerItem(
+            0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
+        )
         self.verticalLayout_11.addItem(spacerItem5)
         self.gridLayout_22.addLayout(self.verticalLayout_11, 8, 0, 1, 1)
         self.line_35 = QtWidgets.QFrame(self.inputTab)
@@ -206,20 +260,28 @@ class Ui_MainWindow(object):
         self.line_35.setFrameShadow(QtWidgets.QFrame.Sunken)
         self.line_35.setObjectName(_fromUtf8("line_35"))
         self.gridLayout_22.addWidget(self.line_35, 2, 2, 1, 1)
-        spacerItem6 = QtWidgets.QSpacerItem(3, 20, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum)
+        spacerItem6 = QtWidgets.QSpacerItem(
+            3, 20, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum
+        )
         self.gridLayout_22.addItem(spacerItem6, 2, 3, 1, 1)
         self.exOperator_LineEdit = QtWidgets.QLineEdit(self.inputTab)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.exOperator_LineEdit.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.exOperator_LineEdit.sizePolicy().hasHeightForWidth()
+        )
         self.exOperator_LineEdit.setSizePolicy(sizePolicy)
         self.exOperator_LineEdit.setObjectName(_fromUtf8("exOperator_LineEdit"))
         self.gridLayout_22.addWidget(self.exOperator_LineEdit, 4, 4, 1, 1)
         self.gridLayout_35 = QtWidgets.QGridLayout()
         self.gridLayout_35.setObjectName(_fromUtf8("gridLayout_35"))
         self.label_56 = QtWidgets.QLabel(self.inputTab)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Preferred)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Preferred
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.label_56.sizePolicy().hasHeightForWidth())
@@ -227,10 +289,14 @@ class Ui_MainWindow(object):
         self.label_56.setObjectName(_fromUtf8("label_56"))
         self.gridLayout_35.addWidget(self.label_56, 0, 0, 1, 1)
         self.positiveScanEvent = QtWidgets.QComboBox(self.inputTab)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.positiveScanEvent.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.positiveScanEvent.sizePolicy().hasHeightForWidth()
+        )
         self.positiveScanEvent.setSizePolicy(sizePolicy)
         self.positiveScanEvent.setObjectName(_fromUtf8("positiveScanEvent"))
         self.gridLayout_35.addWidget(self.positiveScanEvent, 0, 1, 1, 1)
@@ -240,30 +306,46 @@ class Ui_MainWindow(object):
         self.negativeScanEvent = QtWidgets.QComboBox(self.inputTab)
         self.negativeScanEvent.setObjectName(_fromUtf8("negativeScanEvent"))
         self.gridLayout_35.addWidget(self.negativeScanEvent, 1, 1, 1, 1)
-        spacerItem7 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+        spacerItem7 = QtWidgets.QSpacerItem(
+            20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum
+        )
         self.gridLayout_35.addItem(spacerItem7, 2, 1, 1, 1)
         self.gridLayout_22.addLayout(self.gridLayout_35, 16, 4, 1, 1)
         self.exExperimentName_LineEdit = QtWidgets.QLineEdit(self.inputTab)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.exExperimentName_LineEdit.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.exExperimentName_LineEdit.sizePolicy().hasHeightForWidth()
+        )
         self.exExperimentName_LineEdit.setSizePolicy(sizePolicy)
-        self.exExperimentName_LineEdit.setObjectName(_fromUtf8("exExperimentName_LineEdit"))
+        self.exExperimentName_LineEdit.setObjectName(
+            _fromUtf8("exExperimentName_LineEdit")
+        )
         self.gridLayout_22.addWidget(self.exExperimentName_LineEdit, 2, 4, 1, 1)
         self.exExperimentID_LineEdit = QtWidgets.QLineEdit(self.inputTab)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.exExperimentID_LineEdit.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.exExperimentID_LineEdit.sizePolicy().hasHeightForWidth()
+        )
         self.exExperimentID_LineEdit.setSizePolicy(sizePolicy)
         self.exExperimentID_LineEdit.setObjectName(_fromUtf8("exExperimentID_LineEdit"))
         self.gridLayout_22.addWidget(self.exExperimentID_LineEdit, 6, 4, 1, 1)
         self.exComments_TextEdit = QtWidgets.QTextEdit(self.inputTab)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Expanding)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Expanding
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.exComments_TextEdit.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.exComments_TextEdit.sizePolicy().hasHeightForWidth()
+        )
         self.exComments_TextEdit.setSizePolicy(sizePolicy)
         self.exComments_TextEdit.setMaximumSize(QtCore.QSize(16777215, 100))
         self.exComments_TextEdit.setObjectName(_fromUtf8("exComments_TextEdit"))
@@ -272,37 +354,47 @@ class Ui_MainWindow(object):
         self.verticalLayout_16.setObjectName(_fromUtf8("verticalLayout_16"))
         self.label_6 = QtWidgets.QLabel(self.inputTab)
         self.label_6.setStyleSheet(_fromUtf8("font: 10pt;"))
-        self.label_6.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.label_6.setAlignment(
+            QtCore.Qt.AlignRight | QtCore.Qt.AlignTrailing | QtCore.Qt.AlignVCenter
+        )
         self.label_6.setObjectName(_fromUtf8("label_6"))
         self.verticalLayout_16.addWidget(self.label_6)
-        spacerItem8 = QtWidgets.QSpacerItem(0, 5, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        spacerItem8 = QtWidgets.QSpacerItem(
+            0, 5, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
+        )
         self.verticalLayout_16.addItem(spacerItem8)
         self.label_52 = QtWidgets.QLabel(self.inputTab)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.label_52.sizePolicy().hasHeightForWidth())
         self.label_52.setSizePolicy(sizePolicy)
         self.label_52.setMaximumSize(QtCore.QSize(200, 16777215))
-        self.label_52.setStyleSheet(_fromUtf8("color: rgb(90, 90, 90);\n"
-"font: 7pt;"))
-        self.label_52.setAlignment(QtCore.Qt.AlignJustify|QtCore.Qt.AlignVCenter)
+        self.label_52.setStyleSheet(_fromUtf8("color: rgb(90, 90, 90);\nfont: 7pt;"))
+        self.label_52.setAlignment(QtCore.Qt.AlignJustify | QtCore.Qt.AlignVCenter)
         self.label_52.setWordWrap(True)
         self.label_52.setObjectName(_fromUtf8("label_52"))
         self.verticalLayout_16.addWidget(self.label_52)
-        spacerItem9 = QtWidgets.QSpacerItem(200, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        spacerItem9 = QtWidgets.QSpacerItem(
+            200, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
+        )
         self.verticalLayout_16.addItem(spacerItem9)
         self.gridLayout_22.addLayout(self.verticalLayout_16, 12, 0, 1, 1)
         self.label_61 = QtWidgets.QLabel(self.inputTab)
         self.label_61.setStyleSheet(_fromUtf8("font: 10pt;"))
-        self.label_61.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.label_61.setAlignment(
+            QtCore.Qt.AlignRight | QtCore.Qt.AlignTrailing | QtCore.Qt.AlignVCenter
+        )
         self.label_61.setObjectName(_fromUtf8("label_61"))
         self.gridLayout_22.addWidget(self.label_61, 2, 0, 1, 1)
-        spacerItem10 = QtWidgets.QSpacerItem(20, 80, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        spacerItem10 = QtWidgets.QSpacerItem(
+            20, 80, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
+        )
         self.gridLayout_22.addItem(spacerItem10, 9, 0, 1, 1)
         self.label_84 = QtWidgets.QLabel(self.inputTab)
-        self.label_84.setStyleSheet(_fromUtf8("font: 30pt \"Calibri\";\n"
-""))
+        self.label_84.setStyleSheet(_fromUtf8('font: 30pt "Calibri";\n'))
         self.label_84.setObjectName(_fromUtf8("label_84"))
         self.gridLayout_22.addWidget(self.label_84, 10, 0, 1, 5)
         self.line_13 = QtWidgets.QFrame(self.inputTab)
@@ -316,13 +408,14 @@ class Ui_MainWindow(object):
         self.line_15.setObjectName(_fromUtf8("line_15"))
         self.gridLayout_22.addWidget(self.line_15, 16, 2, 1, 1)
         self.label_83 = QtWidgets.QLabel(self.inputTab)
-        self.label_83.setStyleSheet(_fromUtf8("font: 30pt \"Calibri\";\n"
-""))
+        self.label_83.setStyleSheet(_fromUtf8('font: 30pt "Calibri";\n'))
         self.label_83.setObjectName(_fromUtf8("label_83"))
         self.gridLayout_22.addWidget(self.label_83, 0, 0, 1, 5)
         self.label_36 = QtWidgets.QLabel(self.inputTab)
         self.label_36.setStyleSheet(_fromUtf8("font: 10pt;"))
-        self.label_36.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.label_36.setAlignment(
+            QtCore.Qt.AlignRight | QtCore.Qt.AlignTrailing | QtCore.Qt.AlignVCenter
+        )
         self.label_36.setObjectName(_fromUtf8("label_36"))
         self.gridLayout_22.addWidget(self.label_36, 4, 0, 1, 1)
         self.line_12 = QtWidgets.QFrame(self.inputTab)
@@ -348,27 +441,34 @@ class Ui_MainWindow(object):
         self.verticalLayout_19 = QtWidgets.QVBoxLayout()
         self.verticalLayout_19.setObjectName(_fromUtf8("verticalLayout_19"))
         self.label_21 = QtWidgets.QLabel(self.inputTab)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.label_21.sizePolicy().hasHeightForWidth())
         self.label_21.setSizePolicy(sizePolicy)
         self.label_21.setStyleSheet(_fromUtf8("font: 10pt;"))
-        self.label_21.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.label_21.setAlignment(
+            QtCore.Qt.AlignRight | QtCore.Qt.AlignTrailing | QtCore.Qt.AlignVCenter
+        )
         self.label_21.setObjectName(_fromUtf8("label_21"))
         self.verticalLayout_19.addWidget(self.label_21)
-        spacerItem11 = QtWidgets.QSpacerItem(0, 5, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        spacerItem11 = QtWidgets.QSpacerItem(
+            0, 5, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
+        )
         self.verticalLayout_19.addItem(spacerItem11)
         self.label_58 = QtWidgets.QLabel(self.inputTab)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Maximum)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Maximum
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.label_58.sizePolicy().hasHeightForWidth())
         self.label_58.setSizePolicy(sizePolicy)
         self.label_58.setMaximumSize(QtCore.QSize(200, 16777215))
         self.label_58.setMouseTracking(True)
-        self.label_58.setStyleSheet(_fromUtf8("color: rgb(90, 90, 90);\n"
-"font: 7pt;"))
+        self.label_58.setStyleSheet(_fromUtf8("color: rgb(90, 90, 90);\nfont: 7pt;"))
         self.label_58.setWordWrap(True)
         self.label_58.setObjectName(_fromUtf8("label_58"))
         self.verticalLayout_19.addWidget(self.label_58)
@@ -377,10 +477,14 @@ class Ui_MainWindow(object):
         self.verticalLayout_17.setObjectName(_fromUtf8("verticalLayout_17"))
         self.label_7 = QtWidgets.QLabel(self.inputTab)
         self.label_7.setStyleSheet(_fromUtf8("font: 10pt;"))
-        self.label_7.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.label_7.setAlignment(
+            QtCore.Qt.AlignRight | QtCore.Qt.AlignTrailing | QtCore.Qt.AlignVCenter
+        )
         self.label_7.setObjectName(_fromUtf8("label_7"))
         self.verticalLayout_17.addWidget(self.label_7)
-        spacerItem12 = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+        spacerItem12 = QtWidgets.QSpacerItem(
+            0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum
+        )
         self.verticalLayout_17.addItem(spacerItem12)
         self.gridLayout_22.addLayout(self.verticalLayout_17, 14, 0, 1, 1)
         self.gridLayout_21.addLayout(self.gridLayout_22, 0, 0, 1, 1)
@@ -391,20 +495,25 @@ class Ui_MainWindow(object):
         self.gridLayout = QtWidgets.QGridLayout(self.pickingTab)
         self.gridLayout.setObjectName(_fromUtf8("gridLayout"))
         self.runTasksContainer = QtWidgets.QWidget(self.pickingTab)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.runTasksContainer.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.runTasksContainer.sizePolicy().hasHeightForWidth()
+        )
         self.runTasksContainer.setSizePolicy(sizePolicy)
         self.runTasksContainer.setObjectName(_fromUtf8("runTasksContainer"))
         self.horizontalLayout = QtWidgets.QHBoxLayout(self.runTasksContainer)
         self.horizontalLayout.setContentsMargins(3, 3, 3, 3)
         self.horizontalLayout.setObjectName(_fromUtf8("horizontalLayout"))
-        spacerItem13 = QtWidgets.QSpacerItem(475, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem13 = QtWidgets.QSpacerItem(
+            475, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum
+        )
         self.horizontalLayout.addItem(spacerItem13)
         self.label_82 = QtWidgets.QLabel(self.runTasksContainer)
-        self.label_82.setStyleSheet(_fromUtf8("font: 30pt \"Calibri\";\n"
-""))
+        self.label_82.setStyleSheet(_fromUtf8('font: 30pt "Calibri";\n'))
         self.label_82.setObjectName(_fromUtf8("label_82"))
         self.horizontalLayout.addWidget(self.label_82)
         self.workingCore = QtWidgets.QCheckBox(self.runTasksContainer)
@@ -428,7 +537,9 @@ class Ui_MainWindow(object):
         self.line_37.setObjectName(_fromUtf8("line_37"))
         self.gridLayout.addWidget(self.line_37, 2, 0, 1, 1)
         self.scrollArea_2 = QtWidgets.QScrollArea(self.pickingTab)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.scrollArea_2.sizePolicy().hasHeightForWidth())
@@ -439,48 +550,74 @@ class Ui_MainWindow(object):
         self.scrollArea_2.setObjectName(_fromUtf8("scrollArea_2"))
         self.scrollAreaWidgetContents_5 = QtWidgets.QWidget()
         self.scrollAreaWidgetContents_5.setGeometry(QtCore.QRect(0, 0, 1889, 1965))
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding, QtWidgets.QSizePolicy.Preferred)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.MinimumExpanding, QtWidgets.QSizePolicy.Preferred
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.scrollAreaWidgetContents_5.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.scrollAreaWidgetContents_5.sizePolicy().hasHeightForWidth()
+        )
         self.scrollAreaWidgetContents_5.setSizePolicy(sizePolicy)
-        self.scrollAreaWidgetContents_5.setObjectName(_fromUtf8("scrollAreaWidgetContents_5"))
+        self.scrollAreaWidgetContents_5.setObjectName(
+            _fromUtf8("scrollAreaWidgetContents_5")
+        )
         self.gridLayout_10 = QtWidgets.QGridLayout(self.scrollAreaWidgetContents_5)
         self.gridLayout_10.setObjectName(_fromUtf8("gridLayout_10"))
         self.processMultipleFiles = QtWidgets.QCheckBox(self.scrollAreaWidgetContents_5)
         self.processMultipleFiles.setLayoutDirection(QtCore.Qt.LeftToRight)
-        self.processMultipleFiles.setStyleSheet(_fromUtf8("font: 30pt \"Calibri\";\n"
-""))
+        self.processMultipleFiles.setStyleSheet(_fromUtf8('font: 30pt "Calibri";\n'))
         self.processMultipleFiles.setObjectName(_fromUtf8("processMultipleFiles"))
         self.gridLayout_10.addWidget(self.processMultipleFiles, 6, 0, 1, 1)
-        spacerItem14 = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        spacerItem14 = QtWidgets.QSpacerItem(
+            0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
+        )
         self.gridLayout_10.addItem(spacerItem14, 18, 0, 1, 1)
-        self.processIndividualFiles = QtWidgets.QCheckBox(self.scrollAreaWidgetContents_5)
+        self.processIndividualFiles = QtWidgets.QCheckBox(
+            self.scrollAreaWidgetContents_5
+        )
         self.processIndividualFiles.setLayoutDirection(QtCore.Qt.LeftToRight)
-        self.processIndividualFiles.setStyleSheet(_fromUtf8("font: 30pt \"Calibri\";\n"
-""))
+        self.processIndividualFiles.setStyleSheet(_fromUtf8('font: 30pt "Calibri";\n'))
         self.processIndividualFiles.setChecked(True)
         self.processIndividualFiles.setObjectName(_fromUtf8("processIndividualFiles"))
         self.gridLayout_10.addWidget(self.processIndividualFiles, 2, 0, 1, 2)
-        spacerItem15 = QtWidgets.QSpacerItem(20, 50, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+        spacerItem15 = QtWidgets.QSpacerItem(
+            20, 50, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum
+        )
         self.gridLayout_10.addItem(spacerItem15, 4, 0, 1, 1)
-        self.annotateMetabolites_CheckBox = QtWidgets.QCheckBox(self.scrollAreaWidgetContents_5)
+        self.annotateMetabolites_CheckBox = QtWidgets.QCheckBox(
+            self.scrollAreaWidgetContents_5
+        )
         self.annotateMetabolites_CheckBox.setLayoutDirection(QtCore.Qt.LeftToRight)
-        self.annotateMetabolites_CheckBox.setStyleSheet(_fromUtf8("font: 30pt \"Calibri\";\n"
-""))
+        self.annotateMetabolites_CheckBox.setStyleSheet(
+            _fromUtf8('font: 30pt "Calibri";\n')
+        )
         self.annotateMetabolites_CheckBox.setChecked(True)
-        self.annotateMetabolites_CheckBox.setObjectName(_fromUtf8("annotateMetabolites_CheckBox"))
+        self.annotateMetabolites_CheckBox.setObjectName(
+            _fromUtf8("annotateMetabolites_CheckBox")
+        )
         self.gridLayout_10.addWidget(self.annotateMetabolites_CheckBox, 11, 0, 1, 1)
-        spacerItem16 = QtWidgets.QSpacerItem(20, 50, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+        spacerItem16 = QtWidgets.QSpacerItem(
+            20, 50, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum
+        )
         self.gridLayout_10.addItem(spacerItem16, 14, 0, 1, 1)
-        spacerItem17 = QtWidgets.QSpacerItem(20, 50, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+        spacerItem17 = QtWidgets.QSpacerItem(
+            20, 50, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum
+        )
         self.gridLayout_10.addItem(spacerItem17, 9, 0, 1, 1)
-        self.generateMSMSInfo_CheckBox = QtWidgets.QCheckBox(self.scrollAreaWidgetContents_5)
-        self.generateMSMSInfo_CheckBox.setStyleSheet(_fromUtf8("font: 30pt \"Calibri\";\n"
-""))
-        self.generateMSMSInfo_CheckBox.setObjectName(_fromUtf8("generateMSMSInfo_CheckBox"))
+        self.generateMSMSInfo_CheckBox = QtWidgets.QCheckBox(
+            self.scrollAreaWidgetContents_5
+        )
+        self.generateMSMSInfo_CheckBox.setStyleSheet(
+            _fromUtf8('font: 30pt "Calibri";\n')
+        )
+        self.generateMSMSInfo_CheckBox.setObjectName(
+            _fromUtf8("generateMSMSInfo_CheckBox")
+        )
         self.gridLayout_10.addWidget(self.generateMSMSInfo_CheckBox, 16, 0, 1, 1)
-        spacerItem18 = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem18 = QtWidgets.QSpacerItem(
+            0, 0, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum
+        )
         self.gridLayout_10.addItem(spacerItem18, 0, 1, 1, 1)
         self.frame_procIndFiles = QtWidgets.QFrame(self.scrollAreaWidgetContents_5)
         self.frame_procIndFiles.setFrameShape(QtWidgets.QFrame.StyledPanel)
@@ -490,21 +627,27 @@ class Ui_MainWindow(object):
         self.gridLayout_23.setObjectName(_fromUtf8("gridLayout_23"))
         self.verticalLayout_13 = QtWidgets.QVBoxLayout()
         self.verticalLayout_13.setObjectName(_fromUtf8("verticalLayout_13"))
-        spacerItem19 = QtWidgets.QSpacerItem(0, 5, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        spacerItem19 = QtWidgets.QSpacerItem(
+            0, 5, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
+        )
         self.verticalLayout_13.addItem(spacerItem19)
         self.label_53 = QtWidgets.QLabel(self.frame_procIndFiles)
         self.label_53.setMinimumSize(QtCore.QSize(200, 0))
         self.label_53.setMaximumSize(QtCore.QSize(200, 16777215))
-        self.label_53.setStyleSheet(_fromUtf8("color: rgb(90, 90, 90);\n"
-"font: 7pt;"))
-        self.label_53.setAlignment(QtCore.Qt.AlignJustify|QtCore.Qt.AlignVCenter)
+        self.label_53.setStyleSheet(_fromUtf8("color: rgb(90, 90, 90);\nfont: 7pt;"))
+        self.label_53.setAlignment(QtCore.Qt.AlignJustify | QtCore.Qt.AlignVCenter)
         self.label_53.setWordWrap(True)
         self.label_53.setObjectName(_fromUtf8("label_53"))
         self.verticalLayout_13.addWidget(self.label_53)
         self.visualConfig = QtWidgets.QPushButton(self.frame_procIndFiles)
         self.visualConfig.setObjectName(_fromUtf8("visualConfig"))
         self.verticalLayout_13.addWidget(self.visualConfig)
-        spacerItem20 = QtWidgets.QSpacerItem(200, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.MinimumExpanding)
+        spacerItem20 = QtWidgets.QSpacerItem(
+            200,
+            40,
+            QtWidgets.QSizePolicy.Minimum,
+            QtWidgets.QSizePolicy.MinimumExpanding,
+        )
         self.verticalLayout_13.addItem(spacerItem20)
         self.gridLayout_23.addLayout(self.verticalLayout_13, 0, 0, 1, 1)
         self.line_6 = QtWidgets.QFrame(self.frame_procIndFiles)
@@ -562,22 +705,36 @@ class Ui_MainWindow(object):
         self.saveFeatureML.setObjectName(_fromUtf8("saveFeatureML"))
         self.gridLayout_39.addWidget(self.saveFeatureML, 0, 1, 1, 1)
         self.gridLayout_20.addWidget(self.groupBox_3, 0, 0, 1, 1)
-        spacerItem21 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem21 = QtWidgets.QSpacerItem(
+            40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum
+        )
         self.gridLayout_20.addItem(spacerItem21, 0, 1, 1, 1)
         self.gridLayout_3.addLayout(self.gridLayout_20, 2, 0, 1, 1)
         self.gridLayout_8 = QtWidgets.QGridLayout()
         self.gridLayout_8.setObjectName(_fromUtf8("gridLayout_8"))
-        spacerItem22 = QtWidgets.QSpacerItem(3, 0, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum)
+        spacerItem22 = QtWidgets.QSpacerItem(
+            3, 0, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum
+        )
         self.gridLayout_8.addItem(spacerItem22, 0, 11, 1, 1)
-        spacerItem23 = QtWidgets.QSpacerItem(3, 0, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum)
+        spacerItem23 = QtWidgets.QSpacerItem(
+            3, 0, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum
+        )
         self.gridLayout_8.addItem(spacerItem23, 0, 9, 1, 1)
-        spacerItem24 = QtWidgets.QSpacerItem(3, 0, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum)
+        spacerItem24 = QtWidgets.QSpacerItem(
+            3, 0, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum
+        )
         self.gridLayout_8.addItem(spacerItem24, 0, 3, 1, 1)
-        spacerItem25 = QtWidgets.QSpacerItem(3, 0, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum)
+        spacerItem25 = QtWidgets.QSpacerItem(
+            3, 0, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum
+        )
         self.gridLayout_8.addItem(spacerItem25, 0, 7, 1, 1)
-        spacerItem26 = QtWidgets.QSpacerItem(3, 0, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum)
+        spacerItem26 = QtWidgets.QSpacerItem(
+            3, 0, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum
+        )
         self.gridLayout_8.addItem(spacerItem26, 0, 5, 1, 1)
-        spacerItem27 = QtWidgets.QSpacerItem(3, 0, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum)
+        spacerItem27 = QtWidgets.QSpacerItem(
+            3, 0, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum
+        )
         self.gridLayout_8.addItem(spacerItem27, 0, 1, 1, 1)
         self.verticalLayout_6 = QtWidgets.QVBoxLayout()
         self.verticalLayout_6.setObjectName(_fromUtf8("verticalLayout_6"))
@@ -603,7 +760,9 @@ class Ui_MainWindow(object):
         self.gridLayout_47.setObjectName(_fromUtf8("gridLayout_47"))
         self.calcIsoRatioNative_spinBox = QtWidgets.QSpinBox(self.isotopologRatiosBox)
         self.calcIsoRatioNative_spinBox.setProperty("value", 1)
-        self.calcIsoRatioNative_spinBox.setObjectName(_fromUtf8("calcIsoRatioNative_spinBox"))
+        self.calcIsoRatioNative_spinBox.setObjectName(
+            _fromUtf8("calcIsoRatioNative_spinBox")
+        )
         self.gridLayout_47.addWidget(self.calcIsoRatioNative_spinBox, 1, 1, 1, 1)
         self.label_70 = QtWidgets.QLabel(self.isotopologRatiosBox)
         self.label_70.setObjectName(_fromUtf8("label_70"))
@@ -616,14 +775,18 @@ class Ui_MainWindow(object):
         self.calcIsoRatioLabelled_spinBox.setMaximum(0)
         self.calcIsoRatioLabelled_spinBox.setSingleStep(1)
         self.calcIsoRatioLabelled_spinBox.setProperty("value", -1)
-        self.calcIsoRatioLabelled_spinBox.setObjectName(_fromUtf8("calcIsoRatioLabelled_spinBox"))
+        self.calcIsoRatioLabelled_spinBox.setObjectName(
+            _fromUtf8("calcIsoRatioLabelled_spinBox")
+        )
         self.gridLayout_47.addWidget(self.calcIsoRatioLabelled_spinBox, 2, 1, 1, 1)
         self.label_72 = QtWidgets.QLabel(self.isotopologRatiosBox)
         self.label_72.setObjectName(_fromUtf8("label_72"))
         self.gridLayout_47.addWidget(self.label_72, 3, 0, 1, 1)
         self.calcIsoRatioMoiety_spinBox = QtWidgets.QSpinBox(self.isotopologRatiosBox)
         self.calcIsoRatioMoiety_spinBox.setProperty("value", 1)
-        self.calcIsoRatioMoiety_spinBox.setObjectName(_fromUtf8("calcIsoRatioMoiety_spinBox"))
+        self.calcIsoRatioMoiety_spinBox.setObjectName(
+            _fromUtf8("calcIsoRatioMoiety_spinBox")
+        )
         self.gridLayout_47.addWidget(self.calcIsoRatioMoiety_spinBox, 3, 1, 1, 1)
         self.verticalLayout_5.addWidget(self.isotopologRatiosBox)
         self.searchForHeteroAtoms = QtWidgets.QGroupBox(self.frame_procIndFiles)
@@ -672,18 +835,30 @@ class Ui_MainWindow(object):
         self.label = QtWidgets.QLabel(self.groupFeaturesUntargeted)
         self.label.setObjectName(_fromUtf8("label"))
         self.gridLayout_26.addWidget(self.label, 2, 0, 1, 1)
-        self.minCorrelationConnections = QtWidgets.QDoubleSpinBox(self.groupFeaturesUntargeted)
+        self.minCorrelationConnections = QtWidgets.QDoubleSpinBox(
+            self.groupFeaturesUntargeted
+        )
         self.minCorrelationConnections.setMaximum(100.0)
         self.minCorrelationConnections.setSingleStep(0.1)
         self.minCorrelationConnections.setProperty("value", 40.0)
-        self.minCorrelationConnections.setObjectName(_fromUtf8("minCorrelationConnections"))
+        self.minCorrelationConnections.setObjectName(
+            _fromUtf8("minCorrelationConnections")
+        )
         self.gridLayout_26.addWidget(self.minCorrelationConnections, 2, 1, 1, 1)
-        self.checkBox_simplifyInSourceFragments = QtWidgets.QCheckBox(self.groupFeaturesUntargeted)
+        self.checkBox_simplifyInSourceFragments = QtWidgets.QCheckBox(
+            self.groupFeaturesUntargeted
+        )
         self.checkBox_simplifyInSourceFragments.setChecked(True)
-        self.checkBox_simplifyInSourceFragments.setObjectName(_fromUtf8("checkBox_simplifyInSourceFragments"))
-        self.gridLayout_26.addWidget(self.checkBox_simplifyInSourceFragments, 4, 0, 1, 1)
+        self.checkBox_simplifyInSourceFragments.setObjectName(
+            _fromUtf8("checkBox_simplifyInSourceFragments")
+        )
+        self.gridLayout_26.addWidget(
+            self.checkBox_simplifyInSourceFragments, 4, 0, 1, 1
+        )
         self.verticalLayout_5.addWidget(self.groupFeaturesUntargeted)
-        spacerItem28 = QtWidgets.QSpacerItem(20, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.MinimumExpanding)
+        spacerItem28 = QtWidgets.QSpacerItem(
+            20, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.MinimumExpanding
+        )
         self.verticalLayout_5.addItem(spacerItem28)
         self.verticalLayout_6.addLayout(self.verticalLayout_5)
         self.gridLayout_8.addLayout(self.verticalLayout_6, 0, 12, 1, 1)
@@ -692,7 +867,9 @@ class Ui_MainWindow(object):
         self.verticalLayout_8 = QtWidgets.QVBoxLayout()
         self.verticalLayout_8.setObjectName(_fromUtf8("verticalLayout_8"))
         self.label_51 = QtWidgets.QLabel(self.frame_procIndFiles)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Preferred)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Preferred
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.label_51.sizePolicy().hasHeightForWidth())
@@ -738,10 +915,14 @@ class Ui_MainWindow(object):
         self.label_19.setObjectName(_fromUtf8("label_19"))
         self.gridLayout_36.addWidget(self.label_19, 0, 0, 1, 1)
         self.eicSmoothingWindow = QtWidgets.QComboBox(self.groupBox_7)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.eicSmoothingWindow.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.eicSmoothingWindow.sizePolicy().hasHeightForWidth()
+        )
         self.eicSmoothingWindow.setSizePolicy(sizePolicy)
         self.eicSmoothingWindow.setMinimumSize(QtCore.QSize(130, 0))
         self.eicSmoothingWindow.setObjectName(_fromUtf8("eicSmoothingWindow"))
@@ -757,13 +938,19 @@ class Ui_MainWindow(object):
         self.wavelet_EICppm.setObjectName(_fromUtf8("wavelet_EICppm"))
         self.gridLayout_36.addWidget(self.wavelet_EICppm, 0, 1, 1, 1)
         self.smoothingPolynom_spinner = QtWidgets.QSpinBox(self.groupBox_7)
-        self.smoothingPolynom_spinner.setObjectName(_fromUtf8("smoothingPolynom_spinner"))
+        self.smoothingPolynom_spinner.setObjectName(
+            _fromUtf8("smoothingPolynom_spinner")
+        )
         self.gridLayout_36.addWidget(self.smoothingPolynom_spinner, 3, 1, 1, 1)
         self.smoothingWindowPolynomLabel = QtWidgets.QLabel(self.groupBox_7)
-        self.smoothingWindowPolynomLabel.setObjectName(_fromUtf8("smoothingWindowPolynomLabel"))
+        self.smoothingWindowPolynomLabel.setObjectName(
+            _fromUtf8("smoothingWindowPolynomLabel")
+        )
         self.gridLayout_36.addWidget(self.smoothingWindowPolynomLabel, 3, 0, 1, 1)
         self.smoothingWindowSizeLabel = QtWidgets.QLabel(self.groupBox_7)
-        self.smoothingWindowSizeLabel.setObjectName(_fromUtf8("smoothingWindowSizeLabel"))
+        self.smoothingWindowSizeLabel.setObjectName(
+            _fromUtf8("smoothingWindowSizeLabel")
+        )
         self.gridLayout_36.addWidget(self.smoothingWindowSizeLabel, 2, 0, 1, 1)
         self.eicSmoothingWindowSize = QtWidgets.QSpinBox(self.groupBox_7)
         self.eicSmoothingWindowSize.setMinimum(1)
@@ -838,10 +1025,14 @@ class Ui_MainWindow(object):
         self.spinBox_artificialMPshift_start.setPrefix(_fromUtf8(""))
         self.spinBox_artificialMPshift_start.setMinimum(-100)
         self.spinBox_artificialMPshift_start.setMaximum(100)
-        self.spinBox_artificialMPshift_start.setObjectName(_fromUtf8("spinBox_artificialMPshift_start"))
+        self.spinBox_artificialMPshift_start.setObjectName(
+            _fromUtf8("spinBox_artificialMPshift_start")
+        )
         self.horizontalLayout_2.addWidget(self.spinBox_artificialMPshift_start)
         self.label_14 = QtWidgets.QLabel(self.groupBox_11)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Preferred)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Preferred
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.label_14.sizePolicy().hasHeightForWidth())
@@ -851,7 +1042,9 @@ class Ui_MainWindow(object):
         self.spinBox_artificialMPshift_stop = QtWidgets.QSpinBox(self.groupBox_11)
         self.spinBox_artificialMPshift_stop.setMinimum(-100)
         self.spinBox_artificialMPshift_stop.setMaximum(100)
-        self.spinBox_artificialMPshift_stop.setObjectName(_fromUtf8("spinBox_artificialMPshift_stop"))
+        self.spinBox_artificialMPshift_stop.setObjectName(
+            _fromUtf8("spinBox_artificialMPshift_stop")
+        )
         self.horizontalLayout_2.addWidget(self.spinBox_artificialMPshift_stop)
         self.gridLayout_18.addLayout(self.horizontalLayout_2, 0, 1, 1, 1)
         self.verticalLayout_10.addWidget(self.groupBox_11)
@@ -861,15 +1054,23 @@ class Ui_MainWindow(object):
         self.checkBox_checkPeakRatio.setObjectName(_fromUtf8("checkBox_checkPeakRatio"))
         self.gridLayout_49 = QtWidgets.QGridLayout(self.checkBox_checkPeakRatio)
         self.gridLayout_49.setObjectName(_fromUtf8("gridLayout_49"))
-        self.doubleSpinBox_minPeakRatio = QtWidgets.QDoubleSpinBox(self.checkBox_checkPeakRatio)
+        self.doubleSpinBox_minPeakRatio = QtWidgets.QDoubleSpinBox(
+            self.checkBox_checkPeakRatio
+        )
         self.doubleSpinBox_minPeakRatio.setDecimals(4)
         self.doubleSpinBox_minPeakRatio.setProperty("value", 0.0001)
-        self.doubleSpinBox_minPeakRatio.setObjectName(_fromUtf8("doubleSpinBox_minPeakRatio"))
+        self.doubleSpinBox_minPeakRatio.setObjectName(
+            _fromUtf8("doubleSpinBox_minPeakRatio")
+        )
         self.gridLayout_49.addWidget(self.doubleSpinBox_minPeakRatio, 0, 2, 1, 1)
-        self.doubleSpinBox_maxPeakRatio = QtWidgets.QDoubleSpinBox(self.checkBox_checkPeakRatio)
+        self.doubleSpinBox_maxPeakRatio = QtWidgets.QDoubleSpinBox(
+            self.checkBox_checkPeakRatio
+        )
         self.doubleSpinBox_maxPeakRatio.setMaximum(999999.0)
         self.doubleSpinBox_maxPeakRatio.setProperty("value", 9999.0)
-        self.doubleSpinBox_maxPeakRatio.setObjectName(_fromUtf8("doubleSpinBox_maxPeakRatio"))
+        self.doubleSpinBox_maxPeakRatio.setObjectName(
+            _fromUtf8("doubleSpinBox_maxPeakRatio")
+        )
         self.gridLayout_49.addWidget(self.doubleSpinBox_maxPeakRatio, 1, 2, 1, 1)
         self.label_77 = QtWidgets.QLabel(self.checkBox_checkPeakRatio)
         self.label_77.setObjectName(_fromUtf8("label_77"))
@@ -878,7 +1079,9 @@ class Ui_MainWindow(object):
         self.label_78.setObjectName(_fromUtf8("label_78"))
         self.gridLayout_49.addWidget(self.label_78, 1, 0, 1, 1)
         self.verticalLayout_10.addWidget(self.checkBox_checkPeakRatio)
-        spacerItem29 = QtWidgets.QSpacerItem(20, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.MinimumExpanding)
+        spacerItem29 = QtWidgets.QSpacerItem(
+            20, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.MinimumExpanding
+        )
         self.verticalLayout_10.addItem(spacerItem29)
         self.gridLayout_8.addLayout(self.verticalLayout_10, 0, 8, 1, 1)
         self.line_23 = QtWidgets.QFrame(self.frame_procIndFiles)
@@ -915,7 +1118,9 @@ class Ui_MainWindow(object):
         self.gridLayout_6 = QtWidgets.QGridLayout()
         self.gridLayout_6.setObjectName(_fromUtf8("gridLayout_6"))
         self.isotopeAText = QtWidgets.QLineEdit(self.groupBox_ISOA)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.isotopeAText.sizePolicy().hasHeightForWidth())
@@ -924,7 +1129,9 @@ class Ui_MainWindow(object):
         self.isotopeAText.setObjectName(_fromUtf8("isotopeAText"))
         self.gridLayout_6.addWidget(self.isotopeAText, 0, 1, 1, 1)
         self.label_23 = QtWidgets.QLabel(self.groupBox_ISOA)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.label_23.sizePolicy().hasHeightForWidth())
@@ -932,7 +1139,9 @@ class Ui_MainWindow(object):
         self.label_23.setObjectName(_fromUtf8("label_23"))
         self.gridLayout_6.addWidget(self.label_23, 0, 0, 1, 1)
         self.label_9 = QtWidgets.QLabel(self.groupBox_ISOA)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.label_9.sizePolicy().hasHeightForWidth())
@@ -940,10 +1149,14 @@ class Ui_MainWindow(object):
         self.label_9.setObjectName(_fromUtf8("label_9"))
         self.gridLayout_6.addWidget(self.label_9, 2, 0, 1, 1)
         self.isotopicAbundanceA = QtWidgets.QDoubleSpinBox(self.groupBox_ISOA)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.isotopicAbundanceA.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.isotopicAbundanceA.sizePolicy().hasHeightForWidth()
+        )
         self.isotopicAbundanceA.setSizePolicy(sizePolicy)
         self.isotopicAbundanceA.setDecimals(2)
         self.isotopicAbundanceA.setMaximum(100.0)
@@ -952,12 +1165,18 @@ class Ui_MainWindow(object):
         self.isotopicAbundanceA.setObjectName(_fromUtf8("isotopicAbundanceA"))
         self.gridLayout_6.addWidget(self.isotopicAbundanceA, 2, 1, 1, 1)
         self.isotopeAMassLabel = QtWidgets.QLabel(self.groupBox_ISOA)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.isotopeAMassLabel.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.isotopeAMassLabel.sizePolicy().hasHeightForWidth()
+        )
         self.isotopeAMassLabel.setSizePolicy(sizePolicy)
-        self.isotopeAMassLabel.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.isotopeAMassLabel.setAlignment(
+            QtCore.Qt.AlignRight | QtCore.Qt.AlignTrailing | QtCore.Qt.AlignVCenter
+        )
         self.isotopeAMassLabel.setObjectName(_fromUtf8("isotopeAMassLabel"))
         self.gridLayout_6.addWidget(self.isotopeAMassLabel, 1, 0, 1, 2)
         self.gridLayout_17.addLayout(self.gridLayout_6, 0, 0, 1, 1)
@@ -969,16 +1188,24 @@ class Ui_MainWindow(object):
         self.gridLayout_32 = QtWidgets.QGridLayout()
         self.gridLayout_32.setObjectName(_fromUtf8("gridLayout_32"))
         self.isotopeBMassLabel = QtWidgets.QLabel(self.groupBox_ISOB)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.isotopeBMassLabel.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.isotopeBMassLabel.sizePolicy().hasHeightForWidth()
+        )
         self.isotopeBMassLabel.setSizePolicy(sizePolicy)
-        self.isotopeBMassLabel.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.isotopeBMassLabel.setAlignment(
+            QtCore.Qt.AlignRight | QtCore.Qt.AlignTrailing | QtCore.Qt.AlignVCenter
+        )
         self.isotopeBMassLabel.setObjectName(_fromUtf8("isotopeBMassLabel"))
         self.gridLayout_32.addWidget(self.isotopeBMassLabel, 1, 0, 1, 2)
         self.label_27 = QtWidgets.QLabel(self.groupBox_ISOB)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.label_27.sizePolicy().hasHeightForWidth())
@@ -986,7 +1213,9 @@ class Ui_MainWindow(object):
         self.label_27.setObjectName(_fromUtf8("label_27"))
         self.gridLayout_32.addWidget(self.label_27, 0, 0, 1, 1)
         self.isotopeBText = QtWidgets.QLineEdit(self.groupBox_ISOB)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.isotopeBText.sizePolicy().hasHeightForWidth())
@@ -995,7 +1224,9 @@ class Ui_MainWindow(object):
         self.isotopeBText.setObjectName(_fromUtf8("isotopeBText"))
         self.gridLayout_32.addWidget(self.isotopeBText, 0, 1, 1, 1)
         self.label_10 = QtWidgets.QLabel(self.groupBox_ISOB)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.label_10.sizePolicy().hasHeightForWidth())
@@ -1003,10 +1234,14 @@ class Ui_MainWindow(object):
         self.label_10.setObjectName(_fromUtf8("label_10"))
         self.gridLayout_32.addWidget(self.label_10, 2, 0, 1, 1)
         self.isotopicAbundanceB = QtWidgets.QDoubleSpinBox(self.groupBox_ISOB)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.isotopicAbundanceB.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.isotopicAbundanceB.sizePolicy().hasHeightForWidth()
+        )
         self.isotopicAbundanceB.setSizePolicy(sizePolicy)
         self.isotopicAbundanceB.setDecimals(2)
         self.isotopicAbundanceB.setMaximum(100.0)
@@ -1016,7 +1251,9 @@ class Ui_MainWindow(object):
         self.gridLayout_32.addWidget(self.isotopicAbundanceB, 2, 1, 1, 1)
         self.gridLayout_33.addLayout(self.gridLayout_32, 0, 0, 1, 1)
         self.verticalLayout.addWidget(self.groupBox_ISOB)
-        spacerItem30 = QtWidgets.QSpacerItem(0, 5, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        spacerItem30 = QtWidgets.QSpacerItem(
+            0, 5, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
+        )
         self.verticalLayout.addItem(spacerItem30)
         self.useCValidation = QtWidgets.QCheckBox(self.frame_procIndFiles)
         self.useCValidation.setTristate(False)
@@ -1054,24 +1291,37 @@ class Ui_MainWindow(object):
         self.gridLayout_34 = QtWidgets.QGridLayout()
         self.gridLayout_34.setObjectName(_fromUtf8("gridLayout_34"))
         self.setupTracers = QtWidgets.QPushButton(self.frame_procIndFiles)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.setupTracers.sizePolicy().hasHeightForWidth())
         self.setupTracers.setSizePolicy(sizePolicy)
         self.setupTracers.setObjectName(_fromUtf8("setupTracers"))
         self.gridLayout_34.addWidget(self.setupTracers, 0, 1, 1, 1)
-        spacerItem31 = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem31 = QtWidgets.QSpacerItem(
+            0, 0, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum
+        )
         self.gridLayout_34.addItem(spacerItem31, 0, 0, 1, 1)
-        spacerItem32 = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem32 = QtWidgets.QSpacerItem(
+            0, 0, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum
+        )
         self.gridLayout_34.addItem(spacerItem32, 0, 2, 1, 1)
         self.tracerExperimentLabel = QtWidgets.QLabel(self.frame_procIndFiles)
         self.tracerExperimentLabel.setObjectName(_fromUtf8("tracerExperimentLabel"))
         self.gridLayout_34.addWidget(self.tracerExperimentLabel, 2, 0, 1, 3)
-        spacerItem33 = QtWidgets.QSpacerItem(0, 5, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        spacerItem33 = QtWidgets.QSpacerItem(
+            0, 5, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
+        )
         self.gridLayout_34.addItem(spacerItem33, 1, 0, 1, 3)
         self.verticalLayout.addLayout(self.gridLayout_34)
-        spacerItem34 = QtWidgets.QSpacerItem(200, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.MinimumExpanding)
+        spacerItem34 = QtWidgets.QSpacerItem(
+            200,
+            0,
+            QtWidgets.QSizePolicy.Minimum,
+            QtWidgets.QSizePolicy.MinimumExpanding,
+        )
         self.verticalLayout.addItem(spacerItem34)
         self.gridLayout_8.addLayout(self.verticalLayout, 0, 0, 1, 1)
         self.line_17 = QtWidgets.QFrame(self.frame_procIndFiles)
@@ -1084,7 +1334,9 @@ class Ui_MainWindow(object):
         self.verticalLayout_7 = QtWidgets.QVBoxLayout()
         self.verticalLayout_7.setObjectName(_fromUtf8("verticalLayout_7"))
         self.label_49 = QtWidgets.QLabel(self.frame_procIndFiles)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.label_49.sizePolicy().hasHeightForWidth())
@@ -1092,7 +1344,9 @@ class Ui_MainWindow(object):
         self.label_49.setObjectName(_fromUtf8("label_49"))
         self.verticalLayout_7.addWidget(self.label_49)
         self.line_26 = QtWidgets.QFrame(self.frame_procIndFiles)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.line_26.sizePolicy().hasHeightForWidth())
@@ -1103,7 +1357,9 @@ class Ui_MainWindow(object):
         self.verticalLayout_7.addWidget(self.line_26)
         self.verticalLayout_21.addLayout(self.verticalLayout_7)
         self.groupBox_2 = QtWidgets.QGroupBox(self.frame_procIndFiles)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.groupBox_2.sizePolicy().hasHeightForWidth())
@@ -1117,7 +1373,9 @@ class Ui_MainWindow(object):
         self.gridLayout_31.addWidget(self.xCountSearch, 0, 0, 1, 1)
         self.verticalLayout_21.addWidget(self.groupBox_2)
         self.groupBox = QtWidgets.QGroupBox(self.frame_procIndFiles)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.groupBox.sizePolicy().hasHeightForWidth())
@@ -1248,13 +1506,17 @@ class Ui_MainWindow(object):
         self.intensityThresholdIsotopologs.setMaximum(1000000000.0)
         self.intensityThresholdIsotopologs.setSingleStep(1000.0)
         self.intensityThresholdIsotopologs.setProperty("value", 1000.0)
-        self.intensityThresholdIsotopologs.setObjectName(_fromUtf8("intensityThresholdIsotopologs"))
+        self.intensityThresholdIsotopologs.setObjectName(
+            _fromUtf8("intensityThresholdIsotopologs")
+        )
         self.gridLayout_16.addWidget(self.intensityThresholdIsotopologs, 3, 1, 1, 1)
         self.label_73 = QtWidgets.QLabel(self.groupBox_6)
         self.label_73.setObjectName(_fromUtf8("label_73"))
         self.gridLayout_16.addWidget(self.label_73, 3, 0, 1, 1)
         self.verticalLayout_21.addWidget(self.groupBox_6)
-        spacerItem35 = QtWidgets.QSpacerItem(20, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        spacerItem35 = QtWidgets.QSpacerItem(
+            20, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
+        )
         self.verticalLayout_21.addItem(spacerItem35)
         self.gridLayout_8.addLayout(self.verticalLayout_21, 0, 4, 1, 1)
         self.gridLayout_3.addLayout(self.gridLayout_8, 0, 0, 1, 1)
@@ -1271,7 +1533,9 @@ class Ui_MainWindow(object):
         self.line_4.setObjectName(_fromUtf8("line_4"))
         self.gridLayout_10.addWidget(self.line_4, 5, 0, 1, 2)
         self.line_14 = QtWidgets.QFrame(self.scrollAreaWidgetContents_5)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.line_14.sizePolicy().hasHeightForWidth())
@@ -1286,15 +1550,23 @@ class Ui_MainWindow(object):
         self.line_8.setFrameShape(QtWidgets.QFrame.HLine)
         self.line_8.setObjectName(_fromUtf8("line_8"))
         self.gridLayout_10.addWidget(self.line_8, 15, 0, 1, 2)
-        self.frame_generateMSMSTargetLists = QtWidgets.QFrame(self.scrollAreaWidgetContents_5)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
+        self.frame_generateMSMSTargetLists = QtWidgets.QFrame(
+            self.scrollAreaWidgetContents_5
+        )
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.frame_generateMSMSTargetLists.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.frame_generateMSMSTargetLists.sizePolicy().hasHeightForWidth()
+        )
         self.frame_generateMSMSTargetLists.setSizePolicy(sizePolicy)
         self.frame_generateMSMSTargetLists.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.frame_generateMSMSTargetLists.setFrameShadow(QtWidgets.QFrame.Raised)
-        self.frame_generateMSMSTargetLists.setObjectName(_fromUtf8("frame_generateMSMSTargetLists"))
+        self.frame_generateMSMSTargetLists.setObjectName(
+            _fromUtf8("frame_generateMSMSTargetLists")
+        )
         self.gridLayout_55 = QtWidgets.QGridLayout(self.frame_generateMSMSTargetLists)
         self.gridLayout_55.setObjectName(_fromUtf8("gridLayout_55"))
         self.line_39 = QtWidgets.QFrame(self.frame_generateMSMSTargetLists)
@@ -1304,17 +1576,20 @@ class Ui_MainWindow(object):
         self.gridLayout_55.addWidget(self.line_39, 1, 1, 1, 1)
         self.verticalLayout_12 = QtWidgets.QVBoxLayout()
         self.verticalLayout_12.setObjectName(_fromUtf8("verticalLayout_12"))
-        spacerItem36 = QtWidgets.QSpacerItem(20, 5, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        spacerItem36 = QtWidgets.QSpacerItem(
+            20, 5, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
+        )
         self.verticalLayout_12.addItem(spacerItem36)
         self.label_86 = QtWidgets.QLabel(self.frame_generateMSMSTargetLists)
         self.label_86.setMinimumSize(QtCore.QSize(200, 0))
         self.label_86.setMaximumSize(QtCore.QSize(200, 16777215))
-        self.label_86.setStyleSheet(_fromUtf8("color: rgb(90, 90, 90);\n"
-"font: 7pt;"))
+        self.label_86.setStyleSheet(_fromUtf8("color: rgb(90, 90, 90);\nfont: 7pt;"))
         self.label_86.setWordWrap(True)
         self.label_86.setObjectName(_fromUtf8("label_86"))
         self.verticalLayout_12.addWidget(self.label_86)
-        spacerItem37 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        spacerItem37 = QtWidgets.QSpacerItem(
+            20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
+        )
         self.verticalLayout_12.addItem(spacerItem37)
         self.gridLayout_55.addLayout(self.verticalLayout_12, 1, 0, 1, 1)
         self.gridLayout_53 = QtWidgets.QGridLayout()
@@ -1332,7 +1607,12 @@ class Ui_MainWindow(object):
         self.msms_minCounts.setProperty("value", 100000)
         self.msms_minCounts.setObjectName(_fromUtf8("msms_minCounts"))
         self.horizontalLayout_24.addWidget(self.msms_minCounts)
-        spacerItem38 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.MinimumExpanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem38 = QtWidgets.QSpacerItem(
+            40,
+            20,
+            QtWidgets.QSizePolicy.MinimumExpanding,
+            QtWidgets.QSizePolicy.Minimum,
+        )
         self.horizontalLayout_24.addItem(spacerItem38)
         self.gridLayout_53.addLayout(self.horizontalLayout_24, 0, 1, 1, 1)
         self.horizontalLayout_26 = QtWidgets.QHBoxLayout()
@@ -1341,10 +1621,14 @@ class Ui_MainWindow(object):
         self.label_88.setObjectName(_fromUtf8("label_88"))
         self.horizontalLayout_26.addWidget(self.label_88)
         self.msms_fileLocation = QtWidgets.QLineEdit(self.frame_generateMSMSTargetLists)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.msms_fileLocation.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.msms_fileLocation.sizePolicy().hasHeightForWidth()
+        )
         self.msms_fileLocation.setSizePolicy(sizePolicy)
         self.msms_fileLocation.setMinimumSize(QtCore.QSize(700, 0))
         self.msms_fileLocation.setObjectName(_fromUtf8("msms_fileLocation"))
@@ -1352,7 +1636,12 @@ class Ui_MainWindow(object):
         self.msms_selectFile = QtWidgets.QPushButton(self.frame_generateMSMSTargetLists)
         self.msms_selectFile.setObjectName(_fromUtf8("msms_selectFile"))
         self.horizontalLayout_26.addWidget(self.msms_selectFile)
-        spacerItem39 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.MinimumExpanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem39 = QtWidgets.QSpacerItem(
+            40,
+            20,
+            QtWidgets.QSizePolicy.MinimumExpanding,
+            QtWidgets.QSizePolicy.Minimum,
+        )
         self.horizontalLayout_26.addItem(spacerItem39)
         self.gridLayout_53.addLayout(self.horizontalLayout_26, 5, 1, 1, 1)
         self.horizontalLayout_25 = QtWidgets.QHBoxLayout()
@@ -1360,12 +1649,19 @@ class Ui_MainWindow(object):
         self.label_87 = QtWidgets.QLabel(self.frame_generateMSMSTargetLists)
         self.label_87.setObjectName(_fromUtf8("label_87"))
         self.horizontalLayout_25.addWidget(self.label_87)
-        self.msms_rtWindow = QtWidgets.QDoubleSpinBox(self.frame_generateMSMSTargetLists)
+        self.msms_rtWindow = QtWidgets.QDoubleSpinBox(
+            self.frame_generateMSMSTargetLists
+        )
         self.msms_rtWindow.setMaximum(1000.0)
         self.msms_rtWindow.setProperty("value", 0.25)
         self.msms_rtWindow.setObjectName(_fromUtf8("msms_rtWindow"))
         self.horizontalLayout_25.addWidget(self.msms_rtWindow)
-        spacerItem40 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.MinimumExpanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem40 = QtWidgets.QSpacerItem(
+            40,
+            20,
+            QtWidgets.QSizePolicy.MinimumExpanding,
+            QtWidgets.QSizePolicy.Minimum,
+        )
         self.horizontalLayout_25.addItem(spacerItem40)
         self.gridLayout_53.addLayout(self.horizontalLayout_25, 1, 1, 1, 1)
         self.horizontalLayout_29 = QtWidgets.QHBoxLayout()
@@ -1373,12 +1669,19 @@ class Ui_MainWindow(object):
         self.label_89 = QtWidgets.QLabel(self.frame_generateMSMSTargetLists)
         self.label_89.setObjectName(_fromUtf8("label_89"))
         self.horizontalLayout_29.addWidget(self.label_89)
-        self.msms_maxParallelTargets = QtWidgets.QSpinBox(self.frame_generateMSMSTargetLists)
+        self.msms_maxParallelTargets = QtWidgets.QSpinBox(
+            self.frame_generateMSMSTargetLists
+        )
         self.msms_maxParallelTargets.setMinimum(1)
         self.msms_maxParallelTargets.setProperty("value", 5)
         self.msms_maxParallelTargets.setObjectName(_fromUtf8("msms_maxParallelTargets"))
         self.horizontalLayout_29.addWidget(self.msms_maxParallelTargets)
-        spacerItem41 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.MinimumExpanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem41 = QtWidgets.QSpacerItem(
+            40,
+            20,
+            QtWidgets.QSizePolicy.MinimumExpanding,
+            QtWidgets.QSizePolicy.Minimum,
+        )
         self.horizontalLayout_29.addItem(spacerItem41)
         self.gridLayout_53.addLayout(self.horizontalLayout_29, 2, 1, 1, 1)
         self.horizontalLayout_27 = QtWidgets.QHBoxLayout()
@@ -1386,12 +1689,19 @@ class Ui_MainWindow(object):
         self.label_90 = QtWidgets.QLabel(self.frame_generateMSMSTargetLists)
         self.label_90.setObjectName(_fromUtf8("label_90"))
         self.horizontalLayout_27.addWidget(self.label_90)
-        self.msms_numberOfSamples = QtWidgets.QSpinBox(self.frame_generateMSMSTargetLists)
+        self.msms_numberOfSamples = QtWidgets.QSpinBox(
+            self.frame_generateMSMSTargetLists
+        )
         self.msms_numberOfSamples.setMinimum(1)
         self.msms_numberOfSamples.setProperty("value", 2)
         self.msms_numberOfSamples.setObjectName(_fromUtf8("msms_numberOfSamples"))
         self.horizontalLayout_27.addWidget(self.msms_numberOfSamples)
-        spacerItem42 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.MinimumExpanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem42 = QtWidgets.QSpacerItem(
+            40,
+            20,
+            QtWidgets.QSizePolicy.MinimumExpanding,
+            QtWidgets.QSizePolicy.Minimum,
+        )
         self.horizontalLayout_27.addItem(spacerItem42)
         self.gridLayout_53.addLayout(self.horizontalLayout_27, 3, 1, 1, 1)
         self.horizontalLayout_30 = QtWidgets.QHBoxLayout()
@@ -1416,23 +1726,38 @@ class Ui_MainWindow(object):
         self.nGenerations.setProperty("value", 500)
         self.nGenerations.setObjectName(_fromUtf8("nGenerations"))
         self.horizontalLayout_30.addWidget(self.nGenerations)
-        spacerItem43 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.MinimumExpanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem43 = QtWidgets.QSpacerItem(
+            40,
+            20,
+            QtWidgets.QSizePolicy.MinimumExpanding,
+            QtWidgets.QSizePolicy.Minimum,
+        )
         self.horizontalLayout_30.addItem(spacerItem43)
         self.gridLayout_53.addLayout(self.horizontalLayout_30, 4, 1, 1, 1)
         self.gridLayout_55.addLayout(self.gridLayout_53, 1, 2, 1, 1)
-        spacerItem44 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem44 = QtWidgets.QSpacerItem(
+            40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum
+        )
         self.gridLayout_55.addItem(spacerItem44, 1, 3, 1, 1)
         self.gridLayout_10.addWidget(self.frame_generateMSMSTargetLists, 17, 0, 1, 2)
-        self.frame_annotateMetabolites = QtWidgets.QFrame(self.scrollAreaWidgetContents_5)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        self.frame_annotateMetabolites = QtWidgets.QFrame(
+            self.scrollAreaWidgetContents_5
+        )
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.frame_annotateMetabolites.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.frame_annotateMetabolites.sizePolicy().hasHeightForWidth()
+        )
         self.frame_annotateMetabolites.setSizePolicy(sizePolicy)
         self.frame_annotateMetabolites.setMaximumSize(QtCore.QSize(16777215, 300))
         self.frame_annotateMetabolites.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.frame_annotateMetabolites.setFrameShadow(QtWidgets.QFrame.Raised)
-        self.frame_annotateMetabolites.setObjectName(_fromUtf8("frame_annotateMetabolites"))
+        self.frame_annotateMetabolites.setObjectName(
+            _fromUtf8("frame_annotateMetabolites")
+        )
         self.gridLayout_54 = QtWidgets.QGridLayout(self.frame_annotateMetabolites)
         self.gridLayout_54.setObjectName(_fromUtf8("gridLayout_54"))
         self.line_20 = QtWidgets.QFrame(self.frame_annotateMetabolites)
@@ -1442,25 +1767,32 @@ class Ui_MainWindow(object):
         self.gridLayout_54.addWidget(self.line_20, 1, 1, 1, 1)
         self.verticalLayout_18 = QtWidgets.QVBoxLayout()
         self.verticalLayout_18.setObjectName(_fromUtf8("verticalLayout_18"))
-        spacerItem45 = QtWidgets.QSpacerItem(20, 5, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        spacerItem45 = QtWidgets.QSpacerItem(
+            20, 5, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
+        )
         self.verticalLayout_18.addItem(spacerItem45)
         self.label_66 = QtWidgets.QLabel(self.frame_annotateMetabolites)
         self.label_66.setMinimumSize(QtCore.QSize(200, 0))
         self.label_66.setMaximumSize(QtCore.QSize(200, 16777215))
-        self.label_66.setStyleSheet(_fromUtf8("color: rgb(90, 90, 90);\n"
-"font: 7pt;"))
-        self.label_66.setAlignment(QtCore.Qt.AlignJustify|QtCore.Qt.AlignVCenter)
+        self.label_66.setStyleSheet(_fromUtf8("color: rgb(90, 90, 90);\nfont: 7pt;"))
+        self.label_66.setAlignment(QtCore.Qt.AlignJustify | QtCore.Qt.AlignVCenter)
         self.label_66.setWordWrap(True)
         self.label_66.setObjectName(_fromUtf8("label_66"))
         self.verticalLayout_18.addWidget(self.label_66)
-        spacerItem46 = QtWidgets.QSpacerItem(20, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.MinimumExpanding)
+        spacerItem46 = QtWidgets.QSpacerItem(
+            20, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.MinimumExpanding
+        )
         self.verticalLayout_18.addItem(spacerItem46)
         self.gridLayout_54.addLayout(self.verticalLayout_18, 1, 0, 1, 1)
         self.gridLayout_41 = QtWidgets.QGridLayout()
         self.gridLayout_41.setObjectName(_fromUtf8("gridLayout_41"))
-        self.generateSumFormulas_CheckBox = QtWidgets.QGroupBox(self.frame_annotateMetabolites)
+        self.generateSumFormulas_CheckBox = QtWidgets.QGroupBox(
+            self.frame_annotateMetabolites
+        )
         self.generateSumFormulas_CheckBox.setCheckable(True)
-        self.generateSumFormulas_CheckBox.setObjectName(_fromUtf8("generateSumFormulas_CheckBox"))
+        self.generateSumFormulas_CheckBox.setObjectName(
+            _fromUtf8("generateSumFormulas_CheckBox")
+        )
         self.gridLayout_7 = QtWidgets.QGridLayout(self.generateSumFormulas_CheckBox)
         self.gridLayout_7.setObjectName(_fromUtf8("gridLayout_7"))
         self.groupBox_9 = QtWidgets.QGroupBox(self.generateSumFormulas_CheckBox)
@@ -1471,26 +1803,44 @@ class Ui_MainWindow(object):
         self.label_67.setObjectName(_fromUtf8("label_67"))
         self.gridLayout_50.addWidget(self.label_67, 0, 0, 1, 1)
         self.sumFormulasMinimumElements_lineEdit = QtWidgets.QLineEdit(self.groupBox_9)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.sumFormulasMinimumElements_lineEdit.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.sumFormulasMinimumElements_lineEdit.sizePolicy().hasHeightForWidth()
+        )
         self.sumFormulasMinimumElements_lineEdit.setSizePolicy(sizePolicy)
-        self.sumFormulasMinimumElements_lineEdit.setObjectName(_fromUtf8("sumFormulasMinimumElements_lineEdit"))
-        self.gridLayout_50.addWidget(self.sumFormulasMinimumElements_lineEdit, 0, 1, 1, 1)
+        self.sumFormulasMinimumElements_lineEdit.setObjectName(
+            _fromUtf8("sumFormulasMinimumElements_lineEdit")
+        )
+        self.gridLayout_50.addWidget(
+            self.sumFormulasMinimumElements_lineEdit, 0, 1, 1, 1
+        )
         self.label_75 = QtWidgets.QLabel(self.groupBox_9)
         self.label_75.setObjectName(_fromUtf8("label_75"))
         self.gridLayout_50.addWidget(self.label_75, 1, 0, 1, 1)
         self.sumFormulasMaximumElements_lineEdit = QtWidgets.QLineEdit(self.groupBox_9)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.sumFormulasMaximumElements_lineEdit.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.sumFormulasMaximumElements_lineEdit.sizePolicy().hasHeightForWidth()
+        )
         self.sumFormulasMaximumElements_lineEdit.setSizePolicy(sizePolicy)
-        self.sumFormulasMaximumElements_lineEdit.setObjectName(_fromUtf8("sumFormulasMaximumElements_lineEdit"))
-        self.gridLayout_50.addWidget(self.sumFormulasMaximumElements_lineEdit, 1, 1, 1, 1)
+        self.sumFormulasMaximumElements_lineEdit.setObjectName(
+            _fromUtf8("sumFormulasMaximumElements_lineEdit")
+        )
+        self.gridLayout_50.addWidget(
+            self.sumFormulasMaximumElements_lineEdit, 1, 1, 1, 1
+        )
         self.gridLayout_7.addWidget(self.groupBox_9, 0, 0, 1, 1)
-        spacerItem47 = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+        spacerItem47 = QtWidgets.QSpacerItem(
+            0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum
+        )
         self.gridLayout_7.addItem(spacerItem47, 1, 0, 1, 1)
         self.gridLayout_41.addWidget(self.generateSumFormulas_CheckBox, 0, 0, 1, 1)
         self.searchDB_checkBox = QtWidgets.QGroupBox(self.frame_annotateMetabolites)
@@ -1503,14 +1853,18 @@ class Ui_MainWindow(object):
         self.gridLayout_51.addWidget(self.checkRTInHits_checkBox, 1, 0, 1, 1)
         self.horizontalLayout_23 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_23.setObjectName(_fromUtf8("horizontalLayout_23"))
-        spacerItem48 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem48 = QtWidgets.QSpacerItem(
+            40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum
+        )
         self.horizontalLayout_23.addItem(spacerItem48)
         self.addDB_pushButton = QtWidgets.QPushButton(self.searchDB_checkBox)
         self.addDB_pushButton.setObjectName(_fromUtf8("addDB_pushButton"))
         self.horizontalLayout_23.addWidget(self.addDB_pushButton)
         self.addmzVaultRep_pushButton = QtWidgets.QPushButton(self.searchDB_checkBox)
         self.addmzVaultRep_pushButton.setEnabled(False)
-        self.addmzVaultRep_pushButton.setObjectName(_fromUtf8("addmzVaultRep_pushButton"))
+        self.addmzVaultRep_pushButton.setObjectName(
+            _fromUtf8("addmzVaultRep_pushButton")
+        )
         self.horizontalLayout_23.addWidget(self.addmzVaultRep_pushButton)
         self.removeDB_pushButton = QtWidgets.QPushButton(self.searchDB_checkBox)
         self.removeDB_pushButton.setObjectName(_fromUtf8("removeDB_pushButton"))
@@ -1520,15 +1874,23 @@ class Ui_MainWindow(object):
         self.line_36.setFrameShadow(QtWidgets.QFrame.Sunken)
         self.line_36.setObjectName(_fromUtf8("line_36"))
         self.horizontalLayout_23.addWidget(self.line_36)
-        self.generateDBTemplate_pushButton = QtWidgets.QPushButton(self.searchDB_checkBox)
-        self.generateDBTemplate_pushButton.setObjectName(_fromUtf8("generateDBTemplate_pushButton"))
+        self.generateDBTemplate_pushButton = QtWidgets.QPushButton(
+            self.searchDB_checkBox
+        )
+        self.generateDBTemplate_pushButton.setObjectName(
+            _fromUtf8("generateDBTemplate_pushButton")
+        )
         self.horizontalLayout_23.addWidget(self.generateDBTemplate_pushButton)
         self.gridLayout_51.addLayout(self.horizontalLayout_23, 3, 0, 1, 7)
         self.dbList_listView = QtWidgets.QListView(self.searchDB_checkBox)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.dbList_listView.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.dbList_listView.sizePolicy().hasHeightForWidth()
+        )
         self.dbList_listView.setSizePolicy(sizePolicy)
         self.dbList_listView.setMinimumSize(QtCore.QSize(50, 30))
         self.dbList_listView.setMaximumSize(QtCore.QSize(16777215, 70))
@@ -1539,11 +1901,17 @@ class Ui_MainWindow(object):
         self.label_79 = QtWidgets.QLabel(self.searchDB_checkBox)
         self.label_79.setObjectName(_fromUtf8("label_79"))
         self.horizontalLayout_11.addWidget(self.label_79)
-        self.maxRTErrorInHits_spinnerBox = QtWidgets.QDoubleSpinBox(self.searchDB_checkBox)
+        self.maxRTErrorInHits_spinnerBox = QtWidgets.QDoubleSpinBox(
+            self.searchDB_checkBox
+        )
         self.maxRTErrorInHits_spinnerBox.setProperty("value", 0.15)
-        self.maxRTErrorInHits_spinnerBox.setObjectName(_fromUtf8("maxRTErrorInHits_spinnerBox"))
+        self.maxRTErrorInHits_spinnerBox.setObjectName(
+            _fromUtf8("maxRTErrorInHits_spinnerBox")
+        )
         self.horizontalLayout_11.addWidget(self.maxRTErrorInHits_spinnerBox)
-        spacerItem49 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem49 = QtWidgets.QSpacerItem(
+            40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum
+        )
         self.horizontalLayout_11.addItem(spacerItem49)
         self.gridLayout_51.addLayout(self.horizontalLayout_11, 1, 1, 1, 1)
         self.horizontalLayout_20 = QtWidgets.QHBoxLayout()
@@ -1551,13 +1919,22 @@ class Ui_MainWindow(object):
         self.label_80 = QtWidgets.QLabel(self.searchDB_checkBox)
         self.label_80.setObjectName(_fromUtf8("label_80"))
         self.horizontalLayout_20.addWidget(self.label_80)
-        self.minMSMSScore_doubleSpinBox = QtWidgets.QDoubleSpinBox(self.searchDB_checkBox)
+        self.minMSMSScore_doubleSpinBox = QtWidgets.QDoubleSpinBox(
+            self.searchDB_checkBox
+        )
         self.minMSMSScore_doubleSpinBox.setMinimumSize(QtCore.QSize(80, 0))
         self.minMSMSScore_doubleSpinBox.setMaximum(1.0)
         self.minMSMSScore_doubleSpinBox.setProperty("value", 0.7)
-        self.minMSMSScore_doubleSpinBox.setObjectName(_fromUtf8("minMSMSScore_doubleSpinBox"))
+        self.minMSMSScore_doubleSpinBox.setObjectName(
+            _fromUtf8("minMSMSScore_doubleSpinBox")
+        )
         self.horizontalLayout_20.addWidget(self.minMSMSScore_doubleSpinBox)
-        spacerItem50 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.MinimumExpanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem50 = QtWidgets.QSpacerItem(
+            40,
+            20,
+            QtWidgets.QSizePolicy.MinimumExpanding,
+            QtWidgets.QSizePolicy.Minimum,
+        )
         self.horizontalLayout_20.addItem(spacerItem50)
         self.gridLayout_51.addLayout(self.horizontalLayout_20, 2, 0, 1, 2)
         self.gridLayout_41.addWidget(self.searchDB_checkBox, 0, 1, 1, 1)
@@ -1566,11 +1943,17 @@ class Ui_MainWindow(object):
         self.label_81 = QtWidgets.QLabel(self.frame_annotateMetabolites)
         self.label_81.setObjectName(_fromUtf8("label_81"))
         self.horizontalLayout_21.addWidget(self.label_81)
-        self.annotationMaxPPM_doubleSpinBox = QtWidgets.QDoubleSpinBox(self.frame_annotateMetabolites)
+        self.annotationMaxPPM_doubleSpinBox = QtWidgets.QDoubleSpinBox(
+            self.frame_annotateMetabolites
+        )
         self.annotationMaxPPM_doubleSpinBox.setProperty("value", 3.0)
-        self.annotationMaxPPM_doubleSpinBox.setObjectName(_fromUtf8("annotationMaxPPM_doubleSpinBox"))
+        self.annotationMaxPPM_doubleSpinBox.setObjectName(
+            _fromUtf8("annotationMaxPPM_doubleSpinBox")
+        )
         self.horizontalLayout_21.addWidget(self.annotationMaxPPM_doubleSpinBox)
-        spacerItem51 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem51 = QtWidgets.QSpacerItem(
+            40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum
+        )
         self.horizontalLayout_21.addItem(spacerItem51)
         self.gridLayout_41.addLayout(self.horizontalLayout_21, 4, 0, 1, 2)
         self.horizontalLayout_28 = QtWidgets.QHBoxLayout()
@@ -1581,22 +1964,32 @@ class Ui_MainWindow(object):
         self.label_98 = QtWidgets.QLabel(self.frame_annotateMetabolites)
         self.label_98.setObjectName(_fromUtf8("label_98"))
         self.horizontalLayout_28.addWidget(self.label_98)
-        self.annotation_correctMassByPPMposMode = QtWidgets.QDoubleSpinBox(self.frame_annotateMetabolites)
+        self.annotation_correctMassByPPMposMode = QtWidgets.QDoubleSpinBox(
+            self.frame_annotateMetabolites
+        )
         self.annotation_correctMassByPPMposMode.setMinimum(-20.0)
         self.annotation_correctMassByPPMposMode.setMaximum(20.0)
         self.annotation_correctMassByPPMposMode.setSingleStep(0.5)
-        self.annotation_correctMassByPPMposMode.setObjectName(_fromUtf8("annotation_correctMassByPPMposMode"))
+        self.annotation_correctMassByPPMposMode.setObjectName(
+            _fromUtf8("annotation_correctMassByPPMposMode")
+        )
         self.horizontalLayout_28.addWidget(self.annotation_correctMassByPPMposMode)
         self.label_99 = QtWidgets.QLabel(self.frame_annotateMetabolites)
         self.label_99.setObjectName(_fromUtf8("label_99"))
         self.horizontalLayout_28.addWidget(self.label_99)
-        self.annotation_correctMassByPPMnegMode = QtWidgets.QDoubleSpinBox(self.frame_annotateMetabolites)
+        self.annotation_correctMassByPPMnegMode = QtWidgets.QDoubleSpinBox(
+            self.frame_annotateMetabolites
+        )
         self.annotation_correctMassByPPMnegMode.setMinimum(-20.0)
         self.annotation_correctMassByPPMnegMode.setMaximum(20.0)
         self.annotation_correctMassByPPMnegMode.setSingleStep(0.5)
-        self.annotation_correctMassByPPMnegMode.setObjectName(_fromUtf8("annotation_correctMassByPPMnegMode"))
+        self.annotation_correctMassByPPMnegMode.setObjectName(
+            _fromUtf8("annotation_correctMassByPPMnegMode")
+        )
         self.horizontalLayout_28.addWidget(self.annotation_correctMassByPPMnegMode)
-        spacerItem52 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem52 = QtWidgets.QSpacerItem(
+            40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum
+        )
         self.horizontalLayout_28.addItem(spacerItem52)
         self.gridLayout_41.addLayout(self.horizontalLayout_28, 5, 0, 1, 2)
         self.horizontalLayout_19 = QtWidgets.QHBoxLayout()
@@ -1604,28 +1997,44 @@ class Ui_MainWindow(object):
         self.label_76 = QtWidgets.QLabel(self.frame_annotateMetabolites)
         self.label_76.setObjectName(_fromUtf8("label_76"))
         self.horizontalLayout_19.addWidget(self.label_76)
-        self.sumFormulasUseExactXn_ComboBox = QtWidgets.QComboBox(self.frame_annotateMetabolites)
-        self.sumFormulasUseExactXn_ComboBox.setObjectName(_fromUtf8("sumFormulasUseExactXn_ComboBox"))
+        self.sumFormulasUseExactXn_ComboBox = QtWidgets.QComboBox(
+            self.frame_annotateMetabolites
+        )
+        self.sumFormulasUseExactXn_ComboBox.setObjectName(
+            _fromUtf8("sumFormulasUseExactXn_ComboBox")
+        )
         self.sumFormulasUseExactXn_ComboBox.addItem(_fromUtf8(""))
         self.sumFormulasUseExactXn_ComboBox.addItem(_fromUtf8(""))
         self.sumFormulasUseExactXn_ComboBox.addItem(_fromUtf8(""))
         self.sumFormulasUseExactXn_ComboBox.addItem(_fromUtf8(""))
         self.horizontalLayout_19.addWidget(self.sumFormulasUseExactXn_ComboBox)
-        self.sumFormulasPlusMinus_spinBox = QtWidgets.QSpinBox(self.frame_annotateMetabolites)
-        self.sumFormulasPlusMinus_spinBox.setObjectName(_fromUtf8("sumFormulasPlusMinus_spinBox"))
+        self.sumFormulasPlusMinus_spinBox = QtWidgets.QSpinBox(
+            self.frame_annotateMetabolites
+        )
+        self.sumFormulasPlusMinus_spinBox.setObjectName(
+            _fromUtf8("sumFormulasPlusMinus_spinBox")
+        )
         self.horizontalLayout_19.addWidget(self.sumFormulasPlusMinus_spinBox)
-        spacerItem53 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem53 = QtWidgets.QSpacerItem(
+            40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum
+        )
         self.horizontalLayout_19.addItem(spacerItem53)
         self.gridLayout_41.addLayout(self.horizontalLayout_19, 6, 0, 1, 2)
         self.gridLayout_54.addLayout(self.gridLayout_41, 1, 2, 1, 1)
-        spacerItem54 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem54 = QtWidgets.QSpacerItem(
+            40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum
+        )
         self.gridLayout_54.addItem(spacerItem54, 1, 3, 1, 1)
         self.gridLayout_10.addWidget(self.frame_annotateMetabolites, 12, 0, 1, 2)
         self.frame_bracketResults = QtWidgets.QFrame(self.scrollAreaWidgetContents_5)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.frame_bracketResults.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.frame_bracketResults.sizePolicy().hasHeightForWidth()
+        )
         self.frame_bracketResults.setSizePolicy(sizePolicy)
         self.frame_bracketResults.setMinimumSize(QtCore.QSize(0, 100))
         self.frame_bracketResults.setFrameShape(QtWidgets.QFrame.StyledPanel)
@@ -1640,24 +2049,29 @@ class Ui_MainWindow(object):
         self.gridLayout_52.addWidget(self.line_7, 0, 1, 1, 1)
         self.verticalLayout_14 = QtWidgets.QVBoxLayout()
         self.verticalLayout_14.setObjectName(_fromUtf8("verticalLayout_14"))
-        spacerItem55 = QtWidgets.QSpacerItem(0, 5, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        spacerItem55 = QtWidgets.QSpacerItem(
+            0, 5, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
+        )
         self.verticalLayout_14.addItem(spacerItem55)
         self.label_54 = QtWidgets.QLabel(self.frame_bracketResults)
         self.label_54.setMinimumSize(QtCore.QSize(200, 0))
         self.label_54.setMaximumSize(QtCore.QSize(200, 16777215))
-        self.label_54.setStyleSheet(_fromUtf8("color: rgb(90, 90, 90);\n"
-"font: 7pt;"))
-        self.label_54.setAlignment(QtCore.Qt.AlignJustify|QtCore.Qt.AlignVCenter)
+        self.label_54.setStyleSheet(_fromUtf8("color: rgb(90, 90, 90);\nfont: 7pt;"))
+        self.label_54.setAlignment(QtCore.Qt.AlignJustify | QtCore.Qt.AlignVCenter)
         self.label_54.setWordWrap(True)
         self.label_54.setObjectName(_fromUtf8("label_54"))
         self.verticalLayout_14.addWidget(self.label_54)
-        spacerItem56 = QtWidgets.QSpacerItem(20, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+        spacerItem56 = QtWidgets.QSpacerItem(
+            20, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum
+        )
         self.verticalLayout_14.addItem(spacerItem56)
         self.gridLayout_52.addLayout(self.verticalLayout_14, 0, 0, 1, 1)
         self.verticalLayout_9 = QtWidgets.QVBoxLayout()
         self.verticalLayout_9.setObjectName(_fromUtf8("verticalLayout_9"))
         self.groupResults = QtWidgets.QGroupBox(self.frame_bracketResults)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Preferred)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Preferred
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.groupResults.sizePolicy().hasHeightForWidth())
@@ -1712,10 +2126,14 @@ class Ui_MainWindow(object):
         self.gridLayout_37.addLayout(self.horizontalLayout_17, 0, 1, 1, 1)
         self.verticalLayout_9.addWidget(self.groupResults)
         self.convoluteResults = QtWidgets.QGroupBox(self.frame_bracketResults)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Preferred)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Preferred
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.convoluteResults.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.convoluteResults.sizePolicy().hasHeightForWidth()
+        )
         self.convoluteResults.setSizePolicy(sizePolicy)
         self.convoluteResults.setCheckable(True)
         self.convoluteResults.setObjectName(_fromUtf8("convoluteResults"))
@@ -1746,18 +2164,26 @@ class Ui_MainWindow(object):
         self.metaboliteClusterMinConnections.setMinimum(0)
         self.metaboliteClusterMinConnections.setMaximum(999)
         self.metaboliteClusterMinConnections.setProperty("value", 1)
-        self.metaboliteClusterMinConnections.setObjectName(_fromUtf8("metaboliteClusterMinConnections"))
+        self.metaboliteClusterMinConnections.setObjectName(
+            _fromUtf8("metaboliteClusterMinConnections")
+        )
         self.horizontalLayout_8.addWidget(self.metaboliteClusterMinConnections)
         self.useSILRatioForConvolution = QtWidgets.QCheckBox(self.convoluteResults)
-        self.useSILRatioForConvolution.setObjectName(_fromUtf8("useSILRatioForConvolution"))
+        self.useSILRatioForConvolution.setObjectName(
+            _fromUtf8("useSILRatioForConvolution")
+        )
         self.horizontalLayout_8.addWidget(self.useSILRatioForConvolution)
         self.gridLayout_14.addLayout(self.horizontalLayout_8, 0, 0, 1, 1)
         self.verticalLayout_9.addWidget(self.convoluteResults)
         self.integratedMissedPeaks = QtWidgets.QGroupBox(self.frame_bracketResults)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Preferred)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Preferred
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.integratedMissedPeaks.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.integratedMissedPeaks.sizePolicy().hasHeightForWidth()
+        )
         self.integratedMissedPeaks.setSizePolicy(sizePolicy)
         self.integratedMissedPeaks.setCheckable(True)
         self.integratedMissedPeaks.setObjectName(_fromUtf8("integratedMissedPeaks"))
@@ -1768,10 +2194,14 @@ class Ui_MainWindow(object):
         self.label_55 = QtWidgets.QLabel(self.integratedMissedPeaks)
         self.label_55.setObjectName(_fromUtf8("label_55"))
         self.horizontalLayout_15.addWidget(self.label_55)
-        self.integrationMaxTimeDifference = QtWidgets.QDoubleSpinBox(self.integratedMissedPeaks)
+        self.integrationMaxTimeDifference = QtWidgets.QDoubleSpinBox(
+            self.integratedMissedPeaks
+        )
         self.integrationMaxTimeDifference.setDecimals(2)
         self.integrationMaxTimeDifference.setProperty("value", 0.1)
-        self.integrationMaxTimeDifference.setObjectName(_fromUtf8("integrationMaxTimeDifference"))
+        self.integrationMaxTimeDifference.setObjectName(
+            _fromUtf8("integrationMaxTimeDifference")
+        )
         self.horizontalLayout_15.addWidget(self.integrationMaxTimeDifference)
         self.label_68 = QtWidgets.QLabel(self.integratedMissedPeaks)
         self.label_68.setObjectName(_fromUtf8("label_68"))
@@ -1781,7 +2211,9 @@ class Ui_MainWindow(object):
         self.reintegrateIntensityCutoff.setSuffix(_fromUtf8(""))
         self.reintegrateIntensityCutoff.setMaximum(100000000)
         self.reintegrateIntensityCutoff.setSingleStep(1000)
-        self.reintegrateIntensityCutoff.setObjectName(_fromUtf8("reintegrateIntensityCutoff"))
+        self.reintegrateIntensityCutoff.setObjectName(
+            _fromUtf8("reintegrateIntensityCutoff")
+        )
         self.horizontalLayout_15.addWidget(self.reintegrateIntensityCutoff)
         self.gridLayout_38.addLayout(self.horizontalLayout_15, 0, 0, 1, 1)
         self.verticalLayout_9.addWidget(self.integratedMissedPeaks)
@@ -1789,8 +2221,12 @@ class Ui_MainWindow(object):
         self.checkBox_expPeakArea.setChecked(True)
         self.checkBox_expPeakArea.setObjectName(_fromUtf8("checkBox_expPeakArea"))
         self.verticalLayout_9.addWidget(self.checkBox_expPeakArea)
-        self.checkBox_expPeakApexIntensity = QtWidgets.QCheckBox(self.frame_bracketResults)
-        self.checkBox_expPeakApexIntensity.setObjectName(_fromUtf8("checkBox_expPeakApexIntensity"))
+        self.checkBox_expPeakApexIntensity = QtWidgets.QCheckBox(
+            self.frame_bracketResults
+        )
+        self.checkBox_expPeakApexIntensity.setObjectName(
+            _fromUtf8("checkBox_expPeakApexIntensity")
+        )
         self.verticalLayout_9.addWidget(self.checkBox_expPeakApexIntensity)
         self.checkBox_expPeakSNR = QtWidgets.QCheckBox(self.frame_bracketResults)
         self.checkBox_expPeakSNR.setObjectName(_fromUtf8("checkBox_expPeakSNR"))
@@ -1806,7 +2242,9 @@ class Ui_MainWindow(object):
         self.label_20.setObjectName(_fromUtf8("label_20"))
         self.horizontalLayout_18.addWidget(self.label_20)
         self.groupsSave = QtWidgets.QLineEdit(self.frame_bracketResults)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.groupsSave.sizePolicy().hasHeightForWidth())
@@ -1819,11 +2257,15 @@ class Ui_MainWindow(object):
         self.horizontalLayout_18.addWidget(self.groupsSelectFile)
         self.verticalLayout_9.addLayout(self.horizontalLayout_18)
         self.gridLayout_52.addLayout(self.verticalLayout_9, 0, 2, 1, 1)
-        spacerItem57 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem57 = QtWidgets.QSpacerItem(
+            40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum
+        )
         self.gridLayout_52.addItem(spacerItem57, 0, 3, 1, 1)
         self.gridLayout_10.addWidget(self.frame_bracketResults, 7, 0, 1, 2)
         self.line_5 = QtWidgets.QFrame(self.scrollAreaWidgetContents_5)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.line_5.sizePolicy().hasHeightForWidth())
@@ -1869,7 +2311,9 @@ class Ui_MainWindow(object):
         self.scrollArea_3.setObjectName(_fromUtf8("scrollArea_3"))
         self.scrollAreaWidgetContents_6 = QtWidgets.QWidget()
         self.scrollAreaWidgetContents_6.setGeometry(QtCore.QRect(0, 0, 1201, 1387))
-        self.scrollAreaWidgetContents_6.setObjectName(_fromUtf8("scrollAreaWidgetContents_6"))
+        self.scrollAreaWidgetContents_6.setObjectName(
+            _fromUtf8("scrollAreaWidgetContents_6")
+        )
         self.gridLayout_15 = QtWidgets.QGridLayout(self.scrollAreaWidgetContents_6)
         self.gridLayout_15.setObjectName(_fromUtf8("gridLayout_15"))
         self.splitter = QtWidgets.QSplitter(self.scrollAreaWidgetContents_6)
@@ -1885,13 +2329,19 @@ class Ui_MainWindow(object):
         self.label_28.setObjectName(_fromUtf8("label_28"))
         self.gridLayout_46.addWidget(self.label_28, 2, 0, 1, 1)
         self.res_ExtractedData = QtWidgets.QTreeWidget(self.widget)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.res_ExtractedData.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.res_ExtractedData.sizePolicy().hasHeightForWidth()
+        )
         self.res_ExtractedData.setSizePolicy(sizePolicy)
         self.res_ExtractedData.setMinimumSize(QtCore.QSize(400, 0))
-        self.res_ExtractedData.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
+        self.res_ExtractedData.setSelectionMode(
+            QtWidgets.QAbstractItemView.ExtendedSelection
+        )
         self.res_ExtractedData.setAnimated(True)
         self.res_ExtractedData.setColumnCount(11)
         self.res_ExtractedData.setObjectName(_fromUtf8("res_ExtractedData"))
@@ -1908,7 +2358,9 @@ class Ui_MainWindow(object):
         self.horizontalLayout_6 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_6.setObjectName(_fromUtf8("horizontalLayout_6"))
         self.label_59 = QtWidgets.QLabel(self.widget)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Preferred)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Preferred
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.label_59.sizePolicy().hasHeightForWidth())
@@ -1924,7 +2376,9 @@ class Ui_MainWindow(object):
         self.horizontalLayout_3 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_3.setObjectName(_fromUtf8("horizontalLayout_3"))
         self.label_41 = QtWidgets.QLabel(self.widget)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.label_41.sizePolicy().hasHeightForWidth())
@@ -1932,7 +2386,9 @@ class Ui_MainWindow(object):
         self.label_41.setObjectName(_fromUtf8("label_41"))
         self.horizontalLayout_3.addWidget(self.label_41)
         self.dataFilter = QtWidgets.QLineEdit(self.widget)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.dataFilter.sizePolicy().hasHeightForWidth())
@@ -1943,7 +2399,9 @@ class Ui_MainWindow(object):
         self.horizontalLayout_9 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_9.setObjectName(_fromUtf8("horizontalLayout_9"))
         self.label_22 = QtWidgets.QLabel(self.widget)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Preferred)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Preferred
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.label_22.sizePolicy().hasHeightForWidth())
@@ -1951,18 +2409,26 @@ class Ui_MainWindow(object):
         self.label_22.setObjectName(_fromUtf8("label_22"))
         self.horizontalLayout_9.addWidget(self.label_22)
         self.chromPeakName = QtWidgets.QLineEdit(self.widget)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.chromPeakName.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.chromPeakName.sizePolicy().hasHeightForWidth()
+        )
         self.chromPeakName.setSizePolicy(sizePolicy)
         self.chromPeakName.setObjectName(_fromUtf8("chromPeakName"))
         self.horizontalLayout_9.addWidget(self.chromPeakName)
         self.setChromPeakName = QtWidgets.QPushButton(self.widget)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.setChromPeakName.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.setChromPeakName.sizePolicy().hasHeightForWidth()
+        )
         self.setChromPeakName.setSizePolicy(sizePolicy)
         self.setChromPeakName.setMinimumSize(QtCore.QSize(20, 0))
         self.setChromPeakName.setMaximumSize(QtCore.QSize(28, 16777215))
@@ -2005,7 +2471,9 @@ class Ui_MainWindow(object):
         self.label_95 = QtWidgets.QLabel(self.widget2)
         self.label_95.setObjectName(_fromUtf8("label_95"))
         self.horizontalLayout_10.addWidget(self.label_95)
-        spacerItem58 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem58 = QtWidgets.QSpacerItem(
+            40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum
+        )
         self.horizontalLayout_10.addItem(spacerItem58)
         self.label_35 = QtWidgets.QLabel(self.widget2)
         self.label_35.setText(_fromUtf8(""))
@@ -2015,19 +2483,27 @@ class Ui_MainWindow(object):
         self.pushButton_showOptions1.setObjectName(_fromUtf8("pushButton_showOptions1"))
         self.horizontalLayout_10.addWidget(self.pushButton_showOptions1)
         self.pushButton_hideOptions1 = QtWidgets.QPushButton(self.widget2)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.pushButton_hideOptions1.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.pushButton_hideOptions1.sizePolicy().hasHeightForWidth()
+        )
         self.pushButton_hideOptions1.setSizePolicy(sizePolicy)
         self.pushButton_hideOptions1.setObjectName(_fromUtf8("pushButton_hideOptions1"))
         self.horizontalLayout_10.addWidget(self.pushButton_hideOptions1)
         self.gridLayout_19.addLayout(self.horizontalLayout_10, 1, 0, 1, 1)
         self.visualizationWidget = QtWidgets.QWidget(self.widget2)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Expanding)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Expanding
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.visualizationWidget.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.visualizationWidget.sizePolicy().hasHeightForWidth()
+        )
         self.visualizationWidget.setSizePolicy(sizePolicy)
         self.visualizationWidget.setMinimumSize(QtCore.QSize(700, 350))
         self.visualizationWidget.setObjectName(_fromUtf8("visualizationWidget"))
@@ -2053,7 +2529,9 @@ class Ui_MainWindow(object):
         self.plotMarkArea.setObjectName(_fromUtf8("plotMarkArea"))
         self.verticalLayout_2.addWidget(self.plotMarkArea)
         self.showArtificialShoft_checkBox = QtWidgets.QCheckBox(self.groupBox_options1)
-        self.showArtificialShoft_checkBox.setObjectName(_fromUtf8("showArtificialShoft_checkBox"))
+        self.showArtificialShoft_checkBox.setObjectName(
+            _fromUtf8("showArtificialShoft_checkBox")
+        )
         self.verticalLayout_2.addWidget(self.showArtificialShoft_checkBox)
         self.scaleFeatures = QtWidgets.QCheckBox(self.groupBox_options1)
         self.scaleFeatures.setChecked(True)
@@ -2070,7 +2548,9 @@ class Ui_MainWindow(object):
         self.checkBox_showBaseline.setObjectName(_fromUtf8("checkBox_showBaseline"))
         self.verticalLayout_2.addWidget(self.checkBox_showBaseline)
         self.showSmoothedEIC_checkBox = QtWidgets.QCheckBox(self.groupBox_options1)
-        self.showSmoothedEIC_checkBox.setObjectName(_fromUtf8("showSmoothedEIC_checkBox"))
+        self.showSmoothedEIC_checkBox.setObjectName(
+            _fromUtf8("showSmoothedEIC_checkBox")
+        )
         self.verticalLayout_2.addWidget(self.showSmoothedEIC_checkBox)
         self.flattenXIC = QtWidgets.QCheckBox(self.groupBox_options1)
         self.flattenXIC.setObjectName(_fromUtf8("flattenXIC"))
@@ -2096,10 +2576,14 @@ class Ui_MainWindow(object):
         self.gridLayout_29 = QtWidgets.QGridLayout(self.widget3)
         self.gridLayout_29.setObjectName(_fromUtf8("gridLayout_29"))
         self.visualizationWidget3 = QtWidgets.QWidget(self.widget3)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Expanding)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Expanding
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.visualizationWidget3.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.visualizationWidget3.sizePolicy().hasHeightForWidth()
+        )
         self.visualizationWidget3.setSizePolicy(sizePolicy)
         self.visualizationWidget3.setMinimumSize(QtCore.QSize(700, 350))
         self.visualizationWidget3.setObjectName(_fromUtf8("visualizationWidget3"))
@@ -2114,16 +2598,22 @@ class Ui_MainWindow(object):
         self.label_96 = QtWidgets.QLabel(self.widget3)
         self.label_96.setObjectName(_fromUtf8("label_96"))
         self.horizontalLayout_7.addWidget(self.label_96)
-        spacerItem59 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem59 = QtWidgets.QSpacerItem(
+            40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum
+        )
         self.horizontalLayout_7.addItem(spacerItem59)
         self.pushButton_showOptions2 = QtWidgets.QPushButton(self.widget3)
         self.pushButton_showOptions2.setObjectName(_fromUtf8("pushButton_showOptions2"))
         self.horizontalLayout_7.addWidget(self.pushButton_showOptions2)
         self.pushButton_hideOptions2 = QtWidgets.QPushButton(self.widget3)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.pushButton_hideOptions2.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.pushButton_hideOptions2.sizePolicy().hasHeightForWidth()
+        )
         self.pushButton_hideOptions2.setSizePolicy(sizePolicy)
         self.pushButton_hideOptions2.setObjectName(_fromUtf8("pushButton_hideOptions2"))
         self.horizontalLayout_7.addWidget(self.pushButton_hideOptions2)
@@ -2149,12 +2639,18 @@ class Ui_MainWindow(object):
         self.label_8 = QtWidgets.QLabel(self.groupBox_options2)
         self.label_8.setObjectName(_fromUtf8("label_8"))
         self.horizontalLayout_31.addWidget(self.label_8)
-        self.doubleSpinBox_isotopologAnnotationPPM = QtWidgets.QDoubleSpinBox(self.groupBox_options2)
+        self.doubleSpinBox_isotopologAnnotationPPM = QtWidgets.QDoubleSpinBox(
+            self.groupBox_options2
+        )
         self.doubleSpinBox_isotopologAnnotationPPM.setDecimals(1)
         self.doubleSpinBox_isotopologAnnotationPPM.setProperty("value", 5.0)
-        self.doubleSpinBox_isotopologAnnotationPPM.setObjectName(_fromUtf8("doubleSpinBox_isotopologAnnotationPPM"))
+        self.doubleSpinBox_isotopologAnnotationPPM.setObjectName(
+            _fromUtf8("doubleSpinBox_isotopologAnnotationPPM")
+        )
         self.horizontalLayout_31.addWidget(self.doubleSpinBox_isotopologAnnotationPPM)
-        spacerItem60 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem60 = QtWidgets.QSpacerItem(
+            40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum
+        )
         self.horizontalLayout_31.addItem(spacerItem60)
         self.verticalLayout_3.addLayout(self.horizontalLayout_31)
         self.gridLayout_29.addWidget(self.groupBox_options2, 2, 0, 1, 1)
@@ -2165,7 +2661,9 @@ class Ui_MainWindow(object):
         self.gridLayout_28 = QtWidgets.QGridLayout(self.tab_2)
         self.gridLayout_28.setObjectName(_fromUtf8("gridLayout_28"))
         self.pl2BWidget = QtWidgets.QWidget(self.tab_2)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Expanding)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Expanding
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.pl2BWidget.sizePolicy().hasHeightForWidth())
@@ -2173,7 +2671,9 @@ class Ui_MainWindow(object):
         self.pl2BWidget.setObjectName(_fromUtf8("pl2BWidget"))
         self.gridLayout_28.addWidget(self.pl2BWidget, 2, 0, 1, 1)
         self.pl2AWidget = QtWidgets.QWidget(self.tab_2)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Expanding)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Expanding
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.pl2AWidget.sizePolicy().hasHeightForWidth())
@@ -2223,7 +2723,9 @@ class Ui_MainWindow(object):
         self.scrollArea.setObjectName(_fromUtf8("scrollArea"))
         self.scrollAreaWidgetContents = QtWidgets.QWidget()
         self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 1353, 776))
-        self.scrollAreaWidgetContents.setObjectName(_fromUtf8("scrollAreaWidgetContents"))
+        self.scrollAreaWidgetContents.setObjectName(
+            _fromUtf8("scrollAreaWidgetContents")
+        )
         self.gridLayout_40 = QtWidgets.QGridLayout(self.scrollAreaWidgetContents)
         self.gridLayout_40.setObjectName(_fromUtf8("gridLayout_40"))
         self.groupBox_options3 = QtWidgets.QGroupBox(self.scrollAreaWidgetContents)
@@ -2235,13 +2737,19 @@ class Ui_MainWindow(object):
         self.label_63 = QtWidgets.QLabel(self.groupBox_options3)
         self.label_63.setObjectName(_fromUtf8("label_63"))
         self.horizontalLayout_32.addWidget(self.label_63)
-        self.doubleSpinBox_resultsExperiment_EICppm = QtWidgets.QDoubleSpinBox(self.groupBox_options3)
+        self.doubleSpinBox_resultsExperiment_EICppm = QtWidgets.QDoubleSpinBox(
+            self.groupBox_options3
+        )
         self.doubleSpinBox_resultsExperiment_EICppm.setDecimals(1)
         self.doubleSpinBox_resultsExperiment_EICppm.setMinimum(1.0)
         self.doubleSpinBox_resultsExperiment_EICppm.setProperty("value", 5.0)
-        self.doubleSpinBox_resultsExperiment_EICppm.setObjectName(_fromUtf8("doubleSpinBox_resultsExperiment_EICppm"))
+        self.doubleSpinBox_resultsExperiment_EICppm.setObjectName(
+            _fromUtf8("doubleSpinBox_resultsExperiment_EICppm")
+        )
         self.horizontalLayout_32.addWidget(self.doubleSpinBox_resultsExperiment_EICppm)
-        spacerItem61 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem61 = QtWidgets.QSpacerItem(
+            40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum
+        )
         self.horizontalLayout_32.addItem(spacerItem61)
         self.verticalLayout_4.addLayout(self.horizontalLayout_32)
         self.horizontalLayout_33 = QtWidgets.QHBoxLayout()
@@ -2249,32 +2757,60 @@ class Ui_MainWindow(object):
         self.label_64 = QtWidgets.QLabel(self.groupBox_options3)
         self.label_64.setObjectName(_fromUtf8("label_64"))
         self.horizontalLayout_33.addWidget(self.label_64)
-        self.doubleSpinBox_resultsExperiment_PeakWidth = QtWidgets.QDoubleSpinBox(self.groupBox_options3)
+        self.doubleSpinBox_resultsExperiment_PeakWidth = QtWidgets.QDoubleSpinBox(
+            self.groupBox_options3
+        )
         self.doubleSpinBox_resultsExperiment_PeakWidth.setProperty("value", 0.5)
-        self.doubleSpinBox_resultsExperiment_PeakWidth.setObjectName(_fromUtf8("doubleSpinBox_resultsExperiment_PeakWidth"))
-        self.horizontalLayout_33.addWidget(self.doubleSpinBox_resultsExperiment_PeakWidth)
-        spacerItem62 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.doubleSpinBox_resultsExperiment_PeakWidth.setObjectName(
+            _fromUtf8("doubleSpinBox_resultsExperiment_PeakWidth")
+        )
+        self.horizontalLayout_33.addWidget(
+            self.doubleSpinBox_resultsExperiment_PeakWidth
+        )
+        spacerItem62 = QtWidgets.QSpacerItem(
+            40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum
+        )
         self.horizontalLayout_33.addItem(spacerItem62)
         self.verticalLayout_4.addLayout(self.horizontalLayout_33)
-        self.resultsExperimentNormaliseXICsSeparately_checkBox = QtWidgets.QCheckBox(self.groupBox_options3)
-        self.resultsExperimentNormaliseXICsSeparately_checkBox.setObjectName(_fromUtf8("resultsExperimentNormaliseXICsSeparately_checkBox"))
-        self.verticalLayout_4.addWidget(self.resultsExperimentNormaliseXICsSeparately_checkBox)
-        self.resultsExperimentNormaliseXICs_checkBox = QtWidgets.QCheckBox(self.groupBox_options3)
+        self.resultsExperimentNormaliseXICsSeparately_checkBox = QtWidgets.QCheckBox(
+            self.groupBox_options3
+        )
+        self.resultsExperimentNormaliseXICsSeparately_checkBox.setObjectName(
+            _fromUtf8("resultsExperimentNormaliseXICsSeparately_checkBox")
+        )
+        self.verticalLayout_4.addWidget(
+            self.resultsExperimentNormaliseXICsSeparately_checkBox
+        )
+        self.resultsExperimentNormaliseXICs_checkBox = QtWidgets.QCheckBox(
+            self.groupBox_options3
+        )
         self.resultsExperimentNormaliseXICs_checkBox.setChecked(False)
-        self.resultsExperimentNormaliseXICs_checkBox.setObjectName(_fromUtf8("resultsExperimentNormaliseXICs_checkBox"))
+        self.resultsExperimentNormaliseXICs_checkBox.setObjectName(
+            _fromUtf8("resultsExperimentNormaliseXICs_checkBox")
+        )
         self.verticalLayout_4.addWidget(self.resultsExperimentNormaliseXICs_checkBox)
         self.gridLayout_40.addWidget(self.groupBox_options3, 3, 1, 1, 1)
         self.horizontalLayout_16 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_16.setObjectName(_fromUtf8("horizontalLayout_16"))
-        self.pushButton_exportAllAsPDF = QtWidgets.QPushButton(self.scrollAreaWidgetContents)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        self.pushButton_exportAllAsPDF = QtWidgets.QPushButton(
+            self.scrollAreaWidgetContents
+        )
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.pushButton_exportAllAsPDF.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.pushButton_exportAllAsPDF.sizePolicy().hasHeightForWidth()
+        )
         self.pushButton_exportAllAsPDF.setSizePolicy(sizePolicy)
-        self.pushButton_exportAllAsPDF.setObjectName(_fromUtf8("pushButton_exportAllAsPDF"))
+        self.pushButton_exportAllAsPDF.setObjectName(
+            _fromUtf8("pushButton_exportAllAsPDF")
+        )
         self.horizontalLayout_16.addWidget(self.pushButton_exportAllAsPDF)
-        spacerItem63 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Minimum)
+        spacerItem63 = QtWidgets.QSpacerItem(
+            40, 20, QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Minimum
+        )
         self.horizontalLayout_16.addItem(spacerItem63)
         self.gridLayout_40.addLayout(self.horizontalLayout_16, 6, 0, 1, 1)
         self.horizontalLayout_12 = QtWidgets.QHBoxLayout()
@@ -2282,33 +2818,57 @@ class Ui_MainWindow(object):
         self.label_97 = QtWidgets.QLabel(self.scrollAreaWidgetContents)
         self.label_97.setObjectName(_fromUtf8("label_97"))
         self.horizontalLayout_12.addWidget(self.label_97)
-        spacerItem64 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem64 = QtWidgets.QSpacerItem(
+            40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum
+        )
         self.horizontalLayout_12.addItem(spacerItem64)
-        self.pushButton_showOptions3 = QtWidgets.QPushButton(self.scrollAreaWidgetContents)
+        self.pushButton_showOptions3 = QtWidgets.QPushButton(
+            self.scrollAreaWidgetContents
+        )
         self.pushButton_showOptions3.setObjectName(_fromUtf8("pushButton_showOptions3"))
         self.horizontalLayout_12.addWidget(self.pushButton_showOptions3)
-        self.pushButton_hideOptions3 = QtWidgets.QPushButton(self.scrollAreaWidgetContents)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        self.pushButton_hideOptions3 = QtWidgets.QPushButton(
+            self.scrollAreaWidgetContents
+        )
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.pushButton_hideOptions3.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.pushButton_hideOptions3.sizePolicy().hasHeightForWidth()
+        )
         self.pushButton_hideOptions3.setSizePolicy(sizePolicy)
         self.pushButton_hideOptions3.setObjectName(_fromUtf8("pushButton_hideOptions3"))
         self.horizontalLayout_12.addWidget(self.pushButton_hideOptions3)
-        self.showCustomFeature_pushButton = QtWidgets.QPushButton(self.scrollAreaWidgetContents)
-        self.showCustomFeature_pushButton.setObjectName(_fromUtf8("showCustomFeature_pushButton"))
+        self.showCustomFeature_pushButton = QtWidgets.QPushButton(
+            self.scrollAreaWidgetContents
+        )
+        self.showCustomFeature_pushButton.setObjectName(
+            _fromUtf8("showCustomFeature_pushButton")
+        )
         self.horizontalLayout_12.addWidget(self.showCustomFeature_pushButton)
         self.gridLayout_40.addLayout(self.horizontalLayout_12, 2, 1, 1, 1)
-        self.resultsExperiment_TreeWidget = QtWidgets.QTreeWidget(self.scrollAreaWidgetContents)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Expanding)
+        self.resultsExperiment_TreeWidget = QtWidgets.QTreeWidget(
+            self.scrollAreaWidgetContents
+        )
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Expanding
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.resultsExperiment_TreeWidget.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.resultsExperiment_TreeWidget.sizePolicy().hasHeightForWidth()
+        )
         self.resultsExperiment_TreeWidget.setSizePolicy(sizePolicy)
         self.resultsExperiment_TreeWidget.setMinimumSize(QtCore.QSize(500, 0))
-        self.resultsExperiment_TreeWidget.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
+        self.resultsExperiment_TreeWidget.setSelectionMode(
+            QtWidgets.QAbstractItemView.ExtendedSelection
+        )
         self.resultsExperiment_TreeWidget.setColumnCount(6)
-        self.resultsExperiment_TreeWidget.setObjectName(_fromUtf8("resultsExperiment_TreeWidget"))
+        self.resultsExperiment_TreeWidget.setObjectName(
+            _fromUtf8("resultsExperiment_TreeWidget")
+        )
         self.resultsExperiment_TreeWidget.header().setDefaultSectionSize(40)
         self.gridLayout_40.addWidget(self.resultsExperiment_TreeWidget, 2, 0, 4, 1)
         self.tabWidget_3 = QtWidgets.QTabWidget(self.scrollAreaWidgetContents)
@@ -2318,16 +2878,24 @@ class Ui_MainWindow(object):
         self.gridLayout_42 = QtWidgets.QGridLayout(self.tab_5)
         self.gridLayout_42.setObjectName(_fromUtf8("gridLayout_42"))
         self.resultsExperiment_widget = QtWidgets.QWidget(self.tab_5)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.resultsExperiment_widget.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.resultsExperiment_widget.sizePolicy().hasHeightForWidth()
+        )
         self.resultsExperiment_widget.setSizePolicy(sizePolicy)
         self.resultsExperiment_widget.setMinimumSize(QtCore.QSize(700, 500))
-        self.resultsExperiment_widget.setObjectName(_fromUtf8("resultsExperiment_widget"))
+        self.resultsExperiment_widget.setObjectName(
+            _fromUtf8("resultsExperiment_widget")
+        )
         self.gridLayout_42.addWidget(self.resultsExperiment_widget, 1, 0, 1, 1)
         self.resultsExperimentMSScan_widget = QtWidgets.QWidget(self.tab_5)
-        self.resultsExperimentMSScan_widget.setObjectName(_fromUtf8("resultsExperimentMSScan_widget"))
+        self.resultsExperimentMSScan_widget.setObjectName(
+            _fromUtf8("resultsExperimentMSScan_widget")
+        )
         self.gridLayout_42.addWidget(self.resultsExperimentMSScan_widget, 2, 0, 1, 1)
         self.tabWidget_3.addTab(self.tab_5, _fromUtf8(""))
         self.tab_6 = QtWidgets.QWidget()
@@ -2335,13 +2903,21 @@ class Ui_MainWindow(object):
         self.gridLayout_43 = QtWidgets.QGridLayout(self.tab_6)
         self.gridLayout_43.setObjectName(_fromUtf8("gridLayout_43"))
         self.resultsExperimentSeparatedPeaks_widget = QtWidgets.QWidget(self.tab_6)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Expanding)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Expanding
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.resultsExperimentSeparatedPeaks_widget.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.resultsExperimentSeparatedPeaks_widget.sizePolicy().hasHeightForWidth()
+        )
         self.resultsExperimentSeparatedPeaks_widget.setSizePolicy(sizePolicy)
-        self.resultsExperimentSeparatedPeaks_widget.setObjectName(_fromUtf8("resultsExperimentSeparatedPeaks_widget"))
-        self.gridLayout_43.addWidget(self.resultsExperimentSeparatedPeaks_widget, 1, 0, 1, 2)
+        self.resultsExperimentSeparatedPeaks_widget.setObjectName(
+            _fromUtf8("resultsExperimentSeparatedPeaks_widget")
+        )
+        self.gridLayout_43.addWidget(
+            self.resultsExperimentSeparatedPeaks_widget, 1, 0, 1, 2
+        )
         self.horizontalLayout_22 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_22.setObjectName(_fromUtf8("horizontalLayout_22"))
         self.label_5 = QtWidgets.QLabel(self.tab_6)
@@ -2352,7 +2928,9 @@ class Ui_MainWindow(object):
         self.comboBox_separatePeaks.addItem(_fromUtf8(""))
         self.comboBox_separatePeaks.addItem(_fromUtf8(""))
         self.horizontalLayout_22.addWidget(self.comboBox_separatePeaks)
-        spacerItem65 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem65 = QtWidgets.QSpacerItem(
+            40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum
+        )
         self.horizontalLayout_22.addItem(spacerItem65)
         self.gridLayout_43.addLayout(self.horizontalLayout_22, 0, 0, 1, 2)
         self.tabWidget_3.addTab(self.tab_6, _fromUtf8(""))
@@ -2362,13 +2940,17 @@ class Ui_MainWindow(object):
         self.tabWidget.addTab(self.bracketedResultsTab, _fromUtf8(""))
         self.gridLayout_11.addWidget(self.tabWidget, 1, 0, 1, 1)
         self.version = QtWidgets.QLabel(self.centralWidget)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.version.sizePolicy().hasHeightForWidth())
         self.version.setSizePolicy(sizePolicy)
         self.version.setStyleSheet(_fromUtf8("color:grey;"))
-        self.version.setAlignment(QtCore.Qt.AlignBottom|QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing)
+        self.version.setAlignment(
+            QtCore.Qt.AlignBottom | QtCore.Qt.AlignRight | QtCore.Qt.AlignTrailing
+        )
         self.version.setObjectName(_fromUtf8("version"))
         self.gridLayout_11.addWidget(self.version, 2, 0, 1, 1)
         MainWindow.setCentralWidget(self.centralWidget)
@@ -2395,13 +2977,19 @@ class Ui_MainWindow(object):
         self.helpMenue = QtGui.QAction(MainWindow)
         self.helpMenue.setObjectName(_fromUtf8("helpMenue"))
         self.actionIsotopic_enrichment = QtGui.QAction(MainWindow)
-        self.actionIsotopic_enrichment.setObjectName(_fromUtf8("actionIsotopic_enrichment"))
+        self.actionIsotopic_enrichment.setObjectName(
+            _fromUtf8("actionIsotopic_enrichment")
+        )
         self.actionSet_working_directory = QtGui.QAction(MainWindow)
-        self.actionSet_working_directory.setObjectName(_fromUtf8("actionSet_working_directory"))
+        self.actionSet_working_directory.setObjectName(
+            _fromUtf8("actionSet_working_directory")
+        )
         self.openTempDir = QtGui.QAction(MainWindow)
         self.openTempDir.setObjectName(_fromUtf8("openTempDir"))
         self.actionShow_summary_of_previous_current_results = QtGui.QAction(MainWindow)
-        self.actionShow_summary_of_previous_current_results.setObjectName(_fromUtf8("actionShow_summary_of_previous_current_results"))
+        self.actionShow_summary_of_previous_current_results.setObjectName(
+            _fromUtf8("actionShow_summary_of_previous_current_results")
+        )
         self.menuHelp.addAction(self.helpMenue)
         self.menuHelp.addSeparator()
         self.menuHelp.addAction(self.aboutMenue)
@@ -2468,7 +3056,9 @@ class Ui_MainWindow(object):
         MainWindow.setTabOrder(self.minSpectraCount, self.wavelet_EICppm)
         MainWindow.setTabOrder(self.wavelet_EICppm, self.eicSmoothingWindow)
         MainWindow.setTabOrder(self.eicSmoothingWindow, self.eicSmoothingWindowSize)
-        MainWindow.setTabOrder(self.eicSmoothingWindowSize, self.smoothingPolynom_spinner)
+        MainWindow.setTabOrder(
+            self.eicSmoothingWindowSize, self.smoothingPolynom_spinner
+        )
         MainWindow.setTabOrder(self.smoothingPolynom_spinner, self.wavelet_minScale)
         MainWindow.setTabOrder(self.wavelet_minScale, self.wavelet_maxScale)
         MainWindow.setTabOrder(self.wavelet_maxScale, self.wavelet_SNRThreshold)
@@ -2476,11 +3066,17 @@ class Ui_MainWindow(object):
         MainWindow.setTabOrder(self.peak_centerError, self.peak_scaleError)
         MainWindow.setTabOrder(self.peak_scaleError, self.minPeakCorr)
         MainWindow.setTabOrder(self.minPeakCorr, self.doubleSpinBox_minPeakRatio)
-        MainWindow.setTabOrder(self.doubleSpinBox_minPeakRatio, self.doubleSpinBox_maxPeakRatio)
+        MainWindow.setTabOrder(
+            self.doubleSpinBox_minPeakRatio, self.doubleSpinBox_maxPeakRatio
+        )
         MainWindow.setTabOrder(self.doubleSpinBox_maxPeakRatio, self.correctcCount)
         MainWindow.setTabOrder(self.correctcCount, self.calcIsoRatioNative_spinBox)
-        MainWindow.setTabOrder(self.calcIsoRatioNative_spinBox, self.calcIsoRatioLabelled_spinBox)
-        MainWindow.setTabOrder(self.calcIsoRatioLabelled_spinBox, self.calcIsoRatioMoiety_spinBox)
+        MainWindow.setTabOrder(
+            self.calcIsoRatioNative_spinBox, self.calcIsoRatioLabelled_spinBox
+        )
+        MainWindow.setTabOrder(
+            self.calcIsoRatioLabelled_spinBox, self.calcIsoRatioMoiety_spinBox
+        )
         MainWindow.setTabOrder(self.calcIsoRatioMoiety_spinBox, self.hAIntensityError)
         MainWindow.setTabOrder(self.hAIntensityError, self.hAMinScans)
         MainWindow.setTabOrder(self.hAMinScans, self.defineHeteroAtoms)
@@ -2500,10 +3096,18 @@ class Ui_MainWindow(object):
         MainWindow.setTabOrder(self.groupingRT, self.alignChromatograms)
         MainWindow.setTabOrder(self.alignChromatograms, self.polynomValue)
         MainWindow.setTabOrder(self.polynomValue, self.minConnectionRate)
-        MainWindow.setTabOrder(self.minConnectionRate, self.metaboliteClusterMinConnections)
-        MainWindow.setTabOrder(self.metaboliteClusterMinConnections, self.integratedMissedPeaks)
-        MainWindow.setTabOrder(self.integratedMissedPeaks, self.integrationMaxTimeDifference)
-        MainWindow.setTabOrder(self.integrationMaxTimeDifference, self.reintegrateIntensityCutoff)
+        MainWindow.setTabOrder(
+            self.minConnectionRate, self.metaboliteClusterMinConnections
+        )
+        MainWindow.setTabOrder(
+            self.metaboliteClusterMinConnections, self.integratedMissedPeaks
+        )
+        MainWindow.setTabOrder(
+            self.integratedMissedPeaks, self.integrationMaxTimeDifference
+        )
+        MainWindow.setTabOrder(
+            self.integrationMaxTimeDifference, self.reintegrateIntensityCutoff
+        )
         MainWindow.setTabOrder(self.reintegrateIntensityCutoff, self.groupsSelectFile)
         MainWindow.setTabOrder(self.groupsSelectFile, self.workingCore)
         MainWindow.setTabOrder(self.workingCore, self.cpuCores)
@@ -2533,63 +3137,122 @@ class Ui_MainWindow(object):
         self.addGroup.setText(_translate("MainWindow", "New group", None))
         self.removeGroup.setText(_translate("MainWindow", "Delete group", None))
         self.label_60.setText(_translate("MainWindow", "Comments", None))
-        self.label_62.setText(_translate("MainWindow", "Please describe the performed experiment", None))
+        self.label_62.setText(
+            _translate("MainWindow", "Please describe the performed experiment", None)
+        )
         self.label_56.setText(_translate("MainWindow", "Positive", None))
         self.label_57.setText(_translate("MainWindow", "Negative", None))
         self.label_6.setText(_translate("MainWindow", "Measurements", None))
-        self.label_52.setText(_translate("MainWindow", "<html><head/><body><p>Please specify the sample groups in the experiment. Each group may have several measurement files and represents the different conditions in the experiment (e.g. different conditions and controls, different genotypes)</p><p>Double click on a group to edit it</p></body></html>", None))
+        self.label_52.setText(
+            _translate(
+                "MainWindow",
+                "<html><head/><body><p>Please specify the sample groups in the experiment. Each group may have several measurement files and represents the different conditions in the experiment (e.g. different conditions and controls, different genotypes)</p><p>Double click on a group to edit it</p></body></html>",
+                None,
+            )
+        )
         self.label_61.setText(_translate("MainWindow", "Experiment", None))
         self.label_84.setText(_translate("MainWindow", "LC-HRMS data", None))
         self.label_83.setText(_translate("MainWindow", "Experiment description", None))
         self.label_36.setText(_translate("MainWindow", "Operator", None))
         self.label_21.setText(_translate("MainWindow", "Scan event(s)", None))
-        self.label_58.setText(_translate("MainWindow", "<html><head/><body><p>Please select the appropriate scan event(s). MetExtract is able to work with one positive and one negative scan events at a time. If only one ionisation mode should be used, select empty for the opposite mode.<br/><br/>Note: only those scan event common among all loaded measurement files are available. In case no common scan events are present, the calculation cannot be started.</p></body></html>", None))
+        self.label_58.setText(
+            _translate(
+                "MainWindow",
+                "<html><head/><body><p>Please select the appropriate scan event(s). MetExtract is able to work with one positive and one negative scan events at a time. If only one ionisation mode should be used, select empty for the opposite mode.<br/><br/>Note: only those scan event common among all loaded measurement files are available. In case no common scan events are present, the calculation cannot be started.</p></body></html>",
+                None,
+            )
+        )
         self.label_7.setText(_translate("MainWindow", "Define/Edit group", None))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.inputTab), _translate("MainWindow", "Input", None))
-        self.label_82.setText(_translate("MainWindow", "<html><head/><body><p><span style=\" font-size:16pt;\">Run task(s)</span></p></body></html>", None))
+        self.tabWidget.setTabText(
+            self.tabWidget.indexOf(self.inputTab),
+            _translate("MainWindow", "Input", None),
+        )
+        self.label_82.setText(
+            _translate(
+                "MainWindow",
+                '<html><head/><body><p><span style=" font-size:16pt;">Run task(s)</span></p></body></html>',
+                None,
+            )
+        )
         self.workingCore.setText(_translate("MainWindow", "Keep one core unused", None))
         self.label_43.setText(_translate("MainWindow", "CPU cores", None))
         self.startIdentification.setText(_translate("MainWindow", "Start", None))
-        self.processMultipleFiles.setText(_translate("MainWindow", "2nd step: Multiple files annotation", None))
-        self.processIndividualFiles.setToolTip(_translate("MainWindow", "If checked, MetExtract will search for features in the input files ", None))
-        self.processIndividualFiles.setText(_translate("MainWindow", "1st step: Individual files processing", None))
-        self.annotateMetabolites_CheckBox.setText(_translate("MainWindow", "3rd step: Annotate metabolites", None))
-        self.generateMSMSInfo_CheckBox.setText(_translate("MainWindow", "4th step: Generate MSMS target lists", None))
-        self.label_53.setText(_translate("MainWindow", "<html><head/><body><p>Please specify the settings for your experiment</p><p>The section &quot;Labeling&quot; provides options for describing the experiment\'s stable isotopic labeling.</p><p>The section &quot;MZ picking&quot; and &quot;MZ clustering&quot; describe the parameters of your HRMS device</p><p>The section &quot;Chromatographic separation&quot; describes your LC device and are parameters used for peak picking</p><p>The results of each measurement is automatically saved in tabular format to &lt;FileName&gt;.tsv. Additionally the results can be saved as &lt;FileName&gt;.pdf with graphical illustrations. </p><p>For some LC-HRMS devices it is also possible to save &lt;FileName&gt;.mzXML files. These files only include those mass peaks originating from the labeling process</p></body></html>", None))
+        self.processMultipleFiles.setText(
+            _translate("MainWindow", "2nd step: Multiple files annotation", None)
+        )
+        self.processIndividualFiles.setToolTip(
+            _translate(
+                "MainWindow",
+                "If checked, MetExtract will search for features in the input files ",
+                None,
+            )
+        )
+        self.processIndividualFiles.setText(
+            _translate("MainWindow", "1st step: Individual files processing", None)
+        )
+        self.annotateMetabolites_CheckBox.setText(
+            _translate("MainWindow", "3rd step: Annotate metabolites", None)
+        )
+        self.generateMSMSInfo_CheckBox.setText(
+            _translate("MainWindow", "4th step: Generate MSMS target lists", None)
+        )
+        self.label_53.setText(
+            _translate(
+                "MainWindow",
+                "<html><head/><body><p>Please specify the settings for your experiment</p><p>The section &quot;Labeling&quot; provides options for describing the experiment's stable isotopic labeling.</p><p>The section &quot;MZ picking&quot; and &quot;MZ clustering&quot; describe the parameters of your HRMS device</p><p>The section &quot;Chromatographic separation&quot; describes your LC device and are parameters used for peak picking</p><p>The results of each measurement is automatically saved in tabular format to &lt;FileName&gt;.tsv. Additionally the results can be saved as &lt;FileName&gt;.pdf with graphical illustrations. </p><p>For some LC-HRMS devices it is also possible to save &lt;FileName&gt;.mzXML files. These files only include those mass peaks originating from the labeling process</p></body></html>",
+                None,
+            )
+        )
         self.visualConfig.setText(_translate("MainWindow", "Visual config", None))
         self.groupBox_3.setTitle(_translate("MainWindow", "Save results", None))
         self.saveMZXML.setTitle(_translate("MainWindow", "New mzXML file", None))
         self.wm_ia.setText(_translate("MainWindow", "M", None))
         self.wm_iap.setText(_translate("MainWindow", "M+1", None))
         self.label_39.setText(_translate("MainWindow", "...", None))
-        self.wm_imb.setText(_translate("MainWindow", "M\'-1", None))
-        self.wm_ib.setText(_translate("MainWindow", "M\'", None))
+        self.wm_imb.setText(_translate("MainWindow", "M'-1", None))
+        self.wm_ib.setText(_translate("MainWindow", "M'", None))
         self.savePDF.setText(_translate("MainWindow", "PDF", None))
         self.saveCSV.setText(_translate("MainWindow", "TSV", None))
         self.saveFeatureML.setText(_translate("MainWindow", "FeatureML (basic)", None))
         self.label_4.setText(_translate("MainWindow", "Post processing", None))
         self.correctcCount.setText(_translate("MainWindow", "Correct C-Count", None))
-        self.isotopologRatiosBox.setTitle(_translate("MainWindow", "Isotopolog ratios", None))
+        self.isotopologRatiosBox.setTitle(
+            _translate("MainWindow", "Isotopolog ratios", None)
+        )
         self.label_70.setText(_translate("MainWindow", "Native", None))
         self.label_71.setText(_translate("MainWindow", "Labeled", None))
         self.label_72.setText(_translate("MainWindow", "Moiety", None))
-        self.searchForHeteroAtoms.setTitle(_translate("MainWindow", "Hetero isotopologue annotation", None))
+        self.searchForHeteroAtoms.setTitle(
+            _translate("MainWindow", "Hetero isotopologue annotation", None)
+        )
         self.hAMinScans.setPrefix(_translate("MainWindow", "≥ ", None))
         self.label_24.setText(_translate("MainWindow", "Found in scans", None))
         self.hAIntensityError.setPrefix(_translate("MainWindow", "± ", None))
         self.hAIntensityError.setSuffix(_translate("MainWindow", " %", None))
         self.label_25.setText(_translate("MainWindow", "Intensity deviation", None))
-        self.defineHeteroAtoms.setText(_translate("MainWindow", "Heteroatoms configuration", None))
-        self.groupFeaturesUntargeted.setTitle(_translate("MainWindow", "Feature convolution", None))
+        self.defineHeteroAtoms.setText(
+            _translate("MainWindow", "Heteroatoms configuration", None)
+        )
+        self.groupFeaturesUntargeted.setTitle(
+            _translate("MainWindow", "Feature convolution", None)
+        )
         self.label_46.setText(_translate("MainWindow", "Pearson correlation", None))
         self.minCorrelation.setPrefix(_translate("MainWindow", "≥ ", None))
         self.minCorrelation.setSuffix(_translate("MainWindow", " %", None))
-        self.relationshipConfig.setText(_translate("MainWindow", "Relationship configuration", None))
-        self.label.setText(_translate("MainWindow", "Number of connected features pairs", None))
+        self.relationshipConfig.setText(
+            _translate("MainWindow", "Relationship configuration", None)
+        )
+        self.label.setText(
+            _translate("MainWindow", "Number of connected features pairs", None)
+        )
         self.minCorrelationConnections.setPrefix(_translate("MainWindow", "≥ ", None))
         self.minCorrelationConnections.setSuffix(_translate("MainWindow", " %", None))
-        self.checkBox_simplifyInSourceFragments.setText(_translate("MainWindow", "Simplify in-source fragments", None))
-        self.label_51.setText(_translate("MainWindow", "Chromatographic separation", None))
+        self.checkBox_simplifyInSourceFragments.setText(
+            _translate("MainWindow", "Simplify in-source fragments", None)
+        )
+        self.label_51.setText(
+            _translate("MainWindow", "Chromatographic separation", None)
+        )
         self.groupBox_5.setTitle(_translate("MainWindow", "MZ clustering", None))
         self.minSpectraCount.setSuffix(_translate("MainWindow", " scans", None))
         self.minSpectraCount.setPrefix(_translate("MainWindow", "≥ ", None))
@@ -2599,21 +3262,41 @@ class Ui_MainWindow(object):
         self.clustPPM.setSuffix(_translate("MainWindow", " ppm", None))
         self.groupBox_7.setTitle(_translate("MainWindow", "XIC extraction", None))
         self.label_30.setText(_translate("MainWindow", "Smoothing window", None))
-        self.label_19.setToolTip(_translate("MainWindow", "Identified M/Z Peaks are binned together using hierachical Clustering. This Parameter defines how far apart these M/Z Peaks may be", None))
+        self.label_19.setToolTip(
+            _translate(
+                "MainWindow",
+                "Identified M/Z Peaks are binned together using hierachical Clustering. This Parameter defines how far apart these M/Z Peaks may be",
+                None,
+            )
+        )
         self.label_19.setText(_translate("MainWindow", "EIC width", None))
         self.eicSmoothingWindow.setItemText(0, _translate("MainWindow", "None", None))
-        self.eicSmoothingWindow.setItemText(1, _translate("MainWindow", "Triangle", None))
+        self.eicSmoothingWindow.setItemText(
+            1, _translate("MainWindow", "Triangle", None)
+        )
         self.eicSmoothingWindow.setItemText(2, _translate("MainWindow", "Flat", None))
-        self.eicSmoothingWindow.setItemText(3, _translate("MainWindow", "Gaussian", None))
-        self.eicSmoothingWindow.setItemText(4, _translate("MainWindow", "Hanning", None))
-        self.eicSmoothingWindow.setItemText(5, _translate("MainWindow", "SavitzkyGolay", None))
+        self.eicSmoothingWindow.setItemText(
+            3, _translate("MainWindow", "Gaussian", None)
+        )
+        self.eicSmoothingWindow.setItemText(
+            4, _translate("MainWindow", "Hanning", None)
+        )
+        self.eicSmoothingWindow.setItemText(
+            5, _translate("MainWindow", "SavitzkyGolay", None)
+        )
         self.wavelet_EICppm.setPrefix(_translate("MainWindow", "± ", None))
         self.wavelet_EICppm.setSuffix(_translate("MainWindow", " ppm", None))
-        self.smoothingWindowPolynomLabel.setText(_translate("MainWindow", "Polynom", None))
-        self.smoothingWindowSizeLabel.setText(_translate("MainWindow", "Window size", None))
+        self.smoothingWindowPolynomLabel.setText(
+            _translate("MainWindow", "Polynom", None)
+        )
+        self.smoothingWindowSizeLabel.setText(
+            _translate("MainWindow", "Window size", None)
+        )
         self.eicSmoothingWindowSize.setSuffix(_translate("MainWindow", " scans", None))
         self.eicSmoothingWindowSize.setPrefix(_translate("MainWindow", "± ", None))
-        self.groupBox_10.setTitle(_translate("MainWindow", "Chromatographic separation", None))
+        self.groupBox_10.setTitle(
+            _translate("MainWindow", "Chromatographic separation", None)
+        )
         self.wavelet_minScale.setPrefix(_translate("MainWindow", "≥ ", None))
         self.wavelet_minScale.setSuffix(_translate("MainWindow", " scans", None))
         self.label_32.setText(_translate("MainWindow", "Minimum scale", None))
@@ -2631,11 +3314,17 @@ class Ui_MainWindow(object):
         self.label_2.setText(_translate("MainWindow", "Center error", None))
         self.label_47.setText(_translate("MainWindow", "Minimum corr", None))
         self.peak_scaleError.setPrefix(_translate("MainWindow", "≤ ", None))
-        self.label_13.setText(_translate("MainWindow", "EIC M\' artificial shift", None))
-        self.spinBox_artificialMPshift_start.setSuffix(_translate("MainWindow", " scans", None))
+        self.label_13.setText(_translate("MainWindow", "EIC M' artificial shift", None))
+        self.spinBox_artificialMPshift_start.setSuffix(
+            _translate("MainWindow", " scans", None)
+        )
         self.label_14.setText(_translate("MainWindow", "-", None))
-        self.spinBox_artificialMPshift_stop.setSuffix(_translate("MainWindow", " scans", None))
-        self.checkBox_checkPeakRatio.setTitle(_translate("MainWindow", "Required M:M\' peak area ratio", None))
+        self.spinBox_artificialMPshift_stop.setSuffix(
+            _translate("MainWindow", " scans", None)
+        )
+        self.checkBox_checkPeakRatio.setTitle(
+            _translate("MainWindow", "Required M:M' peak area ratio", None)
+        )
         self.doubleSpinBox_minPeakRatio.setPrefix(_translate("MainWindow", "≥ ", None))
         self.doubleSpinBox_maxPeakRatio.setPrefix(_translate("MainWindow", "≤ ", None))
         self.label_77.setText(_translate("MainWindow", "Minimum ratio", None))
@@ -2645,28 +3334,48 @@ class Ui_MainWindow(object):
         self.label_50.setText(_translate("MainWindow", "Labeling", None))
         self.groupBox_ISOA.setTitle(_translate("MainWindow", "Isotope N", None))
         self.label_23.setText(_translate("MainWindow", "Isotope N", None))
-        self.label_9.setToolTip(_translate("MainWindow", "Purity of the Base Growth Media", None))
+        self.label_9.setToolTip(
+            _translate("MainWindow", "Purity of the Base Growth Media", None)
+        )
         self.label_9.setText(_translate("MainWindow", "Isotopic enrichment", None))
         self.isotopicAbundanceA.setSuffix(_translate("MainWindow", " %", None))
         self.isotopeAMassLabel.setText(_translate("MainWindow", "-", None))
         self.groupBox_ISOB.setTitle(_translate("MainWindow", "Isotope L", None))
         self.isotopeBMassLabel.setText(_translate("MainWindow", "-", None))
         self.label_27.setText(_translate("MainWindow", "Isotope L", None))
-        self.label_10.setToolTip(_translate("MainWindow", "Purity of the Isotope Growth Media", None))
+        self.label_10.setToolTip(
+            _translate("MainWindow", "Purity of the Isotope Growth Media", None)
+        )
         self.label_10.setText(_translate("MainWindow", "Isotopic enrichment", None))
         self.isotopicAbundanceB.setSuffix(_translate("MainWindow", " %", None))
-        self.useCValidation.setText(_translate("MainWindow", "Use Carbon-isotopepattern validation", None))
-        self.useRatio.setTitle(_translate("MainWindow", "Required M:M\' signal ratio", None))
+        self.useCValidation.setText(
+            _translate("MainWindow", "Use Carbon-isotopepattern validation", None)
+        )
+        self.useRatio.setTitle(
+            _translate("MainWindow", "Required M:M' signal ratio", None)
+        )
         self.label_3.setText(_translate("MainWindow", "Minimum ratio", None))
         self.label_40.setText(_translate("MainWindow", "Maximum ratio", None))
         self.minRatio.setPrefix(_translate("MainWindow", "≥ ", None))
         self.maxRatio.setPrefix(_translate("MainWindow", "≤ ", None))
-        self.setupTracers.setToolTip(_translate("MainWindow", "Click to specify used Xenobiotics or tracers for the metabolisation study", None))
+        self.setupTracers.setToolTip(
+            _translate(
+                "MainWindow",
+                "Click to specify used Xenobiotics or tracers for the metabolisation study",
+                None,
+            )
+        )
         self.setupTracers.setText(_translate("MainWindow", "Tracer setup", None))
-        self.tracerExperimentLabel.setText(_translate("MainWindow", "No tracers configured", None))
+        self.tracerExperimentLabel.setText(
+            _translate("MainWindow", "No tracers configured", None)
+        )
         self.label_49.setText(_translate("MainWindow", "MZ picking", None))
-        self.groupBox_2.setTitle(_translate("MainWindow", "Number of labeling (X) atoms to search for", None))
-        self.xCountSearch.setPlaceholderText(_translate("MainWindow", "12-15, 30, 45", None))
+        self.groupBox_2.setTitle(
+            _translate("MainWindow", "Number of labeling (X) atoms to search for", None)
+        )
+        self.xCountSearch.setPlaceholderText(
+            _translate("MainWindow", "12-15, 30, 45", None)
+        )
         self.groupBox.setTitle(_translate("MainWindow", "Scan range", None))
         self.label_37.setText(_translate("MainWindow", "From", None))
         self.scanEndTime.setSuffix(_translate("MainWindow", " minutes", None))
@@ -2674,9 +3383,15 @@ class Ui_MainWindow(object):
         self.scanStartTime.setSuffix(_translate("MainWindow", " minutes", None))
         self.groupBox_4.setTitle(_translate("MainWindow", "Signal abundance", None))
         self.intensityThreshold.setPrefix(_translate("MainWindow", "≥ ", None))
-        self.label_11.setToolTip(_translate("MainWindow", "Intensity Threshold for the pure Base M/Z Peak\n"
-"This threshold is not used for mixed Base and Isotope Peaks or for \n"
-"the pure Isotope Peak", None))
+        self.label_11.setToolTip(
+            _translate(
+                "MainWindow",
+                "Intensity Threshold for the pure Base M/Z Peak\n"
+                "This threshold is not used for mixed Base and Isotope Peaks or for \n"
+                "the pure Isotope Peak",
+                None,
+            )
+        )
         self.label_11.setText(_translate("MainWindow", "Intensity threshold", None))
         self.label_31.setText(_translate("MainWindow", "Intensity cutoff", None))
         self.intensityCutoff.setPrefix(_translate("MainWindow", "≤ ", None))
@@ -2684,202 +3399,487 @@ class Ui_MainWindow(object):
         self.label_34.setText(_translate("MainWindow", "Number of charges", None))
         self.maxLoading.setPrefix(_translate("MainWindow", "≤ ", None))
         self.groupBox_13.setTitle(_translate("MainWindow", "Mass deviation", None))
-        self.label_12.setToolTip(_translate("MainWindow", "Ppm Range in which the Isotope M/Z Peak and the mixed Base and Intensity Peaks can be found", None))
+        self.label_12.setToolTip(
+            _translate(
+                "MainWindow",
+                "Ppm Range in which the Isotope M/Z Peak and the mixed Base and Intensity Peaks can be found",
+                None,
+            )
+        )
         self.label_12.setText(_translate("MainWindow", "Mass deviation", None))
         self.ppmRangeIdentification.setPrefix(_translate("MainWindow", "± ", None))
         self.ppmRangeIdentification.setSuffix(_translate("MainWindow", " ppm", None))
         self.groupBox_6.setTitle(_translate("MainWindow", "Isotopologs", None))
-        self.label_16.setToolTip(_translate("MainWindow", "The observed Intensities differ from the theoretical Intensities for a certain M/Z. This parameter controls the deviation of the theoretical and observed Intensities for a mixed Base and Isotope M/Z Peak", None))
-        self.label_16.setText(_translate("MainWindow", "Maximum ratio deviation native", None))
+        self.label_16.setToolTip(
+            _translate(
+                "MainWindow",
+                "The observed Intensities differ from the theoretical Intensities for a certain M/Z. This parameter controls the deviation of the theoretical and observed Intensities for a mixed Base and Isotope M/Z Peak",
+                None,
+            )
+        )
+        self.label_16.setText(
+            _translate("MainWindow", "Maximum ratio deviation native", None)
+        )
         self.baseRange.setPrefix(_translate("MainWindow", "± ", None))
         self.baseRange.setSuffix(_translate("MainWindow", " %", None))
-        self.label_17.setToolTip(_translate("MainWindow", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
-"<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
-"p, li { white-space: pre-wrap; }\n"
-"</style></head><body style=\" font-family:\'MS Shell Dlg 2\'; font-size:8.25pt; font-weight:400; font-style:normal;\">\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt;\">The observed Intensities differ from the theoretical Intensities for a certain M/Z. This parameter controls the deviation of the theoretical and observed Intensities for a mixed Base and Isotope M/Z Peak</span></p></body></html>", None))
-        self.label_17.setText(_translate("MainWindow", "Maximum ratio deviation labeled", None))
+        self.label_17.setToolTip(
+            _translate(
+                "MainWindow",
+                '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0//EN" "http://www.w3.org/TR/REC-html40/strict.dtd">\n'
+                '<html><head><meta name="qrichtext" content="1" /><style type="text/css">\n'
+                "p, li { white-space: pre-wrap; }\n"
+                "</style></head><body style=\" font-family:'MS Shell Dlg 2'; font-size:8.25pt; font-weight:400; font-style:normal;\">\n"
+                '<p style=" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;"><span style=" font-size:8pt;">The observed Intensities differ from the theoretical Intensities for a certain M/Z. This parameter controls the deviation of the theoretical and observed Intensities for a mixed Base and Isotope M/Z Peak</span></p></body></html>',
+                None,
+            )
+        )
+        self.label_17.setText(
+            _translate("MainWindow", "Maximum ratio deviation labeled", None)
+        )
         self.isotopeRange.setPrefix(_translate("MainWindow", "± ", None))
         self.isotopeRange.setSuffix(_translate("MainWindow", " %", None))
-        self.label_15.setToolTip(_translate("MainWindow", "The number of M/Z Peaks that are required for a Base M/Z or an Isotope M/Z to be marked as labeled", None))
-        self.label_15.setText(_translate("MainWindow", "Number of isotopologs native", None))
-        self.label_29.setText(_translate("MainWindow", "Number of isotopologs labeled", None))
+        self.label_15.setToolTip(
+            _translate(
+                "MainWindow",
+                "The number of M/Z Peaks that are required for a Base M/Z or an Isotope M/Z to be marked as labeled",
+                None,
+            )
+        )
+        self.label_15.setText(
+            _translate("MainWindow", "Number of isotopologs native", None)
+        )
+        self.label_29.setText(
+            _translate("MainWindow", "Number of isotopologs labeled", None)
+        )
         self.isotopePatternCountB.setPrefix(_translate("MainWindow", "= ", None))
-        self.isoAbundance.setText(_translate("MainWindow", "Consider isotopolog abundance", None))
+        self.isoAbundance.setText(
+            _translate("MainWindow", "Consider isotopolog abundance", None)
+        )
         self.isotopePatternCountA.setPrefix(_translate("MainWindow", "= ", None))
-        self.intensityThresholdIsotopologs.setPrefix(_translate("MainWindow", "≥ ", None))
+        self.intensityThresholdIsotopologs.setPrefix(
+            _translate("MainWindow", "≥ ", None)
+        )
         self.label_73.setText(_translate("MainWindow", "Isotopolog threshold", None))
-        self.label_86.setText(_translate("MainWindow", "<html><head/><body><p>Detected metabolites will be used to generate one or severl lists of MSMS targets for targeted fragmentation experiments</p><p>Separate lists will be generated for the positive and negative ionization modes</p></body></html>", None))
-        self.label_85.setText(_translate("MainWindow", "Minimum required abundance", None))
+        self.label_86.setText(
+            _translate(
+                "MainWindow",
+                "<html><head/><body><p>Detected metabolites will be used to generate one or severl lists of MSMS targets for targeted fragmentation experiments</p><p>Separate lists will be generated for the positive and negative ionization modes</p></body></html>",
+                None,
+            )
+        )
+        self.label_85.setText(
+            _translate("MainWindow", "Minimum required abundance", None)
+        )
         self.msms_minCounts.setPrefix(_translate("MainWindow", "≥ ", None))
-        self.label_88.setText(_translate("MainWindow", "MSMSM target file location", None))
+        self.label_88.setText(
+            _translate("MainWindow", "MSMSM target file location", None)
+        )
         self.msms_selectFile.setText(_translate("MainWindow", "Select file", None))
-        self.label_87.setText(_translate("MainWindow", "Retention time window for MSMS targets", None))
+        self.label_87.setText(
+            _translate("MainWindow", "Retention time window for MSMS targets", None)
+        )
         self.msms_rtWindow.setPrefix(_translate("MainWindow", "± ", None))
         self.msms_rtWindow.setSuffix(_translate("MainWindow", " minutes", None))
-        self.label_89.setText(_translate("MainWindow", "Maximum number of parallel MSMS targets", None))
+        self.label_89.setText(
+            _translate("MainWindow", "Maximum number of parallel MSMS targets", None)
+        )
         self.msms_maxParallelTargets.setPrefix(_translate("MainWindow", "≤ ", None))
-        self.label_90.setText(_translate("MainWindow", "Number of MSMS replicates per sample", None))
-        self.label_92.setText(_translate("MainWindow", "Heuristic optimisation: Generation:", None))
-        self.label_93.setText(_translate("MainWindow", "Number of offsprings per generation", None))
+        self.label_90.setText(
+            _translate("MainWindow", "Number of MSMS replicates per sample", None)
+        )
+        self.label_92.setText(
+            _translate("MainWindow", "Heuristic optimisation: Generation:", None)
+        )
+        self.label_93.setText(
+            _translate("MainWindow", "Number of offsprings per generation", None)
+        )
         self.label_94.setText(_translate("MainWindow", "Number of generations", None))
-        self.label_66.setText(_translate("MainWindow", "<html><head/><body><p>Detected and bracketed results will be annotated with putative sum formulas (Seven Golden Rules Kind et al. 2007) and/or metabolite databases (in the form of TSV lists)</p></body></html>", None))
-        self.generateSumFormulas_CheckBox.setTitle(_translate("MainWindow", "Generate sum formulas", None))
+        self.label_66.setText(
+            _translate(
+                "MainWindow",
+                "<html><head/><body><p>Detected and bracketed results will be annotated with putative sum formulas (Seven Golden Rules Kind et al. 2007) and/or metabolite databases (in the form of TSV lists)</p></body></html>",
+                None,
+            )
+        )
+        self.generateSumFormulas_CheckBox.setTitle(
+            _translate("MainWindow", "Generate sum formulas", None)
+        )
         self.groupBox_9.setTitle(_translate("MainWindow", "Elements", None))
         self.label_67.setText(_translate("MainWindow", "Minimum", None))
-        self.sumFormulasMinimumElements_lineEdit.setText(_translate("MainWindow", "CHNOS", None))
+        self.sumFormulasMinimumElements_lineEdit.setText(
+            _translate("MainWindow", "CHNOS", None)
+        )
         self.label_75.setText(_translate("MainWindow", "Maximum", None))
-        self.sumFormulasMaximumElements_lineEdit.setText(_translate("MainWindow", "C80H300N10O20S10", None))
-        self.searchDB_checkBox.setTitle(_translate("MainWindow", "Annotation databases", None))
-        self.checkRTInHits_checkBox.setText(_translate("MainWindow", "Check retention time", None))
+        self.sumFormulasMaximumElements_lineEdit.setText(
+            _translate("MainWindow", "C80H300N10O20S10", None)
+        )
+        self.searchDB_checkBox.setTitle(
+            _translate("MainWindow", "Annotation databases", None)
+        )
+        self.checkRTInHits_checkBox.setText(
+            _translate("MainWindow", "Check retention time", None)
+        )
         self.addDB_pushButton.setText(_translate("MainWindow", "Add database", None))
-        self.addmzVaultRep_pushButton.setText(_translate("MainWindow", "Add mzVault repository", None))
-        self.removeDB_pushButton.setText(_translate("MainWindow", "Remove annotation source", None))
-        self.generateDBTemplate_pushButton.setText(_translate("MainWindow", "Generate database template", None))
-        self.label_79.setText(_translate("MainWindow", "Maximum retention time deviation", None))
+        self.addmzVaultRep_pushButton.setText(
+            _translate("MainWindow", "Add mzVault repository", None)
+        )
+        self.removeDB_pushButton.setText(
+            _translate("MainWindow", "Remove annotation source", None)
+        )
+        self.generateDBTemplate_pushButton.setText(
+            _translate("MainWindow", "Generate database template", None)
+        )
+        self.label_79.setText(
+            _translate("MainWindow", "Maximum retention time deviation", None)
+        )
         self.maxRTErrorInHits_spinnerBox.setPrefix(_translate("MainWindow", "± ", None))
-        self.maxRTErrorInHits_spinnerBox.setSuffix(_translate("MainWindow", " minutes", None))
-        self.label_80.setText(_translate("MainWindow", "Minimum MSMS similarity score", None))
+        self.maxRTErrorInHits_spinnerBox.setSuffix(
+            _translate("MainWindow", " minutes", None)
+        )
+        self.label_80.setText(
+            _translate("MainWindow", "Minimum MSMS similarity score", None)
+        )
         self.minMSMSScore_doubleSpinBox.setPrefix(_translate("MainWindow", "≥ ", None))
-        self.label_81.setText(_translate("MainWindow", "Maximum allowed mass deviation", None))
-        self.annotationMaxPPM_doubleSpinBox.setPrefix(_translate("MainWindow", "± ", None))
-        self.annotationMaxPPM_doubleSpinBox.setSuffix(_translate("MainWindow", " ppm", None))
+        self.label_81.setText(
+            _translate("MainWindow", "Maximum allowed mass deviation", None)
+        )
+        self.annotationMaxPPM_doubleSpinBox.setPrefix(
+            _translate("MainWindow", "± ", None)
+        )
+        self.annotationMaxPPM_doubleSpinBox.setSuffix(
+            _translate("MainWindow", " ppm", None)
+        )
         self.label_91.setText(_translate("MainWindow", "Correct mass by", None))
         self.label_98.setText(_translate("MainWindow", "positive mode", None))
-        self.annotation_correctMassByPPMposMode.setSuffix(_translate("MainWindow", " ppm", None))
+        self.annotation_correctMassByPPMposMode.setSuffix(
+            _translate("MainWindow", " ppm", None)
+        )
         self.label_99.setText(_translate("MainWindow", "negative mode", None))
-        self.annotation_correctMassByPPMnegMode.setSuffix(_translate("MainWindow", "ppm", None))
-        self.label_76.setText(_translate("MainWindow", "Use number of labeling atoms", None))
-        self.sumFormulasUseExactXn_ComboBox.setItemText(0, _translate("MainWindow", "Exact", None))
-        self.sumFormulasUseExactXn_ComboBox.setItemText(1, _translate("MainWindow", "Don\'t use", None))
-        self.sumFormulasUseExactXn_ComboBox.setItemText(2, _translate("MainWindow", "Minimum", None))
-        self.sumFormulasUseExactXn_ComboBox.setItemText(3, _translate("MainWindow", "PlusMinus", None))
-        self.label_54.setText(_translate("MainWindow", "<html><head/><body><p>Features found in several measurement files may be grouped together (optional: chromatographic alignment)<br/><br/>Not detected feature pairs (e.g. due to low intensity) from other measurement files may be integrated in a targeted fashion</p></body></html>", None))
+        self.annotation_correctMassByPPMnegMode.setSuffix(
+            _translate("MainWindow", "ppm", None)
+        )
+        self.label_76.setText(
+            _translate("MainWindow", "Use number of labeling atoms", None)
+        )
+        self.sumFormulasUseExactXn_ComboBox.setItemText(
+            0, _translate("MainWindow", "Exact", None)
+        )
+        self.sumFormulasUseExactXn_ComboBox.setItemText(
+            1, _translate("MainWindow", "Don't use", None)
+        )
+        self.sumFormulasUseExactXn_ComboBox.setItemText(
+            2, _translate("MainWindow", "Minimum", None)
+        )
+        self.sumFormulasUseExactXn_ComboBox.setItemText(
+            3, _translate("MainWindow", "PlusMinus", None)
+        )
+        self.label_54.setText(
+            _translate(
+                "MainWindow",
+                "<html><head/><body><p>Features found in several measurement files may be grouped together (optional: chromatographic alignment)<br/><br/>Not detected feature pairs (e.g. due to low intensity) from other measurement files may be integrated in a targeted fashion</p></body></html>",
+                None,
+            )
+        )
         self.groupResults.setTitle(_translate("MainWindow", "Bracket results", None))
         self.label_26.setText(_translate("MainWindow", "Maximum mz width", None))
         self.groupPpm.setPrefix(_translate("MainWindow", "± ", None))
         self.groupPpm.setSuffix(_translate("MainWindow", " ppm", None))
-        self.alignChromatograms.setText(_translate("MainWindow", "Align chromatograms", None))
+        self.alignChromatograms.setText(
+            _translate("MainWindow", "Align chromatograms", None)
+        )
         self.polynomLabel.setText(_translate("MainWindow", "n-th polynom", None))
         self.label_18.setText(_translate("MainWindow", "Time window", None))
         self.groupingRT.setPrefix(_translate("MainWindow", "± ", None))
         self.groupingRT.setSuffix(_translate("MainWindow", " minutes", None))
-        self.convoluteResults.setTitle(_translate("MainWindow", "Convolute results", None))
+        self.convoluteResults.setTitle(
+            _translate("MainWindow", "Convolute results", None)
+        )
         self.label_65.setText(_translate("MainWindow", "Maximum time window", None))
         self.maxAnnotationTimeWindow.setPrefix(_translate("MainWindow", "± ", None))
-        self.maxAnnotationTimeWindow.setSuffix(_translate("MainWindow", " minutes", None))
+        self.maxAnnotationTimeWindow.setSuffix(
+            _translate("MainWindow", " minutes", None)
+        )
         self.label_69.setText(_translate("MainWindow", "Minimum connections", None))
         self.minConnectionRate.setPrefix(_translate("MainWindow", "≥ ", None))
         self.minConnectionRate.setSuffix(_translate("MainWindow", " %", None))
-        self.label_74.setText(_translate("MainWindow", "Minimum number of detections in files", None))
-        self.metaboliteClusterMinConnections.setPrefix(_translate("MainWindow", "≥ ", None))
-        self.useSILRatioForConvolution.setText(_translate("MainWindow", "Use SIL ratio", None))
-        self.integratedMissedPeaks.setTitle(_translate("MainWindow", "Integrate missing feature pairs", None))
+        self.label_74.setText(
+            _translate("MainWindow", "Minimum number of detections in files", None)
+        )
+        self.metaboliteClusterMinConnections.setPrefix(
+            _translate("MainWindow", "≥ ", None)
+        )
+        self.useSILRatioForConvolution.setText(
+            _translate("MainWindow", "Use SIL ratio", None)
+        )
+        self.integratedMissedPeaks.setTitle(
+            _translate("MainWindow", "Integrate missing feature pairs", None)
+        )
         self.label_55.setText(_translate("MainWindow", "Maximum time difference", None))
-        self.integrationMaxTimeDifference.setPrefix(_translate("MainWindow", "± ", None))
-        self.integrationMaxTimeDifference.setSuffix(_translate("MainWindow", " minutes", None))
+        self.integrationMaxTimeDifference.setPrefix(
+            _translate("MainWindow", "± ", None)
+        )
+        self.integrationMaxTimeDifference.setSuffix(
+            _translate("MainWindow", " minutes", None)
+        )
         self.label_68.setText(_translate("MainWindow", "Intensity cutoff", None))
         self.reintegrateIntensityCutoff.setPrefix(_translate("MainWindow", "≤ ", None))
-        self.checkBox_expPeakArea.setText(_translate("MainWindow", "Export peak areas", None))
-        self.checkBox_expPeakApexIntensity.setText(_translate("MainWindow", "Export peak apex intensity", None))
-        self.checkBox_expPeakSNR.setText(_translate("MainWindow", "Export peak SNR", None))
+        self.checkBox_expPeakArea.setText(
+            _translate("MainWindow", "Export peak areas", None)
+        )
+        self.checkBox_expPeakApexIntensity.setText(
+            _translate("MainWindow", "Export peak apex intensity", None)
+        )
+        self.checkBox_expPeakSNR.setText(
+            _translate("MainWindow", "Export peak SNR", None)
+        )
         self.label_20.setText(_translate("MainWindow", "Save grouped results to", None))
         self.groupsSelectFile.setText(_translate("MainWindow", "Select file", None))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.pickingTab), _translate("MainWindow", "Process", None))
+        self.tabWidget.setTabText(
+            self.tabWidget.indexOf(self.pickingTab),
+            _translate("MainWindow", "Process", None),
+        )
         self.label_28.setText(_translate("MainWindow", "Sort according to", None))
-        self.res_ExtractedData.headerItem().setText(0, _translate("MainWindow", "1", None))
-        self.res_ExtractedData.headerItem().setText(1, _translate("MainWindow", "2", None))
-        self.res_ExtractedData.headerItem().setText(2, _translate("MainWindow", "3", None))
-        self.res_ExtractedData.headerItem().setText(3, _translate("MainWindow", "4", None))
+        self.res_ExtractedData.headerItem().setText(
+            0, _translate("MainWindow", "1", None)
+        )
+        self.res_ExtractedData.headerItem().setText(
+            1, _translate("MainWindow", "2", None)
+        )
+        self.res_ExtractedData.headerItem().setText(
+            2, _translate("MainWindow", "3", None)
+        )
+        self.res_ExtractedData.headerItem().setText(
+            3, _translate("MainWindow", "4", None)
+        )
         self.label_59.setText(_translate("MainWindow", "Processed file", None))
         self.label_41.setText(_translate("MainWindow", "Filter", None))
         self.label_22.setText(_translate("MainWindow", "Result name", None))
         self.setChromPeakName.setText(_translate("MainWindow", "Set", None))
         self.sortOrderResults.setItemText(0, _translate("MainWindow", "RT", None))
         self.sortOrderResults.setItemText(1, _translate("MainWindow", "M/Z", None))
-        self.sortOrderResults.setItemText(2, _translate("MainWindow", "Intensity", None))
-        self.sortOrderResults.setItemText(3, _translate("MainWindow", "Peaks correlation", None))
+        self.sortOrderResults.setItemText(
+            2, _translate("MainWindow", "Intensity", None)
+        )
+        self.sortOrderResults.setItemText(
+            3, _translate("MainWindow", "Peaks correlation", None)
+        )
         self.openRAW.setText(_translate("MainWindow", "Open externally", None))
-        self.label_95.setText(_translate("MainWindow", "<html><head/><body><p><span style=\" font-size:12pt; font-weight:600;\">EICs of native and labeled metabolite ion</span></p></body></html>", None))
-        self.pushButton_showOptions1.setText(_translate("MainWindow", "Show options", None))
-        self.pushButton_hideOptions1.setText(_translate("MainWindow", "Hide options", None))
+        self.label_95.setText(
+            _translate(
+                "MainWindow",
+                '<html><head/><body><p><span style=" font-size:12pt; font-weight:600;">EICs of native and labeled metabolite ion</span></p></body></html>',
+                None,
+            )
+        )
+        self.pushButton_showOptions1.setText(
+            _translate("MainWindow", "Show options", None)
+        )
+        self.pushButton_hideOptions1.setText(
+            _translate("MainWindow", "Hide options", None)
+        )
         self.groupBox_options1.setTitle(_translate("MainWindow", "Options", None))
-        self.autoZoomPlot.setText(_translate("MainWindow", "Autozoom to chromatographic peaks", None))
-        self.negEIC.setText(_translate("MainWindow", "Show EIC of labeled ion form with negative intensities", None))
-        self.plotAddLabels.setText(_translate("MainWindow", "Add balloon labels to the EIC plot", None))
+        self.autoZoomPlot.setText(
+            _translate("MainWindow", "Autozoom to chromatographic peaks", None)
+        )
+        self.negEIC.setText(
+            _translate(
+                "MainWindow",
+                "Show EIC of labeled ion form with negative intensities",
+                None,
+            )
+        )
+        self.plotAddLabels.setText(
+            _translate("MainWindow", "Add balloon labels to the EIC plot", None)
+        )
         self.plotMarkArea.setText(_translate("MainWindow", "Color peak area", None))
-        self.showArtificialShoft_checkBox.setText(_translate("MainWindow", "Shift the labeled EIC artificially", None))
-        self.scaleFeatures.setText(_translate("MainWindow", "Normalise peak abundances to 1", None))
-        self.scaleLabelledFeatures.setText(_translate("MainWindow", "Normalise native and labeled peaks separately", None))
-        self.showIsotopologues.setText(_translate("MainWindow", "Show EICs of isotopologs M+1 and M\'-1", None))
-        self.checkBox_showBaseline.setText(_translate("MainWindow", "Subtract the baseline of the EICs", None))
-        self.showSmoothedEIC_checkBox.setText(_translate("MainWindow", "Show smoothed signal", None))
-        self.flattenXIC.setText(_translate("MainWindow", "Crop EICs to chromatographic peaks", None))
+        self.showArtificialShoft_checkBox.setText(
+            _translate("MainWindow", "Shift the labeled EIC artificially", None)
+        )
+        self.scaleFeatures.setText(
+            _translate("MainWindow", "Normalise peak abundances to 1", None)
+        )
+        self.scaleLabelledFeatures.setText(
+            _translate(
+                "MainWindow", "Normalise native and labeled peaks separately", None
+            )
+        )
+        self.showIsotopologues.setText(
+            _translate("MainWindow", "Show EICs of isotopologs M+1 and M'-1", None)
+        )
+        self.checkBox_showBaseline.setText(
+            _translate("MainWindow", "Subtract the baseline of the EICs", None)
+        )
+        self.showSmoothedEIC_checkBox.setText(
+            _translate("MainWindow", "Show smoothed signal", None)
+        )
+        self.flattenXIC.setText(
+            _translate("MainWindow", "Crop EICs to chromatographic peaks", None)
+        )
         self.showLegend.setText(_translate("MainWindow", "Show legend", None))
-        self.showDiagnostics.setText(_translate("MainWindow", "Add labels to other features detected with the same m/z value", None))
-        self.setPeakCentersToZero.setText(_translate("MainWindow", "Set peak centers to 0 to improve their comparison", None))
-        self.label_96.setText(_translate("MainWindow", "<html><head/><body><p><span style=\" font-size:12pt; font-weight:600;\">Mass spectra of native and labeled metabolite ion</span></p></body></html>", None))
-        self.pushButton_showOptions2.setText(_translate("MainWindow", "Show options", None))
-        self.pushButton_hideOptions2.setText(_translate("MainWindow", "Hide options", None))
+        self.showDiagnostics.setText(
+            _translate(
+                "MainWindow",
+                "Add labels to other features detected with the same m/z value",
+                None,
+            )
+        )
+        self.setPeakCentersToZero.setText(
+            _translate(
+                "MainWindow", "Set peak centers to 0 to improve their comparison", None
+            )
+        )
+        self.label_96.setText(
+            _translate(
+                "MainWindow",
+                '<html><head/><body><p><span style=" font-size:12pt; font-weight:600;">Mass spectra of native and labeled metabolite ion</span></p></body></html>',
+                None,
+            )
+        )
+        self.pushButton_showOptions2.setText(
+            _translate("MainWindow", "Show options", None)
+        )
+        self.pushButton_hideOptions2.setText(
+            _translate("MainWindow", "Hide options", None)
+        )
         self.groupBox_options2.setTitle(_translate("MainWindow", "Options", None))
         self.MSLabels.setText(_translate("MainWindow", "Labels", None))
         self.MSIsos.setText(_translate("MainWindow", "Isotopologues", None))
-        self.drawFPIsotopologues.setText(_translate("MainWindow", "M-1, M\'+1", None))
+        self.drawFPIsotopologues.setText(_translate("MainWindow", "M-1, M'+1", None))
         self.label_8.setText(_translate("MainWindow", "Isotopolog deviation", None))
-        self.doubleSpinBox_isotopologAnnotationPPM.setPrefix(_translate("MainWindow", "± ", None))
-        self.doubleSpinBox_isotopologAnnotationPPM.setSuffix(_translate("MainWindow", " ppm", None))
-        self.tabWidget_2.setTabText(self.tabWidget_2.indexOf(self.tab), _translate("MainWindow", "EICs and Mass spectra", None))
-        self.tabWidget_2.setTabText(self.tabWidget_2.indexOf(self.tab_2), _translate("MainWindow", "Group results", None))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.resultsTab), _translate("MainWindow", "Sample results", None))
+        self.doubleSpinBox_isotopologAnnotationPPM.setPrefix(
+            _translate("MainWindow", "± ", None)
+        )
+        self.doubleSpinBox_isotopologAnnotationPPM.setSuffix(
+            _translate("MainWindow", " ppm", None)
+        )
+        self.tabWidget_2.setTabText(
+            self.tabWidget_2.indexOf(self.tab),
+            _translate("MainWindow", "EICs and Mass spectra", None),
+        )
+        self.tabWidget_2.setTabText(
+            self.tabWidget_2.indexOf(self.tab_2),
+            _translate("MainWindow", "Group results", None),
+        )
+        self.tabWidget.setTabText(
+            self.tabWidget.indexOf(self.resultsTab),
+            _translate("MainWindow", "Sample results", None),
+        )
         self.groupBox_options3.setTitle(_translate("MainWindow", "Options", None))
         self.label_63.setText(_translate("MainWindow", "EIC", None))
-        self.doubleSpinBox_resultsExperiment_EICppm.setPrefix(_translate("MainWindow", "± ", None))
-        self.doubleSpinBox_resultsExperiment_EICppm.setSuffix(_translate("MainWindow", " ppm", None))
+        self.doubleSpinBox_resultsExperiment_EICppm.setPrefix(
+            _translate("MainWindow", "± ", None)
+        )
+        self.doubleSpinBox_resultsExperiment_EICppm.setSuffix(
+            _translate("MainWindow", " ppm", None)
+        )
         self.label_64.setText(_translate("MainWindow", "Peak width", None))
-        self.doubleSpinBox_resultsExperiment_PeakWidth.setPrefix(_translate("MainWindow", "± ", None))
-        self.doubleSpinBox_resultsExperiment_PeakWidth.setSuffix(_translate("MainWindow", " minutes", None))
-        self.resultsExperimentNormaliseXICsSeparately_checkBox.setText(_translate("MainWindow", "Normalise separately", None))
-        self.resultsExperimentNormaliseXICs_checkBox.setText(_translate("MainWindow", "Normalise to labeled features", None))
-        self.pushButton_exportAllAsPDF.setText(_translate("MainWindow", "Export all as PDF", None))
-        self.label_97.setText(_translate("MainWindow", "<html><head/><body><p><span style=\" font-size:12pt; font-weight:600;\">Visualization of native and labeled metabolite forms in all samples</span></p></body></html>", None))
-        self.pushButton_showOptions3.setText(_translate("MainWindow", "Show options", None))
-        self.pushButton_hideOptions3.setText(_translate("MainWindow", "Hide options", None))
-        self.showCustomFeature_pushButton.setText(_translate("MainWindow", "Show custom feature", None))
-        self.resultsExperiment_TreeWidget.headerItem().setText(0, _translate("MainWindow", "1", None))
-        self.resultsExperiment_TreeWidget.headerItem().setText(1, _translate("MainWindow", "2", None))
-        self.resultsExperiment_TreeWidget.headerItem().setText(2, _translate("MainWindow", "3", None))
-        self.resultsExperiment_TreeWidget.headerItem().setText(3, _translate("MainWindow", "4", None))
-        self.resultsExperiment_TreeWidget.headerItem().setText(4, _translate("MainWindow", "5", None))
-        self.resultsExperiment_TreeWidget.headerItem().setText(5, _translate("MainWindow", "6", None))
-        self.tabWidget_3.setTabText(self.tabWidget_3.indexOf(self.tab_5), _translate("MainWindow", "XICs", None))
+        self.doubleSpinBox_resultsExperiment_PeakWidth.setPrefix(
+            _translate("MainWindow", "± ", None)
+        )
+        self.doubleSpinBox_resultsExperiment_PeakWidth.setSuffix(
+            _translate("MainWindow", " minutes", None)
+        )
+        self.resultsExperimentNormaliseXICsSeparately_checkBox.setText(
+            _translate("MainWindow", "Normalise separately", None)
+        )
+        self.resultsExperimentNormaliseXICs_checkBox.setText(
+            _translate("MainWindow", "Normalise to labeled features", None)
+        )
+        self.pushButton_exportAllAsPDF.setText(
+            _translate("MainWindow", "Export all as PDF", None)
+        )
+        self.label_97.setText(
+            _translate(
+                "MainWindow",
+                '<html><head/><body><p><span style=" font-size:12pt; font-weight:600;">Visualization of native and labeled metabolite forms in all samples</span></p></body></html>',
+                None,
+            )
+        )
+        self.pushButton_showOptions3.setText(
+            _translate("MainWindow", "Show options", None)
+        )
+        self.pushButton_hideOptions3.setText(
+            _translate("MainWindow", "Hide options", None)
+        )
+        self.showCustomFeature_pushButton.setText(
+            _translate("MainWindow", "Show custom feature", None)
+        )
+        self.resultsExperiment_TreeWidget.headerItem().setText(
+            0, _translate("MainWindow", "1", None)
+        )
+        self.resultsExperiment_TreeWidget.headerItem().setText(
+            1, _translate("MainWindow", "2", None)
+        )
+        self.resultsExperiment_TreeWidget.headerItem().setText(
+            2, _translate("MainWindow", "3", None)
+        )
+        self.resultsExperiment_TreeWidget.headerItem().setText(
+            3, _translate("MainWindow", "4", None)
+        )
+        self.resultsExperiment_TreeWidget.headerItem().setText(
+            4, _translate("MainWindow", "5", None)
+        )
+        self.resultsExperiment_TreeWidget.headerItem().setText(
+            5, _translate("MainWindow", "6", None)
+        )
+        self.tabWidget_3.setTabText(
+            self.tabWidget_3.indexOf(self.tab_5), _translate("MainWindow", "XICs", None)
+        )
         self.label_5.setText(_translate("MainWindow", "Separate according to", None))
-        self.comboBox_separatePeaks.setItemText(0, _translate("MainWindow", "Group", None))
-        self.comboBox_separatePeaks.setItemText(1, _translate("MainWindow", "Sample", None))
-        self.tabWidget_3.setTabText(self.tabWidget_3.indexOf(self.tab_6), _translate("MainWindow", "Separated peaks", None))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.bracketedResultsTab), _translate("MainWindow", "Experiment results", None))
+        self.comboBox_separatePeaks.setItemText(
+            0, _translate("MainWindow", "Group", None)
+        )
+        self.comboBox_separatePeaks.setItemText(
+            1, _translate("MainWindow", "Sample", None)
+        )
+        self.tabWidget_3.setTabText(
+            self.tabWidget_3.indexOf(self.tab_6),
+            _translate("MainWindow", "Separated peaks", None),
+        )
+        self.tabWidget.setTabText(
+            self.tabWidget.indexOf(self.bracketedResultsTab),
+            _translate("MainWindow", "Experiment results", None),
+        )
         self.version.setText(_translate("MainWindow", "TextLabel", None))
         self.menuHelp.setTitle(_translate("MainWindow", "Help", None))
         self.menuFile.setTitle(_translate("MainWindow", "File", None))
-        self.menuAvailable_Settings.setTitle(_translate("MainWindow", "Load Settings", None))
+        self.menuAvailable_Settings.setTitle(
+            _translate("MainWindow", "Load Settings", None)
+        )
         self.menuTools.setTitle(_translate("MainWindow", "Tools", None))
         self.aboutMenue.setText(_translate("MainWindow", "About", None))
         self.exitMenue.setText(_translate("MainWindow", "Exit", None))
-        self.actionLoad_Settings.setText(_translate("MainWindow", "Load from file", None))
-        self.actionSave_Settings.setText(_translate("MainWindow", "Save Settings", None))
+        self.actionLoad_Settings.setText(
+            _translate("MainWindow", "Load from file", None)
+        )
+        self.actionSave_Settings.setText(
+            _translate("MainWindow", "Save Settings", None)
+        )
         self.helpMenue.setText(_translate("MainWindow", "Help", None))
-        self.actionIsotopic_enrichment.setText(_translate("MainWindow", "Isotopic enrichment", None))
-        self.actionSet_working_directory.setText(_translate("MainWindow", "Set working directory", None))
-        self.openTempDir.setText(_translate("MainWindow", "Open temporary directory (logfile and caches)", None))
-        self.actionShow_summary_of_previous_current_results.setText(_translate("MainWindow", "Show overview of results", None))
+        self.actionIsotopic_enrichment.setText(
+            _translate("MainWindow", "Isotopic enrichment", None)
+        )
+        self.actionSet_working_directory.setText(
+            _translate("MainWindow", "Set working directory", None)
+        )
+        self.openTempDir.setText(
+            _translate(
+                "MainWindow", "Open temporary directory (logfile and caches)", None
+            )
+        )
+        self.actionShow_summary_of_previous_current_results.setText(
+            _translate("MainWindow", "Show overview of results", None)
+        )
+
 
 import resources_rc
 
 if __name__ == "__main__":
     import sys
+
     app = QtWidgets.QApplication(sys.argv)
     MainWindow = QtWidgets.QMainWindow()
     ui = Ui_MainWindow()
     ui.setupUi(MainWindow)
     MainWindow.show()
     sys.exit(app.exec())
-

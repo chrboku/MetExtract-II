@@ -10,11 +10,12 @@ from MSScan import MS1Scan, MS2Scan
 
 from utils import Bunch
 
+
 # reads and holds the information of one MZXML file
-class Chromatogram():
+class Chromatogram:
     def __init__(self):
         self.msLevel = 0
-        self.current_tag = ''
+        self.current_tag = ""
         self.tag_level = 0
         self.MS1_list = []
         self.MS2_list = []
@@ -50,8 +51,10 @@ class Chromatogram():
     def getClosestMS1Scan(self, scanTimeMin, filterLine=""):
         fscan = self.MS1_list[0]
         for scan in self.MS1_list:
-            if scan.filter_line==filterLine and abs(scan.retention_time / 60. - scanTimeMin) < abs(fscan.retention_time / 60. - scanTimeMin):
-                    fscan = scan
+            if scan.filter_line == filterLine and abs(
+                scan.retention_time / 60.0 - scanTimeMin
+            ) < abs(fscan.retention_time / 60.0 - scanTimeMin):
+                fscan = scan
         return fscan
 
     def getScanByID(self, id):
@@ -62,48 +65,91 @@ class Chromatogram():
             if scan.id == id:
                 return scan
 
-    def getFilterLines(self, includeMS1=True, includeMS2=False, includePosPolarity=True, includeNegPolarity=True):
+    def getFilterLines(
+        self,
+        includeMS1=True,
+        includeMS2=False,
+        includePosPolarity=True,
+        includeNegPolarity=True,
+    ):
         filterLines = set()
         if includeMS1:
             for scan in self.MS1_list:
-                if (includePosPolarity and scan.polarity=="+") or (includeNegPolarity and scan.polarity=="-"):
+                if (includePosPolarity and scan.polarity == "+") or (
+                    includeNegPolarity and scan.polarity == "-"
+                ):
                     filterLines.add(scan.filter_line)
         if includeMS2:
             for scan in self.MS2_list:
-                if (includePosPolarity and scan.polarity=="+") or (includeNegPolarity and scan.polarity=="-"):
+                if (includePosPolarity and scan.polarity == "+") or (
+                    includeNegPolarity and scan.polarity == "-"
+                ):
                     filterLines.add(scan.filter_line)
 
         return filterLines
 
-    def getFilterLinesExtended(self, includeMS1=True, includeMS2=False, includePosPolarity=True, includeNegPolarity=True):
+    def getFilterLinesExtended(
+        self,
+        includeMS1=True,
+        includeMS2=False,
+        includePosPolarity=True,
+        includeNegPolarity=True,
+    ):
         filterLines = {}
         if includeMS1:
             for scan in self.MS1_list:
-                if (includePosPolarity and scan.polarity=="+") or (includeNegPolarity and scan.polarity=="-"):
+                if (includePosPolarity and scan.polarity == "+") or (
+                    includeNegPolarity and scan.polarity == "-"
+                ):
                     if scan.filter_line not in filterLines.keys():
-                        filterLines[scan.filter_line]=Bunch(scanType="MS1", polarity=scan.polarity, targetStartTime=10000000, targetEndTime=0)
-                    filterLines[scan.filter_line].targetStartTime=min(filterLines[scan.filter_line].targetStartTime, scan.retention_time)
-                    filterLines[scan.filter_line].targetEndTime=min(filterLines[scan.filter_line].targetEndTime, scan.retention_time)
+                        filterLines[scan.filter_line] = Bunch(
+                            scanType="MS1",
+                            polarity=scan.polarity,
+                            targetStartTime=10000000,
+                            targetEndTime=0,
+                        )
+                    filterLines[scan.filter_line].targetStartTime = min(
+                        filterLines[scan.filter_line].targetStartTime,
+                        scan.retention_time,
+                    )
+                    filterLines[scan.filter_line].targetEndTime = min(
+                        filterLines[scan.filter_line].targetEndTime, scan.retention_time
+                    )
 
         if includeMS2:
             for scan in self.MS2_list:
-                if (includePosPolarity and scan.polarity=="+") or (includeNegPolarity and scan.polarity=="-"):
+                if (includePosPolarity and scan.polarity == "+") or (
+                    includeNegPolarity and scan.polarity == "-"
+                ):
                     if scan.filter_line not in filterLines.keys():
-                        filterLines[scan.filter_line]=Bunch(scanType="MS2", polarity=scan.polarity, targetStartTime=10000000, targetEndTime=0, preCursorMz=[], colisionEnergy=0, scanTimes=[])
-                    filterLines[scan.filter_line].targetStartTime=min(filterLines[scan.filter_line].targetStartTime, scan.retention_time)
-                    filterLines[scan.filter_line].targetEndTime=max(filterLines[scan.filter_line].targetEndTime, scan.retention_time)
+                        filterLines[scan.filter_line] = Bunch(
+                            scanType="MS2",
+                            polarity=scan.polarity,
+                            targetStartTime=10000000,
+                            targetEndTime=0,
+                            preCursorMz=[],
+                            colisionEnergy=0,
+                            scanTimes=[],
+                        )
+                    filterLines[scan.filter_line].targetStartTime = min(
+                        filterLines[scan.filter_line].targetStartTime,
+                        scan.retention_time,
+                    )
+                    filterLines[scan.filter_line].targetEndTime = max(
+                        filterLines[scan.filter_line].targetEndTime, scan.retention_time
+                    )
                     filterLines[scan.filter_line].preCursorMz.append(scan.precursor_mz)
-                    filterLines[scan.filter_line].colisionEnergy=scan.colisionEnergy
+                    filterLines[scan.filter_line].colisionEnergy = scan.colisionEnergy
                     filterLines[scan.filter_line].scanTimes.append(scan.retention_time)
 
             for k, v in filterLines.items():
-                if v.scanType=="MS2":
-                    v.preCursorMz=sum(v.preCursorMz)/len(v.preCursorMz)
+                if v.scanType == "MS2":
+                    v.preCursorMz = sum(v.preCursorMz) / len(v.preCursorMz)
 
         return filterLines
 
     def getFilterLinesPerPolarity(self, includeMS1=True, includeMS2=False):
-        filterLines = {'+':set(), '-':set()}
+        filterLines = {"+": set(), "-": set()}
         if includeMS1:
             for scan in self.MS1_list:
                 filterLines[scan.polarity].add(scan.filter_line)
@@ -127,14 +173,14 @@ class Chromatogram():
         times = []
         scanIds = []
 
-        msLevelList=self.MS1_list
+        msLevelList = self.MS1_list
         if useMS2:
-            msLevelList=self.MS2_list
+            msLevelList = self.MS2_list
 
         for scan in msLevelList:
             if filterLine == "" or scan.filter_line == filterLine:
                 TIC.append(scan.total_ion_current)
-                #TIC.append(sum(scan.intensity_list))
+                # TIC.append(sum(scan.intensity_list))
                 times.append(scan.retention_time)
                 scanIds.append(scan.id)
 
@@ -166,8 +212,9 @@ class Chromatogram():
         return scans, times, scanIDs
 
     # returns a specific area (2-dimensionally bound in rt and mz direction) of the LC-HRMS data
-    def getSpecificArea(self, startTime, endTime, mzmin, mzmax, filterLine="", intThreshold=0):
-
+    def getSpecificArea(
+        self, startTime, endTime, mzmin, mzmax, filterLine="", intThreshold=0
+    ):
         scans = []
         times = []
         scanIDs = []
@@ -192,7 +239,18 @@ class Chromatogram():
         return scans, times, scanIDs
 
     # returns an eic. Single MS peaks and such below a certain threshold may be removed
-    def getEIC(self, mz, ppm, filterLine="", removeSingles=True, intThreshold=0, useMS1=True, useMS2=False, startTime=0, endTime=1000000):
+    def getEIC(
+        self,
+        mz,
+        ppm,
+        filterLine="",
+        removeSingles=True,
+        intThreshold=0,
+        useMS1=True,
+        useMS2=False,
+        startTime=0,
+        endTime=1000000,
+    ):
         eic = []
         times = []
         scanIds = []
@@ -204,13 +262,17 @@ class Chromatogram():
 
         if useMS1:
             for scan in self.MS1_list:
-                if (scan.filter_line == filterLine or filterLine == "") and startTime <= scan.retention_time <= endTime:
+                if (
+                    scan.filter_line == filterLine or filterLine == ""
+                ) and startTime <= scan.retention_time <= endTime:
                     bounds = scan.findMZ(mz, ppm)
                     if bounds[0] != -1:
-                        df=scan.intensity_list[bounds[0]:(bounds[1] + 1)]
-                        uIndex=df.index(max(scan.intensity_list[bounds[0]:(bounds[1] + 1)]))
-                        eicAppend(scan.intensity_list[bounds[0]+uIndex])
-                        mzs.append(scan.mz_list[bounds[0]+uIndex])
+                        df = scan.intensity_list[bounds[0] : (bounds[1] + 1)]
+                        uIndex = df.index(
+                            max(scan.intensity_list[bounds[0] : (bounds[1] + 1)])
+                        )
+                        eicAppend(scan.intensity_list[bounds[0] + uIndex])
+                        mzs.append(scan.mz_list[bounds[0] + uIndex])
                     else:
                         eicAppend(0)
                         mzs.append(-1)
@@ -219,13 +281,17 @@ class Chromatogram():
 
         if useMS2:
             for scan in self.MS2_list:
-                if (scan.filter_line == filterLine or filterLine == "") and startTime <= scan.retention_time <= endTime:
+                if (
+                    scan.filter_line == filterLine or filterLine == ""
+                ) and startTime <= scan.retention_time <= endTime:
                     bounds = scan.findMZ(mz, ppm)
                     if bounds[0] != -1:
-                        df=scan.intensity_list[bounds[0]:(bounds[1] + 1)]
-                        uIndex=df.index(max(scan.intensity_list[bounds[0]:(bounds[1] + 1)]))
-                        eicAppend(scan.intensity_list[bounds[0]+uIndex])
-                        mzs.append(scan.mz_list[bounds[0]+uIndex])
+                        df = scan.intensity_list[bounds[0] : (bounds[1] + 1)]
+                        uIndex = df.index(
+                            max(scan.intensity_list[bounds[0] : (bounds[1] + 1)])
+                        )
+                        eicAppend(scan.intensity_list[bounds[0] + uIndex])
+                        mzs.append(scan.mz_list[bounds[0] + uIndex])
                     else:
                         eicAppend(0)
                         mzs.append(-1)
@@ -245,37 +311,56 @@ class Chromatogram():
 
         return eic, times, scanIds, mzs
 
-
-    def getSignalCount(self, filterLine="", removeSingles=True, intThreshold=0, useMS1=True, useMS2=False, startTime=0, endTime=1000000):
-        totSignals=0
-        for scan in self.MS1_list+self.MS2_list:
-            if (scan.filter_line == filterLine or filterLine == "") and startTime <= scan.retention_time <= endTime:
-                totSignals+=len([i for i in scan.intensity_list if i>=intThreshold])
+    def getSignalCount(
+        self,
+        filterLine="",
+        removeSingles=True,
+        intThreshold=0,
+        useMS1=True,
+        useMS2=False,
+        startTime=0,
+        endTime=1000000,
+    ):
+        totSignals = 0
+        for scan in self.MS1_list + self.MS2_list:
+            if (
+                scan.filter_line == filterLine or filterLine == ""
+            ) and startTime <= scan.retention_time <= endTime:
+                totSignals += len([i for i in scan.intensity_list if i >= intThreshold])
 
         return totSignals
 
+    def getMinMaxAvgSignalIntensities(
+        self,
+        filterLine="",
+        removeSingles=True,
+        intThreshold=0,
+        useMS1=True,
+        useMS2=False,
+        startTime=0,
+        endTime=1000000,
+    ):
+        minInt = 10000000000
+        maxInt = 0
+        avgsum = 0
+        avgcount = 0
+        for scan in self.MS1_list + self.MS2_list:
+            if (
+                scan.filter_line == filterLine or filterLine == ""
+            ) and startTime <= scan.retention_time <= endTime:
+                uVals = [i for i in scan.intensity_list if i >= intThreshold]
+                if len(uVals) == 0:
+                    uVals = [0]
 
-    def getMinMaxAvgSignalIntensities(self, filterLine="", removeSingles=True, intThreshold=0, useMS1=True, useMS2=False, startTime=0, endTime=1000000):
-        minInt=10000000000
-        maxInt=0
-        avgsum=0
-        avgcount=0
-        for scan in self.MS1_list+self.MS2_list:
-            if (scan.filter_line == filterLine or filterLine == "") and startTime <= scan.retention_time <= endTime:
+                minInt = min(minInt, min(uVals))
+                maxInt = max(minInt, max(uVals))
+                avgsum += sum(uVals)
+                avgcount += len(uVals)
 
-                uVals=[i for i in scan.intensity_list if i>=intThreshold]
-                if len(uVals)==0:
-                    uVals=[0]
-
-                minInt=min(minInt, min(uVals))
-                maxInt=max(minInt, max(uVals))
-                avgsum+=sum(uVals)
-                avgcount+=len(uVals)
-
-        if avgcount==0:
+        if avgcount == 0:
             return 0, 0, 0
         else:
-            return minInt, maxInt, avgsum/avgcount
+            return minInt, maxInt, avgsum / avgcount
 
     # converts base64 coded spectrum in an mz and intensity array
     def decode_spectrum(self, line, compression=None, precision=32):
@@ -283,9 +368,9 @@ class Chromatogram():
         mz_list = []
         intensity_list = []
 
-        if line is not None and len(line)>0:
-            decoded = base64.decodebytes(line.encode('utf-8'))
-            if compression=="zlib":
+        if line is not None and len(line) > 0:
+            decoded = base64.decodebytes(line.encode("utf-8"))
+            if compression == "zlib":
                 decoded = zlib.decompress(decoded)
 
             if precision == 64:
@@ -294,7 +379,6 @@ class Chromatogram():
             else:
                 tmp_size = len(decoded) / 4
                 unpack_format1 = ">%df" % tmp_size
-
 
             for tmp in struct.unpack(unpack_format1, decoded):
                 if idx % 2 == 0:
@@ -309,33 +393,33 @@ class Chromatogram():
     def _start_element(self, name, attrs):
         self.tag_level += 1
         self.current_tag = name
-        #print("start tag", name)
+        # print("start tag", name)
 
-        if name == 'parentFile' and 'fileName' in attrs:
-            self.parentFile = attrs['fileName']
+        if name == "parentFile" and "fileName" in attrs:
+            self.parentFile = attrs["fileName"]
 
-        if name == 'msInstrument' and 'msInstrumentID' in attrs:
-            self.msInstruments[attrs['msInstrumentID']] = {}
-            self.lastMSInstrument = self.msInstruments[attrs['msInstrumentID']]
+        if name == "msInstrument" and "msInstrumentID" in attrs:
+            self.msInstruments[attrs["msInstrumentID"]] = {}
+            self.lastMSInstrument = self.msInstruments[attrs["msInstrumentID"]]
 
-        if name == 'msModel' and len(self.msInstruments) > 0:
-            self.lastMSInstrument['msModel'] = attrs['value']
+        if name == "msModel" and len(self.msInstruments) > 0:
+            self.lastMSInstrument["msModel"] = attrs["value"]
 
-        if name == 'msMassAnalyzer' and len(self.msInstruments) > 0:
-            self.lastMSInstrument['msMassAnalyzer'] = attrs['value']
+        if name == "msMassAnalyzer" and len(self.msInstruments) > 0:
+            self.lastMSInstrument["msMassAnalyzer"] = attrs["value"]
 
-        if name == 'precursorMz':
-            self.MS2_list[-1].precursor_intensity = float(attrs['precursorIntensity'])
+        if name == "precursorMz":
+            self.MS2_list[-1].precursor_intensity = float(attrs["precursorIntensity"])
             self.MS2_list[-1].precursor_charge = 0
-            if 'precursorCharge' in attrs:
-                self.MS2_list[-1].precursor_charge = int(attrs['precursorCharge'])
+            if "precursorCharge" in attrs:
+                self.MS2_list[-1].precursor_charge = int(attrs["precursorCharge"])
             if "activationMethod" in attrs:
-                self.MS2_list[-1].activationMethod = str(attrs['activationMethod'])
+                self.MS2_list[-1].activationMethod = str(attrs["activationMethod"])
 
-        if name == 'scan':
+        if name == "scan":
             self.curScan = self.curScan + 1
 
-            self.msLevel = int(attrs['msLevel'])
+            self.msLevel = int(attrs["msLevel"])
             if self.msLevel == 1:
                 tmp_ms = MS1Scan()
             elif self.msLevel == 2:
@@ -344,64 +428,72 @@ class Chromatogram():
                 print("What is it?", attrs)
                 sys.exit(1)
 
-            tmp_ms.id = int(attrs['num'])
+            tmp_ms.id = int(attrs["num"])
 
-            tmp_ms.peak_count = int(attrs['peaksCount'])
-            tmp_ms.peak_count_tag = int(attrs['peaksCount'])
-            tmp_ms.retention_time = float(attrs['retentionTime'].strip('PTS'))
+            tmp_ms.peak_count = int(attrs["peaksCount"])
+            tmp_ms.peak_count_tag = int(attrs["peaksCount"])
+            tmp_ms.retention_time = float(attrs["retentionTime"].strip("PTS"))
             if tmp_ms.peak_count > 0:
-                if 'lowMz' in attrs:
-                    tmp_ms.low_mz = float(attrs['lowMz'])
-                if 'highMz' in attrs:
-                    tmp_ms.high_mz = float(attrs['highMz'])
-                if 'basePeakMz' in attrs:
-                    tmp_ms.base_peak_mz = float(attrs['basePeakMz'])
-                if 'basePeakIntensity' in attrs:
-                    tmp_ms.base_peak_intensity = float(attrs['basePeakIntensity'])
-            if 'totIonCurrent' in attrs:
-                tmp_ms.total_ion_current = float(attrs['totIonCurrent'])
+                if "lowMz" in attrs:
+                    tmp_ms.low_mz = float(attrs["lowMz"])
+                if "highMz" in attrs:
+                    tmp_ms.high_mz = float(attrs["highMz"])
+                if "basePeakMz" in attrs:
+                    tmp_ms.base_peak_mz = float(attrs["basePeakMz"])
+                if "basePeakIntensity" in attrs:
+                    tmp_ms.base_peak_intensity = float(attrs["basePeakIntensity"])
+            if "totIonCurrent" in attrs:
+                tmp_ms.total_ion_current = float(attrs["totIonCurrent"])
             else:
                 tmp_ms.total_ion_current = 0
             tmp_ms.list_size = 0
-            tmp_ms.polarity = str(attrs['polarity'])
-            tmp_ms.encoded_mz = ''
-            tmp_ms.encoded_intensity = ''
-            tmp_ms.encodedData = ''
+            tmp_ms.polarity = str(attrs["polarity"])
+            tmp_ms.encoded_mz = ""
+            tmp_ms.encoded_intensity = ""
+            tmp_ms.encodedData = ""
             tmp_ms.mz_list = []
             tmp_ms.intensity_list = []
             tmp_ms.msInstrumentID = ""
-            if 'msInstrumentID' in attrs:
-                tmp_ms.msInstrumentID = attrs['msInstrumentID']
+            if "msInstrumentID" in attrs:
+                tmp_ms.msInstrumentID = attrs["msInstrumentID"]
             tmp_ms.filter_line = "N/A"
-            if 'filterLine' in attrs:
-                tmp_ms.filter_line = attrs['filterLine'] + " (pol: %s)" % tmp_ms.polarity
+            if "filterLine" in attrs:
+                tmp_ms.filter_line = (
+                    attrs["filterLine"] + " (pol: %s)" % tmp_ms.polarity
+                )
             elif len(self.msInstruments) == 1:
                 tmp_ms.filter_line = "%s (MS lvl: %d, pol: %s)" % (
-                    self.msInstruments.values()[0]["msModel"], self.msLevel, tmp_ms.polarity)
+                    self.msInstruments.values()[0]["msModel"],
+                    self.msLevel,
+                    tmp_ms.polarity,
+                )
             else:
                 tmp_ms.filter_line = "%s (MS lvl: %d, pol: %s)" % (
-                    "Unknown", self.msLevel, tmp_ms.polarity)
+                    "Unknown",
+                    self.msLevel,
+                    tmp_ms.polarity,
+                )
 
             if self.msLevel == 1:
                 self.MS1_list.append(tmp_ms)
             elif self.msLevel == 2:
                 if "collisionEnergy" in attrs:
-                    tmp_ms.collisionEnergy=float(attrs["collisionEnergy"])
+                    tmp_ms.collisionEnergy = float(attrs["collisionEnergy"])
                 else:
-                    tmp_ms.collisionEnergy=-1
+                    tmp_ms.collisionEnergy = -1
                 tmp_ms.ms1_id = self.MS1_list[-1].id
                 self.MS2_list.append(tmp_ms)
 
         if name == "peaks":
-            if self.msLevel==1:
-                curScan=self.MS1_list[-1]
-            elif self.msLevel==2:
-                curScan=self.MS2_list[-1]
+            if self.msLevel == 1:
+                curScan = self.MS1_list[-1]
+            elif self.msLevel == 2:
+                curScan = self.MS2_list[-1]
 
-            curScan.compression=None
+            curScan.compression = None
             if "compressionType" in attrs:
-                curScan.compression=str(attrs["compressionType"])
-            curScan.precision = int(attrs['precision'])
+                curScan.compression = str(attrs["compressionType"])
+            curScan.precision = int(attrs["precision"])
 
     def _findMZGeneric(self, mzleft, mzright, mzlist):
         if len(mzlist) == 0:
@@ -420,7 +512,9 @@ class Chromatogram():
                     leftBound -= 1
 
                 rightBound = cur
-                while (rightBound + 1) < peakCount and mzlist[rightBound + 1] <= mzright:
+                while (rightBound + 1) < peakCount and mzlist[
+                    rightBound + 1
+                ] <= mzright:
                     rightBound += 1
 
                 return leftBound, rightBound
@@ -432,22 +526,29 @@ class Chromatogram():
 
         return -1, -1
 
-
     # xml parser - end element handler
     def _end_element(self, name):
-        #print("end tag", name)
+        # print("end tag", name)
 
-        if name == 'scan':
-            if self.msLevel==1:
-                curScan=self.MS1_list[-1]
-            elif self.msLevel==2:
-                curScan=self.MS2_list[-1]
+        if name == "scan":
+            if self.msLevel == 1:
+                curScan = self.MS1_list[-1]
+            elif self.msLevel == 2:
+                curScan = self.MS2_list[-1]
 
-            mz_list, intensity_list = self.decode_spectrum(curScan.encodedData, compression=curScan.compression, precision=curScan.precision)
+            mz_list, intensity_list = self.decode_spectrum(
+                curScan.encodedData,
+                compression=curScan.compression,
+                precision=curScan.precision,
+            )
 
             ## Remove peaks below threshold
-            if self.intensityCutoff>0:
-                use = [i for i in range(len(intensity_list)) if intensity_list[i] > self.intensityCutoff and mz_list[i] > 0]
+            if self.intensityCutoff > 0:
+                use = [
+                    i
+                    for i in range(len(intensity_list))
+                    if intensity_list[i] > self.intensityCutoff and mz_list[i] > 0
+                ]
                 mz_list = [mz_list[i] for i in use]
                 intensity_list = [intensity_list[i] for i in use]
 
@@ -455,124 +556,134 @@ class Chromatogram():
             if self.mzFilter != None:
                 keep = []
                 for ps, pe in self.mzFilter:
-                    a,b=self._findMZGeneric(ps, pe, mz_list)
-                    if a!=-1:
-                        keep.extend(range(a,b+1))
+                    a, b = self._findMZGeneric(ps, pe, mz_list)
+                    if a != -1:
+                        keep.extend(range(a, b + 1))
                 mz_list = [mz_list[i] for i in sorted(keep)]
                 intensity_list = [intensity_list[i] for i in sorted(keep)]
 
             assert len(mz_list) == len(intensity_list)
 
-            curScan.mz_list=mz_list
-            curScan.intensity_list=intensity_list
-            curScan.peak_count=len(mz_list)
-            curScan.encodedData=None
+            curScan.mz_list = mz_list
+            curScan.intensity_list = intensity_list
+            curScan.peak_count = len(mz_list)
+            curScan.encodedData = None
 
         if name == "precursorMz":
             self.MS2_list[-1].precursor_mz = float(self.MS2_list[-1].precursor_mz_data)
-            #self.MS2_list[-1].filter_line="%s (PreMZ: %.2f ColEn: %.1f ActMet: %s)"%(self.MS2_list[-1].filter_line, self.MS2_list[-1].precursor_mz, self.MS2_list[-1].collisionEnergy, self.MS2_list[-1].activationMethod if hasattr(self.MS2_list[-1], "activationMethod") else "-")
+            # self.MS2_list[-1].filter_line="%s (PreMZ: %.2f ColEn: %.1f ActMet: %s)"%(self.MS2_list[-1].filter_line, self.MS2_list[-1].precursor_mz, self.MS2_list[-1].collisionEnergy, self.MS2_list[-1].activationMethod if hasattr(self.MS2_list[-1], "activationMethod") else "-")
 
         self.tag_level -= 1
-        self.current_tag = ''
+        self.current_tag = ""
         self.msLevel == 0
 
     # xml parser - CDATA handler
     def _char_data(self, data):
+        if self.current_tag == "precursorMz":
+            self.MS2_list[-1].precursor_mz_data += data
 
-        if self.current_tag == 'precursorMz':
-            self.MS2_list[-1].precursor_mz_data+=data
-
-        if self.current_tag == 'peaks' and not self.ignorePeaksData:
+        if self.current_tag == "peaks" and not self.ignorePeaksData:
             if self.msLevel == 1:
-                self.MS1_list[-1].encodedData+=data
+                self.MS1_list[-1].encodedData += data
 
             elif self.msLevel == 2:
-                self.MS2_list[-1].encodedData+=data
+                self.MS2_list[-1].encodedData += data
 
     # parses an mzxml file and stores its information in the respective object.
     # If intensityCutoff is set, all MS peaks below this threshold will be discarded.
     # If ignoreCharacterData is set, only the metainformation will be parsed but not the actual MS data
-    def parseMZXMLFile(self, filename_xml, intensityCutoff=-1, ignoreCharacterData=False):
+    def parseMZXMLFile(
+        self, filename_xml, intensityCutoff=-1, ignoreCharacterData=False
+    ):
         self.intensityCutoff = intensityCutoff
         self.curScan = 1
 
         expat = xml.parsers.expat.ParserCreate()
         expat.StartElementHandler = self._start_element
         expat.EndElementHandler = self._end_element
-        self.ignorePeaksData=ignoreCharacterData
+        self.ignorePeaksData = ignoreCharacterData
         expat.CharacterDataHandler = self._char_data
 
         ##expat.Parse(content_listd)
-        expat.ParseFile(open(filename_xml, 'rb'))
+        expat.ParseFile(open(filename_xml, "rb"))
 
         if not ignoreCharacterData:
             for scan in self.MS1_list:
-
                 assert len(scan.mz_list) == len(scan.intensity_list) == scan.peak_count
-                #if intensityCutoff<0:
+                # if intensityCutoff<0:
                 #    assert scan.peak_count == scan.peak_count_tag
 
-        signals=0
+        signals = 0
         for msscan in self.MS1_list:
-            signals+=len(msscan.mz_list)
-
+            signals += len(msscan.mz_list)
 
         for ionMode in ["+", "-"]:
-
-            precursors=[]
+            precursors = []
             for msmsscan in self.MS2_list:
-                if msmsscan.polarity==ionMode:
+                if msmsscan.polarity == ionMode:
                     precursors.append(msmsscan.precursor_mz)
 
-            precursors=sorted(precursors)
+            precursors = sorted(precursors)
 
-            packets=[]
-            curpack=[]
+            packets = []
+            curpack = []
 
             for precursorMZ in precursors:
-                if len(curpack)==0:
+                if len(curpack) == 0:
                     curpack.append(precursorMZ)
                 else:
-                    mzmean=sum(curpack)/len(curpack)
-                    if abs(mzmean-precursorMZ)/precursorMZ*1E6>10:
+                    mzmean = sum(curpack) / len(curpack)
+                    if abs(mzmean - precursorMZ) / precursorMZ * 1e6 > 10:
                         packets.append(curpack)
-                        curpack=[]
+                        curpack = []
                     curpack.append(precursorMZ)
-            if len(curpack)>0:
+            if len(curpack) > 0:
                 packets.append(curpack)
 
             for curpack in packets:
                 meanmz = sum(curpack) / len(curpack)
-                #print(ionMode, meanmz, (meanmz-min(curpack))/meanmz*1E6, (max(curpack)-meanmz)/meanmz*1E6, curpack)
+                # print(ionMode, meanmz, (meanmz-min(curpack))/meanmz*1E6, (max(curpack)-meanmz)/meanmz*1E6, curpack)
 
             for msmsscan in self.MS2_list:
                 if msmsscan.polarity == ionMode:
                     for curpack in packets:
-                        meanmz=sum(curpack)/len(curpack)
-                        if abs(msmsscan.precursor_mz-meanmz)/msmsscan.precursor_mz*1E6<=10:
-                            #msmsscan.precursor_mz=meanmz
-                            msmsscan.filter_line = "%s (PreMZ: %.4f [%.6f-%6f; %.1f ppm] ColEn: %.1f ActMet: %s)" % (msmsscan.filter_line, meanmz, min(curpack), max(curpack), (max(curpack)-min(curpack))/meanmz*1E6, msmsscan.collisionEnergy, msmsscan.activationMethod if hasattr(msmsscan, "activationMethod") else "-")
-
-
-
+                        meanmz = sum(curpack) / len(curpack)
+                        if (
+                            abs(msmsscan.precursor_mz - meanmz)
+                            / msmsscan.precursor_mz
+                            * 1e6
+                            <= 10
+                        ):
+                            # msmsscan.precursor_mz=meanmz
+                            msmsscan.filter_line = (
+                                "%s (PreMZ: %.4f [%.6f-%6f; %.1f ppm] ColEn: %.1f ActMet: %s)"
+                                % (
+                                    msmsscan.filter_line,
+                                    meanmz,
+                                    min(curpack),
+                                    max(curpack),
+                                    (max(curpack) - min(curpack)) / meanmz * 1e6,
+                                    msmsscan.collisionEnergy,
+                                    msmsscan.activationMethod
+                                    if hasattr(msmsscan, "activationMethod")
+                                    else "-",
+                                )
+                            )
 
     def parseMzMLFile(self, filename_xml, intensityCutoff, ignoreCharacterData):
-
         import pymzml
 
-        run=pymzml.run.Reader(filename_xml)
+        run = pymzml.run.Reader(filename_xml)
 
         for specturm in run:
-
             if "time array" in specturm or specturm["id"] is None:
                 continue
 
             try:
-                msLevel=int(specturm["ms level"])
-            except :
+                msLevel = int(specturm["ms level"])
+            except:
                 print("Error: What is it?", specturm["id"], type(specturm), specturm)
                 continue
-
 
             if msLevel == 1:
                 tmp_ms = MS1Scan()
@@ -590,12 +701,12 @@ class Chromatogram():
 
             tmp_ms.peak_count = len(specturm.peaks)
             if "scan time" in specturm.keys():
-                tmp_ms.retention_time = specturm["scan time"]*60
+                tmp_ms.retention_time = specturm["scan time"] * 60
             elif "scan start time" in specturm.keys():
-                tmp_ms.retention_time = specturm["scan start time"]*60
+                tmp_ms.retention_time = specturm["scan start time"] * 60
             else:
                 raise Exception("no scan retention time found")
-            #if tmp_ms.peak_count > 0:
+            # if tmp_ms.peak_count > 0:
             tmp_ms.total_ion_current = specturm["total ion current"]
             tmp_ms.list_size = 0
 
@@ -609,7 +720,6 @@ class Chromatogram():
             tmp_ms.intensity_list = [p[1] for p in specturm.peaks]
             tmp_ms.msInstrumentID = ""
 
-
             if msLevel == 1:
                 self.MS1_list.append(tmp_ms)
             elif msLevel == 2:
@@ -618,56 +728,68 @@ class Chromatogram():
                 tmp_ms.precursor_charge = specturm["precursors"][0]["charge"]
                 self.MS2_list.append(tmp_ms)
 
-        precursors=[]
-        i=0
-        polarities=set()
+        precursors = []
+        i = 0
+        polarities = set()
         for ms2Scan in self.MS2_list:
-            precursors.append(Bunch(precursormz=ms2Scan.precursor_mz, id=i, polarity=ms2Scan.polarity))
+            precursors.append(
+                Bunch(precursormz=ms2Scan.precursor_mz, id=i, polarity=ms2Scan.polarity)
+            )
             polarities.add(ms2Scan.polarity)
-            i=i+1
+            i = i + 1
 
         from utils import mean
 
         for polarity in polarities:
-            precursorsTemp=[pc for pc in precursors if pc.polarity==polarity]
-            precursorsTemp=sorted(precursorsTemp, key=lambda x: x.precursormz)
+            precursorsTemp = [pc for pc in precursors if pc.polarity == polarity]
+            precursorsTemp = sorted(precursorsTemp, key=lambda x: x.precursormz)
 
-            lastmz=-1000
-            lastmzs=[]
+            lastmz = -1000
+            lastmzs = []
 
             for i in range(len(precursorsTemp)):
-                if (precursorsTemp[i].precursormz-lastmz)>=25*lastmz/1000000.:
-                    if len(lastmzs)>0:
-                        minMZ=lastmzs[0].precursormz
-                        maxMZ=lastmzs[-1].precursormz
-                        #print(polarity, minMZ, maxMZ, (maxMZ-minMZ)*1000000./minMZ, "  \n --> ", (precursorsTemp[i].precursormz-lastmz)*1000000./lastmz, ": ", precursorsTemp[i].precursormz)
+                if (precursorsTemp[i].precursormz - lastmz) >= 25 * lastmz / 1000000.0:
+                    if len(lastmzs) > 0:
+                        minMZ = lastmzs[0].precursormz
+                        maxMZ = lastmzs[-1].precursormz
+                        # print(polarity, minMZ, maxMZ, (maxMZ-minMZ)*1000000./minMZ, "  \n --> ", (precursorsTemp[i].precursormz-lastmz)*1000000./lastmz, ": ", precursorsTemp[i].precursormz)
 
                         for j in range(len(lastmzs)):
-                            self.MS2_list[lastmzs[j].id].filter_line="MSn %s mean mz precursor: %.5f"%(polarity, mean([pc.precursormz for pc in lastmzs]))
-                            self.MS2_list[lastmzs[j].id].precursor_mz=float(mean([pc.precursormz for pc in lastmzs]))
-                    lastmz=precursorsTemp[i].precursormz
-                    lastmzs=[precursorsTemp[i]]
+                            self.MS2_list[lastmzs[j].id].filter_line = (
+                                "MSn %s mean mz precursor: %.5f"
+                                % (polarity, mean([pc.precursormz for pc in lastmzs]))
+                            )
+                            self.MS2_list[lastmzs[j].id].precursor_mz = float(
+                                mean([pc.precursormz for pc in lastmzs])
+                            )
+                    lastmz = precursorsTemp[i].precursormz
+                    lastmzs = [precursorsTemp[i]]
                 else:
                     lastmzs.append(precursorsTemp[i])
-            if len(lastmzs)>0:
+            if len(lastmzs) > 0:
                 for j in range(len(lastmzs)):
-                    self.MS2_list[lastmzs[j].id].filter_line="MSn %s mean mz precursor: %.5f"%(polarity, mean([pc.precursormz for pc in lastmzs]))
-                    self.MS2_list[lastmzs[j].id].precursor_mz=float(mean([pc.precursormz for pc in lastmzs]))
+                    self.MS2_list[lastmzs[j].id].filter_line = (
+                        "MSn %s mean mz precursor: %.5f"
+                        % (polarity, mean([pc.precursormz for pc in lastmzs]))
+                    )
+                    self.MS2_list[lastmzs[j].id].precursor_mz = float(
+                        mean([pc.precursormz for pc in lastmzs])
+                    )
 
-
-
-
-
-
-    def parse_file(self, filename_xml, intensityCutoff=-1, ignoreCharacterData=False, mzFilter=None):
-        self.mzFilter=mzFilter
+    def parse_file(
+        self, filename_xml, intensityCutoff=-1, ignoreCharacterData=False, mzFilter=None
+    ):
+        self.mzFilter = mzFilter
         if filename_xml.lower().endswith(".mzxml"):
-            return self.parseMZXMLFile(filename_xml, intensityCutoff, ignoreCharacterData)
+            return self.parseMZXMLFile(
+                filename_xml, intensityCutoff, ignoreCharacterData
+            )
         elif filename_xml.lower().endswith(".mzml"):
-            return self.parseMzMLFile(filename_xml, intensityCutoff, ignoreCharacterData)
+            return self.parseMzMLFile(
+                filename_xml, intensityCutoff, ignoreCharacterData
+            )
         else:
             raise RuntimeError("Invalid file type")
-
 
     # updates the data of this MS scan
     # WARNING: unstable, horridly implemented method. SUBJECT OF CHANGE
@@ -676,7 +798,7 @@ class Chromatogram():
 
         #  tmp_ms.retention_time = float(attrs['retentionTime'].strip('PTS'))
         if scanID in data and hasattr(data[scanID], "rt"):
-            scan.setAttribute("retentionTime", "PT%.3fS"%(data[scanID].rt))
+            scan.setAttribute("retentionTime", "PT%.3fS" % (data[scanID].rt))
 
         peaks = None
         for kid in scan.childNodes:
@@ -687,7 +809,19 @@ class Chromatogram():
         if scanID in data and len(data[scanID].mzs) > 0:
             h = data[scanID]
             assert len(h.mzs) == len(h.ints)
-            peaks.childNodes[0].nodeValue = base64.encodebytes("".join([struct.pack(">f", h.mzs[i]) + struct.pack(">f", h.ints[i]) for i in range(len(h.mzs))]).encode('utf-8')).decode('utf-8').strip().replace("\n", "")
+            peaks.childNodes[0].nodeValue = (
+                base64.encodebytes(
+                    "".join(
+                        [
+                            struct.pack(">f", h.mzs[i]) + struct.pack(">f", h.ints[i])
+                            for i in range(len(h.mzs))
+                        ]
+                    ).encode("utf-8")
+                )
+                .decode("utf-8")
+                .strip()
+                .replace("\n", "")
+            )
             scan.setAttribute("peaksCount", str(len(h.mzs)))
             scan.setAttribute("lowMz", str(min(h.mzs)))
             scan.setAttribute("highMz", str(max(h.mzs)))
@@ -707,7 +841,7 @@ class Chromatogram():
     # WARNING: unstable, horridly implemented method. SUBJECT OF CHANGE
     def updateData(self, node, data):
         for kid in node.childNodes:
-            if kid.nodeName != '#text':
+            if kid.nodeName != "#text":
                 if kid.nodeName == "scan":
                     self.updateScan(kid, data)
                 else:
@@ -727,12 +861,12 @@ class Chromatogram():
             scan.freeMe()
 
 
-if __name__=="__main__":
-    f="F:/MaxPlanck_FrederikDethloff/exp4/POS/pos-MF-1_25_01_4001.mzXML"
-    f="E:/___Backup/Publications/Manuscripts/MetExtractII/_assets/geoRge/MTBLS213_20170613_073311/CELL_Glc13_05mM_Normo_01.mzXML"
-    f="H:/20181016_472_Alternaria_ExperimentForDFGProposal/FTICRMS/F_negNS300147444mL1zu109_000001.mzXML"
+if __name__ == "__main__":
+    f = "F:/MaxPlanck_FrederikDethloff/exp4/POS/pos-MF-1_25_01_4001.mzXML"
+    f = "E:/___Backup/Publications/Manuscripts/MetExtractII/_assets/geoRge/MTBLS213_20170613_073311/CELL_Glc13_05mM_Normo_01.mzXML"
+    f = "H:/20181016_472_Alternaria_ExperimentForDFGProposal/FTICRMS/F_negNS300147444mL1zu109_000001.mzXML"
 
-    t=Chromatogram()
+    t = Chromatogram()
     t.parse_file(f)
 
     for i in t.getFilterLinesPerPolarity(includeMS1=False, includeMS2=True):
@@ -742,15 +876,11 @@ if __name__=="__main__":
 
     print(t.getPolarities())
 
-    x=Chromatogram()
+    x = Chromatogram()
     x.parse_file(f)
 
-
-
-
-    scan=x.getMS1ScanByNum(0)
-    print(scan.retention_time/60)
-
+    scan = x.getMS1ScanByNum(0)
+    print(scan.retention_time / 60)
 
     for mz, inte in zip(scan.mz_list, scan.intensity_list):
         print(mz, inte)

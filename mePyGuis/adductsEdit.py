@@ -12,8 +12,16 @@ from formulaTools import formulaTools
 from mePyGuis.adductsEditor import Ui_Dialog
 
 
-class ConfiguredAdduct():
-    def __init__(self, name="", mzoffset=1.99705, charge=1, polarity="+", mCount=1, entryType="user"):
+class ConfiguredAdduct:
+    def __init__(
+        self,
+        name="",
+        mzoffset=1.99705,
+        charge=1,
+        polarity="+",
+        mCount=1,
+        entryType="user",
+    ):
         self.name = name
         self.mzoffset = mzoffset
         self.charge = charge
@@ -22,11 +30,24 @@ class ConfiguredAdduct():
         self.entryType = entryType
 
     def __str__(self):
-        return "ConfiguredAdduct (%s %.5f %s %d)" % (self.name, self.mzoffset, self.polarity, self.charge)
+        return "ConfiguredAdduct (%s %.5f %s %d)" % (
+            self.name,
+            self.mzoffset,
+            self.polarity,
+            self.charge,
+        )
 
 
-class ConfiguredElement():
-    def __init__(self, name="", weight=0., numberValenzElectrons=1, minCount=1, maxCount=1, entryType="user"):
+class ConfiguredElement:
+    def __init__(
+        self,
+        name="",
+        weight=0.0,
+        numberValenzElectrons=1,
+        minCount=1,
+        maxCount=1,
+        entryType="user",
+    ):
         self.name = name
         self.weight = weight
         self.numberValenzElectrons = numberValenzElectrons
@@ -36,48 +57,255 @@ class ConfiguredElement():
 
     def __str__(self):
         return "ConfiguredElement (%s %.5f %d %d %d)" % (
-            self.name, self.weight, self.numberValenzElectrons, self.minCount, self.maxCount)
+            self.name,
+            self.weight,
+            self.numberValenzElectrons,
+            self.minCount,
+            self.maxCount,
+        )
 
 
 defaultAdducts = [
-    ConfiguredAdduct(name="[M+H]+",       mzoffset=  1.007276, charge=1, polarity='+', mCount=1, entryType="user"),
-    ConfiguredAdduct(name="[M+NH4]+",     mzoffset= 18.033823, charge=1, polarity='+', mCount=1, entryType="user"),
-    ConfiguredAdduct(name="[M+Na]+",      mzoffset= 22.989218, charge=1, polarity='+', mCount=1, entryType="user"),
-    ConfiguredAdduct(name="[M+CH3OH+H]+", mzoffset= 33.033489, charge=1, polarity='+', mCount=1, entryType="user"),
-    ConfiguredAdduct(name="[M+K]+",       mzoffset= 38.963158, charge=1, polarity='+', mCount=1, entryType="user"),
-    ConfiguredAdduct(name="[M+ACN+H]+",   mzoffset= 42.033823, charge=1, polarity='+', mCount=1, entryType="user"),
-    ConfiguredAdduct(name="[M+2Na-H]+",   mzoffset= 44.971160, charge=1, polarity='+', mCount=1, entryType="user"),
-    ConfiguredAdduct(name="[M+2K-H]+",    mzoffset= 76.919040, charge=1, polarity='+', mCount=1, entryType="user"),
-    ConfiguredAdduct(name="[M+CH3FeN]+",  mzoffset= 84.96094 , charge=1, polarity='+', mCount=1, entryType="user"),
-    ConfiguredAdduct(name="[M+2H]++",     mzoffset=  1.007276, charge=2, polarity='+', mCount=1, entryType="user"),
-    ConfiguredAdduct(name="[M+H+NH4]++",  mzoffset=  9.520550, charge=2, polarity='+', mCount=1, entryType="user"),
-    ConfiguredAdduct(name="[M+H+Na]++",   mzoffset= 11.998247, charge=2, polarity='+', mCount=1, entryType="user"),
-    ConfiguredAdduct(name="[M+H+K]++",    mzoffset= 19.985217, charge=2, polarity='+', mCount=1, entryType="user"),
-    ConfiguredAdduct(name="[M+2Na]++",    mzoffset= 22.989218, charge=2, polarity='+', mCount=1, entryType="user"),
-    ConfiguredAdduct(name="[2M+H]+",      mzoffset=  1.007276, charge=1, polarity='+', mCount=2, entryType="user"),
-    ConfiguredAdduct(name="[2M+NH4]+",    mzoffset= 18.033823, charge=1, polarity='+', mCount=2, entryType="user"),
-    ConfiguredAdduct(name="[2M+Na]+",     mzoffset= 22.989218, charge=1, polarity='+', mCount=2, entryType="user"),
-    ConfiguredAdduct(name="[2M+K]+",      mzoffset= 38.963158, charge=1, polarity='+', mCount=2, entryType="user"),
-
-    ConfiguredAdduct(name="[M-H2O-H]-",   mzoffset=-19.01839 , charge=1, polarity='-', mCount=1, entryType="user"),
-    ConfiguredAdduct(name="[M-H]-",       mzoffset=- 1.007276, charge=1, polarity='-', mCount=1, entryType="user"),
-    ConfiguredAdduct(name="[M+Na-2H]-",   mzoffset= 20.974666, charge=1, polarity='-', mCount=1, entryType="user"),
-    ConfiguredAdduct(name="[M+Cl]-",      mzoffset= 34.969402, charge=1, polarity='-', mCount=1, entryType="user"),
-    ConfiguredAdduct(name="[M+K-2H]-",    mzoffset= 36.948606, charge=1, polarity='-', mCount=1, entryType="user"),
-    ConfiguredAdduct(name="[M+Br]-",      mzoffset= 78.918885, charge=1, polarity='-', mCount=1, entryType="user"),
-    ConfiguredAdduct(name="[2M-H]-",      mzoffset=- 1.007276, charge=1, polarity='-', mCount=2, entryType="user"),
-    ConfiguredAdduct(name="[2M+Fa-H]-",   mzoffset= 44.998201, charge=1, polarity='-', mCount=2, entryType="user"),
-    ConfiguredAdduct(name="[2M+Hac-H]-",  mzoffset= 59.013851, charge=1, polarity='-', mCount=2, entryType="user")
+    ConfiguredAdduct(
+        name="[M+H]+",
+        mzoffset=1.007276,
+        charge=1,
+        polarity="+",
+        mCount=1,
+        entryType="user",
+    ),
+    ConfiguredAdduct(
+        name="[M+NH4]+",
+        mzoffset=18.033823,
+        charge=1,
+        polarity="+",
+        mCount=1,
+        entryType="user",
+    ),
+    ConfiguredAdduct(
+        name="[M+Na]+",
+        mzoffset=22.989218,
+        charge=1,
+        polarity="+",
+        mCount=1,
+        entryType="user",
+    ),
+    ConfiguredAdduct(
+        name="[M+CH3OH+H]+",
+        mzoffset=33.033489,
+        charge=1,
+        polarity="+",
+        mCount=1,
+        entryType="user",
+    ),
+    ConfiguredAdduct(
+        name="[M+K]+",
+        mzoffset=38.963158,
+        charge=1,
+        polarity="+",
+        mCount=1,
+        entryType="user",
+    ),
+    ConfiguredAdduct(
+        name="[M+ACN+H]+",
+        mzoffset=42.033823,
+        charge=1,
+        polarity="+",
+        mCount=1,
+        entryType="user",
+    ),
+    ConfiguredAdduct(
+        name="[M+2Na-H]+",
+        mzoffset=44.971160,
+        charge=1,
+        polarity="+",
+        mCount=1,
+        entryType="user",
+    ),
+    ConfiguredAdduct(
+        name="[M+2K-H]+",
+        mzoffset=76.919040,
+        charge=1,
+        polarity="+",
+        mCount=1,
+        entryType="user",
+    ),
+    ConfiguredAdduct(
+        name="[M+CH3FeN]+",
+        mzoffset=84.96094,
+        charge=1,
+        polarity="+",
+        mCount=1,
+        entryType="user",
+    ),
+    ConfiguredAdduct(
+        name="[M+2H]++",
+        mzoffset=1.007276,
+        charge=2,
+        polarity="+",
+        mCount=1,
+        entryType="user",
+    ),
+    ConfiguredAdduct(
+        name="[M+H+NH4]++",
+        mzoffset=9.520550,
+        charge=2,
+        polarity="+",
+        mCount=1,
+        entryType="user",
+    ),
+    ConfiguredAdduct(
+        name="[M+H+Na]++",
+        mzoffset=11.998247,
+        charge=2,
+        polarity="+",
+        mCount=1,
+        entryType="user",
+    ),
+    ConfiguredAdduct(
+        name="[M+H+K]++",
+        mzoffset=19.985217,
+        charge=2,
+        polarity="+",
+        mCount=1,
+        entryType="user",
+    ),
+    ConfiguredAdduct(
+        name="[M+2Na]++",
+        mzoffset=22.989218,
+        charge=2,
+        polarity="+",
+        mCount=1,
+        entryType="user",
+    ),
+    ConfiguredAdduct(
+        name="[2M+H]+",
+        mzoffset=1.007276,
+        charge=1,
+        polarity="+",
+        mCount=2,
+        entryType="user",
+    ),
+    ConfiguredAdduct(
+        name="[2M+NH4]+",
+        mzoffset=18.033823,
+        charge=1,
+        polarity="+",
+        mCount=2,
+        entryType="user",
+    ),
+    ConfiguredAdduct(
+        name="[2M+Na]+",
+        mzoffset=22.989218,
+        charge=1,
+        polarity="+",
+        mCount=2,
+        entryType="user",
+    ),
+    ConfiguredAdduct(
+        name="[2M+K]+",
+        mzoffset=38.963158,
+        charge=1,
+        polarity="+",
+        mCount=2,
+        entryType="user",
+    ),
+    ConfiguredAdduct(
+        name="[M-H2O-H]-",
+        mzoffset=-19.01839,
+        charge=1,
+        polarity="-",
+        mCount=1,
+        entryType="user",
+    ),
+    ConfiguredAdduct(
+        name="[M-H]-",
+        mzoffset=-1.007276,
+        charge=1,
+        polarity="-",
+        mCount=1,
+        entryType="user",
+    ),
+    ConfiguredAdduct(
+        name="[M+Na-2H]-",
+        mzoffset=20.974666,
+        charge=1,
+        polarity="-",
+        mCount=1,
+        entryType="user",
+    ),
+    ConfiguredAdduct(
+        name="[M+Cl]-",
+        mzoffset=34.969402,
+        charge=1,
+        polarity="-",
+        mCount=1,
+        entryType="user",
+    ),
+    ConfiguredAdduct(
+        name="[M+K-2H]-",
+        mzoffset=36.948606,
+        charge=1,
+        polarity="-",
+        mCount=1,
+        entryType="user",
+    ),
+    ConfiguredAdduct(
+        name="[M+Br]-",
+        mzoffset=78.918885,
+        charge=1,
+        polarity="-",
+        mCount=1,
+        entryType="user",
+    ),
+    ConfiguredAdduct(
+        name="[2M-H]-",
+        mzoffset=-1.007276,
+        charge=1,
+        polarity="-",
+        mCount=2,
+        entryType="user",
+    ),
+    ConfiguredAdduct(
+        name="[2M+Fa-H]-",
+        mzoffset=44.998201,
+        charge=1,
+        polarity="-",
+        mCount=2,
+        entryType="user",
+    ),
+    ConfiguredAdduct(
+        name="[2M+Hac-H]-",
+        mzoffset=59.013851,
+        charge=1,
+        polarity="-",
+        mCount=2,
+        entryType="user",
+    ),
 ]
 
 defaultNeutralLosses = [
-    ConfiguredElement(name="C",  weight=12.,       numberValenzElectrons=4, minCount=0, maxCount=3),
-    ConfiguredElement(name="H",  weight=1.00783,   numberValenzElectrons=1, minCount=0, maxCount=30),
-    ConfiguredElement(name="O",  weight=15.99491,  numberValenzElectrons=6, minCount=0, maxCount=20),
-    ConfiguredElement(name="N",  weight=14.00307,  numberValenzElectrons=5, minCount=0, maxCount=2),
-    ConfiguredElement(name="P",  weight=30.97376,  numberValenzElectrons=5, minCount=0, maxCount=2),
-    ConfiguredElement(name="S",  weight=31.97207,  numberValenzElectrons=6, minCount=0, maxCount=2),
-    ConfiguredElement(name="Cl", weight=34.968852, numberValenzElectrons=7, minCount=0, maxCount=1)
+    ConfiguredElement(
+        name="C", weight=12.0, numberValenzElectrons=4, minCount=0, maxCount=3
+    ),
+    ConfiguredElement(
+        name="H", weight=1.00783, numberValenzElectrons=1, minCount=0, maxCount=30
+    ),
+    ConfiguredElement(
+        name="O", weight=15.99491, numberValenzElectrons=6, minCount=0, maxCount=20
+    ),
+    ConfiguredElement(
+        name="N", weight=14.00307, numberValenzElectrons=5, minCount=0, maxCount=2
+    ),
+    ConfiguredElement(
+        name="P", weight=30.97376, numberValenzElectrons=5, minCount=0, maxCount=2
+    ),
+    ConfiguredElement(
+        name="S", weight=31.97207, numberValenzElectrons=6, minCount=0, maxCount=2
+    ),
+    ConfiguredElement(
+        name="Cl", weight=34.968852, numberValenzElectrons=7, minCount=0, maxCount=1
+    ),
 ]
 
 
@@ -105,9 +333,9 @@ class AdductsTableModel(QtCore.QAbstractTableModel):
         if index.column() == 2:
             return QtCore.QString(self.arraydata[index.row()].polarity)
         if index.column() == 3:
-            return QtCore.QString("%d"%self.arraydata[index.row()].charge)
+            return QtCore.QString("%d" % self.arraydata[index.row()].charge)
         if index.column() == 4:
-            return QtCore.QString("%d"%self.arraydata[index.row()].mCount)
+            return QtCore.QString("%d" % self.arraydata[index.row()].mCount)
 
     def headerData(self, col, orientation, role):
         if orientation == QtCore.Qt.Horizontal and role == QtCore.Qt.DisplayRole:
@@ -149,7 +377,7 @@ class AdductsTableModel(QtCore.QAbstractTableModel):
             return True
         elif index.column() == 2:
             val = str(value.toString())
-            if val == '+' or val == '-':
+            if val == "+" or val == "-":
                 self.arraydata[index.row()].polarity = str(value.toString())
                 return True
             else:
@@ -165,7 +393,7 @@ class AdductsTableModel(QtCore.QAbstractTableModel):
                 return False
         elif index.column() == 4:
             try:
-                f, ok=value.toInt()
+                f, ok = value.toInt()
                 if not ok:
                     return False
                 self.arraydata[index.row()].mCount = f
@@ -175,7 +403,11 @@ class AdductsTableModel(QtCore.QAbstractTableModel):
         return False
 
     def flags(self, index):
-        return QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEditable
+        return (
+            QtCore.Qt.ItemIsEnabled
+            | QtCore.Qt.ItemIsSelectable
+            | QtCore.Qt.ItemIsEditable
+        )
 
 
 class ElementsTableModel(QtCore.QAbstractTableModel):
@@ -184,7 +416,7 @@ class ElementsTableModel(QtCore.QAbstractTableModel):
         self.arraydata = datain
         self.headerdata = headerdata
 
-        self.ft=formulaTools()
+        self.ft = formulaTools()
 
     def rowCount(self, parent):
         return len(self.arraydata)
@@ -202,7 +434,9 @@ class ElementsTableModel(QtCore.QAbstractTableModel):
         if index.column() == 1:
             return QtCore.QString("%.5f" % self.arraydata[index.row()].weight)
         if index.column() == 2:
-            return QtCore.QString("%d" % self.arraydata[index.row()].numberValenzElectrons)
+            return QtCore.QString(
+                "%d" % self.arraydata[index.row()].numberValenzElectrons
+            )
         if index.column() == 3:
             return QtCore.QString("%d" % self.arraydata[index.row()].minCount)
         if index.column() == 4:
@@ -259,17 +493,20 @@ class ElementsTableModel(QtCore.QAbstractTableModel):
             except:
                 return False
         elif index.column() == 0:
-            elem=str(value.toString())
+            elem = str(value.toString())
             if elem in self.ft.elemDetails.keys():
                 self.arraydata[index.row()].weight = self.ft.elemDetails[elem][3]
             self.arraydata[index.row()].name = elem
-
 
             return True
         return False
 
     def flags(self, index):
-        return QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEditable
+        return (
+            QtCore.Qt.ItemIsEnabled
+            | QtCore.Qt.ItemIsSelectable
+            | QtCore.Qt.ItemIsEditable
+        )
 
 
 def saveANFile(filename, a, n):
@@ -286,43 +523,56 @@ def loadANFile(filename):
 
 
 class adductsEdit(QtWidgets.QDialog, Ui_Dialog):
-    def __init__(self, parent=None, initDir=None, adds=None, nls=None, showAdductsConfiguration=True, showRelationshipConfiguratio=True):
+    def __init__(
+        self,
+        parent=None,
+        initDir=None,
+        adds=None,
+        nls=None,
+        showAdductsConfiguration=True,
+        showRelationshipConfiguratio=True,
+    ):
         if adds is None:
-            adds=defaultAdducts
+            adds = defaultAdducts
         if nls is None:
-            nls=defaultNeutralLosses
+            nls = defaultNeutralLosses
         QtWidgets.QDialog.__init__(self, parent)
         self.setWindowTitle("Adducts editor")
         self.setupUi(self)
-        
-        if not(showAdductsConfiguration):
+
+        if not (showAdductsConfiguration):
             # remove adducts controls from dialog
             self.adductsFrame.setVisible(False)
-            
-        if not(showRelationshipConfiguratio):
+
+        if not (showRelationshipConfiguratio):
             # remove relationship controls from dialog
             self.neutralLossFrame.setVisible(False)
 
         self.adds = deepcopy(adds)
         self.adds.append(ConfiguredAdduct(entryType="empty"))
-        self.addsModel = AdductsTableModel(self.adds, ["Adduct", "MZ offset", "Polarity", "Charge", "M count"])
+        self.addsModel = AdductsTableModel(
+            self.adds, ["Adduct", "MZ offset", "Polarity", "Charge", "M count"]
+        )
         self.adducts.setModel(self.addsModel)
 
         self.nls = deepcopy(nls)
         self.nls.append(ConfiguredElement(entryType="empty"))
-        self.nlModel = ElementsTableModel(self.nls, ["Element", "Weight", "Valenz electrons", "Min count", "Max count"])
+        self.nlModel = ElementsTableModel(
+            self.nls,
+            ["Element", "Weight", "Valenz electrons", "Min count", "Max count"],
+        )
         self.neutralLoss.setModel(self.nlModel)
 
         self.initDir = "."
-        if 'USERPROFILE' in os.environ:
-            self.initDir = os.getenv('USERPROFILE')
-        elif 'HOME' in os.environ:
-            self.initDir = os.getenv('HOME')
+        if "USERPROFILE" in os.environ:
+            self.initDir = os.getenv("USERPROFILE")
+        elif "HOME" in os.environ:
+            self.initDir = os.getenv("HOME")
 
         self.saveConfiguration.clicked.connect(self.save)
         self.loadConfiguration.clicked.connect(self.load)
-        #self.saveConfiguration.setVisible(False)
-        #self.loadConfiguration.setVisible(False)
+        # self.saveConfiguration.setVisible(False)
+        # self.loadConfiguration.setVisible(False)
 
         self.adducts.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.adducts.customContextMenuRequested.connect(self.showPopupA)
@@ -353,40 +603,50 @@ class adductsEdit(QtWidgets.QDialog, Ui_Dialog):
                 self.nlModel.removeRows(x.row(), 1)
 
     def load(self):
-        filename = QtWidgets.QFileDialog.getOpenFileName(self, "Select configuration file", self.initDir,
-                                                     "confif file (*.conf);;All files (*.*)")
+        filename = QtWidgets.QFileDialog.getOpenFileName(
+            self,
+            "Select configuration file",
+            self.initDir,
+            "confif file (*.conf);;All files (*.*)",
+        )
         if len(filename) > 0:
             a, n = loadANFile(filename)
             self.adds = a
             self.adds.append(ConfiguredAdduct(entryType="empty"))
-            self.addsModel = AdductsTableModel(self.adds, ["Adduct", "MZ offset", "Polarity", "Charge"])
+            self.addsModel = AdductsTableModel(
+                self.adds, ["Adduct", "MZ offset", "Polarity", "Charge"]
+            )
             self.adducts.setModel(self.addsModel)
             self.nls = n
             self.nls.append(ConfiguredElement(entryType="empty"))
-            self.nlModel = ElementsTableModel(self.nls,
-                                              ["Element", "Weight", "Valenz electrons", "Min count", "Max count"])
+            self.nlModel = ElementsTableModel(
+                self.nls,
+                ["Element", "Weight", "Valenz electrons", "Min count", "Max count"],
+            )
             self.neutralLoss.setModel(self.nlModel)
 
     def save(self):
-        filename = QtWidgets.QFileDialog.getSaveFileName(caption="Select configuration file",
-                                                     filter="config file (*.conf);;All files(*.*)")
+        filename = QtWidgets.QFileDialog.getSaveFileName(
+            caption="Select configuration file",
+            filter="config file (*.conf);;All files(*.*)",
+        )
         if len(filename) > 0:
             saveANFile(filename, self.getAdducts(), self.getNeutralLosses())
 
     def loadDefaultAdductsAndNeutralLosses(self):
-        while self.addsModel.rowCount(self)>1:
+        while self.addsModel.rowCount(self) > 1:
             self.addsModel.removeRows(0, 1)
         for i in range(len(defaultAdducts)):
-            add=deepcopy(defaultAdducts[i])
+            add = deepcopy(defaultAdducts[i])
             self.addsModel.insertRows(i, 1)
-            self.adds[i]=add
+            self.adds[i] = add
 
-        while self.nlModel.rowCount(self)>1:
+        while self.nlModel.rowCount(self) > 1:
             self.nlModel.removeRows(0, 1)
         for i in range(len(defaultNeutralLosses)):
-            nl=deepcopy(defaultNeutralLosses[i])
+            nl = deepcopy(defaultNeutralLosses[i])
             self.nlModel.insertRows(i, 1)
-            self.nls[i]=nl
+            self.nls[i] = nl
 
     def getAdducts(self):
         return [add for add in self.adds if add.entryType != "empty"]
@@ -425,5 +685,3 @@ if __name__ == "__main__":
         print(add)
 
     sys.exit(app.exec())
-
-    

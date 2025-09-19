@@ -11,16 +11,21 @@ from PySide6 import QtCore, QtGui, QtWidgets
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
 except AttributeError:
+
     def _fromUtf8(s):
         return s
 
+
 try:
     _encoding = QtWidgets.QApplication.UnicodeUTF8
+
     def _translate(context, text, disambig):
         return QtWidgets.QApplication.translate(context, text, disambig, _encoding)
 except AttributeError:
+
     def _translate(context, text, disambig):
         return QtWidgets.QApplication.translate(context, text, disambig)
+
 
 class Ui_GroupEditor(object):
     def setupUi(self, GroupEditor):
@@ -36,10 +41,14 @@ class Ui_GroupEditor(object):
         self.verticalLayout_2.setObjectName(_fromUtf8("verticalLayout_2"))
         self.label_3 = QtWidgets.QLabel(GroupEditor)
         self.label_3.setStyleSheet(_fromUtf8("font: 10pt;"))
-        self.label_3.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.label_3.setAlignment(
+            QtCore.Qt.AlignRight | QtCore.Qt.AlignTrailing | QtCore.Qt.AlignVCenter
+        )
         self.label_3.setObjectName(_fromUtf8("label_3"))
         self.verticalLayout_2.addWidget(self.label_3)
-        spacerItem = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+        spacerItem = QtWidgets.QSpacerItem(
+            0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum
+        )
         self.verticalLayout_2.addItem(spacerItem)
         self.gridLayout_2.addLayout(self.verticalLayout_2, 7, 0, 1, 1)
         self.line_2 = QtWidgets.QFrame(GroupEditor)
@@ -47,14 +56,18 @@ class Ui_GroupEditor(object):
         self.line_2.setFrameShadow(QtWidgets.QFrame.Sunken)
         self.line_2.setObjectName(_fromUtf8("line_2"))
         self.gridLayout_2.addWidget(self.line_2, 2, 0, 1, 5)
-        spacerItem1 = QtWidgets.QSpacerItem(3, 0, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum)
+        spacerItem1 = QtWidgets.QSpacerItem(
+            3, 0, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum
+        )
         self.gridLayout_2.addItem(spacerItem1, 1, 3, 1, 1)
         self.line_3 = QtWidgets.QFrame(GroupEditor)
         self.line_3.setFrameShape(QtWidgets.QFrame.VLine)
         self.line_3.setFrameShadow(QtWidgets.QFrame.Sunken)
         self.line_3.setObjectName(_fromUtf8("line_3"))
         self.gridLayout_2.addWidget(self.line_3, 1, 2, 1, 1)
-        spacerItem2 = QtWidgets.QSpacerItem(3, 0, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum)
+        spacerItem2 = QtWidgets.QSpacerItem(
+            3, 0, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum
+        )
         self.gridLayout_2.addItem(spacerItem2, 1, 1, 1, 1)
         self.groupName = QtWidgets.QLineEdit(GroupEditor)
         self.groupName.setAcceptDrops(False)
@@ -63,7 +76,9 @@ class Ui_GroupEditor(object):
         self.gridLayout_2.addWidget(self.groupName, 1, 4, 1, 1)
         self.horizontalLayout_2 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_2.setObjectName(_fromUtf8("horizontalLayout_2"))
-        spacerItem3 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem3 = QtWidgets.QSpacerItem(
+            40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum
+        )
         self.horizontalLayout_2.addItem(spacerItem3)
         self.dialogFinished = QtWidgets.QPushButton(GroupEditor)
         self.dialogFinished.setObjectName(_fromUtf8("dialogFinished"))
@@ -81,18 +96,23 @@ class Ui_GroupEditor(object):
         self.verticalLayout.setObjectName(_fromUtf8("verticalLayout"))
         self.label_2 = QtWidgets.QLabel(GroupEditor)
         self.label_2.setStyleSheet(_fromUtf8("font: 10pt;"))
-        self.label_2.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.label_2.setAlignment(
+            QtCore.Qt.AlignRight | QtCore.Qt.AlignTrailing | QtCore.Qt.AlignVCenter
+        )
         self.label_2.setObjectName(_fromUtf8("label_2"))
         self.verticalLayout.addWidget(self.label_2)
-        spacerItem4 = QtWidgets.QSpacerItem(0, 5, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        spacerItem4 = QtWidgets.QSpacerItem(
+            0, 5, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
+        )
         self.verticalLayout.addItem(spacerItem4)
         self.label_6 = QtWidgets.QLabel(GroupEditor)
-        self.label_6.setStyleSheet(_fromUtf8("color: rgb(90, 90, 90);\n"
-"font: 7pt;"))
-        self.label_6.setAlignment(QtCore.Qt.AlignJustify|QtCore.Qt.AlignVCenter)
+        self.label_6.setStyleSheet(_fromUtf8("color: rgb(90, 90, 90);\nfont: 7pt;"))
+        self.label_6.setAlignment(QtCore.Qt.AlignJustify | QtCore.Qt.AlignVCenter)
         self.label_6.setObjectName(_fromUtf8("label_6"))
         self.verticalLayout.addWidget(self.label_6)
-        spacerItem5 = QtWidgets.QSpacerItem(200, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        spacerItem5 = QtWidgets.QSpacerItem(
+            200, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
+        )
         self.verticalLayout.addItem(spacerItem5)
         self.gridLayout_2.addLayout(self.verticalLayout, 4, 0, 2, 1)
         self.groupFiles = QtWidgets.QListWidget(GroupEditor)
@@ -101,7 +121,9 @@ class Ui_GroupEditor(object):
         self.gridLayout_2.addWidget(self.groupFiles, 4, 4, 1, 1)
         self.horizontalLayout = QtWidgets.QHBoxLayout()
         self.horizontalLayout.setObjectName(_fromUtf8("horizontalLayout"))
-        spacerItem6 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem6 = QtWidgets.QSpacerItem(
+            40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum
+        )
         self.horizontalLayout.addItem(spacerItem6)
         self.addFolder = QtWidgets.QPushButton(GroupEditor)
         self.addFolder.setObjectName(_fromUtf8("addFolder"))
@@ -127,20 +149,28 @@ class Ui_GroupEditor(object):
         self.verticalLayout_3.setObjectName(_fromUtf8("verticalLayout_3"))
         self.label_5 = QtWidgets.QLabel(GroupEditor)
         self.label_5.setStyleSheet(_fromUtf8("font: 10pt;"))
-        self.label_5.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.label_5.setAlignment(
+            QtCore.Qt.AlignRight | QtCore.Qt.AlignTrailing | QtCore.Qt.AlignVCenter
+        )
         self.label_5.setObjectName(_fromUtf8("label_5"))
         self.verticalLayout_3.addWidget(self.label_5)
-        spacerItem7 = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+        spacerItem7 = QtWidgets.QSpacerItem(
+            0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum
+        )
         self.verticalLayout_3.addItem(spacerItem7)
         self.gridLayout_2.addLayout(self.verticalLayout_3, 9, 0, 1, 1)
         self.verticalLayout_4 = QtWidgets.QVBoxLayout()
         self.verticalLayout_4.setObjectName(_fromUtf8("verticalLayout_4"))
         self.label = QtWidgets.QLabel(GroupEditor)
         self.label.setStyleSheet(_fromUtf8("font: 10pt;"))
-        self.label.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.label.setAlignment(
+            QtCore.Qt.AlignRight | QtCore.Qt.AlignTrailing | QtCore.Qt.AlignVCenter
+        )
         self.label.setObjectName(_fromUtf8("label"))
         self.verticalLayout_4.addWidget(self.label)
-        spacerItem8 = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+        spacerItem8 = QtWidgets.QSpacerItem(
+            0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum
+        )
         self.verticalLayout_4.addItem(spacerItem8)
         self.gridLayout_2.addLayout(self.verticalLayout_4, 1, 0, 1, 1)
         self.line_4 = QtWidgets.QFrame(GroupEditor)
@@ -168,7 +198,9 @@ class Ui_GroupEditor(object):
         self.gridLayout_3.addWidget(self.removeAsFalsePositive, 4, 1, 1, 3)
         self.useForMetaboliteGrouping = QtWidgets.QCheckBox(GroupEditor)
         self.useForMetaboliteGrouping.setChecked(True)
-        self.useForMetaboliteGrouping.setObjectName(_fromUtf8("useForMetaboliteGrouping"))
+        self.useForMetaboliteGrouping.setObjectName(
+            _fromUtf8("useForMetaboliteGrouping")
+        )
         self.gridLayout_3.addWidget(self.useForMetaboliteGrouping, 3, 1, 1, 3)
         self.omitFeatures = QtWidgets.QGroupBox(GroupEditor)
         self.omitFeatures.setCheckable(True)
@@ -191,7 +223,9 @@ class Ui_GroupEditor(object):
         self.label_7 = QtWidgets.QLabel(GroupEditor)
         self.label_7.setObjectName(_fromUtf8("label_7"))
         self.gridLayout_3.addWidget(self.label_7, 0, 1, 1, 1)
-        spacerItem9 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem9 = QtWidgets.QSpacerItem(
+            40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum
+        )
         self.gridLayout_3.addItem(spacerItem9, 0, 0, 6, 1)
         self.gridLayout_2.addLayout(self.gridLayout_3, 7, 4, 1, 1)
         self.gridLayout.addLayout(self.gridLayout_2, 0, 0, 1, 3)
@@ -204,7 +238,9 @@ class Ui_GroupEditor(object):
         GroupEditor.setTabOrder(self.addFolder, self.addFiles)
         GroupEditor.setTabOrder(self.addFiles, self.removeSelected)
         GroupEditor.setTabOrder(self.removeSelected, self.useForMetaboliteGrouping)
-        GroupEditor.setTabOrder(self.useForMetaboliteGrouping, self.removeAsFalsePositive)
+        GroupEditor.setTabOrder(
+            self.useForMetaboliteGrouping, self.removeAsFalsePositive
+        )
         GroupEditor.setTabOrder(self.removeAsFalsePositive, self.useAsMSMSTarget)
         GroupEditor.setTabOrder(self.useAsMSMSTarget, self.dialogCanceled)
 
@@ -214,15 +250,27 @@ class Ui_GroupEditor(object):
         self.dialogFinished.setText(_translate("GroupEditor", "Ok", None))
         self.dialogCanceled.setText(_translate("GroupEditor", "Cancel", None))
         self.label_2.setText(_translate("GroupEditor", "Files", None))
-        self.label_6.setText(_translate("GroupEditor", "<html><head/><body><p>Specify the measurement files for this group</p></body></html>", None))
+        self.label_6.setText(
+            _translate(
+                "GroupEditor",
+                "<html><head/><body><p>Specify the measurement files for this group</p></body></html>",
+                None,
+            )
+        )
         self.addFolder.setText(_translate("GroupEditor", "Add folder", None))
         self.addFiles.setText(_translate("GroupEditor", "Add file(s)", None))
         self.removeSelected.setText(_translate("GroupEditor", "Remove selected", None))
         self.label_5.setText(_translate("GroupEditor", "Actions", None))
         self.label.setText(_translate("GroupEditor", "Group name", None))
-        self.useAsMSMSTarget.setText(_translate("GroupEditor", "Use sample for MSMS targets", None))
-        self.removeAsFalsePositive.setText(_translate("GroupEditor", "Remove (false positive)", None))
-        self.useForMetaboliteGrouping.setText(_translate("GroupEditor", "Use samples for metabolite grouping", None))
+        self.useAsMSMSTarget.setText(
+            _translate("GroupEditor", "Use sample for MSMS targets", None)
+        )
+        self.removeAsFalsePositive.setText(
+            _translate("GroupEditor", "Remove (false positive)", None)
+        )
+        self.useForMetaboliteGrouping.setText(
+            _translate("GroupEditor", "Use samples for metabolite grouping", None)
+        )
         self.omitFeatures.setTitle(_translate("GroupEditor", "Omit features", None))
         self.label_4.setText(_translate("GroupEditor", "Minimum found ", None))
         self.label_7.setText(_translate("GroupEditor", "Color", None))
@@ -230,10 +278,10 @@ class Ui_GroupEditor(object):
 
 if __name__ == "__main__":
     import sys
+
     app = QtWidgets.QApplication(sys.argv)
     GroupEditor = QtWidgets.QDialog()
     ui = Ui_GroupEditor()
     ui.setupUi(GroupEditor)
     GroupEditor.show()
     sys.exit(app.exec())
-

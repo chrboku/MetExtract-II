@@ -11,16 +11,21 @@ from PySide6 import QtCore, QtGui, QtWidgets
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
 except AttributeError:
+
     def _fromUtf8(s):
         return s
 
+
 try:
     _encoding = QtWidgets.QApplication.UnicodeUTF8
+
     def _translate(context, text, disambig):
         return QtWidgets.QApplication.translate(context, text, disambig, _encoding)
 except AttributeError:
+
     def _translate(context, text, disambig):
         return QtWidgets.QApplication.translate(context, text, disambig)
+
 
 class Ui_Dialog(object):
     def setupUi(self, Dialog):
@@ -30,16 +35,24 @@ class Ui_Dialog(object):
         self.buttonBox = QtWidgets.QDialogButtonBox(Dialog)
         self.buttonBox.setGeometry(QtCore.QRect(950, 1060, 221, 32))
         self.buttonBox.setOrientation(QtCore.Qt.Horizontal)
-        self.buttonBox.setStandardButtons(QtWidgets.QDialogButtonBox.Cancel|QtWidgets.QDialogButtonBox.Ok)
+        self.buttonBox.setStandardButtons(
+            QtWidgets.QDialogButtonBox.Cancel | QtWidgets.QDialogButtonBox.Ok
+        )
         self.buttonBox.setObjectName(_fromUtf8("buttonBox"))
         self.label = QtWidgets.QLabel(Dialog)
         self.label.setGeometry(QtCore.QRect(19, 25, 1161, 568))
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.label.sizePolicy().hasHeightForWidth())
         self.label.setSizePolicy(sizePolicy)
-        self.label.setStyleSheet(_fromUtf8("background-image: url(:/EnrichmentDialog/resources/EnrichmentDialog.png)"))
+        self.label.setStyleSheet(
+            _fromUtf8(
+                "background-image: url(:/EnrichmentDialog/resources/EnrichmentDialog.png)"
+            )
+        )
         self.label.setText(_fromUtf8(""))
         self.label.setObjectName(_fromUtf8("label"))
         self.tableWidget = QtWidgets.QTableWidget(Dialog)
@@ -274,24 +287,25 @@ class Ui_Dialog(object):
         item = self.tableWidget.horizontalHeaderItem(1)
         item.setText(_translate("Dialog", "Abundance M+1", None))
         item = self.tableWidget.horizontalHeaderItem(2)
-        item.setText(_translate("Dialog", "Abundance M\'-1", None))
+        item.setText(_translate("Dialog", "Abundance M'-1", None))
         item = self.tableWidget.horizontalHeaderItem(3)
-        item.setText(_translate("Dialog", "Abundance M\'", None))
+        item.setText(_translate("Dialog", "Abundance M'", None))
         item = self.tableWidget.horizontalHeaderItem(4)
         item.setText(_translate("Dialog", "Xn", None))
         item = self.tableWidget.horizontalHeaderItem(5)
         item.setText(_translate("Dialog", "M enrichment", None))
         item = self.tableWidget.horizontalHeaderItem(6)
-        item.setText(_translate("Dialog", "M\' enrichment", None))
+        item.setText(_translate("Dialog", "M' enrichment", None))
+
 
 import resources_rc
 
 if __name__ == "__main__":
     import sys
+
     app = QtWidgets.QApplication(sys.argv)
     Dialog = QtWidgets.QDialog()
     ui = Ui_Dialog()
     ui.setupUi(Dialog)
     Dialog.show()
     sys.exit(app.exec())
-

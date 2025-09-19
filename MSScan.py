@@ -1,22 +1,23 @@
 from math import floor
 
+
 # class for one MS scan
-class MSScan():
+class MSScan:
     def __init__(self):
         self.id = 0
         self.peak_count = 0
-        self.filter_line = ''
+        self.filter_line = ""
         self.retention_time = 0.0
         self.low_mz = 0.0
         self.high_mz = 0.0
-        self.polarity = ''
+        self.polarity = ""
         self.base_peak_mz = 0.0
         self.base_peak_intensity = 0.0
         self.total_ion_current = 0.0
         self.list_size = 0
-        self.encoded_mz = ''
-        self.encoded_intensity = ''
-        self.encodedData = ''
+        self.encoded_mz = ""
+        self.encoded_intensity = ""
+        self.encodedData = ""
         self.mz_list = []
         self.intensity_list = []
         self.msInstrumentID = ""
@@ -42,8 +43,8 @@ class MSScan():
         min = 0 if start is None else start
         max = len(self.mz_list) - 1 if stop is None else stop
 
-        mzlist=self.mz_list
-        peakCount=self.peak_count
+        mzlist = self.mz_list
+        peakCount = self.peak_count
 
         while min <= max:
             cur = int((max + min) // 2)
@@ -54,7 +55,9 @@ class MSScan():
                     leftBound -= 1
 
                 rightBound = cur
-                while (rightBound + 1) < peakCount and mzlist[rightBound + 1] <= mzright:
+                while (rightBound + 1) < peakCount and mzlist[
+                    rightBound + 1
+                ] <= mzright:
                     rightBound += 1
 
                 return leftBound, rightBound
@@ -70,8 +73,8 @@ class MSScan():
     # start and stop are used for iterative purposes and define starting conditions for the following
     # binary search
     def findMZ(self, mz, ppm, start=None, stop=None):
-        mzleft = mz * (1. - ppm / 1000000.)
-        mzright = mz * (1. + ppm / 1000000.)
+        mzleft = mz * (1.0 - ppm / 1000000.0)
+        mzright = mz * (1.0 + ppm / 1000000.0)
 
         return self._findMZGeneric(mzleft, mzright, start=start, stop=stop)
 
@@ -89,8 +92,7 @@ class MS2Scan(MSScan):
     def __init__(self):
         self.ms1_id = 0
         self.precursor_mz = 0.0
-        self.precursor_mz_data=""
+        self.precursor_mz_data = ""
         self.precursor_intensity = 0.0
         self.precursorCharge = 0
-        self.colisionEnergy = 0.
-
+        self.colisionEnergy = 0.0

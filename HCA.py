@@ -2,6 +2,7 @@
 
 import functools
 
+
 # Generic HCA object used to store a component the tree that is either a leaf or a composite
 class HCNode(object):
     # initialise the componet with a certain value
@@ -28,6 +29,7 @@ class HCNode(object):
     def getKids(self):
         raise Exception("Abstract: Not implemented")
 
+
 # HCA leaf object
 class HCLeaf(HCNode):
     def __init__(self, data, val=lambda x: x):
@@ -48,6 +50,7 @@ class HCLeaf(HCNode):
 
     def getKids(self):
         return [self]
+
 
 # HCA composite object
 # implemented as a binary composite for a binary tree structure. It has one left and one right neighbour only
@@ -82,6 +85,7 @@ class HCComposite(HCNode):
             ret.append(kid)
         return ret
 
+
 # generic method to compare different distances between HCA components
 def distCmp(x, y, dist):
     d = dist(x, y)
@@ -90,6 +94,7 @@ def distCmp(x, y, dist):
     if d < 0:
         return -1
     return 0
+
 
 # performs the hierarchical clustering analysis and stores the results using HCLeaf and HCComposite
 class HierarchicalClustering:
@@ -107,8 +112,10 @@ class HierarchicalClustering:
         while len(data) > 1:
             data.sort(key=functools.cmp_to_key(lambda x, y: distCmp(x, y, dist)))
             diff = [dist(data[x + 1], data[x]) for x in range(0, len(data) - 1)]
-            minindex, minvalue = min(enumerate(diff), key=lambda x:x[1])
-            d = HCComposite(data[minindex], data[minindex + 1], val=val, mean=mean, add=add)
+            minindex, minvalue = min(enumerate(diff), key=lambda x: x[1])
+            d = HCComposite(
+                data[minindex], data[minindex + 1], val=val, mean=mean, add=add
+            )
             data.pop(minindex)
             data.pop(minindex)
             data.append(d)
@@ -117,6 +124,7 @@ class HierarchicalClustering:
 
     def getTree(self):
         return self.tree
+
 
 # HELPER METHOD that returns the HCLeaf object with the lowest value
 def _getMinKid(node, minK=100000):
@@ -127,6 +135,7 @@ def _getMinKid(node, minK=100000):
     else:
         raise Exception("HCA Clustering error")
 
+
 # HELPER METHOD that returns the HCLeaf object with the highest value
 def _getMaxKid(node, maxK=-1):
     if isinstance(node, HCLeaf):
@@ -135,6 +144,7 @@ def _getMaxKid(node, maxK=-1):
         return max(maxK, _getMaxKid(node.left, maxK), _getMaxKid(node.right, maxK))
     else:
         raise Exception("HCA Clustering error")
+
 
 # cut HCA tree according to a given maximal sub-cluster size (i.e. maximal ppm deviations
 # between lowest and highest mz value)
@@ -145,7 +155,7 @@ def cutTreeSized(node, ppm):
         minV = _getMinKid(node)
         maxV = _getMaxKid(node)
 
-        if (1000000. * (maxV - minV) / node.getValue()) < ppm:
+        if (1000000.0 * (maxV - minV) / node.getValue()) < ppm:
             return [node]
         else:
             ret = []
@@ -156,6 +166,7 @@ def cutTreeSized(node, ppm):
             return ret
     else:
         raise Exception("HCA Clustering error")
+
 
 # print(HCA tree (recursive with intend))
 def printTree(node, inlet=""):
@@ -169,9 +180,41 @@ def printTree(node, inlet=""):
         print("Error")
 
 
-
-if __name__=="__main__":
-    data=[1,3,5,6,7,22,23,25,26,33,39,43,45,46,65,66,68,69,71,72,82,83,86,95,96,99]
-    hc = HierarchicalClustering(data, dist=lambda x, y: abs(x.getValue()-y.getValue()), val=lambda x: x, mean=lambda x, y: x / y, add=lambda x,y:x+y)
+if __name__ == "__main__":
+    data = [
+        1,
+        3,
+        5,
+        6,
+        7,
+        22,
+        23,
+        25,
+        26,
+        33,
+        39,
+        43,
+        45,
+        46,
+        65,
+        66,
+        68,
+        69,
+        71,
+        72,
+        82,
+        83,
+        86,
+        95,
+        96,
+        99,
+    ]
+    hc = HierarchicalClustering(
+        data,
+        dist=lambda x, y: abs(x.getValue() - y.getValue()),
+        val=lambda x: x,
+        mean=lambda x, y: x / y,
+        add=lambda x, y: x + y,
+    )
 
     printTree(hc.getTree())

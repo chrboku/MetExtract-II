@@ -1,9 +1,10 @@
 from PySide6 import QtCore, QtGui, QtWidgets
 
+
 # a progress bar widget that is separated in several sub-processes.
 # It can be used to better illustrate a multi-step process
 class ColoredProgressBar(QtWidgets.QWidget):
-    def __init__(self, untils={1.: "slategrey"}, minV=0., maxV=1., value=.0):
+    def __init__(self, untils={1.0: "slategrey"}, minV=0.0, maxV=1.0, value=0.0):
         super(ColoredProgressBar, self).__init__()
         self.value = value
         self.minV = minV
@@ -56,9 +57,18 @@ class ColoredProgressBar(QtWidgets.QWidget):
             if (self.maxV - self.minV) <= 0:
                 pass
             else:
-                qp.drawRect(0, 0, w * min(1. * (self.value - self.minV) / (self.maxV - self.minV), until), h)
-
+                qp.drawRect(
+                    0,
+                    0,
+                    w
+                    * min(
+                        1.0 * (self.value - self.minV) / (self.maxV - self.minV), until
+                    ),
+                    h,
+                )
 
         for until in sorted(self.untils.keys(), reverse=True):
             qp.setBrush(QtGui.QColor(self.untils[until]))
-            qp.drawRect(0, h-1, w * min(1. * (1. - self.minV) / (1. - self.minV), until), h)
+            qp.drawRect(
+                0, h - 1, w * min(1.0 * (1.0 - self.minV) / (1.0 - self.minV), until), h
+            )

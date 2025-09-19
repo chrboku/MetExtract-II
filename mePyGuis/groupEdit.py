@@ -9,16 +9,18 @@ from utils import natSort
 
 
 class groupEdit(QtWidgets.QDialog, Ui_GroupEditor):
-    def __init__(self, parent=None, initDir=None, colors=["Red", "Blue", "Green"], activeColor=0):
+    def __init__(
+        self, parent=None, initDir=None, colors=["Red", "Blue", "Green"], activeColor=0
+    ):
         self.groupfiles = []
         if initDir is not None:
             self.initDir = initDir
         else:
             self.initDir = "."
-            if 'USERPROFILE' in os.environ:
-                self.initDir = os.getenv('USERPROFILE')
-            elif 'HOME' in os.environ:
-                self.initDir = os.getenv('HOME')
+            if "USERPROFILE" in os.environ:
+                self.initDir = os.getenv("USERPROFILE")
+            elif "HOME" in os.environ:
+                self.initDir = os.getenv("HOME")
 
         QtWidgets.QDialog.__init__(self, parent)
         self.setupUi(self)
@@ -32,7 +34,7 @@ class groupEdit(QtWidgets.QDialog, Ui_GroupEditor):
         self.addFolder.clicked.connect(self.selectFolder)
         self.removeSelected.clicked.connect(self.removeSel)
 
-        self.colors=[]
+        self.colors = []
         for i in colors:
             self.colors.append(i)
         self.colorsComboBox.addItems(self.colors)
@@ -41,7 +43,11 @@ class groupEdit(QtWidgets.QDialog, Ui_GroupEditor):
 
         self.dialogFinished.setFocus()
 
-        self.groupName.setValidator(QtGui.QRegularExpressionValidator(QtCore.QRegularExpression("[0-9a-zA-Z_]*")))
+        self.groupName.setValidator(
+            QtGui.QRegularExpressionValidator(
+                QtCore.QRegularExpression("[0-9a-zA-Z_]*")
+            )
+        )
         self.setAcceptDrops(True)
 
     def removeSel(self):
@@ -60,11 +66,20 @@ class groupEdit(QtWidgets.QDialog, Ui_GroupEditor):
 
     def dialogFin(self):
         if len(self.getGroupName()) < 1:
-            QtWidgets.QMessageBox.information(None, "Group name", "Please specify a group name", QtWidgets.QMessageBox.Ok)
+            QtWidgets.QMessageBox.information(
+                None,
+                "Group name",
+                "Please specify a group name",
+                QtWidgets.QMessageBox.Ok,
+            )
             return
         if len(self.getGroupFiles()) < 1:
-            QtWidgets.QMessageBox.information(None, "Group files", "Please load one or more files into this group",
-                                          QtWidgets.QMessageBox.Ok)
+            QtWidgets.QMessageBox.information(
+                None,
+                "Group files",
+                "Please load one or more files into this group",
+                QtWidgets.QMessageBox.Ok,
+            )
             return
 
         self.accept()
@@ -97,48 +112,66 @@ class groupEdit(QtWidgets.QDialog, Ui_GroupEditor):
         return bool(self.useAsMSMSTarget.checkState() == QtCore.Qt.Checked)
 
     def selectFiles(self):
-        filenames = QtWidgets.QFileDialog.getOpenFileNames(self, caption="Select group file(s)", dir=self.initDir,
-                                                       filter="mzXML (*.mzxml);;mzML (*.mzml);;group file (*.grp);;All files (*.*)")
+        filenames = QtWidgets.QFileDialog.getOpenFileNames(
+            self,
+            caption="Select group file(s)",
+            dir=self.initDir,
+            filter="mzXML (*.mzxml);;mzML (*.mzml);;group file (*.grp);;All files (*.*)",
+        )
         filenames = list(filenames)
-        filenames=natSort(filenames)
+        filenames = natSort(filenames)
 
         for filename in filenames:
             self.groupFiles.addItem(filename.replace("\\", "/"))
             self.groupfiles.append(filename)
         if len(filenames) > 0:
             self.initDir = str(filenames[0]).replace("\\", "/")
-            self.initDir = self.initDir[:self.initDir.rfind("/")]
+            self.initDir = self.initDir[: self.initDir.rfind("/")]
 
     def selectFolder(self):
-        foldername = str(QtWidgets.QFileDialog.getExistingDirectory(self, caption="Select folder containing mzxml files"),
-                         directory=self.initDir)
+        foldername = str(
+            QtWidgets.QFileDialog.getExistingDirectory(
+                self, caption="Select folder containing mzxml files"
+            ),
+            directory=self.initDir,
+        )
         if len(foldername) > 0:
             self.initDir = foldername.replace("\\", "/")
             for root, dirs, files in os.walk(foldername):
                 for file in files:
-                    if file.lower().endswith(".mzxml") or file.lower().endswith(".mzml"):
+                    if file.lower().endswith(".mzxml") or file.lower().endswith(
+                        ".mzml"
+                    ):
                         self.groupFiles.addItem(root + "/" + file)
                         self.groupfiles.append(root + "/" + file)
 
-
-    def executeDialog(self, groupName="", groupfiles=[], minimumGroupFound=1, omitFeatures=True, useForMetaboliteGrouping=True, removeAsFalsePositive=False, activeColor="Red", useAsMSMSTarget=False):
-
+    def executeDialog(
+        self,
+        groupName="",
+        groupfiles=[],
+        minimumGroupFound=1,
+        omitFeatures=True,
+        useForMetaboliteGrouping=True,
+        removeAsFalsePositive=False,
+        activeColor="Red",
+        useAsMSMSTarget=False,
+    ):
         for file in groupfiles:
             self.groupFiles.addItem(file)
             self.groupfiles.append(file)
 
             self.initDir = str(file).replace("\\", "/")
-            self.initDir = self.initDir[:self.initDir.rfind("/")]
+            self.initDir = self.initDir[: self.initDir.rfind("/")]
 
-            colInd=-1
+            colInd = -1
             for i, col in enumerate(self.colors):
-                if col==activeColor:
-                    colInd=i
-            if colInd==-1:
+                if col == activeColor:
+                    colInd = i
+            if colInd == -1:
                 self.colors.append(activeColor)
                 self.colorsComboBox.clear()
                 self.colorsComboBox.addItems(self.colors)
-                colInd=len(self.colors)-1
+                colInd = len(self.colors) - 1
             self.colorsComboBox.setCurrentIndex(colInd)
 
         self.groupName.setText(groupName)
@@ -179,7 +212,7 @@ class groupEdit(QtWidgets.QDialog, Ui_GroupEditor):
             for url in event.mimeData().urls():
                 links.append(str(url.toLocalFile()).replace("\\", "/"))
 
-            links=natSort(links)
+            links = natSort(links)
             for link in links:
                 if link.lower().endswith(".mzxml") or link.lower().endswith(".mzml"):
                     self.groupFiles.addItem(link)

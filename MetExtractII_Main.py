@@ -27,13 +27,12 @@ import platform
 from mePyGuis import calcIsoEnrichmentDialog
 
 
-
 class ModuleSelection(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self, parent=None, initDir=None):
         QtWidgets.QMainWindow.__init__(self, parent)
         self.setupUi(self)
         self.setWindowTitle("MetExtract II: Module selection")
-        self.version.setText("MetExtract II (%s)"%MetExtractVersion)
+        self.version.setText("MetExtract II (%s)" % MetExtractVersion)
 
         self.allExtractIcon.clicked.connect(self.openAllExtract)
         self.tracExtractIcon.clicked.connect(self.openTracExtract)
@@ -42,18 +41,19 @@ class ModuleSelection(QtWidgets.QMainWindow, Ui_MainWindow):
         self.fticrExtractIcon.clicked.connect(self.openFTICR)
         self.documentationIcon.clicked.connect(self.openDocumentation)
 
-        self.actionCalculate_isotopic_enrichment.triggered.connect(self.openCalcIsotopologEnrichment)
-
+        self.actionCalculate_isotopic_enrichment.triggered.connect(
+            self.openCalcIsotopologEnrichment
+        )
 
     def openMetExtractModule(self, module):
         try:
             import sys
             import os
-            
+
             # Get the Python executable from the current environment
             python_exe = sys.executable
             current_dir = os.path.dirname(os.path.abspath(__file__))
-            
+
             if module == "AllExtract" or module == "TracExtract":
                 script_path = os.path.join(current_dir, "MExtract.py")
                 cmd = [python_exe, script_path, "-m", module]
@@ -63,21 +63,34 @@ class ModuleSelection(QtWidgets.QMainWindow, Ui_MainWindow):
                 cmd = [python_exe, script_path]
                 subprocess.Popen(cmd)
             elif module == "combineResults":
-                script_path = os.path.join(current_dir, "resultsPostProcessing", "combineResults.py")
+                script_path = os.path.join(
+                    current_dir, "resultsPostProcessing", "combineResults.py"
+                )
                 if os.path.exists(script_path):
                     cmd = [python_exe, script_path]
                     subprocess.Popen(cmd)
                 else:
-                    QtWidgets.QMessageBox.warning(self, "MetExtract", "combineResults module not found", QtWidgets.QMessageBox.Ok)
+                    QtWidgets.QMessageBox.warning(
+                        self,
+                        "MetExtract",
+                        "combineResults module not found",
+                        QtWidgets.QMessageBox.Ok,
+                    )
             elif module == "FTICRExtract":
                 script_path = os.path.join(current_dir, "FTICRModule.py")
                 cmd = [python_exe, script_path]
                 subprocess.Popen(cmd)
             else:
-                QtWidgets.QMessageBox.warning(self, "MetExtract", "Unknown module", QtWidgets.QMessageBox.Ok)
+                QtWidgets.QMessageBox.warning(
+                    self, "MetExtract", "Unknown module", QtWidgets.QMessageBox.Ok
+                )
         except Exception as e:
-            QtWidgets.QMessageBox.warning(self, "MetExtract", f"Requested module cannot be found: {str(e)}\nPlease try re-installing the software", QtWidgets.QMessageBox.Ok)
-
+            QtWidgets.QMessageBox.warning(
+                self,
+                "MetExtract",
+                f"Requested module cannot be found: {str(e)}\nPlease try re-installing the software",
+                QtWidgets.QMessageBox.Ok,
+            )
 
     def openCalcIsotopologEnrichment(self):
         diag = calcIsoEnrichmentDialog.calcIsoEnrichmentDialog()
@@ -109,11 +122,12 @@ class ModuleSelection(QtWidgets.QMainWindow, Ui_MainWindow):
         import sys
         from utils import get_main_dir
 
-        url=get_main_dir()+"/documentation/index.html"
-        if sys.platform == "darwin":    # in case of OS X
-            subprocess.Popen(['open', url])
+        url = get_main_dir() + "/documentation/index.html"
+        if sys.platform == "darwin":  # in case of OS X
+            subprocess.Popen(["open", url])
         else:
             webbrowser.open_new_tab(url)
+
 
 def main():
     import sys
@@ -125,6 +139,7 @@ def main():
     x = app.exec()
 
     sys.exit(x)
+
 
 if __name__ == "__main__":
     main()

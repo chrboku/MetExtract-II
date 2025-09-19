@@ -27,10 +27,10 @@ class TSVLoaderEdit(QtWidgets.QDialog, Ui_Dialog):
                 assert ord in self.mapping
 
         self.lastOpenDir = "."
-        if 'USERPROFILE' in os.environ:
-            self.lastOpenDir = os.getenv('USERPROFILE')
-        elif 'HOME' in os.environ:
-            self.lastOpenDir = os.getenv('HOME')
+        if "USERPROFILE" in os.environ:
+            self.lastOpenDir = os.getenv("USERPROFILE")
+        elif "HOME" in os.environ:
+            self.lastOpenDir = os.getenv("HOME")
         if initDir is not None:
             self.lastOpenDir = initDir
 
@@ -38,16 +38,20 @@ class TSVLoaderEdit(QtWidgets.QDialog, Ui_Dialog):
         self.mappingComboBoxes = {}
 
     def loadFiles(self):
-
         scrollAreaWidgetContents = QtWidgets.QWidget()
         scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 291, 370))
         gridLayout_3 = QtWidgets.QGridLayout(scrollAreaWidgetContents)
         verticalLayout_3 = QtWidgets.QVBoxLayout()
-        spacerItem6 = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        spacerItem6 = QtWidgets.QSpacerItem(
+            0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
+        )
         verticalLayout_3.addItem(spacerItem6)
 
-        openFiles = QtWidgets.QFileDialog.getOpenFileNames(caption="Select TSV/CSV file", dir=self.lastOpenDir,
-                                                     filter="TSV file (*.tsv);;CSV file (*.csv);;All files(*.*)")
+        openFiles = QtWidgets.QFileDialog.getOpenFileNames(
+            caption="Select TSV/CSV file",
+            dir=self.lastOpenDir,
+            filter="TSV file (*.tsv);;CSV file (*.csv);;All files(*.*)",
+        )
 
         if len(openFiles) > 0:
             self.selectedFiles = [str(f) for f in openFiles]
@@ -55,31 +59,35 @@ class TSVLoaderEdit(QtWidgets.QDialog, Ui_Dialog):
 
             horizontalLayout_5 = QtWidgets.QHBoxLayout()
             l1 = QtWidgets.QLabel(self.scrollAreaWidgetContents)
-            sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Preferred)
+            sizePolicy = QtWidgets.QSizePolicy(
+                QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Preferred
+            )
             sizePolicy.setHorizontalStretch(0)
             sizePolicy.setVerticalStretch(0)
             sizePolicy.setHeightForWidth(l1.sizePolicy().hasHeightForWidth())
             l1.setSizePolicy(sizePolicy)
 
-            mFile=""
+            mFile = ""
             if len(self.selectedFiles) == 1:
                 mFile = self.selectedFiles[0]
                 if len(mFile) > 26:
-                    mFile = mFile[:3] + "..." + mFile[(len(mFile) - 23):]
+                    mFile = mFile[:3] + "..." + mFile[(len(mFile) - 23) :]
             else:
-                mFile = "Selected %d files"%len(self.selectedFiles)
-            l1.setText("<html><head/><body><p>Selected file: %s</p></body></html>" % mFile)
+                mFile = "Selected %d files" % len(self.selectedFiles)
+            l1.setText(
+                "<html><head/><body><p>Selected file: %s</p></body></html>" % mFile
+            )
             horizontalLayout_5.addWidget(l1)
             verticalLayout_3.addLayout(horizontalLayout_5)
 
-            splitChar = '\t'
+            splitChar = "\t"
             if self.selectedFiles[0].lower().endswith(".csv"):
-                splitChar = ';'
+                splitChar = ";"
 
             headers = None
             for opFile in self.selectedFiles:
                 print(opFile)
-                with open(opFile, 'r', encoding='utf-8') as ofin:
+                with open(opFile, "r", encoding="utf-8") as ofin:
                     tsvin = csv.reader(ofin, delimiter=splitChar)
 
                     i = 0
@@ -94,17 +102,20 @@ class TSVLoaderEdit(QtWidgets.QDialog, Ui_Dialog):
                         i = i + 1
 
             for map in self.order:
-
                 horizontalLayout_5 = QtWidgets.QHBoxLayout()
 
                 l1 = QtWidgets.QLabel(self.scrollAreaWidgetContents)
-                sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Preferred)
+                sizePolicy = QtWidgets.QSizePolicy(
+                    QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Preferred
+                )
                 sizePolicy.setHorizontalStretch(0)
                 sizePolicy.setVerticalStretch(0)
                 sizePolicy.setHeightForWidth(l1.sizePolicy().hasHeightForWidth())
                 l1.setSizePolicy(sizePolicy)
                 l1.setText(
-                    "<html><head/><body><p><span style=\" text-decoration: underline;\">%s</span>:</p></body></html>" % map)
+                    '<html><head/><body><p><span style=" text-decoration: underline;">%s</span>:</p></body></html>'
+                    % map
+                )
 
                 horizontalLayout_5.addWidget(l1)
                 c1 = QtWidgets.QComboBox(self.scrollAreaWidgetContents)
@@ -113,7 +124,9 @@ class TSVLoaderEdit(QtWidgets.QDialog, Ui_Dialog):
                 for header in headers:
                     c1.addItem(header)
                 if self.mapping[map] in headers:
-                    c1.setCurrentIndex(self.findMapInHeaders(self.mapping[map], headers))
+                    c1.setCurrentIndex(
+                        self.findMapInHeaders(self.mapping[map], headers)
+                    )
 
                 horizontalLayout_5.addWidget(c1)
                 verticalLayout_3.addLayout(horizontalLayout_5)
@@ -124,18 +137,23 @@ class TSVLoaderEdit(QtWidgets.QDialog, Ui_Dialog):
             horizontalLayout_5 = QtWidgets.QHBoxLayout()
 
             l1 = QtWidgets.QLabel(self.scrollAreaWidgetContents)
-            sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Preferred)
+            sizePolicy = QtWidgets.QSizePolicy(
+                QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Preferred
+            )
             sizePolicy.setHorizontalStretch(0)
             sizePolicy.setVerticalStretch(0)
             sizePolicy.setHeightForWidth(l1.sizePolicy().hasHeightForWidth())
             l1.setSizePolicy(sizePolicy)
             l1.setText(
-                "<html><head/><body><p>Please open TSV or CSV file using the 'Load table' button</p></body></html>")
+                "<html><head/><body><p>Please open TSV or CSV file using the 'Load table' button</p></body></html>"
+            )
 
             horizontalLayout_5.addWidget(l1)
             verticalLayout_3.addLayout(horizontalLayout_5)
 
-        spacerItem7 = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        spacerItem7 = QtWidgets.QSpacerItem(
+            0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
+        )
         verticalLayout_3.addItem(spacerItem7)
         gridLayout_3.addLayout(verticalLayout_3, 0, 0, 1, 1)
         self.scrollAreaWidgetContents = scrollAreaWidgetContents
@@ -173,7 +191,7 @@ class TSVLoaderEdit(QtWidgets.QDialog, Ui_Dialog):
         self.reject()
 
     def dialogFin(self):
-        if len(self.selectedFiles)==0:
+        if len(self.selectedFiles) == 0:
             self.reject()
         else:
             self.accept()
@@ -190,8 +208,16 @@ if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
 
     dialog = TSVLoaderEdit(
-        mapping={"ID": "Id", "mz": "mz", "Cn": "C_Count", "Z": "Z", "RT": "RT_min", "MS scan event": "ScanEvent"},
-        order=["ID", "mz", "Cn", "Z", "RT", "MS scan event"])
+        mapping={
+            "ID": "Id",
+            "mz": "mz",
+            "Cn": "C_Count",
+            "Z": "Z",
+            "RT": "RT_min",
+            "MS scan event": "ScanEvent",
+        },
+        order=["ID", "mz", "Cn", "Z", "RT", "MS scan event"],
+    )
 
     dialog.setTitle("Select results file")
     dialog.setDescription("Select results file for some example")
@@ -202,4 +228,3 @@ if __name__ == "__main__":
         print(dialog.getUserSelectedFile(), "\n", dialog.getUserSelectedMapping())
 
     sys.exit(app.exec())
-

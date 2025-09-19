@@ -11,16 +11,21 @@ from PySide6 import QtCore, QtGui, QtWidgets
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
 except AttributeError:
+
     def _fromUtf8(s):
         return s
 
+
 try:
     _encoding = QtWidgets.QApplication.UnicodeUTF8
+
     def _translate(context, text, disambig):
         return QtWidgets.QApplication.translate(context, text, disambig, _encoding)
 except AttributeError:
+
     def _translate(context, text, disambig):
         return QtWidgets.QApplication.translate(context, text, disambig)
+
 
 class Ui_Dialog(object):
     def setupUi(self, Dialog):
@@ -33,7 +38,9 @@ class Ui_Dialog(object):
         self.label_16.setObjectName(_fromUtf8("label_16"))
         self.gridLayout.addWidget(self.label_16, 0, 0, 1, 1)
         self.groupBox = QtWidgets.QGroupBox(Dialog)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.groupBox.sizePolicy().hasHeightForWidth())
@@ -46,7 +53,9 @@ class Ui_Dialog(object):
         self.line_4.setFrameShadow(QtWidgets.QFrame.Sunken)
         self.line_4.setObjectName(_fromUtf8("line_4"))
         self.gridLayout_2.addWidget(self.line_4, 14, 1, 1, 3)
-        spacerItem = QtWidgets.QSpacerItem(20, 10, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        spacerItem = QtWidgets.QSpacerItem(
+            20, 10, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
+        )
         self.gridLayout_2.addItem(spacerItem, 15, 1, 1, 1)
         self.expDLoad = QtWidgets.QPushButton(self.groupBox)
         self.expDLoad.setObjectName(_fromUtf8("expDLoad"))
@@ -69,7 +78,9 @@ class Ui_Dialog(object):
         self.expESave = QtWidgets.QLineEdit(self.groupBox)
         self.expESave.setObjectName(_fromUtf8("expESave"))
         self.gridLayout_2.addWidget(self.expESave, 16, 2, 1, 1)
-        spacerItem1 = QtWidgets.QSpacerItem(20, 10, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        spacerItem1 = QtWidgets.QSpacerItem(
+            20, 10, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
+        )
         self.gridLayout_2.addItem(spacerItem1, 7, 1, 1, 1)
         self.expBPrefix = QtWidgets.QLineEdit(self.groupBox)
         self.expBPrefix.setObjectName(_fromUtf8("expBPrefix"))
@@ -83,12 +94,16 @@ class Ui_Dialog(object):
         self.expEPrefix = QtWidgets.QLineEdit(self.groupBox)
         self.expEPrefix.setObjectName(_fromUtf8("expEPrefix"))
         self.gridLayout_2.addWidget(self.expEPrefix, 17, 2, 1, 2)
-        spacerItem2 = QtWidgets.QSpacerItem(20, 10, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        spacerItem2 = QtWidgets.QSpacerItem(
+            20, 10, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
+        )
         self.gridLayout_2.addItem(spacerItem2, 19, 1, 1, 1)
         self.expASave = QtWidgets.QLineEdit(self.groupBox)
         self.expASave.setObjectName(_fromUtf8("expASave"))
         self.gridLayout_2.addWidget(self.expASave, 0, 2, 1, 1)
-        spacerItem3 = QtWidgets.QSpacerItem(20, 10, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        spacerItem3 = QtWidgets.QSpacerItem(
+            20, 10, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
+        )
         self.gridLayout_2.addItem(spacerItem3, 11, 1, 1, 1)
         self.label_5 = QtWidgets.QLabel(self.groupBox)
         self.label_5.setObjectName(_fromUtf8("label_5"))
@@ -98,7 +113,9 @@ class Ui_Dialog(object):
         self.line.setFrameShadow(QtWidgets.QFrame.Sunken)
         self.line.setObjectName(_fromUtf8("line"))
         self.gridLayout_2.addWidget(self.line, 2, 1, 1, 3)
-        spacerItem4 = QtWidgets.QSpacerItem(20, 10, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        spacerItem4 = QtWidgets.QSpacerItem(
+            20, 10, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
+        )
         self.gridLayout_2.addItem(spacerItem4, 3, 1, 1, 1)
         self.label_3 = QtWidgets.QLabel(self.groupBox)
         self.label_3.setObjectName(_fromUtf8("label_3"))
@@ -218,18 +235,24 @@ class Ui_Dialog(object):
         self.maxRTDev.setObjectName(_fromUtf8("maxRTDev"))
         self.gridLayout_3.addWidget(self.maxRTDev, 1, 1, 1, 1)
         self.gridLayout.addWidget(self.groupBox_2, 3, 0, 1, 1)
-        spacerItem5 = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        spacerItem5 = QtWidgets.QSpacerItem(
+            0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
+        )
         self.gridLayout.addItem(spacerItem5, 0, 1, 4, 1)
         self.line_6 = QtWidgets.QFrame(Dialog)
         self.line_6.setFrameShape(QtWidgets.QFrame.HLine)
         self.line_6.setFrameShadow(QtWidgets.QFrame.Sunken)
         self.line_6.setObjectName(_fromUtf8("line_6"))
         self.gridLayout.addWidget(self.line_6, 5, 0, 1, 1)
-        spacerItem6 = QtWidgets.QSpacerItem(20, 20, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        spacerItem6 = QtWidgets.QSpacerItem(
+            20, 20, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
+        )
         self.gridLayout.addItem(spacerItem6, 1, 0, 1, 1)
         self.horizontalLayout_3 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_3.setObjectName(_fromUtf8("horizontalLayout_3"))
-        spacerItem7 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem7 = QtWidgets.QSpacerItem(
+            40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum
+        )
         self.horizontalLayout_3.addItem(spacerItem7)
         self.run = QtWidgets.QPushButton(Dialog)
         self.run.setObjectName(_fromUtf8("run"))
@@ -264,7 +287,13 @@ class Ui_Dialog(object):
 
     def retranslateUi(self, Dialog):
         Dialog.setWindowTitle(_translate("Dialog", "MetExtract II", None))
-        self.label_16.setText(_translate("Dialog", "<html><head/><body><p><span style=\" font-size:12pt; font-weight:600;\">Combine results</span></p><p>Combine the data processing results from several MetExtract II experiments. For example, if three experiments (U-13C-labeling, U-15N-labeling and a tracer-biotransformation experiment) have been carried out, the results can be combined into a singe data matrix using this tool. The tool is a very basic tool and does not perform any sort of chromatographic alignment or a correction for m/z shifts across the chromatograms. </p></body></html>", None))
+        self.label_16.setText(
+            _translate(
+                "Dialog",
+                '<html><head/><body><p><span style=" font-size:12pt; font-weight:600;">Combine results</span></p><p>Combine the data processing results from several MetExtract II experiments. For example, if three experiments (U-13C-labeling, U-15N-labeling and a tracer-biotransformation experiment) have been carried out, the results can be combined into a singe data matrix using this tool. The tool is a very basic tool and does not perform any sort of chromatographic alignment or a correction for m/z shifts across the chromatograms. </p></body></html>',
+                None,
+            )
+        )
         self.groupBox.setTitle(_translate("Dialog", "Input experiments", None))
         self.expDLoad.setText(_translate("Dialog", "Load", None))
         self.expELoad.setText(_translate("Dialog", "Load", None))
@@ -284,26 +313,66 @@ class Ui_Dialog(object):
         self.label_11.setText(_translate("Dialog", "Results experiment F", None))
         self.label_12.setText(_translate("Dialog", "Prefix experiment F", None))
         self.expBLoad.setText(_translate("Dialog", "Load", None))
-        self.label_17.setText(_translate("Dialog", "<html><head/><body><p><span style=\" font-size:32pt;\">A</span></p></body></html>", None))
-        self.label_18.setText(_translate("Dialog", "<html><head/><body><p><span style=\" font-size:32pt;\">B</span></p></body></html>", None))
-        self.label_19.setText(_translate("Dialog", "<html><head/><body><p><span style=\" font-size:32pt; color:#8b8b8b;\">C</span></p></body></html>", None))
-        self.label_20.setText(_translate("Dialog", "<html><head/><body><p><span style=\" font-size:32pt; color:#8b8b8b;\">D</span></p></body></html>", None))
-        self.label_21.setText(_translate("Dialog", "<html><head/><body><p><span style=\" font-size:32pt; color:#8b8b8b;\">E</span></p></body></html>", None))
-        self.label_22.setText(_translate("Dialog", "<html><head/><body><p><span style=\" font-size:32pt; color:#8b8b8b;\">F</span></p></body></html>", None))
+        self.label_17.setText(
+            _translate(
+                "Dialog",
+                '<html><head/><body><p><span style=" font-size:32pt;">A</span></p></body></html>',
+                None,
+            )
+        )
+        self.label_18.setText(
+            _translate(
+                "Dialog",
+                '<html><head/><body><p><span style=" font-size:32pt;">B</span></p></body></html>',
+                None,
+            )
+        )
+        self.label_19.setText(
+            _translate(
+                "Dialog",
+                '<html><head/><body><p><span style=" font-size:32pt; color:#8b8b8b;">C</span></p></body></html>',
+                None,
+            )
+        )
+        self.label_20.setText(
+            _translate(
+                "Dialog",
+                '<html><head/><body><p><span style=" font-size:32pt; color:#8b8b8b;">D</span></p></body></html>',
+                None,
+            )
+        )
+        self.label_21.setText(
+            _translate(
+                "Dialog",
+                '<html><head/><body><p><span style=" font-size:32pt; color:#8b8b8b;">E</span></p></body></html>',
+                None,
+            )
+        )
+        self.label_22.setText(
+            _translate(
+                "Dialog",
+                '<html><head/><body><p><span style=" font-size:32pt; color:#8b8b8b;">F</span></p></body></html>',
+                None,
+            )
+        )
         self.label_15.setText(_translate("Dialog", "Save combined results to", None))
         self.loadResults.setText(_translate("Dialog", "Select", None))
         self.groupBox_2.setTitle(_translate("Dialog", "Processing parameters", None))
-        self.label_13.setText(_translate("Dialog", "Maximum m/z deviation (± ppm)", None))
-        self.label_14.setText(_translate("Dialog", "Maximum retentiontime deviation (± minutes)", None))
+        self.label_13.setText(
+            _translate("Dialog", "Maximum m/z deviation (± ppm)", None)
+        )
+        self.label_14.setText(
+            _translate("Dialog", "Maximum retentiontime deviation (± minutes)", None)
+        )
         self.run.setText(_translate("Dialog", "Run", None))
 
 
 if __name__ == "__main__":
     import sys
+
     app = QtWidgets.QApplication(sys.argv)
     Dialog = QtWidgets.QDialog()
     ui = Ui_Dialog()
     ui.setupUi(Dialog)
     Dialog.show()
     sys.exit(app.exec())
-

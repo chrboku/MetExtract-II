@@ -11,16 +11,21 @@ from PySide6 import QtCore, QtGui, QtWidgets
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
 except AttributeError:
+
     def _fromUtf8(s):
         return s
 
+
 try:
     _encoding = QtWidgets.QApplication.UnicodeUTF8
+
     def _translate(context, text, disambig):
         return QtWidgets.QApplication.translate(context, text, disambig, _encoding)
 except AttributeError:
+
     def _translate(context, text, disambig):
         return QtWidgets.QApplication.translate(context, text, disambig)
+
 
 class Ui_Dialog(object):
     def setupUi(self, Dialog):
@@ -35,25 +40,32 @@ class Ui_Dialog(object):
         self.verticalLayout_2.setObjectName(_fromUtf8("verticalLayout_2"))
         self.label_2 = QtWidgets.QLabel(Dialog)
         self.label_2.setStyleSheet(_fromUtf8("font: 10pt;"))
-        self.label_2.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.label_2.setAlignment(
+            QtCore.Qt.AlignRight | QtCore.Qt.AlignTrailing | QtCore.Qt.AlignVCenter
+        )
         self.label_2.setObjectName(_fromUtf8("label_2"))
         self.verticalLayout_2.addWidget(self.label_2)
-        spacerItem = QtWidgets.QSpacerItem(0, 5, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        spacerItem = QtWidgets.QSpacerItem(
+            0, 5, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
+        )
         self.verticalLayout_2.addItem(spacerItem)
         self.help_2 = QtWidgets.QLabel(Dialog)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.help_2.sizePolicy().hasHeightForWidth())
         self.help_2.setSizePolicy(sizePolicy)
         self.help_2.setMaximumSize(QtCore.QSize(200, 16777215))
-        self.help_2.setStyleSheet(_fromUtf8("color: rgb(90, 90, 90);\n"
-"font: 7pt;"))
-        self.help_2.setAlignment(QtCore.Qt.AlignJustify|QtCore.Qt.AlignVCenter)
+        self.help_2.setStyleSheet(_fromUtf8("color: rgb(90, 90, 90);\nfont: 7pt;"))
+        self.help_2.setAlignment(QtCore.Qt.AlignJustify | QtCore.Qt.AlignVCenter)
         self.help_2.setWordWrap(True)
         self.help_2.setObjectName(_fromUtf8("help_2"))
         self.verticalLayout_2.addWidget(self.help_2)
-        spacerItem1 = QtWidgets.QSpacerItem(200, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        spacerItem1 = QtWidgets.QSpacerItem(
+            200, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
+        )
         self.verticalLayout_2.addItem(spacerItem1)
         self.gridLayout_4.addLayout(self.verticalLayout_2, 2, 0, 1, 1)
         self.line = QtWidgets.QFrame(Dialog)
@@ -66,7 +78,9 @@ class Ui_Dialog(object):
         self.loadDefaults = QtWidgets.QPushButton(Dialog)
         self.loadDefaults.setObjectName(_fromUtf8("loadDefaults"))
         self.horizontalLayout.addWidget(self.loadDefaults)
-        spacerItem2 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem2 = QtWidgets.QSpacerItem(
+            40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum
+        )
         self.horizontalLayout.addItem(spacerItem2)
         self.discardButton = QtWidgets.QPushButton(Dialog)
         self.discardButton.setObjectName(_fromUtf8("discardButton"))
@@ -88,10 +102,14 @@ class Ui_Dialog(object):
         self.verticalLayout_3.setObjectName(_fromUtf8("verticalLayout_3"))
         self.label_3 = QtWidgets.QLabel(Dialog)
         self.label_3.setStyleSheet(_fromUtf8("font: 10pt;"))
-        self.label_3.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.label_3.setAlignment(
+            QtCore.Qt.AlignRight | QtCore.Qt.AlignTrailing | QtCore.Qt.AlignVCenter
+        )
         self.label_3.setObjectName(_fromUtf8("label_3"))
         self.verticalLayout_3.addWidget(self.label_3)
-        spacerItem3 = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+        spacerItem3 = QtWidgets.QSpacerItem(
+            0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum
+        )
         self.verticalLayout_3.addItem(spacerItem3)
         self.gridLayout_4.addLayout(self.verticalLayout_3, 4, 0, 1, 1)
         self.line_5 = QtWidgets.QFrame(Dialog)
@@ -112,7 +130,13 @@ class Ui_Dialog(object):
     def retranslateUi(self, Dialog):
         Dialog.setWindowTitle(_translate("Dialog", "Relationship configuration", None))
         self.label_2.setText(_translate("Dialog", "Heteroatoms (elements)", None))
-        self.help_2.setText(_translate("Dialog", "<html><head/><body><p>Please specify the elements you want to use for the targeted search for elements other then the labeling element. Each row represents one element</p><p>The first column specifies the chemical symbol of the respective isotope. Use &lt;protonNumber&gt;&lt;ElementSymbol&gt; (e.g. <sup>34</sup>S)<br/>The second column specifies the mass offset to the most abundant isotope of the elment (e.g.  <sup>34</sup>S and  <sup>32</sup>S have a mass difference of 1.9958)<br/>The third column specifies the expected intensity of this isotope in respect to the most abundant isotope of the respective element (e.g.  <sup>34</sup>S occours in nature with a probability of 4.21% and  <sup>32</sup>S with a probability of 95.02%. Therefore the calculated ratio for a molecule with a singe sulphur atom is 4.43%)<br/>The fourth and fifth column specify the minimal and maximal number this element can occour in non-targetd group annotation. </p></body></html>", None))
+        self.help_2.setText(
+            _translate(
+                "Dialog",
+                "<html><head/><body><p>Please specify the elements you want to use for the targeted search for elements other then the labeling element. Each row represents one element</p><p>The first column specifies the chemical symbol of the respective isotope. Use &lt;protonNumber&gt;&lt;ElementSymbol&gt; (e.g. <sup>34</sup>S)<br/>The second column specifies the mass offset to the most abundant isotope of the elment (e.g.  <sup>34</sup>S and  <sup>32</sup>S have a mass difference of 1.9958)<br/>The third column specifies the expected intensity of this isotope in respect to the most abundant isotope of the respective element (e.g.  <sup>34</sup>S occours in nature with a probability of 4.21% and  <sup>32</sup>S with a probability of 95.02%. Therefore the calculated ratio for a molecule with a singe sulphur atom is 4.43%)<br/>The fourth and fifth column specify the minimal and maximal number this element can occour in non-targetd group annotation. </p></body></html>",
+                None,
+            )
+        )
         self.loadDefaults.setText(_translate("Dialog", "Load defaults", None))
         self.discardButton.setText(_translate("Dialog", "Discard", None))
         self.acceptButton.setText(_translate("Dialog", "Accept", None))
@@ -121,10 +145,10 @@ class Ui_Dialog(object):
 
 if __name__ == "__main__":
     import sys
+
     app = QtWidgets.QApplication(sys.argv)
     Dialog = QtWidgets.QDialog()
     ui = Ui_Dialog()
     ui.setupUi(Dialog)
     Dialog.show()
     sys.exit(app.exec())
-

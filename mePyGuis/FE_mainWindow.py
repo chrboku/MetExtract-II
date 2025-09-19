@@ -11,16 +11,21 @@ from PySide6 import QtCore, QtGui, QtWidgets
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
 except AttributeError:
+
     def _fromUtf8(s):
         return s
 
+
 try:
     _encoding = QtWidgets.QApplication.UnicodeUTF8
+
     def _translate(context, text, disambig):
         return QtWidgets.QApplication.translate(context, text, disambig, _encoding)
 except AttributeError:
+
     def _translate(context, text, disambig):
         return QtWidgets.QApplication.translate(context, text, disambig)
+
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
@@ -46,8 +51,7 @@ class Ui_MainWindow(object):
         self.gridLayout_7.setObjectName(_fromUtf8("gridLayout_7"))
         self.label_4 = QtWidgets.QLabel(self.inputTab)
         self.label_4.setMinimumSize(QtCore.QSize(200, 0))
-        self.label_4.setStyleSheet(_fromUtf8("color: rgb(90, 90, 90);\n"
-"font: 7pt;"))
+        self.label_4.setStyleSheet(_fromUtf8("color: rgb(90, 90, 90);\nfont: 7pt;"))
         self.label_4.setWordWrap(True)
         self.label_4.setObjectName(_fromUtf8("label_4"))
         self.gridLayout_7.addWidget(self.label_4, 2, 0, 1, 1)
@@ -55,9 +59,13 @@ class Ui_MainWindow(object):
         self.label_3.setStyleSheet(_fromUtf8("font: 10pt;"))
         self.label_3.setObjectName(_fromUtf8("label_3"))
         self.gridLayout_7.addWidget(self.label_3, 0, 0, 1, 1)
-        spacerItem = QtWidgets.QSpacerItem(0, 5, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Maximum)
+        spacerItem = QtWidgets.QSpacerItem(
+            0, 5, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Maximum
+        )
         self.gridLayout_7.addItem(spacerItem, 1, 0, 1, 1)
-        spacerItem1 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        spacerItem1 = QtWidgets.QSpacerItem(
+            20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
+        )
         self.gridLayout_7.addItem(spacerItem1, 3, 0, 1, 1)
         self.gridLayout_6.addLayout(self.gridLayout_7, 0, 0, 1, 1)
         self.horizontalLayout = QtWidgets.QHBoxLayout()
@@ -68,7 +76,9 @@ class Ui_MainWindow(object):
         self.loadCompilation = QtWidgets.QPushButton(self.inputTab)
         self.loadCompilation.setObjectName(_fromUtf8("loadCompilation"))
         self.horizontalLayout.addWidget(self.loadCompilation)
-        spacerItem2 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem2 = QtWidgets.QSpacerItem(
+            40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum
+        )
         self.horizontalLayout.addItem(spacerItem2)
         self.addMSMSTarget = QtWidgets.QPushButton(self.inputTab)
         self.addMSMSTarget.setObjectName(_fromUtf8("addMSMSTarget"))
@@ -77,9 +87,13 @@ class Ui_MainWindow(object):
         self.deleteMSMSTarget.setObjectName(_fromUtf8("deleteMSMSTarget"))
         self.horizontalLayout.addWidget(self.deleteMSMSTarget)
         self.gridLayout_6.addLayout(self.horizontalLayout, 3, 4, 1, 1)
-        spacerItem3 = QtWidgets.QSpacerItem(3, 0, QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Minimum)
+        spacerItem3 = QtWidgets.QSpacerItem(
+            3, 0, QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Minimum
+        )
         self.gridLayout_6.addItem(spacerItem3, 0, 3, 1, 1)
-        spacerItem4 = QtWidgets.QSpacerItem(3, 0, QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Minimum)
+        spacerItem4 = QtWidgets.QSpacerItem(
+            3, 0, QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Minimum
+        )
         self.gridLayout_6.addItem(spacerItem4, 0, 1, 1, 1)
         self.label_5 = QtWidgets.QLabel(self.inputTab)
         self.label_5.setObjectName(_fromUtf8("label_5"))
@@ -112,7 +126,9 @@ class Ui_MainWindow(object):
         self.configAdductsButton = QtWidgets.QPushButton(self.inputTab)
         self.configAdductsButton.setObjectName(_fromUtf8("configAdductsButton"))
         self.horizontalLayout_2.addWidget(self.configAdductsButton)
-        spacerItem5 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem5 = QtWidgets.QSpacerItem(
+            40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum
+        )
         self.horizontalLayout_2.addItem(spacerItem5)
         self.verticalLayout_2.addLayout(self.horizontalLayout_2)
         self.gridLayout_6.addLayout(self.verticalLayout_2, 0, 4, 1, 1)
@@ -129,16 +145,24 @@ class Ui_MainWindow(object):
         self.line_5.setFrameShadow(QtWidgets.QFrame.Sunken)
         self.line_5.setObjectName(_fromUtf8("line_5"))
         self.gridLayout_9.addWidget(self.line_5, 1, 0, 1, 6)
-        spacerItem6 = QtWidgets.QSpacerItem(3, 0, QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Minimum)
+        spacerItem6 = QtWidgets.QSpacerItem(
+            3, 0, QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Minimum
+        )
         self.gridLayout_9.addItem(spacerItem6, 0, 3, 1, 1)
-        spacerItem7 = QtWidgets.QSpacerItem(3, 0, QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Minimum)
+        spacerItem7 = QtWidgets.QSpacerItem(
+            3, 0, QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Minimum
+        )
         self.gridLayout_9.addItem(spacerItem7, 0, 1, 1, 1)
         self.gridLayout_10 = QtWidgets.QGridLayout()
         self.gridLayout_10.setObjectName(_fromUtf8("gridLayout_10"))
-        spacerItem8 = QtWidgets.QSpacerItem(0, 5, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Maximum)
+        spacerItem8 = QtWidgets.QSpacerItem(
+            0, 5, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Maximum
+        )
         self.gridLayout_10.addItem(spacerItem8, 1, 0, 1, 1)
         self.label_6 = QtWidgets.QLabel(self.processTab)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.label_6.sizePolicy().hasHeightForWidth())
@@ -147,18 +171,21 @@ class Ui_MainWindow(object):
         self.label_6.setObjectName(_fromUtf8("label_6"))
         self.gridLayout_10.addWidget(self.label_6, 0, 0, 1, 1)
         self.label = QtWidgets.QLabel(self.processTab)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.label.sizePolicy().hasHeightForWidth())
         self.label.setSizePolicy(sizePolicy)
         self.label.setMinimumSize(QtCore.QSize(200, 0))
-        self.label.setStyleSheet(_fromUtf8("color: rgb(90, 90, 90);\n"
-"font: 7pt;"))
+        self.label.setStyleSheet(_fromUtf8("color: rgb(90, 90, 90);\nfont: 7pt;"))
         self.label.setWordWrap(True)
         self.label.setObjectName(_fromUtf8("label"))
         self.gridLayout_10.addWidget(self.label, 2, 0, 1, 1)
-        spacerItem9 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred)
+        spacerItem9 = QtWidgets.QSpacerItem(
+            20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred
+        )
         self.gridLayout_10.addItem(spacerItem9, 3, 0, 1, 1)
         self.gridLayout_9.addLayout(self.gridLayout_10, 0, 0, 1, 1)
         self.line_4 = QtWidgets.QFrame(self.processTab)
@@ -182,10 +209,14 @@ class Ui_MainWindow(object):
         self.useCPUCoresSpinner.setMinimum(1)
         self.useCPUCoresSpinner.setObjectName(_fromUtf8("useCPUCoresSpinner"))
         self.gridLayout_12.addWidget(self.useCPUCoresSpinner, 0, 3, 1, 1)
-        spacerItem10 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem10 = QtWidgets.QSpacerItem(
+            40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum
+        )
         self.gridLayout_12.addItem(spacerItem10, 0, 0, 1, 1)
         self.keepCPUCoreUnusedCheckbox = QtWidgets.QCheckBox(self.processTab)
-        self.keepCPUCoreUnusedCheckbox.setObjectName(_fromUtf8("keepCPUCoreUnusedCheckbox"))
+        self.keepCPUCoreUnusedCheckbox.setObjectName(
+            _fromUtf8("keepCPUCoreUnusedCheckbox")
+        )
         self.gridLayout_12.addWidget(self.keepCPUCoreUnusedCheckbox, 0, 1, 1, 1)
         self.startProcessingButton = QtWidgets.QPushButton(self.processTab)
         self.startProcessingButton.setObjectName(_fromUtf8("startProcessingButton"))
@@ -211,9 +242,13 @@ class Ui_MainWindow(object):
         self.intensityThresoldSpinner.setDecimals(0)
         self.intensityThresoldSpinner.setMaximum(999999999.0)
         self.intensityThresoldSpinner.setProperty("value", 10000.0)
-        self.intensityThresoldSpinner.setObjectName(_fromUtf8("intensityThresoldSpinner"))
+        self.intensityThresoldSpinner.setObjectName(
+            _fromUtf8("intensityThresoldSpinner")
+        )
         self.gridLayout_15.addWidget(self.intensityThresoldSpinner, 3, 0, 1, 1)
-        spacerItem11 = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred)
+        spacerItem11 = QtWidgets.QSpacerItem(
+            0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred
+        )
         self.gridLayout_15.addItem(spacerItem11, 4, 0, 1, 1)
         self.gridLayout_14.addWidget(self.groupBox, 0, 0, 1, 1)
         self.groupBox_3 = QtWidgets.QGroupBox(self.processTab)
@@ -229,14 +264,20 @@ class Ui_MainWindow(object):
         self.maxPPMErrorMatching_Spinner = QtWidgets.QDoubleSpinBox(self.groupBox_3)
         self.maxPPMErrorMatching_Spinner.setMaximum(9999.0)
         self.maxPPMErrorMatching_Spinner.setProperty("value", 30.0)
-        self.maxPPMErrorMatching_Spinner.setObjectName(_fromUtf8("maxPPMErrorMatching_Spinner"))
+        self.maxPPMErrorMatching_Spinner.setObjectName(
+            _fromUtf8("maxPPMErrorMatching_Spinner")
+        )
         self.gridLayout_16.addWidget(self.maxPPMErrorMatching_Spinner, 1, 0, 1, 1)
         self.maxRelIntensityError_spinner = QtWidgets.QDoubleSpinBox(self.groupBox_3)
         self.maxRelIntensityError_spinner.setMaximum(100.0)
         self.maxRelIntensityError_spinner.setProperty("value", 20.0)
-        self.maxRelIntensityError_spinner.setObjectName(_fromUtf8("maxRelIntensityError_spinner"))
+        self.maxRelIntensityError_spinner.setObjectName(
+            _fromUtf8("maxRelIntensityError_spinner")
+        )
         self.gridLayout_16.addWidget(self.maxRelIntensityError_spinner, 3, 0, 1, 1)
-        spacerItem12 = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred)
+        spacerItem12 = QtWidgets.QSpacerItem(
+            0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred
+        )
         self.gridLayout_16.addItem(spacerItem12, 4, 0, 1, 1)
         self.gridLayout_14.addWidget(self.groupBox_3, 0, 3, 1, 1)
         self.verticalLayout = QtWidgets.QVBoxLayout()
@@ -252,20 +293,28 @@ class Ui_MainWindow(object):
         self.minScaledPeakIntensity_Spinner.setDecimals(1)
         self.minScaledPeakIntensity_Spinner.setMinimum(0.0)
         self.minScaledPeakIntensity_Spinner.setProperty("value", 0.5)
-        self.minScaledPeakIntensity_Spinner.setObjectName(_fromUtf8("minScaledPeakIntensity_Spinner"))
+        self.minScaledPeakIntensity_Spinner.setObjectName(
+            _fromUtf8("minScaledPeakIntensity_Spinner")
+        )
         self.gridLayout_13.addWidget(self.minScaledPeakIntensity_Spinner, 1, 0, 1, 1)
         self.scalePrecursorMZ = QtWidgets.QCheckBox(self.groupBox_2)
         self.scalePrecursorMZ.setEnabled(False)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.scalePrecursorMZ.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.scalePrecursorMZ.sizePolicy().hasHeightForWidth()
+        )
         self.scalePrecursorMZ.setSizePolicy(sizePolicy)
         self.scalePrecursorMZ.setChecked(True)
         self.scalePrecursorMZ.setObjectName(_fromUtf8("scalePrecursorMZ"))
         self.gridLayout_13.addWidget(self.scalePrecursorMZ, 2, 0, 1, 1)
         self.verticalLayout.addWidget(self.groupBox_2)
-        spacerItem13 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Ignored)
+        spacerItem13 = QtWidgets.QSpacerItem(
+            0, 20, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Ignored
+        )
         self.verticalLayout.addItem(spacerItem13)
         self.gridLayout_14.addLayout(self.verticalLayout, 0, 1, 1, 1)
         self.groupBox_4 = QtWidgets.QGroupBox(self.processTab)
@@ -275,16 +324,22 @@ class Ui_MainWindow(object):
         self.horizontalLayout_3 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_3.setObjectName(_fromUtf8("horizontalLayout_3"))
         self.fragmentAnnotationButton = QtWidgets.QPushButton(self.groupBox_4)
-        self.fragmentAnnotationButton.setObjectName(_fromUtf8("fragmentAnnotationButton"))
+        self.fragmentAnnotationButton.setObjectName(
+            _fromUtf8("fragmentAnnotationButton")
+        )
         self.horizontalLayout_3.addWidget(self.fragmentAnnotationButton)
-        spacerItem14 = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.MinimumExpanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem14 = QtWidgets.QSpacerItem(
+            0, 0, QtWidgets.QSizePolicy.MinimumExpanding, QtWidgets.QSizePolicy.Minimum
+        )
         self.horizontalLayout_3.addItem(spacerItem14)
         self.gridLayout_17.addLayout(self.horizontalLayout_3, 2, 0, 1, 1)
         self.label_14 = QtWidgets.QLabel(self.groupBox_4)
         self.label_14.setObjectName(_fromUtf8("label_14"))
         self.gridLayout_17.addWidget(self.label_14, 3, 0, 1, 1)
         self.useTracExtractAnnotation = QtWidgets.QCheckBox(self.groupBox_4)
-        self.useTracExtractAnnotation.setObjectName(_fromUtf8("useTracExtractAnnotation"))
+        self.useTracExtractAnnotation.setObjectName(
+            _fromUtf8("useTracExtractAnnotation")
+        )
         self.gridLayout_17.addWidget(self.useTracExtractAnnotation, 6, 0, 1, 1)
         self.horizontalLayout_4 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_4.setObjectName(_fromUtf8("horizontalLayout_4"))
@@ -292,9 +347,13 @@ class Ui_MainWindow(object):
         self.annotationPPMErrorSpinner.setDecimals(1)
         self.annotationPPMErrorSpinner.setMaximum(1000.0)
         self.annotationPPMErrorSpinner.setProperty("value", 5.0)
-        self.annotationPPMErrorSpinner.setObjectName(_fromUtf8("annotationPPMErrorSpinner"))
+        self.annotationPPMErrorSpinner.setObjectName(
+            _fromUtf8("annotationPPMErrorSpinner")
+        )
         self.horizontalLayout_4.addWidget(self.annotationPPMErrorSpinner)
-        spacerItem15 = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.MinimumExpanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem15 = QtWidgets.QSpacerItem(
+            0, 0, QtWidgets.QSizePolicy.MinimumExpanding, QtWidgets.QSizePolicy.Minimum
+        )
         self.horizontalLayout_4.addItem(spacerItem15)
         self.gridLayout_17.addLayout(self.horizontalLayout_4, 5, 0, 1, 1)
         self.horizontalLayout_5 = QtWidgets.QHBoxLayout()
@@ -314,10 +373,16 @@ class Ui_MainWindow(object):
         self.groupBox_5.setObjectName(_fromUtf8("groupBox_5"))
         self.verticalLayout_3 = QtWidgets.QVBoxLayout(self.groupBox_5)
         self.verticalLayout_3.setObjectName(_fromUtf8("verticalLayout_3"))
-        self.applyParentFragmentConsistencyRuleCheckBox = QtWidgets.QCheckBox(self.groupBox_5)
-        self.applyParentFragmentConsistencyRuleCheckBox.setObjectName(_fromUtf8("applyParentFragmentConsistencyRuleCheckBox"))
+        self.applyParentFragmentConsistencyRuleCheckBox = QtWidgets.QCheckBox(
+            self.groupBox_5
+        )
+        self.applyParentFragmentConsistencyRuleCheckBox.setObjectName(
+            _fromUtf8("applyParentFragmentConsistencyRuleCheckBox")
+        )
         self.verticalLayout_3.addWidget(self.applyParentFragmentConsistencyRuleCheckBox)
-        spacerItem16 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred)
+        spacerItem16 = QtWidgets.QSpacerItem(
+            20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred
+        )
         self.verticalLayout_3.addItem(spacerItem16)
         self.gridLayout_14.addWidget(self.groupBox_5, 1, 3, 1, 1)
         self.groupBox_6 = QtWidgets.QGroupBox(self.processTab)
@@ -326,10 +391,14 @@ class Ui_MainWindow(object):
         self.gridLayout_18.setObjectName(_fromUtf8("gridLayout_18"))
         self.saveResultsAsTSVCheckBox = QtWidgets.QCheckBox(self.groupBox_6)
         self.saveResultsAsTSVCheckBox.setChecked(True)
-        self.saveResultsAsTSVCheckBox.setObjectName(_fromUtf8("saveResultsAsTSVCheckBox"))
+        self.saveResultsAsTSVCheckBox.setObjectName(
+            _fromUtf8("saveResultsAsTSVCheckBox")
+        )
         self.gridLayout_18.addWidget(self.saveResultsAsTSVCheckBox, 0, 0, 1, 1)
         self.saveResultsAsPDFCheckBox = QtWidgets.QCheckBox(self.groupBox_6)
-        self.saveResultsAsPDFCheckBox.setObjectName(_fromUtf8("saveResultsAsPDFCheckBox"))
+        self.saveResultsAsPDFCheckBox.setObjectName(
+            _fromUtf8("saveResultsAsPDFCheckBox")
+        )
         self.gridLayout_18.addWidget(self.saveResultsAsPDFCheckBox, 1, 0, 1, 1)
         self.exportAsSiriuscheckBox = QtWidgets.QCheckBox(self.groupBox_6)
         self.exportAsSiriuscheckBox.setObjectName(_fromUtf8("exportAsSiriuscheckBox"))
@@ -343,13 +412,21 @@ class Ui_MainWindow(object):
         self.doubleSpinBox_massBankPPMError.setDecimals(1)
         self.doubleSpinBox_massBankPPMError.setMinimum(1.0)
         self.doubleSpinBox_massBankPPMError.setProperty("value", 5.0)
-        self.doubleSpinBox_massBankPPMError.setObjectName(_fromUtf8("doubleSpinBox_massBankPPMError"))
+        self.doubleSpinBox_massBankPPMError.setObjectName(
+            _fromUtf8("doubleSpinBox_massBankPPMError")
+        )
         self.gridLayout_19.addWidget(self.doubleSpinBox_massBankPPMError, 0, 1, 1, 1)
-        self.doubleSpinBox_massBankMinRelAbundance = QtWidgets.QDoubleSpinBox(self.groupBox_7)
+        self.doubleSpinBox_massBankMinRelAbundance = QtWidgets.QDoubleSpinBox(
+            self.groupBox_7
+        )
         self.doubleSpinBox_massBankMinRelAbundance.setDecimals(0)
         self.doubleSpinBox_massBankMinRelAbundance.setMinimum(1.0)
-        self.doubleSpinBox_massBankMinRelAbundance.setObjectName(_fromUtf8("doubleSpinBox_massBankMinRelAbundance"))
-        self.gridLayout_19.addWidget(self.doubleSpinBox_massBankMinRelAbundance, 1, 1, 1, 1)
+        self.doubleSpinBox_massBankMinRelAbundance.setObjectName(
+            _fromUtf8("doubleSpinBox_massBankMinRelAbundance")
+        )
+        self.gridLayout_19.addWidget(
+            self.doubleSpinBox_massBankMinRelAbundance, 1, 1, 1, 1
+        )
         self.label_16 = QtWidgets.QLabel(self.groupBox_7)
         self.label_16.setObjectName(_fromUtf8("label_16"))
         self.gridLayout_19.addWidget(self.label_16, 0, 0, 1, 1)
@@ -362,20 +439,30 @@ class Ui_MainWindow(object):
         self.spinBox_massBankHitsToLoad = QtWidgets.QSpinBox(self.groupBox_7)
         self.spinBox_massBankHitsToLoad.setMaximum(999)
         self.spinBox_massBankHitsToLoad.setProperty("value", 10)
-        self.spinBox_massBankHitsToLoad.setObjectName(_fromUtf8("spinBox_massBankHitsToLoad"))
+        self.spinBox_massBankHitsToLoad.setObjectName(
+            _fromUtf8("spinBox_massBankHitsToLoad")
+        )
         self.gridLayout_19.addWidget(self.spinBox_massBankHitsToLoad, 3, 1, 1, 1)
         self.label_19 = QtWidgets.QLabel(self.groupBox_7)
         self.label_19.setObjectName(_fromUtf8("label_19"))
         self.gridLayout_19.addWidget(self.label_19, 2, 0, 1, 1)
-        self.doubleSpinBox_massBankMinimalScore = QtWidgets.QDoubleSpinBox(self.groupBox_7)
+        self.doubleSpinBox_massBankMinimalScore = QtWidgets.QDoubleSpinBox(
+            self.groupBox_7
+        )
         self.doubleSpinBox_massBankMinimalScore.setMaximum(1.0)
         self.doubleSpinBox_massBankMinimalScore.setSingleStep(0.01)
-        self.doubleSpinBox_massBankMinimalScore.setObjectName(_fromUtf8("doubleSpinBox_massBankMinimalScore"))
-        self.gridLayout_19.addWidget(self.doubleSpinBox_massBankMinimalScore, 2, 1, 1, 1)
+        self.doubleSpinBox_massBankMinimalScore.setObjectName(
+            _fromUtf8("doubleSpinBox_massBankMinimalScore")
+        )
+        self.gridLayout_19.addWidget(
+            self.doubleSpinBox_massBankMinimalScore, 2, 1, 1, 1
+        )
         self.gridLayout_14.addWidget(self.groupBox_7, 2, 0, 1, 3)
         self.gridLayout_9.addLayout(self.gridLayout_14, 0, 5, 1, 1)
         self.line_6 = QtWidgets.QFrame(self.processTab)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.line_6.sizePolicy().hasHeightForWidth())
@@ -385,9 +472,13 @@ class Ui_MainWindow(object):
         self.line_6.setObjectName(_fromUtf8("line_6"))
         self.gridLayout_9.addWidget(self.line_6, 2, 2, 1, 1)
         self.gridLayout_8.addLayout(self.gridLayout_9, 0, 0, 1, 1)
-        spacerItem17 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        spacerItem17 = QtWidgets.QSpacerItem(
+            20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
+        )
         self.gridLayout_8.addItem(spacerItem17, 1, 0, 1, 1)
-        spacerItem18 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem18 = QtWidgets.QSpacerItem(
+            40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum
+        )
         self.gridLayout_8.addItem(spacerItem18, 0, 1, 1, 1)
         self.gridLayout_8.setColumnStretch(1, 2)
         self.gridLayout_8.setRowStretch(1, 2)
@@ -401,7 +492,9 @@ class Ui_MainWindow(object):
         self.gridLayout_5 = QtWidgets.QGridLayout()
         self.gridLayout_5.setObjectName(_fromUtf8("gridLayout_5"))
         self.label_2 = QtWidgets.QLabel(self.resultsTab)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.label_2.sizePolicy().hasHeightForWidth())
@@ -415,14 +508,20 @@ class Ui_MainWindow(object):
         self.openExternallyButton = QtWidgets.QPushButton(self.resultsTab)
         self.openExternallyButton.setObjectName(_fromUtf8("openExternallyButton"))
         self.gridLayout_5.addWidget(self.openExternallyButton, 2, 0, 1, 1)
-        spacerItem19 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        spacerItem19 = QtWidgets.QSpacerItem(
+            20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
+        )
         self.gridLayout_5.addItem(spacerItem19, 3, 0, 1, 1)
         self.gridLayout_4.addLayout(self.gridLayout_5, 0, 0, 1, 1)
         self.resultsTreeWidget = QtWidgets.QTreeWidget(self.resultsTab)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.resultsTreeWidget.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.resultsTreeWidget.sizePolicy().hasHeightForWidth()
+        )
         self.resultsTreeWidget.setSizePolicy(sizePolicy)
         self.resultsTreeWidget.setObjectName(_fromUtf8("resultsTreeWidget"))
         self.resultsTreeWidget.headerItem().setText(1, _fromUtf8("MZ"))
@@ -432,9 +531,13 @@ class Ui_MainWindow(object):
         self.gridLayout_20.setObjectName(_fromUtf8("gridLayout_20"))
         self.plotLabelledScanCheckBox = QtWidgets.QCheckBox(self.resultsTab)
         self.plotLabelledScanCheckBox.setChecked(True)
-        self.plotLabelledScanCheckBox.setObjectName(_fromUtf8("plotLabelledScanCheckBox"))
+        self.plotLabelledScanCheckBox.setObjectName(
+            _fromUtf8("plotLabelledScanCheckBox")
+        )
         self.gridLayout_20.addWidget(self.plotLabelledScanCheckBox, 0, 1, 1, 1)
-        spacerItem20 = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem20 = QtWidgets.QSpacerItem(
+            0, 0, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum
+        )
         self.gridLayout_20.addItem(spacerItem20, 0, 3, 1, 1)
         self.plotCleanedScanCheckBox = QtWidgets.QCheckBox(self.resultsTab)
         self.plotCleanedScanCheckBox.setChecked(True)
@@ -448,10 +551,14 @@ class Ui_MainWindow(object):
         self.horizontalLayout_6 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_6.setObjectName(_fromUtf8("horizontalLayout_6"))
         self.visualizationWidget = QtWidgets.QWidget(self.resultsTab)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Expanding)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Expanding
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.visualizationWidget.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.visualizationWidget.sizePolicy().hasHeightForWidth()
+        )
         self.visualizationWidget.setSizePolicy(sizePolicy)
         self.visualizationWidget.setSizeIncrement(QtCore.QSize(3, 0))
         self.visualizationWidget.setObjectName(_fromUtf8("visualizationWidget"))
@@ -500,67 +607,182 @@ class Ui_MainWindow(object):
 
     def retranslateUi(self, MainWindow):
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow", None))
-        self.label_4.setText(_translate("MainWindow", "<html><head/><body><p align=\"justify\">Please specify the performed LC-HRMSMS mesurements of M and M\'. Specify each target in single row using the button \'Add MS/MS target(s)\'. Load an LC-HRMSMS measurement multiple times if it contains more than one target. Select the appropriate scan events for the native and the labeled metabolite ions.</p></body></html>", None))
-        self.label_3.setText(_translate("MainWindow", "<html><head/><body><p align=\"right\">Define MS/MS targets</p></body></html>", None))
+        self.label_4.setText(
+            _translate(
+                "MainWindow",
+                "<html><head/><body><p align=\"justify\">Please specify the performed LC-HRMSMS mesurements of M and M'. Specify each target in single row using the button 'Add MS/MS target(s)'. Load an LC-HRMSMS measurement multiple times if it contains more than one target. Select the appropriate scan events for the native and the labeled metabolite ions.</p></body></html>",
+                None,
+            )
+        )
+        self.label_3.setText(
+            _translate(
+                "MainWindow",
+                '<html><head/><body><p align="right">Define MS/MS targets</p></body></html>',
+                None,
+            )
+        )
         self.saveCompilation.setText(_translate("MainWindow", "Save compilation", None))
         self.loadCompilation.setText(_translate("MainWindow", "Load compilation", None))
-        self.addMSMSTarget.setText(_translate("MainWindow", "Add MS/MS target(s)", None))
-        self.deleteMSMSTarget.setText(_translate("MainWindow", "Delete current MS/MS target", None))
-        self.label_5.setText(_translate("MainWindow", "<html><head/><body><p align=\"right\">Define/Edit group</p></body></html>", None))
-        self.configAdductsButton.setText(_translate("MainWindow", "Configure adducts", None))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.inputTab), _translate("MainWindow", "Input", None))
-        self.label_6.setText(_translate("MainWindow", "<html><head/><body><p align=\"right\">Processing settings</p></body></html>", None))
-        self.label.setText(_translate("MainWindow", "<html><head/><body><p>Please specify the settings for processing the defined MS/MS targets. First, the two MS/MS spectra will be insepcted for corresponding native and U-<span style=\" vertical-align:super;\">13</span>C-labeled peaks. These peaks will be annotated with putative sum formulas using the determined number of carbon atoms. </p></body></html>", None))
-        self.label_7.setText(_translate("MainWindow", "<html><head/><body><p align=\"right\">Run tasks</p></body></html>", None))
+        self.addMSMSTarget.setText(
+            _translate("MainWindow", "Add MS/MS target(s)", None)
+        )
+        self.deleteMSMSTarget.setText(
+            _translate("MainWindow", "Delete current MS/MS target", None)
+        )
+        self.label_5.setText(
+            _translate(
+                "MainWindow",
+                '<html><head/><body><p align="right">Define/Edit group</p></body></html>',
+                None,
+            )
+        )
+        self.configAdductsButton.setText(
+            _translate("MainWindow", "Configure adducts", None)
+        )
+        self.tabWidget.setTabText(
+            self.tabWidget.indexOf(self.inputTab),
+            _translate("MainWindow", "Input", None),
+        )
+        self.label_6.setText(
+            _translate(
+                "MainWindow",
+                '<html><head/><body><p align="right">Processing settings</p></body></html>',
+                None,
+            )
+        )
+        self.label.setText(
+            _translate(
+                "MainWindow",
+                '<html><head/><body><p>Please specify the settings for processing the defined MS/MS targets. First, the two MS/MS spectra will be insepcted for corresponding native and U-<span style=" vertical-align:super;">13</span>C-labeled peaks. These peaks will be annotated with putative sum formulas using the determined number of carbon atoms. </p></body></html>',
+                None,
+            )
+        )
+        self.label_7.setText(
+            _translate(
+                "MainWindow",
+                '<html><head/><body><p align="right">Run tasks</p></body></html>',
+                None,
+            )
+        )
         self.label_8.setText(_translate("MainWindow", "CPU cores", None))
-        self.keepCPUCoreUnusedCheckbox.setText(_translate("MainWindow", "Keep one core unused", None))
+        self.keepCPUCoreUnusedCheckbox.setText(
+            _translate("MainWindow", "Keep one core unused", None)
+        )
         self.startProcessingButton.setText(_translate("MainWindow", "Start", None))
         self.groupBox.setTitle(_translate("MainWindow", "Scan selection", None))
         self.label_9.setText(_translate("MainWindow", "Full scan EIC ppm", None))
         self.label_10.setText(_translate("MainWindow", "Intensity threshold", None))
         self.groupBox_3.setTitle(_translate("MainWindow", "Peak matching", None))
         self.label_12.setText(_translate("MainWindow", "Matching max. PPM error", None))
-        self.label_13.setText(_translate("MainWindow", "Max. relative intensity error", None))
+        self.label_13.setText(
+            _translate("MainWindow", "Max. relative intensity error", None)
+        )
         self.groupBox_2.setTitle(_translate("MainWindow", "Scan pre-processing", None))
-        self.label_11.setText(_translate("MainWindow", "Min. scaled peak intensity [%]", None))
-        self.scalePrecursorMZ.setText(_translate("MainWindow", "Scale to precursor mz", None))
+        self.label_11.setText(
+            _translate("MainWindow", "Min. scaled peak intensity [%]", None)
+        )
+        self.scalePrecursorMZ.setText(
+            _translate("MainWindow", "Scale to precursor mz", None)
+        )
         self.groupBox_4.setTitle(_translate("MainWindow", "Fragment annotation", None))
-        self.fragmentAnnotationButton.setText(_translate("MainWindow", "Used elements", None))
+        self.fragmentAnnotationButton.setText(
+            _translate("MainWindow", "Used elements", None)
+        )
         self.label_14.setText(_translate("MainWindow", "Max. ppm error", None))
-        self.useTracExtractAnnotation.setText(_translate("MainWindow", "Allow additional Cn (e.g. biotransformation products)", None))
-        self.label_15.setText(_translate("MainWindow", "Min. number of labeling atoms", None))
-        self.useZeroLabelingAtoms.setText(_translate("MainWindow", "Use zero labeling atoms (for biotransformation products)", None))
+        self.useTracExtractAnnotation.setText(
+            _translate(
+                "MainWindow",
+                "Allow additional Cn (e.g. biotransformation products)",
+                None,
+            )
+        )
+        self.label_15.setText(
+            _translate("MainWindow", "Min. number of labeling atoms", None)
+        )
+        self.useZeroLabelingAtoms.setText(
+            _translate(
+                "MainWindow",
+                "Use zero labeling atoms (for biotransformation products)",
+                None,
+            )
+        )
         self.groupBox_5.setTitle(_translate("MainWindow", "Parent annotation", None))
-        self.applyParentFragmentConsistencyRuleCheckBox.setText(_translate("MainWindow", "Apply parent-fragment consistency rule", None))
+        self.applyParentFragmentConsistencyRuleCheckBox.setText(
+            _translate("MainWindow", "Apply parent-fragment consistency rule", None)
+        )
         self.groupBox_6.setTitle(_translate("MainWindow", "Save results", None))
-        self.saveResultsAsTSVCheckBox.setText(_translate("MainWindow", "Save as TSV", None))
-        self.saveResultsAsPDFCheckBox.setText(_translate("MainWindow", "Save as PDF", None))
-        self.exportAsSiriuscheckBox.setText(_translate("MainWindow", "Export as SIRIUS 4.0 MS format", None))
+        self.saveResultsAsTSVCheckBox.setText(
+            _translate("MainWindow", "Save as TSV", None)
+        )
+        self.saveResultsAsPDFCheckBox.setText(
+            _translate("MainWindow", "Save as PDF", None)
+        )
+        self.exportAsSiriuscheckBox.setText(
+            _translate("MainWindow", "Export as SIRIUS 4.0 MS format", None)
+        )
         self.groupBox_7.setTitle(_translate("MainWindow", "MassBank search", None))
         self.label_16.setText(_translate("MainWindow", "m/z error (ppm)", None))
-        self.label_17.setText(_translate("MainWindow", "Minimal relative abundance", None))
+        self.label_17.setText(
+            _translate("MainWindow", "Minimal relative abundance", None)
+        )
         self.label_18.setText(_translate("MainWindow", "Hits to load", None))
         self.label_19.setText(_translate("MainWindow", "Minimal score", None))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.processTab), _translate("MainWindow", "Process", None))
+        self.tabWidget.setTabText(
+            self.tabWidget.indexOf(self.processTab),
+            _translate("MainWindow", "Process", None),
+        )
         self.label_2.setText(_translate("MainWindow", "Processed file", None))
-        self.openExternallyButton.setText(_translate("MainWindow", "Open externally", None))
-        self.resultsTreeWidget.headerItem().setText(0, _translate("MainWindow", "Target name", None))
-        self.resultsTreeWidget.headerItem().setText(2, _translate("MainWindow", "Cn", None))
-        self.resultsTreeWidget.headerItem().setText(3, _translate("MainWindow", "Sum formula", None))
-        self.resultsTreeWidget.headerItem().setText(4, _translate("MainWindow", "Charge", None))
-        self.resultsTreeWidget.headerItem().setText(5, _translate("MainWindow", "Scan num native isotopolog", None))
-        self.resultsTreeWidget.headerItem().setText(6, _translate("MainWindow", "Scan num labeled isotopolog", None))
-        self.resultsTreeWidget.headerItem().setText(7, _translate("MainWindow", "Full scan event", None))
-        self.resultsTreeWidget.headerItem().setText(8, _translate("MainWindow", "MS2 scan event native", None))
-        self.resultsTreeWidget.headerItem().setText(9, _translate("MainWindow", "MS2 scan event labeled isotopolog", None))
-        self.plotLabelledScanCheckBox.setText(_translate("MainWindow", "Plot labeled MS2-scan", None))
-        self.plotCleanedScanCheckBox.setText(_translate("MainWindow", "Plot cleaned scan(s)", None))
-        self.plotNativeScanCheckbox.setText(_translate("MainWindow", "Plot native MS2-scan", None))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.resultsTab), _translate("MainWindow", "Sample results", None))
+        self.openExternallyButton.setText(
+            _translate("MainWindow", "Open externally", None)
+        )
+        self.resultsTreeWidget.headerItem().setText(
+            0, _translate("MainWindow", "Target name", None)
+        )
+        self.resultsTreeWidget.headerItem().setText(
+            2, _translate("MainWindow", "Cn", None)
+        )
+        self.resultsTreeWidget.headerItem().setText(
+            3, _translate("MainWindow", "Sum formula", None)
+        )
+        self.resultsTreeWidget.headerItem().setText(
+            4, _translate("MainWindow", "Charge", None)
+        )
+        self.resultsTreeWidget.headerItem().setText(
+            5, _translate("MainWindow", "Scan num native isotopolog", None)
+        )
+        self.resultsTreeWidget.headerItem().setText(
+            6, _translate("MainWindow", "Scan num labeled isotopolog", None)
+        )
+        self.resultsTreeWidget.headerItem().setText(
+            7, _translate("MainWindow", "Full scan event", None)
+        )
+        self.resultsTreeWidget.headerItem().setText(
+            8, _translate("MainWindow", "MS2 scan event native", None)
+        )
+        self.resultsTreeWidget.headerItem().setText(
+            9, _translate("MainWindow", "MS2 scan event labeled isotopolog", None)
+        )
+        self.plotLabelledScanCheckBox.setText(
+            _translate("MainWindow", "Plot labeled MS2-scan", None)
+        )
+        self.plotCleanedScanCheckBox.setText(
+            _translate("MainWindow", "Plot cleaned scan(s)", None)
+        )
+        self.plotNativeScanCheckbox.setText(
+            _translate("MainWindow", "Plot native MS2-scan", None)
+        )
+        self.tabWidget.setTabText(
+            self.tabWidget.indexOf(self.resultsTab),
+            _translate("MainWindow", "Sample results", None),
+        )
         self.menuFile.setTitle(_translate("MainWindow", "File", None))
         self.menuHelp.setTitle(_translate("MainWindow", "Help", None))
-        self.actionLoad_Settings.setText(_translate("MainWindow", "Load Settings", None))
-        self.actionSave_Settings.setText(_translate("MainWindow", "Save Settings", None))
+        self.actionLoad_Settings.setText(
+            _translate("MainWindow", "Load Settings", None)
+        )
+        self.actionSave_Settings.setText(
+            _translate("MainWindow", "Save Settings", None)
+        )
         self.actionExit.setText(_translate("MainWindow", "Exit", None))
         self.actionHelp.setText(_translate("MainWindow", "Help", None))
         self.actionAbout.setText(_translate("MainWindow", "About", None))
@@ -568,10 +790,10 @@ class Ui_MainWindow(object):
 
 if __name__ == "__main__":
     import sys
+
     app = QtWidgets.QApplication(sys.argv)
     MainWindow = QtWidgets.QMainWindow()
     ui = Ui_MainWindow()
     ui.setupUi(MainWindow)
     MainWindow.show()
     sys.exit(app.exec())
-

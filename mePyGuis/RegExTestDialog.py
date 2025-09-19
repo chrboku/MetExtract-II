@@ -12,11 +12,10 @@ class RegExTestDialog(QtWidgets.QDialog):
         super(RegExTestDialog, self).__init__()
         self.setModal(True)
         self.setWindowTitle("RegEx group import")
-        self.strings=strings
+        self.strings = strings
 
         self.setMinimumHeight(700)
         self.setMinimumWidth(400)
-
 
         l = QtWidgets.QGridLayout(self)
 
@@ -26,7 +25,7 @@ class RegExTestDialog(QtWidgets.QDialog):
         o.setContentsMargins(0, 0, 0, 0)
 
         text = QtWidgets.QLabel("RegEx file path match: ")
-        #text.setFixedSize(15, 15)
+        # text.setFixedSize(15, 15)
         text.setToolTip("")
         o.addWidget(text, 0, 0)
 
@@ -35,7 +34,7 @@ class RegExTestDialog(QtWidgets.QDialog):
         o.addWidget(self.regEx, 0, 1)
 
         text = QtWidgets.QLabel("RegEx group name: ")
-        #text.setFixedSize(15, 15)
+        # text.setFixedSize(15, 15)
         text.setToolTip("")
         o.addWidget(text, 1, 0)
 
@@ -46,78 +45,68 @@ class RegExTestDialog(QtWidgets.QDialog):
         self.scroll = QtWidgets.QScrollArea()
         self.scroll.setWidgetResizable(True)
 
-        self.res=QtWidgets.QLabel("Parsed: \n\nEnter Regex")
+        self.res = QtWidgets.QLabel("Parsed: \n\nEnter Regex")
         self.scroll.setWidget(self.res)
         o.addWidget(self.scroll, 2, 1)
 
-        self.okBut=QtWidgets.QPushButton("OK")
+        self.okBut = QtWidgets.QPushButton("OK")
         self.okBut.clicked.connect(self.hide)
-        o.addWidget(self.okBut, 3,1)
-
+        o.addWidget(self.okBut, 3, 1)
 
         self.updateReg()
 
-
     def updateReg(self):
-        regEx=str(self.regEx.text())
-        regExRes=str(self.regExRes.text())
+        regEx = str(self.regEx.text())
+        regExRes = str(self.regExRes.text())
 
-        groups={}
+        groups = {}
 
         try:
-            resA=[]
+            resA = []
             for string in self.strings:
                 try:
-                    res=re.match(regEx, string)
-                    finSt=regExRes.format(*res.groups())
+                    res = re.match(regEx, string)
+                    finSt = regExRes.format(*res.groups())
 
                     if finSt not in groups.keys():
-                        groups[finSt]=[]
+                        groups[finSt] = []
                     groups[finSt].append(string)
 
-                    #resA.append("%s --> %s"%(string, finSt))
+                    # resA.append("%s --> %s"%(string, finSt))
                 except Exception as ex:
-                    resA=["Error in RegEx"]
-                    #resA.append("%s --> Error in RegEx (%s)"%(string, ex.message))
-
+                    resA = ["Error in RegEx"]
+                    # resA.append("%s --> Error in RegEx (%s)"%(string, ex.message))
 
             resA.append("\nExtracted groups:\n")
             for g in natSort(groups.keys()):
-                resA.append("%s:"%(g))
+                resA.append("%s:" % (g))
                 for f in groups[g]:
-                    resA.append("   %s"%(f))
+                    resA.append("   %s" % (f))
                 resA.append("")
 
-
-            self.res.setText("%s"%("\n".join(resA)))
+            self.res.setText("%s" % ("\n".join(resA)))
 
         except Exception as ex:
-            self.res.setText("Error in RegEx/Result (%s)"%ex.message)
+            self.res.setText("Error in RegEx/Result (%s)" % ex.message)
 
     def getRegEx(self):
         return str(self.regEx.text())
+
     def getRegExRes(self):
         return str(self.regExRes.text())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
 
     # create a DependenciesDialog with 3 tasks and different statuses
-    pw = RegExTestDialog(strings=["asldfkj/TA_234234_S1_0h.mzXML", "asldfkj/TA_34535_S2_0h.mzML", "asldfkj/TA_2342342_S1_4h.mzXML"])
+    pw = RegExTestDialog(
+        strings=[
+            "asldfkj/TA_234234_S1_0h.mzXML",
+            "asldfkj/TA_34535_S2_0h.mzML",
+            "asldfkj/TA_2342342_S1_4h.mzXML",
+        ]
+    )
     pw.show()
 
     sys.exit(app.exec())
-
-
-
-
-
-
-
-
-
-
-
-
-

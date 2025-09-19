@@ -11,9 +11,16 @@ from mePyGuis.heteroAtomEditor import Ui_Dialog
 from formulaTools import formulaTools
 
 
-class ConfiguredHeteroAtom():
-    def __init__(self, name="34S", mzOffset=1.995796, relativeAbundance=.0443, minCount=0, maxCount=4,
-                 entryType="user"):
+class ConfiguredHeteroAtom:
+    def __init__(
+        self,
+        name="34S",
+        mzOffset=1.995796,
+        relativeAbundance=0.0443,
+        minCount=0,
+        maxCount=4,
+        entryType="user",
+    ):
         self.name = name
         self.mzOffset = mzOffset
         self.relativeAbundance = relativeAbundance
@@ -22,13 +29,31 @@ class ConfiguredHeteroAtom():
         self.entryType = entryType
 
     def __str__(self):
-        return "ConfiguredHeteroAtom: (%s %.5f)" %( self.name, self.mzOffset)
+        return "ConfiguredHeteroAtom: (%s %.5f)" % (self.name, self.mzOffset)
 
 
 defaultHeteroAtoms = [
-    ConfiguredHeteroAtom(name='34S',  mzOffset=1.9957960000000021, relativeAbundance=0.044306461797516308, minCount=0, maxCount=4),
-    ConfiguredHeteroAtom(name='41K',  mzOffset=1.9981170000000006, relativeAbundance=0.07221030042918454,  minCount=0, maxCount=1),
-    ConfiguredHeteroAtom(name='37Cl', mzOffset=1.9970499999999944, relativeAbundance=0.31978355549689846,  minCount=0, maxCount=2)
+    ConfiguredHeteroAtom(
+        name="34S",
+        mzOffset=1.9957960000000021,
+        relativeAbundance=0.044306461797516308,
+        minCount=0,
+        maxCount=4,
+    ),
+    ConfiguredHeteroAtom(
+        name="41K",
+        mzOffset=1.9981170000000006,
+        relativeAbundance=0.07221030042918454,
+        minCount=0,
+        maxCount=1,
+    ),
+    ConfiguredHeteroAtom(
+        name="37Cl",
+        mzOffset=1.9970499999999944,
+        relativeAbundance=0.31978355549689846,
+        minCount=0,
+        maxCount=2,
+    ),
 ]
 
 
@@ -38,7 +63,7 @@ class HeteroAtomsTableModel(QtCore.QAbstractTableModel):
         self.arraydata = datain
         self.headerdata = headerdata
 
-        self.fT = formulaTools();
+        self.fT = formulaTools()
 
     def rowCount(self, parent):
         return len(self.arraydata)
@@ -99,7 +124,7 @@ class HeteroAtomsTableModel(QtCore.QAbstractTableModel):
             try:
                 f, ok = value.toDouble()
                 if index.column() == 2:
-                    f = f / 100.
+                    f = f / 100.0
                 if not ok:
                     return False
                 if index.column() == 1:
@@ -124,8 +149,12 @@ class HeteroAtomsTableModel(QtCore.QAbstractTableModel):
         elif index.column() == 0:
             val = str(value.toString())
             if val in self.fT.getIsotopes(minInt=0.0).keys():
-                self.arraydata[index.row()].mzOffset = self.fT.getIsotopes(minInt=0.0)[val][0]
-                self.arraydata[index.row()].relativeAbundance = self.fT.getIsotopes(minInt=0.0)[val][1]
+                self.arraydata[index.row()].mzOffset = self.fT.getIsotopes(minInt=0.0)[
+                    val
+                ][0]
+                self.arraydata[index.row()].relativeAbundance = self.fT.getIsotopes(
+                    minInt=0.0
+                )[val][1]
                 self.arraydata[index.row()].minCount = 0
                 self.arraydata[index.row()].maxCount = 4
 
@@ -134,7 +163,11 @@ class HeteroAtomsTableModel(QtCore.QAbstractTableModel):
         return False
 
     def flags(self, index):
-        return QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEditable
+        return (
+            QtCore.Qt.ItemIsEnabled
+            | QtCore.Qt.ItemIsSelectable
+            | QtCore.Qt.ItemIsEditable
+        )
 
 
 class heteroAtomEdit(QtWidgets.QDialog, Ui_Dialog):
@@ -147,8 +180,10 @@ class heteroAtomEdit(QtWidgets.QDialog, Ui_Dialog):
 
         self.hAtoms = deepcopy(heteroAtoms)
         self.hAtoms.append(ConfiguredHeteroAtom(entryType="empty"))
-        self.haModel = HeteroAtomsTableModel(self.hAtoms,
-                                             ["Isotope", u"\u0394 m/z", "Rel. ab. [%]", "Min. atoms", "Max. atoms"])
+        self.haModel = HeteroAtomsTableModel(
+            self.hAtoms,
+            ["Isotope", "\u0394 m/z", "Rel. ab. [%]", "Min. atoms", "Max. atoms"],
+        )
 
         self.heteroAtoms.setModel(self.haModel)
 
@@ -171,13 +206,12 @@ class heteroAtomEdit(QtWidgets.QDialog, Ui_Dialog):
                 self.haModel.removeRows(x.row(), 1)
 
     def loadDefaultHeteroAtoms(self):
-        while self.haModel.rowCount(self)>1:
+        while self.haModel.rowCount(self) > 1:
             self.haModel.removeRows(0, 1)
         for i in range(len(defaultHeteroAtoms)):
-            ha=deepcopy(defaultHeteroAtoms[i])
+            ha = deepcopy(defaultHeteroAtoms[i])
             self.haModel.insertRows(i, 1)
-            self.hAtoms[i]=ha
-
+            self.hAtoms[i] = ha
 
     def dialogCan(self):
         self.reject()
@@ -212,14 +246,3 @@ if __name__ == "__main__":
     for ha in has:
         print(ha)
     sys.exit(app.exec())
-
-
-
-
-
-
-
-
-
-
-

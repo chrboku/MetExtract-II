@@ -1,5 +1,6 @@
 ### Taken from http://stackoverflow.com/questions/31875/is-there-a-simple-elegant-way-to-define-singletons-in-python
 
+
 class Singleton:
     """
     A non-thread-safe helper class to ease implementing singletons.
@@ -34,28 +35,28 @@ class Singleton:
             return self._instance
 
     def __call__(self):
-        raise TypeError('Singletons must be accessed through `Instance()`.')
+        raise TypeError("Singletons must be accessed through `Instance()`.")
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
+
     @Singleton
     class Foo:
         def __init__(self):
-            print('Foo created')
+            print("Foo created")
 
-
-    f = Foo.Instance() # Good. Being explicit is in line with the Python Zen
+    f = Foo.Instance()  # Good. Being explicit is in line with the Python Zen
     print(f)
-    g = Foo.Instance() # Returns already created instance
+    g = Foo.Instance()  # Returns already created instance
     print(g)
 
     print("f is g:", f is g)
 
     try:
-        f = Foo() # Error, this isn't how you get the instance of a singleton
+        f = Foo()  # Error, this isn't how you get the instance of a singleton
     except TypeError as ex:
-        print('\033[91m')
+        print("\033[91m")
         print("  ###############")
         print("  ###  EXCEPTION:", ex)
         print("  ###############")
-        print('\033[0m')
+        print("\033[0m")

@@ -3,12 +3,14 @@ from mePyGuis.calcIsotopeEnrichmentDialog import Ui_Dialog
 
 from math import factorial
 
+
 def choose(n, r):
-    return factorial(n) // factorial(r) // factorial(n-r)
+    return factorial(n) // factorial(r) // factorial(n - r)
 
 
-def calcIsoEnrichment(a,s,r):
-    return choose(a,s)**(1./s) / (choose(a,s)**(1./s)+r**(1./s))
+def calcIsoEnrichment(a, s, r):
+    return choose(a, s) ** (1.0 / s) / (choose(a, s) ** (1.0 / s) + r ** (1.0 / s))
+
 
 class calcIsoEnrichmentDialog(QtWidgets.QDialog, Ui_Dialog):
     def __init__(self, parent=None, initDir=None):
@@ -26,25 +28,36 @@ class calcIsoEnrichmentDialog(QtWidgets.QDialog, Ui_Dialog):
         self.tableWidget.cellChanged.connect(self.updateTable)
 
     def updateTable(self, x, y):
-        if y<5:
-            rowi=x
+        if y < 5:
+            rowi = x
             try:
-                m=float(self.tableWidget.item(rowi, 0).text())
-                mpo=float(self.tableWidget.item(rowi, 1).text())
-                cn=int(self.tableWidget.item(rowi, 4).text())
+                m = float(self.tableWidget.item(rowi, 0).text())
+                mpo = float(self.tableWidget.item(rowi, 1).text())
+                cn = int(self.tableWidget.item(rowi, 4).text())
 
-                self.tableWidget.setItem(rowi, 5, QtWidgets.QTableWidgetItem("%.4f%%"%(100.*calcIsoEnrichment(  cn, 1, mpo/m  ))))
+                self.tableWidget.setItem(
+                    rowi,
+                    5,
+                    QtWidgets.QTableWidgetItem(
+                        "%.4f%%" % (100.0 * calcIsoEnrichment(cn, 1, mpo / m))
+                    ),
+                )
             except Exception as ex:
                 pass
             try:
-                mpmo=float(self.tableWidget.item(rowi, 2).text())
-                mp=float(self.tableWidget.item(rowi, 3).text())
-                cn=int(self.tableWidget.item(rowi, 4).text())
+                mpmo = float(self.tableWidget.item(rowi, 2).text())
+                mp = float(self.tableWidget.item(rowi, 3).text())
+                cn = int(self.tableWidget.item(rowi, 4).text())
 
-                self.tableWidget.setItem(rowi, 6, QtWidgets.QTableWidgetItem("%.4f%%"%(100.*calcIsoEnrichment(  cn, 1, mpmo/mp  ))))
+                self.tableWidget.setItem(
+                    rowi,
+                    6,
+                    QtWidgets.QTableWidgetItem(
+                        "%.4f%%" % (100.0 * calcIsoEnrichment(cn, 1, mpmo / mp))
+                    ),
+                )
             except Exception as ex:
                 pass
-
 
     def executeDialog(self):
         x = self.exec()

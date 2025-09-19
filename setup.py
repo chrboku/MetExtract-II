@@ -16,7 +16,6 @@
 #    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 
-
 from distutils.core import setup
 import py2exe
 from shutil import rmtree, copy, move
@@ -30,32 +29,31 @@ from MetExtractII_Main import MetExtractVersion
 import matplotlib
 
 import sys
+
 sys.path.append("../PyMassBankSearchTool")
 from TableUtils import TableUtils
 
 
-
-
-
 import os, stat
-def on_rm_error( func, path, exc_info):
+
+
+def on_rm_error(func, path, exc_info):
     # path contains the path of the file that couldn't be removed
     # let's just assume that it's read-only and unlink it.
-    os.chmod( path, stat.S_IWRITE )
-    os.unlink( path )
-
+    os.chmod(path, stat.S_IWRITE)
+    os.unlink(path)
 
 
 def replaceInFile(textToReplace, newText, filein, fileout=None):
-    f = open(filein,'r')
+    f = open(filein, "r")
     filedata = f.read()
     f.close()
 
     newdata = filedata.replace(textToReplace, newText)
 
     if fileout is None:
-        fileout=filein
-    f = open(fileout,'w')
+        fileout = filein
+    f = open(fileout, "w")
     f.write(newdata)
     f.close()
 
@@ -65,19 +63,22 @@ def replaceInFile(textToReplace, newText, filein, fileout=None):
 ########################################################################################################################
 
 
-
-#<editor-fold desc="### check if R is installed and accessible">
+# <editor-fold desc="### check if R is installed and accessible">
 def checkR():
     try:
-        import rpy2.robjects as ro              # import RPy2 module
-        r = ro.r                                # make R globally accessible
+        import rpy2.robjects as ro  # import RPy2 module
 
-        v = r("R.Version()$version.string")     # if this R-commando is executed, the RPy2 connection to the
-                                                # R subprocess has been established
+        r = ro.r  # make R globally accessible
+
+        v = r(
+            "R.Version()$version.string"
+        )  # if this R-commando is executed, the RPy2 connection to the
+        # R subprocess has been established
         return True
     except:
         # The R subprocess could not be started / accessed successfully
         return False
+
 
 def isRRequired():
     """Check if R is required for the current operation"""
@@ -85,24 +86,27 @@ def isRRequired():
     # For basic functionality, we can run without R
     return False
 
+
 def loadRConfFile(path):
     import os
-    if os.path.isfile(path+"/RPATH.conf"):
-        with open(path+"/RPATH.conf", "rb") as rconf:
-            line=rconf.readline()
-            os.environ["R_HOME"]=line
+
+    if os.path.isfile(path + "/RPATH.conf"):
+        with open(path + "/RPATH.conf", "rb") as rconf:
+            line = rconf.readline()
+            os.environ["R_HOME"] = line
             return True
     else:
         return False
 
 
-__RHOMEENVVAR=""
+__RHOMEENVVAR = ""
 import os
 from utils import get_main_dir
-if "R_HOME" in os.environ.keys():
-    __RHOMEENVVAR=os.environ["R_HOME"]
 
-os.environ["R_USER"]=get_main_dir()+"/Ruser"
+if "R_HOME" in os.environ.keys():
+    __RHOMEENVVAR = os.environ["R_HOME"]
+
+os.environ["R_USER"] = get_main_dir() + "/Ruser"
 # try to load r configuration file (does not require any environment variables or registry keys)
 # Make R configuration optional for basic functionality
 R_AVAILABLE = False
@@ -112,21 +116,24 @@ elif checkR():
     R_AVAILABLE = True
 else:
     # Try to find R in common locations
-    os.environ["R_HOME"]=get_main_dir()+"/R"
+    os.environ["R_HOME"] = get_main_dir() + "/R"
     if checkR():
         with open("RPATH.conf", "w") as rconf:
-            rconf.write(get_main_dir()+"/R")
+            rconf.write(get_main_dir() + "/R")
         R_AVAILABLE = True
-        
+
         # Show a dialog box to the user that R was successfully configured
         try:
             from os import sys
             from PySide6 import QtCore, QtGui, QtWidgets
 
             app = QtWidgets.QApplication(sys.argv)
-            QtWidgets.QMessageBox.information(None, "MetExtract",
-                      "R successfully configured\nUsing MetExtract R-Installation\nPlease restart",
-                      QtWidgets.QMessageBox.Ok)
+            QtWidgets.QMessageBox.information(
+                None,
+                "MetExtract",
+                "R successfully configured\nUsing MetExtract R-Installation\nPlease restart",
+                QtWidgets.QMessageBox.Ok,
+            )
             sys.exit(0)
         except:
             pass
@@ -137,8 +144,8 @@ else:
 
 # Set environment variables if R was available
 if R_AVAILABLE and __RHOMEENVVAR:
-    os.environ["R_HOME"]=__RHOMEENVVAR
-    os.environ["R_HOME_FROM"]="RPATH environment variable"
+    os.environ["R_HOME"] = __RHOMEENVVAR
+    os.environ["R_HOME_FROM"] = "RPATH environment variable"
 
 # Export R availability for other modules to check
 os.environ["METEXTRACT_R_AVAILABLE"] = str(R_AVAILABLE)
@@ -147,15 +154,14 @@ os.environ["METEXTRACT_R_AVAILABLE"] = str(R_AVAILABLE)
 if R_AVAILABLE:
     try:
         import rpy2.robjects as ro
+
         r = ro.r
         print("R integration successfully initialized")
     except Exception as e:
         print(f"Warning: R integration failed to initialize: {e}")
         R_AVAILABLE = False
         os.environ["METEXTRACT_R_AVAILABLE"] = "False"
-#</editor-fold>
-
-
+# </editor-fold>
 
 
 # remove previous setup files
@@ -170,7 +176,12 @@ except:
 try:
     rmtree("./distribute/")
 except:
-    print(colored("Error: could not clean up py2exe environment prior to compilation\n==============================\n", "red"))
+    print(
+        colored(
+            "Error: could not clean up py2exe environment prior to compilation\n==============================\n",
+            "red",
+        )
+    )
 
 # get local files (images, R-Scripts, ...)
 data_files = matplotlib.get_py2exe_datafiles()
@@ -182,7 +193,8 @@ err = False
 import os
 import shutil
 
-def mergeDirs (root_src_dir, root_dst_dir):
+
+def mergeDirs(root_src_dir, root_dst_dir):
     for src_dir, dirs, files in os.walk(root_src_dir):
         dst_dir = src_dir.replace(root_src_dir, root_dst_dir)
         if not os.path.exists(dst_dir):
@@ -193,6 +205,8 @@ def mergeDirs (root_src_dir, root_dst_dir):
             if os.path.exists(dst_file):
                 os.remove(dst_file)
             shutil.move(src_file, dst_dir)
+
+
 import openpyxl
 
 
@@ -200,36 +214,94 @@ class Target:
     def __init__(self, **kw):
         self.__dict__.update(kw)
 
-a=Target(script = "MetExtractII_Main.py")
-b=Target(script = "FragExtract.py")
-c=Target(script = "MExtract.py")
-d=Target(script = "resultsPostProcessing/combineResults.py")
-e=Target(script = "FTICRModule.py")
+
+a = Target(script="MetExtractII_Main.py")
+b = Target(script="FragExtract.py")
+c = Target(script="MExtract.py")
+d = Target(script="resultsPostProcessing/combineResults.py")
+e = Target(script="FTICRModule.py")
 
 print("###################################################")
 print("########## Packing MetExtractII_Main")
 print("###################################################")
 import sys
+
 sys.setrecursionlimit(5000)
-setup(console=[a,b,c,d,e],
-      options={"py2exe": {
-                 "includes": ["sip", "matplotlib.backends.backend_tkagg", 'scipy', 'scipy.integrate', 'scipy.special.*','scipy.linalg.*', 'scipy.sparse.csgraph._validation', 'scipy._lib.messagestream'],  # use this line if above does not work
-                 "dll_excludes": ["MSVCP90.dll", "api-ms-win-core-string-l1-1-0.dll","api-ms-win-core-registry-l1-1-0.dll","api-ms-win-core-errorhandling-l1-1-0.dll","api-ms-win-core-string-l2-1-0.dll",
-                                  "api-ms-win-core-profile-l1-1-0.dll","api-ms-win*.dll","api-ms-win-core-processthreads-l1-1-2.dll","api-ms-win-core-libraryloader-l1-2-1.dll","api-ms-win-core-file-l1-2-1.dll",
-                                  "api-ms-win-security-base-l1-2-0.dll","api-ms-win-eventing-provider-l1-1-0.dll","api-ms-win-core-heap-l2-1-0.dll","api-ms-win-core-libraryloader-l1-2-0.dll","api-ms-win-core-localization-l1-2-1.dll",
-                                  "api-ms-win-core-sysinfo-l1-1-0.dll","api-ms-win-core-synch-l1-2-0.dll","api-ms-win-core-heap-l1-2-0.dll","api-ms-win-core-handle-l1-1-0.dll","api-ms-win-core-io-l1-1-1.dll","api-ms-win-core-com-l1-1-1.dll",
-                                  "api-ms-win-core-memory-l1-1-2.dll","api-ms-win-core-version-l1-1-1.dll","api-ms-win-core-version-l1-1-0.dll","api-ms-win-core-processthreads-l1-1-0.dll"],
-                 "excludes": ["_gtkagg", "_tkagg", 'jinja2.asyncsupport','jinja2.asyncfilters'],
-                 "packages": ["FileDialog", "openpyxl", 'reportlab','reportlab.graphics.charts','reportlab.graphics.samples','reportlab.graphics.widgets','reportlab.graphics.barcode','reportlab.graphics','reportlab.lib','reportlab.pdfbase','reportlab.pdfgen','reportlab.platypus', 'zeep', 'lxml'],
-                 'dist_dir': "./dist"
-      }},
-      data_files=data_files,
-      requires=['matplotlib'])
-#rmtree("./build/")
+setup(
+    console=[a, b, c, d, e],
+    options={
+        "py2exe": {
+            "includes": [
+                "sip",
+                "matplotlib.backends.backend_tkagg",
+                "scipy",
+                "scipy.integrate",
+                "scipy.special.*",
+                "scipy.linalg.*",
+                "scipy.sparse.csgraph._validation",
+                "scipy._lib.messagestream",
+            ],  # use this line if above does not work
+            "dll_excludes": [
+                "MSVCP90.dll",
+                "api-ms-win-core-string-l1-1-0.dll",
+                "api-ms-win-core-registry-l1-1-0.dll",
+                "api-ms-win-core-errorhandling-l1-1-0.dll",
+                "api-ms-win-core-string-l2-1-0.dll",
+                "api-ms-win-core-profile-l1-1-0.dll",
+                "api-ms-win*.dll",
+                "api-ms-win-core-processthreads-l1-1-2.dll",
+                "api-ms-win-core-libraryloader-l1-2-1.dll",
+                "api-ms-win-core-file-l1-2-1.dll",
+                "api-ms-win-security-base-l1-2-0.dll",
+                "api-ms-win-eventing-provider-l1-1-0.dll",
+                "api-ms-win-core-heap-l2-1-0.dll",
+                "api-ms-win-core-libraryloader-l1-2-0.dll",
+                "api-ms-win-core-localization-l1-2-1.dll",
+                "api-ms-win-core-sysinfo-l1-1-0.dll",
+                "api-ms-win-core-synch-l1-2-0.dll",
+                "api-ms-win-core-heap-l1-2-0.dll",
+                "api-ms-win-core-handle-l1-1-0.dll",
+                "api-ms-win-core-io-l1-1-1.dll",
+                "api-ms-win-core-com-l1-1-1.dll",
+                "api-ms-win-core-memory-l1-1-2.dll",
+                "api-ms-win-core-version-l1-1-1.dll",
+                "api-ms-win-core-version-l1-1-0.dll",
+                "api-ms-win-core-processthreads-l1-1-0.dll",
+            ],
+            "excludes": [
+                "_gtkagg",
+                "_tkagg",
+                "jinja2.asyncsupport",
+                "jinja2.asyncfilters",
+            ],
+            "packages": [
+                "FileDialog",
+                "openpyxl",
+                "reportlab",
+                "reportlab.graphics.charts",
+                "reportlab.graphics.samples",
+                "reportlab.graphics.widgets",
+                "reportlab.graphics.barcode",
+                "reportlab.graphics",
+                "reportlab.lib",
+                "reportlab.pdfbase",
+                "reportlab.pdfgen",
+                "reportlab.platypus",
+                "zeep",
+                "lxml",
+            ],
+            "dist_dir": "./dist",
+        }
+    },
+    data_files=data_files,
+    requires=["matplotlib"],
+)
+# rmtree("./build/")
 
 
 print("forced waiting...")
 import time
+
 time.sleep(3)
 
 
@@ -239,14 +311,20 @@ print("Setup finished\n==============================\n")
 try:
     os.makedirs("./dist/Settings/")
     copy("./Settings/defaultSettings.ini", "./dist/Settings/defaultSettings.ini")
-    copy("./Settings/LTQ-Orbitrap-XL__HPLC.ini", "./dist/Settings/LTQ-Orbitrap-XL__HPLC.ini")
+    copy(
+        "./Settings/LTQ-Orbitrap-XL__HPLC.ini",
+        "./dist/Settings/LTQ-Orbitrap-XL__HPLC.ini",
+    )
     copy("./Settings/QExactive__HPLC.ini", "./dist/Settings/QExactive__HPLC.ini")
     copy("./Settings/QTof__HPLC.ini", "./dist/Settings/QTof__HPLC.ini")
     os.makedirs("./dist/Settings/Tracers/")
     copy("./Settings/Tracers/DON_12C13C.ini", "./dist/Settings/Tracers/DON_12C13C.ini")
 
     os.makedirs("./dist/chromPeakPicking/")
-    copy("./chromPeakPicking/MassSpecWaveletIdentification.r", "./dist/chromPeakPicking/MassSpecWaveletIdentification.r")
+    copy(
+        "./chromPeakPicking/MassSpecWaveletIdentification.r",
+        "./dist/chromPeakPicking/MassSpecWaveletIdentification.r",
+    )
     copy("./XICAlignment.r", "./dist/XICAlignment.r")
     copy("./LICENSE.txt", "./dist/LICENSE.txt")
     print("Additional resources copied\n==============================\n")
@@ -256,23 +334,29 @@ except:
 
 try:
     import shutil
-    dest="./dist/documentation"
-    src="./documentation"
+
+    dest = "./dist/documentation"
+    src = "./documentation"
     shutil.copytree(src, dest)
 
     print("Help files copied\n==============================\n")
 
 except Exception as ex:
-    print(colored("Error: Could not copy help files: "+ex.message, "red"))
+    print(colored("Error: Could not copy help files: " + ex.message, "red"))
     err = True
 
 # rename dist folder to PyMetExtract and current version of the software
-meDistFolder="./dist"
+meDistFolder = "./dist"
 try:
-    from time import sleep  # sometimes, the re-naming does not work (probably some kind of lock from the OS)
-    sleep(3)                # this short waiting time decreases the number of times the renaming does not work
-    os.rename("./dist", "./PyMetExtract_%s"%MetExtractVersion)
-    meDistFolder="./PyMetExtract_%s"%MetExtractVersion
+    from time import (
+        sleep,
+    )  # sometimes, the re-naming does not work (probably some kind of lock from the OS)
+
+    sleep(
+        3
+    )  # this short waiting time decreases the number of times the renaming does not work
+    os.rename("./dist", "./PyMetExtract_%s" % MetExtractVersion)
+    meDistFolder = "./PyMetExtract_%s" % MetExtractVersion
     print("Distribution renamed\n==============================\n")
 
 except:
@@ -280,20 +364,28 @@ except:
     err = True
 
 try:
-    os.makedirs('./distribute')
+    os.makedirs("./distribute")
 except:
     pass
 
 import os
 
 ## update MetExtract Version in NSIS setup file
-replaceInFile("$$METEXTRACTVERSION$$", MetExtractVersion, filein="setup.nsi", fileout="setup_curVersion.nsi")
+replaceInFile(
+    "$$METEXTRACTVERSION$$",
+    MetExtractVersion,
+    filein="setup.nsi",
+    fileout="setup_curVersion.nsi",
+)
 
-os.system("\"c:\\Program Files (x86)\\NSIS\\makensis.exe\" setup_curVersion.nsi")
+os.system('"c:\\Program Files (x86)\\NSIS\\makensis.exe" setup_curVersion.nsi')
 os.remove("./setup_curVersion.nsi")
-os.rename("./Setup.exe", "./Setup_MetExtractII_%s.exe"%MetExtractVersion)
-move("./Setup_MetExtractII_%s.exe"%MetExtractVersion, "./distribute/Setup_MetExtractII_%s.exe"%MetExtractVersion)
-#shutil.copy("../../distribution/vcredist_x86.exe", "./distribute/vcredist_x86.exe")
+os.rename("./Setup.exe", "./Setup_MetExtractII_%s.exe" % MetExtractVersion)
+move(
+    "./Setup_MetExtractII_%s.exe" % MetExtractVersion,
+    "./distribute/Setup_MetExtractII_%s.exe" % MetExtractVersion,
+)
+# shutil.copy("../../distribution/vcredist_x86.exe", "./distribute/vcredist_x86.exe")
 
 
 def zipdir(path, zip):
@@ -301,62 +393,82 @@ def zipdir(path, zip):
         for file in files:
             zip.write(os.path.join(root, file))
 
+
 # create zip archive from the executables and documentation
 if not err:
-
     print("Zipping MetExtract (%s)" % MetExtractVersion)
     zipFileName = "PyMetExtract_%s.zip" % MetExtractVersion
 
-    zipF = zipfile.ZipFile(zipFileName, 'w')
+    zipF = zipfile.ZipFile(zipFileName, "w")
     zipdir(meDistFolder, zipF)
     zipF.close()
 
-    move('./%s' % zipFileName, './distribute/%s' % zipFileName)
+    move("./%s" % zipFileName, "./distribute/%s" % zipFileName)
 
-    print("MetExtract (%s) created\n see %s\n==============================\n" % (
-        MetExtractVersion, './distribute/%s' % zipFileName))
-
+    print(
+        "MetExtract (%s) created\n see %s\n==============================\n"
+        % (MetExtractVersion, "./distribute/%s" % zipFileName)
+    )
 
 
 try:
     sleep(3)
-    rmtree("./build", onerror = on_rm_error)
+    rmtree("./build", onerror=on_rm_error)
 except:
-    print(colored(
-        "Cleanup failed (./build) dist and/or build directories still there\n==============================\n", "red"))
+    print(
+        colored(
+            "Cleanup failed (./build) dist and/or build directories still there\n==============================\n",
+            "red",
+        )
+    )
     import traceback
 
     traceback.print_exc()
 
 try:
     sleep(3)
-    rmtree(meDistFolder, onerror = on_rm_error)
+    rmtree(meDistFolder, onerror=on_rm_error)
 except:
-    print(colored(
-        "Cleanup failed (" + meDistFolder + ") dist and/or build directories still there\n==============================\n",
-        "red"))
+    print(
+        colored(
+            "Cleanup failed ("
+            + meDistFolder
+            + ") dist and/or build directories still there\n==============================\n",
+            "red",
+        )
+    )
     import traceback
 
     traceback.print_exc()
 
 try:
     sleep(3)
-    rmtree(meDistFolder, onerror = on_rm_error)
+    rmtree(meDistFolder, onerror=on_rm_error)
 except:
-    print(colored(
-        "Cleanup failed (" + meDistFolder + ") dist and/or build directories still there\n==============================\n",
-        "red"))
+    print(
+        colored(
+            "Cleanup failed ("
+            + meDistFolder
+            + ") dist and/or build directories still there\n==============================\n",
+            "red",
+        )
+    )
     import traceback
 
     traceback.print_exc()
 
 try:
     sleep(3)
-    rmtree(meDistFolder, onerror = on_rm_error)
+    rmtree(meDistFolder, onerror=on_rm_error)
 except:
-    print(colored(
-        "Cleanup failed (" + meDistFolder + ") dist and/or build directories still there\n==============================\n",
-        "red"))
+    print(
+        colored(
+            "Cleanup failed ("
+            + meDistFolder
+            + ") dist and/or build directories still there\n==============================\n",
+            "red",
+        )
+    )
     import traceback
 
     traceback.print_exc()

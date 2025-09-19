@@ -11,16 +11,21 @@ from PySide6 import QtCore, QtGui, QtWidgets
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
 except AttributeError:
+
     def _fromUtf8(s):
         return s
 
+
 try:
     _encoding = QtWidgets.QApplication.UnicodeUTF8
+
     def _translate(context, text, disambig):
         return QtWidgets.QApplication.translate(context, text, disambig, _encoding)
 except AttributeError:
+
     def _translate(context, text, disambig):
         return QtWidgets.QApplication.translate(context, text, disambig)
+
 
 class Ui_Dialog(object):
     def setupUi(self, Dialog):
@@ -40,10 +45,14 @@ class Ui_Dialog(object):
         self.verticalLayout_2.setObjectName(_fromUtf8("verticalLayout_2"))
         self.label_2 = QtWidgets.QLabel(Dialog)
         self.label_2.setStyleSheet(_fromUtf8("font: 10pt;"))
-        self.label_2.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.label_2.setAlignment(
+            QtCore.Qt.AlignRight | QtCore.Qt.AlignTrailing | QtCore.Qt.AlignVCenter
+        )
         self.label_2.setObjectName(_fromUtf8("label_2"))
         self.verticalLayout_2.addWidget(self.label_2)
-        spacerItem = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred)
+        spacerItem = QtWidgets.QSpacerItem(
+            0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred
+        )
         self.verticalLayout_2.addItem(spacerItem)
         self.gridLayout_2.addLayout(self.verticalLayout_2, 3, 0, 1, 1)
         self.line_3 = QtWidgets.QFrame(Dialog)
@@ -55,25 +64,32 @@ class Ui_Dialog(object):
         self.verticalLayout.setObjectName(_fromUtf8("verticalLayout"))
         self.title_tracer = QtWidgets.QLabel(Dialog)
         self.title_tracer.setStyleSheet(_fromUtf8("font: 10pt;"))
-        self.title_tracer.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.title_tracer.setAlignment(
+            QtCore.Qt.AlignRight | QtCore.Qt.AlignTrailing | QtCore.Qt.AlignVCenter
+        )
         self.title_tracer.setObjectName(_fromUtf8("title_tracer"))
         self.verticalLayout.addWidget(self.title_tracer)
-        spacerItem1 = QtWidgets.QSpacerItem(0, 15, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        spacerItem1 = QtWidgets.QSpacerItem(
+            0, 15, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
+        )
         self.verticalLayout.addItem(spacerItem1)
         self.label_3 = QtWidgets.QLabel(Dialog)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.label_3.sizePolicy().hasHeightForWidth())
         self.label_3.setSizePolicy(sizePolicy)
         self.label_3.setMaximumSize(QtCore.QSize(200, 16777215))
-        self.label_3.setStyleSheet(_fromUtf8("color: rgb(90, 90, 90);\n"
-"font: 7pt;"))
-        self.label_3.setAlignment(QtCore.Qt.AlignJustify|QtCore.Qt.AlignVCenter)
+        self.label_3.setStyleSheet(_fromUtf8("color: rgb(90, 90, 90);\nfont: 7pt;"))
+        self.label_3.setAlignment(QtCore.Qt.AlignJustify | QtCore.Qt.AlignVCenter)
         self.label_3.setWordWrap(True)
         self.label_3.setObjectName(_fromUtf8("label_3"))
         self.verticalLayout.addWidget(self.label_3)
-        spacerItem2 = QtWidgets.QSpacerItem(200, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        spacerItem2 = QtWidgets.QSpacerItem(
+            200, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
+        )
         self.verticalLayout.addItem(spacerItem2)
         self.gridLayout_2.addLayout(self.verticalLayout, 1, 0, 1, 1)
         self.line = QtWidgets.QFrame(Dialog)
@@ -81,18 +97,24 @@ class Ui_Dialog(object):
         self.line.setFrameShadow(QtWidgets.QFrame.Sunken)
         self.line.setObjectName(_fromUtf8("line"))
         self.gridLayout_2.addWidget(self.line, 1, 2, 1, 1)
-        spacerItem3 = QtWidgets.QSpacerItem(3, 0, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum)
+        spacerItem3 = QtWidgets.QSpacerItem(
+            3, 0, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum
+        )
         self.gridLayout_2.addItem(spacerItem3, 1, 3, 1, 1)
         self.line_2 = QtWidgets.QFrame(Dialog)
         self.line_2.setFrameShape(QtWidgets.QFrame.HLine)
         self.line_2.setFrameShadow(QtWidgets.QFrame.Sunken)
         self.line_2.setObjectName(_fromUtf8("line_2"))
         self.gridLayout_2.addWidget(self.line_2, 0, 0, 1, 5)
-        spacerItem4 = QtWidgets.QSpacerItem(3, 0, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum)
+        spacerItem4 = QtWidgets.QSpacerItem(
+            3, 0, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum
+        )
         self.gridLayout_2.addItem(spacerItem4, 1, 1, 1, 1)
         self.horizontalLayout = QtWidgets.QHBoxLayout()
         self.horizontalLayout.setObjectName(_fromUtf8("horizontalLayout"))
-        spacerItem5 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem5 = QtWidgets.QSpacerItem(
+            40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum
+        )
         self.horizontalLayout.addItem(spacerItem5)
         self.discardButton = QtWidgets.QPushButton(Dialog)
         self.discardButton.setObjectName(_fromUtf8("discardButton"))
@@ -132,17 +154,25 @@ class Ui_Dialog(object):
         self.tNativeEnrichment = QtWidgets.QDoubleSpinBox(Dialog)
         self.tNativeEnrichment.setProperty("value", 98.93)
         self.tNativeEnrichment.setObjectName(_fromUtf8("tNativeEnrichment"))
-        self.formLayout.setWidget(3, QtWidgets.QFormLayout.FieldRole, self.tNativeEnrichment)
+        self.formLayout.setWidget(
+            3, QtWidgets.QFormLayout.FieldRole, self.tNativeEnrichment
+        )
         self.tLabeledEnrichment = QtWidgets.QDoubleSpinBox(Dialog)
         self.tLabeledEnrichment.setProperty("value", 99.5)
         self.tLabeledEnrichment.setObjectName(_fromUtf8("tLabeledEnrichment"))
-        self.formLayout.setWidget(5, QtWidgets.QFormLayout.FieldRole, self.tLabeledEnrichment)
+        self.formLayout.setWidget(
+            5, QtWidgets.QFormLayout.FieldRole, self.tLabeledEnrichment
+        )
         self.tNativeIsotope = QtWidgets.QLineEdit(Dialog)
         self.tNativeIsotope.setObjectName(_fromUtf8("tNativeIsotope"))
-        self.formLayout.setWidget(2, QtWidgets.QFormLayout.FieldRole, self.tNativeIsotope)
+        self.formLayout.setWidget(
+            2, QtWidgets.QFormLayout.FieldRole, self.tNativeIsotope
+        )
         self.tLabeledIsotope = QtWidgets.QLineEdit(Dialog)
         self.tLabeledIsotope.setObjectName(_fromUtf8("tLabeledIsotope"))
-        self.formLayout.setWidget(4, QtWidgets.QFormLayout.FieldRole, self.tLabeledIsotope)
+        self.formLayout.setWidget(
+            4, QtWidgets.QFormLayout.FieldRole, self.tLabeledIsotope
+        )
         self.tRatioGroupBox = QtWidgets.QGroupBox(Dialog)
         self.tRatioGroupBox.setObjectName(_fromUtf8("tRatioGroupBox"))
         self.gridLayout_3 = QtWidgets.QGridLayout(self.tRatioGroupBox)
@@ -190,7 +220,9 @@ class Ui_Dialog(object):
         self.tTheoreticalSignalRatio = QtWidgets.QLabel(self.tRatioGroupBox)
         self.tTheoreticalSignalRatio.setObjectName(_fromUtf8("tTheoreticalSignalRatio"))
         self.gridLayout_3.addWidget(self.tTheoreticalSignalRatio, 2, 1, 1, 1)
-        self.formLayout.setWidget(12, QtWidgets.QFormLayout.SpanningRole, self.tRatioGroupBox)
+        self.formLayout.setWidget(
+            12, QtWidgets.QFormLayout.SpanningRole, self.tRatioGroupBox
+        )
         self.tCheckRatio = QtWidgets.QCheckBox(Dialog)
         self.tCheckRatio.setObjectName(_fromUtf8("tCheckRatio"))
         self.formLayout.setWidget(10, QtWidgets.QFormLayout.FieldRole, self.tCheckRatio)
@@ -217,7 +249,13 @@ class Ui_Dialog(object):
         Dialog.setWindowTitle(_translate("Dialog", "Dialog", None))
         self.label_2.setText(_translate("Dialog", "Actions", None))
         self.title_tracer.setText(_translate("Dialog", "Tracer", None))
-        self.label_3.setText(_translate("Dialog", "<html><head/><body><p>Please specify the tracer added to the experiment</p><p><br/></p></body></html>", None))
+        self.label_3.setText(
+            _translate(
+                "Dialog",
+                "<html><head/><body><p>Please specify the tracer added to the experiment</p><p><br/></p></body></html>",
+                None,
+            )
+        )
         self.discardButton.setText(_translate("Dialog", "Discard", None))
         self.acceptButton.setText(_translate("Dialog", "Accept", None))
         self.label.setText(_translate("Dialog", "Name", None))
@@ -226,36 +264,72 @@ class Ui_Dialog(object):
         self.label_5.setText(_translate("Dialog", "Native isotopolog", None))
         self.label_6.setText(_translate("Dialog", "Native isotopolog enrichment", None))
         self.label_7.setText(_translate("Dialog", "Labeled isotopolog", None))
-        self.label_8.setText(_translate("Dialog", "Labeled isotopolog enrichment", None))
+        self.label_8.setText(
+            _translate("Dialog", "Labeled isotopolog enrichment", None)
+        )
         self.tNativeEnrichment.setSuffix(_translate("Dialog", " %", None))
         self.tLabeledEnrichment.setSuffix(_translate("Dialog", " %", None))
         self.tNativeIsotope.setText(_translate("Dialog", "12C", None))
         self.tLabeledIsotope.setText(_translate("Dialog", "13C", None))
-        self.tRatioGroupBox.setTitle(_translate("Dialog", "Virtually allowed ratio for exogenous tracers only", None))
+        self.tRatioGroupBox.setTitle(
+            _translate(
+                "Dialog", "Virtually allowed ratio for exogenous tracers only", None
+            )
+        )
         self.label_9.setText(_translate("Dialog", "Amount native compound", None))
         self.label_10.setText(_translate("Dialog", "Amount labeled compound", None))
         self.tAmountA.setPrefix(_translate("Dialog", "= ", None))
         self.tAmountB.setPrefix(_translate("Dialog", "= ", None))
-        self.label_11.setText(_translate("Dialog", "Minimum ratio deviation relative to theoretical signal ratio", None))
-        self.label_12.setText(_translate("Dialog", "Maximum ratio deviation relative to theoretical signal ratio", None))
+        self.label_11.setText(
+            _translate(
+                "Dialog",
+                "Minimum ratio deviation relative to theoretical signal ratio",
+                None,
+            )
+        )
+        self.label_12.setText(
+            _translate(
+                "Dialog",
+                "Maximum ratio deviation relative to theoretical signal ratio",
+                None,
+            )
+        )
         self.tMaxRatio.setPrefix(_translate("Dialog", "≤ ", None))
         self.tMaxRatio.setSuffix(_translate("Dialog", " %", None))
-        self.label_14.setText(_translate("Dialog", "Allowed ratios in the LC-HRMS data calculated from the isotopic enrichments and the spiked amounts:", None))
+        self.label_14.setText(
+            _translate(
+                "Dialog",
+                "Allowed ratios in the LC-HRMS data calculated from the isotopic enrichments and the spiked amounts:",
+                None,
+            )
+        )
         self.rRatioInfo.setText(_translate("Dialog", "TextLabel", None))
         self.tMinRatio.setPrefix(_translate("Dialog", "≥ ", None))
         self.tMinRatio.setSuffix(_translate("Dialog", " %", None))
         self.label_13.setText(_translate("Dialog", "Theoretical signal ratio", None))
         self.tTheoreticalSignalRatio.setText(_translate("Dialog", "-", None))
-        self.tCheckRatio.setText(_translate("Dialog", "Exogenous tracer (i.e. check ratio of native and labeled tracer form)", None))
-        self.label_15.setText(_translate("Dialog", "Note: Activate the ratio check for exogenous tracer compounds and deactivate it for endogenous tracer compounds", None))
+        self.tCheckRatio.setText(
+            _translate(
+                "Dialog",
+                "Exogenous tracer (i.e. check ratio of native and labeled tracer form)",
+                None,
+            )
+        )
+        self.label_15.setText(
+            _translate(
+                "Dialog",
+                "Note: Activate the ratio check for exogenous tracer compounds and deactivate it for endogenous tracer compounds",
+                None,
+            )
+        )
 
 
 if __name__ == "__main__":
     import sys
+
     app = QtWidgets.QApplication(sys.argv)
     Dialog = QtWidgets.QDialog()
     ui = Ui_Dialog()
     ui.setupUi(Dialog)
     Dialog.show()
     sys.exit(app.exec())
-

@@ -11,14 +11,25 @@ def setLabelBackground(qlabel, colorName=None, r=255, g=0, b=0, alpha=255):
         color = QtGui.QColor(r, g, b)
 
     alpha = alpha
-    values = "{r},{g},{b},{a}".format(r=color.red(), g=color.green(), b=color.blue(), a=alpha)
+    values = "{r},{g},{b},{a}".format(
+        r=color.red(), g=color.green(), b=color.blue(), a=alpha
+    )
     qlabel.setStyleSheet(
-        "QLabel { background-color: rgba(" + values + "); border-width: 1px;border-style: solid;border-color: rgb(170, 170, 170);}")
+        "QLabel { background-color: rgba("
+        + values
+        + "); border-width: 1px;border-style: solid;border-color: rgb(170, 170, 170);}"
+    )
+
 
 # a dialog that shows the results of several tasks (e.g. check for dependencies)
-class DependenciesDialog():
-    def __init__(self, dependencies={}, statuss={0: "olivedrab", 1: "orange", 2: "firebrick"}, dependencyOrder=None,
-                 parent=None):
+class DependenciesDialog:
+    def __init__(
+        self,
+        dependencies={},
+        statuss={0: "olivedrab", 1: "orange", 2: "firebrick"},
+        dependencyOrder=None,
+        parent=None,
+    ):
         if dependencyOrder is None:
             dependencyOrder = dependencies.keys()
         self.pd = QtWidgets.QDialog(parent)
@@ -72,29 +83,19 @@ class DependenciesDialog():
         self.dependenciesTexts[dependency].setText(newText)
 
     def setDependencyStatus(self, dependency, newStatus):
-        setLabelBackground(self.dependenciesIndicators[dependency], colorName=self.statuss[newStatus])
+        setLabelBackground(
+            self.dependenciesIndicators[dependency], colorName=self.statuss[newStatus]
+        )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
 
     # create a DependenciesDialog with 3 tasks and different statuses
-    pw = DependenciesDialog(dependencies={"first": 1, "second": 2, "third": 0},
-                            dependencyOrder=["first", "second", "third"])
+    pw = DependenciesDialog(
+        dependencies={"first": 1, "second": 2, "third": 0},
+        dependencyOrder=["first", "second", "third"],
+    )
     pw.show()
 
     sys.exit(app.exec())
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    

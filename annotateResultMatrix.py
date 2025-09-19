@@ -14,6 +14,7 @@ def addGroup(to, groupName, minCount, cols):
     to[groupName]["colsNames"] = cols
     to[groupName]["cols"] = []
 
+
 # matches the input columns to the respective statistic column
 def matchRows(groups, rowNames):
     for groupName, groupProps in groups.items():
@@ -24,14 +25,16 @@ def matchRows(groups, rowNames):
 
 
 # re-arrange data and add statistic columns
-def addStatsColumnToResults(metaFile, groups, toFile, outputOrder, commentStartingCharacter="#"):
+def addStatsColumnToResults(
+    metaFile, groups, toFile, outputOrder, commentStartingCharacter="#"
+):
     data = []
     comments = []
 
-    mzInd=-1
-    rtInd=-1
+    mzInd = -1
+    rtInd = -1
 
-    with open(metaFile, "r", encoding='utf-8') as x:
+    with open(metaFile, "r", encoding="utf-8") as x:
         meta = csv.reader(x, delimiter="\t")
 
         rowNum = 0
@@ -44,13 +47,13 @@ def addStatsColumnToResults(metaFile, groups, toFile, outputOrder, commentStarti
 
             if rowNum == 0:
                 headers = line
-                j=0
+                j = 0
                 for header in headers:
-                    if header=="MZ":
-                        mzInd=j
-                    if header=="RT":
-                        rtInd=j
-                    j+=1
+                    if header == "MZ":
+                        mzInd = j
+                    if header == "RT":
+                        rtInd = j
+                    j += 1
                 matchRows(groups, line)
             else:
                 data.append(line)
@@ -67,10 +70,12 @@ def addStatsColumnToResults(metaFile, groups, toFile, outputOrder, commentStarti
                     if row[pos].strip() != "":
                         found += 1
                 except:
-                    pass;
+                    pass
             row.append(str(found))
 
-    data = sorted(data, key=lambda x: (float(x[rtInd]), float(x[mzInd])))   # sort results according to rt and mz
+    data = sorted(
+        data, key=lambda x: (float(x[rtInd]), float(x[mzInd]))
+    )  # sort results according to rt and mz
     data.insert(0, headers)
 
     with open(toFile, "w") as x:
@@ -90,7 +95,7 @@ def performGroupOmit(infile, groupStats, outfile, commentStartingCharacter="#"):
     hrow = []
     comments = []
 
-    with open(infile, "r", encoding='utf-8') as x:
+    with open(infile, "r", encoding="utf-8") as x:
         meta = csv.reader(x, delimiter="\t")
 
         rowNum = 0
@@ -113,13 +118,17 @@ def performGroupOmit(infile, groupStats, outfile, commentStartingCharacter="#"):
                 for gname, gmin, gomit, gremoveAsFalsePositive in groupStats:
                     if gomit:
                         use = use or (int(line[headers[gname]]) >= gmin)
-                        allGomit=False
+                        allGomit = False
                     if gremoveAsFalsePositive:
-                        isFalsePositive = isFalsePositive or int(line[headers[gname]]) > 0
+                        isFalsePositive = (
+                            isFalsePositive or int(line[headers[gname]]) > 0
+                        )
 
                 if isFalsePositive:
                     falsePositives.append(line)
-                if use or allGomit:     ## either use it because it was found more than n times in a group or because no omit was used
+                if (
+                    use or allGomit
+                ):  ## either use it because it was found more than n times in a group or because no omit was used
                     data.append(line)
                 else:
                     notUsed.append(line)
@@ -134,8 +143,7 @@ def performGroupOmit(infile, groupStats, outfile, commentStartingCharacter="#"):
             metaWriter.writerow([comment])
         metaWriter.writerow(["## most likely true positives"])
 
-
-    if len(notUsed)>0:
+    if len(notUsed) > 0:
         with open(outfile.replace(".tsv", ".omitteds.tsv"), "w") as x:
             metaWriter = csv.writer(x, delimiter="\t")
             metaWriter.writerow(hrow)
@@ -143,10 +151,13 @@ def performGroupOmit(infile, groupStats, outfile, commentStartingCharacter="#"):
                 metaWriter.writerow(row)
             for comment in comments:
                 metaWriter.writerow([comment])
-            metaWriter.writerow(["## features that have not been detected in a sufficiently high number of samples (group parameters omit)"])
+            metaWriter.writerow(
+                [
+                    "## features that have not been detected in a sufficiently high number of samples (group parameters omit)"
+                ]
+            )
 
-
-    if len(notUsed)>0:
+    if len(notUsed) > 0:
         with open(outfile.replace(".tsv", ".falsePositives.tsv"), "w") as x:
             metaWriter = csv.writer(x, delimiter="\t")
             metaWriter.writerow(hrow)
@@ -154,5 +165,6 @@ def performGroupOmit(infile, groupStats, outfile, commentStartingCharacter="#"):
                 metaWriter.writerow(row)
             for comment in comments:
                 metaWriter.writerow([comment])
-            metaWriter.writerow(["## features that have  been detected in at least one 'blank' sample"])
-
+            metaWriter.writerow(
+                ["## features that have  been detected in at least one 'blank' sample"]
+            )
