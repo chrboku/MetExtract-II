@@ -1,6 +1,12 @@
 #Python compiled files
 *.pyc
 
+# others
+__pycache__/
+.ruff_cache/
+.venv/
+sfcache.db
+
 # Windows image file caches
 Thumbs.db
 ehthumbs.db

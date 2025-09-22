@@ -1,9 +1,9 @@
 [project]
 name = "pymetextract"
-version = "3.1.0"
-description = "MetExtract II - Metabolite Extraction Tool"
+version = "3.2.0"
+description = "MetExtract II"
 authors = [
-    { name = "MetExtract Team", email = "contact@metextract.org" }
+    { name = "MetExtract Team", email = "christoph.bueschl@boku.ac.at" }
 ]
 readme = "README.md"
 requires-python = ">=3.11"
@@ -39,6 +39,7 @@ dependencies = [
     "pyinstaller>=4.0",
     "reportlab>=3.5.0",
     "rpy2>=3.6.3",
+    "psutil>=7.1.0",
 ]
 
 [project.optional-dependencies]
@@ -50,18 +51,12 @@ dev = [
     "mypy>=0.900",
 ]
 
-[project.scripts]
-metextract = "MetExtractII_Main:main"
-mexract = "MExtract:main"
-fragextract = "FragExtract:main"
-fticrmodule = "FTICRModule:main"
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["."]
+packages = ["src"]
 
 [tool.uv]
 dev-dependencies = [
@@ -81,3 +76,7 @@ python_version = "3.8"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
+
+[tool.ruff]
+# Allow lines to be as long as 120.
+line-length = 300

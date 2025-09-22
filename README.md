@@ -28,91 +28,66 @@ This version has been migrated from Python 2.7 to Python 3.8+ with the following
 - Python 3.8 or higher
 - UV package manager
 
-### Install UV
-```bash
-# On Windows
-powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 
-# On macOS/Linux
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
+### Install UV
+Please install uv. For instruction see [https://docs.astral.sh/uv/getting-started/installation/](https://docs.astral.sh/uv/getting-started/installation/)
+
 
 ### Install MetExtract II
 ```bash
 # Clone the repository
-git clone <repository-url>
-cd PyMetExtract3
+git clone https://github.com/chrboku/MetExtract-II
+cd MetExtract-II
 
-# Create virtual environment and install dependencies
-uv venv
-uv pip sync requirements.txt
-
-# Or install in development mode
-uv pip install -e .
+# Install dependencies using UV (automatically creates venv)
+uv sync
 ```
 
-### Activate Environment
+### Quick Start
 ```bash
-# On Windows
-.venv\Scripts\activate
-
-# On macOS/Linux
-source .venv/bin/activate
+# UV automatically manages the virtual environment
+# No need to manually activate - just use 'uv run'
+uv run python -m src.MExtract
 ```
+
+### Why `uv run python -m` Format?
+
+This approach provides several advantages:
+
+- **Automatic Environment Management**: UV handles virtual environment creation and activation
+- **Module Isolation**: Running as modules ensures proper import paths
+- **Consistency**: Same command format across all platforms (Windows, macOS, Linux)
+- **No Script Conflicts**: Avoids issues with script entry points and PATH dependencies
+- **Development Friendly**: Works seamlessly in development and production environments
 
 ## Usage
 
-```bash
-# Main application
-uv run metextract
+### Running the Applications
 
-# Individual modules
-uv run mexract
-uv run fragextract
-uv run fticrmodule
+```bash
+# Main application (MExtract) - Primary metabolite extraction interface
+uv run python -m src.MExtract
+
+# MetExtract II Main Interface - Alternative main interface
+uv run python -m src.MetExtractII_Main
+
+# Fragment Extraction Tool - For mass spectrometry fragment analysis
+uv run python -m src.FragExtract
+
+# FTICR Module - For Fourier Transform Ion Cyclotron Resonance analysis
+uv run python -m src.FTICRModule
 ```
 
-## Development
+### Module Descriptions
+
+- **MExtract**: The primary GUI application for metabolite extraction and analysis
+- **MetExtractII_Main**: Main interface for MetExtract II functionality
+- **FragExtract**: Specialized tool for extracting and analyzing mass spectrometry fragments
+- **FTICRModule**: Module for handling Fourier Transform Ion Cyclotron Resonance mass spectrometry data
+
 
 ### Code Formatting
 ```bash
-uv run black .
+# Format code with Black
+uvx ruff format
 ```
-
-### Linting
-```bash
-uv run flake8 .
-```
-
-### Testing
-```bash
-uv run pytest
-```
-
-## Migration Status
-
-✅ **Completed:**
-- Python 3 syntax conversion
-- PyQt4 → PyQt5 migration
-- UV package management setup
-- Print statement conversion
-- Dictionary method updates
-- Basic error handling updates
-
-🔄 **In Progress:**
-- Type hint additions
-- Test suite updates
-- Documentation updates
-
-📋 **TODO:**
-- Performance optimization
-- Modern Python idiom adoption
-- Enhanced error handling
-- CI/CD pipeline setup
-
-## Original License
-
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
-(at your option) any later version.
