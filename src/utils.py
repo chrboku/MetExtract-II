@@ -208,14 +208,14 @@ def smoothDataSeries(x, y, windowLen=2, polynom=3, window="gaussian", removeNegI
 
 # HELPER METHOD
 # taken from http://www.py2exe.org/index.cgi/HowToDetermineIfRunningFromExe
-import imp, os, sys
+import importlib, os, sys
 
 
 def main_is_frozen():
     return (
         hasattr(sys, "frozen")  # new py2exe
         or hasattr(sys, "importers")  # old py2exe
-        or imp.is_frozen("__main__")
+        or importlib.util.find_spec("frozen") is not None
     )  # tools/freeze
 
 
