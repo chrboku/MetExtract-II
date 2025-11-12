@@ -1,7 +1,0 @@
-GPL 2
-
-R: GNU GPL: R wird nur verwendet. Keine Probleme mit GPL
-MassSpecWavelet: LGPL (>=2): Package ist nur dynamisch verwendet. Keine Probleme mit LGPL
-PTW: GPL (>=2): Package ist nur dynamisch verwendet: Keine Probleme mit GPL
-rPy2: LGPL: dynamisch linken?
-MatPlotLib: BSD (include licence statement)

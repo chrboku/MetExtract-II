@@ -18,6 +18,22 @@
 # current MetExtract version
 MetExtractVersion = "v3.1.0"
 
+
+def get_version_from_toml(file_path):
+    import tomllib
+
+    try:
+        with open(file_path, "rb") as f:
+            data = tomllib.load(f)
+            return data.get("project", {}).get("version", "unknown")
+    except Exception as e:
+        print(f"Error reading version from TOML file: {e}")
+        return "unknown"
+
+
+# Update MetExtractVersion from the TOML file
+MetExtractVersion = get_version_from_toml("pyproject.toml")
+
 # Handle both relative imports (when used as module) and absolute imports (when run directly)
 try:
     from .mePyGuis.ModuleSelectionWindow import Ui_MainWindow

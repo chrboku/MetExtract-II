@@ -52,8 +52,7 @@ from .mePyGuis.RegExTestDialog import RegExTestDialog
 from .mePyGuis.ProgressWrapper import ProgressWrapper
 from .mePyGuis.calcIsoEnrichmentDialog import calcIsoEnrichmentDialog
 
-from .utils import USEGRADIENTDESCENDPEAKPICKING
-
+from .utils import USEGRADIENTDESCENDPEAKPICKING, get_main_dir
 
 from .MetExtractII_Main import MetExtractVersion
 
@@ -84,57 +83,145 @@ def loadRConfFile(path):
         return False
 
 
-__RHOMEENVVAR = ""
-import os
-from .utils import get_main_dir
+def setupR():
+    import subprocess
+    import os
+    import urllib.request
 
-if "R_HOME" in os.environ.keys():
-    __RHOMEENVVAR = os.environ["R_HOME"]
+    # Define the URL and the target path for the R installer
+    r_installer_url = "https://cran.r-project.org/bin/windows/base/old/4.5.1/R-4.5.1-win.exe"
+    r_installer_path = os.path.join(get_main_dir(), "R-4.5.1-win.exe")
+    r_install_dir = os.path.join(get_main_dir(), ".R-4.5.1")
 
-os.environ["R_USER"] = get_main_dir() + "/Ruser"
-# try to load r configuration file (does not require any environment variables or registry keys)
+    try:
+        # Download the R installer
+        print("Downloading R installer...")
+        urllib.request.urlretrieve(r_installer_url, r_installer_path)
+        print("R installer downloaded successfully.")
+
+        # Execute the installer and install R to the specified directory
+        print("Installing R...")
+        subprocess.run(
+            [r_installer_path, "/SILENT", f"/DIR={r_install_dir}"],
+            check=True,
+        )
+        print("R installed successfully.")
+
+        # Configure RPATH.conf
+        rpath_conf_path = os.path.join(get_main_dir(), "RPATH.conf")
+        with open(rpath_conf_path, "w") as rpath_conf:
+            rpath_conf.write(r_install_dir)
+        print("RPATH.conf configured successfully.")
+
+        # Inform the user
+        print("R has been set up successfully. Please restart the application.")
+        return True
+
+    except Exception as ex:
+        print(f"An error occurred during R setup: {ex}")
+        raise ex
+
+    finally:
+        # Clean up the installer file
+        if os.path.exists(r_installer_path):
+            os.remove(r_installer_path)
+
+
+# Checks, if necessary R dependencies are installed
+def checkRDependencies():
+    import rpy2.robjects as ro  # import RPy2 module
+    import platform  # import platform module for version info
+
+    r = ro.r  # make R globally accessible
+
+    r("is.installed <- function(mypkg) is.element(mypkg, installed.packages()[,1])")
+
+    # Dialog showing if the necessary R packages are installed / could be installed successfully
+    dependenciesR = ["waveslim", "signal", "ptw", "MASS", "baseline", "BiocManager"]
+
+    dependenciesBioConductor = [
+        "MassSpecWavelet",
+    ]
+
+    print("\nChecking R dependencies...")
+    rlibPath = r("paste0(.libPaths(), collapse = ', ')")
+    print("R-libraries at %s" % (rlibPath))
+
+    for dep in dependenciesR:
+        if str(r('is.installed("%s")' % dep)[0]).lower() != "true":
+            print("\nInstalling dependency '%s'" % (dep))
+            r("install.packages('%s', repos='http://cran.us.r-project.org')" % (dep))
+        else:
+            print("Dependency '%s' is available." % (dep))
+
+    for dep in dependenciesBioConductor:
+        if str(r('is.installed("%s")' % dep)[0]).lower() != "true":
+            print("\nInstalling dependency '%s'" % (dep))
+            r("BiocManager::install('%s', update=TRUE, ask=FALSE, type='binary')" % (dep))
+        else:
+            print("Dependency '%s' is available." % (dep))
+
 
 if __name__ in ["__main__", "src.MExtract"]:
     rFound = False
     if not loadRConfFile(path=get_main_dir()) or not checkR():
+        ## initialize for showing message boxes
+        from os import sys
+        from PySide6 import QtCore, QtGui, QtWidgets
+
+        if app is None:
+            app = QtWidgets.QApplication(sys.argv)
         os.environ["R_HOME"] = get_main_dir() + "/R"
 
-        if checkR():
-            with open("RPATH.conf", "w") as rconf:
-                rconf.write(get_main_dir() + "/R")
-                tryLoad = False
+        # query user to install R?
+        response = QtWidgets.QMessageBox.question(
+            None,
+            "MetExtract",
+            "R could not be started. Would you like to download, install, and configure R automatically?",
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+        )
 
-                # Show a dialog box to the user that R could not be started
-                from os import sys
-                from PySide6 import QtCore, QtGui, QtWidgets
+        if response == QtWidgets.QMessageBox.Yes:
+            # Show a "Please wait" dialog while setupR() executes
+            waitDialog = QtWidgets.QProgressDialog(
+                "Downloading and installing R. Please wait...",
+                None,
+                0,
+                0,
+                None,
+            )
+            waitDialog.setWindowTitle("MetExtract - Configuring R (this might take a couple of minutes)...")
+            waitDialog.setWindowModality(QtCore.Qt.ApplicationModal)
+            waitDialog.setCancelButton(None)
+            waitDialog.show()
+            QtCore.QCoreApplication.processEvents()
 
-                if app is None:
-                    app = QtWidgets.QApplication(sys.argv)
+            time.sleep(1)
 
-                QtWidgets.QMessageBox.information(
-                    None,
-                    "MetExtract",
-                    "R successfully configured\nUsing MetExtract R-Installation\nPlease restart",
-                    QtWidgets.QMessageBox.Ok,
-                )
-                sys.exit(0)
+            try:
+                setupR()
+            finally:
+                waitDialog.close()
+
+            QtWidgets.QMessageBox.information(
+                None,
+                "MetExtract",
+                "R has been successfully installed and configured. Please restart the application to apply the changes.",
+                QtWidgets.QMessageBox.Ok,
+            )
+            sys.exit(1)
+
         else:
-            # Check if R is available from setup.py configuration
-            r_available = os.environ.get("METEXTRACT_R_AVAILABLE", "False") == "True"
+            QtWidgets.QMessageBox.information(
+                None,
+                "MetExtract",
+                "R is not available, processing LC-HRMS data is not available.",
+                QtWidgets.QMessageBox.Ok,
+            )
 
-            if not r_available:
-                logging.warning("R is not available. Some advanced features may not work properly.")
-                logging.info("To enable R integration, please install R and rpy2:")
-                logging.info("  1. Download from https://cran.r-project.org/bin/windows/base/R-4.5.1-win.exe")
-                logging.info("  2. Install")
-                logging.info("  3. Set the path in R.config accordingly")
+    else:
+        checkRDependencies()
 
-                # Continue without R instead of showing error dialog
-                os.environ["R_HOME"] = ""
-                os.environ["R_HOME_FROM"] = "R not available"
-            else:
-                os.environ["R_HOME"] = __RHOMEENVVAR
-                os.environ["R_HOME_FROM"] = "RPATH environment variable"
 # </editor-fold>
 # <editor-fold desc="### Check if R-dependencies are installed. If not try to fetch them from CRAN and Bioconductor">
 
@@ -145,106 +232,10 @@ def getRVersion():
         import rpy2.robjects as ro  # import RPy2 module
 
         r = ro.r  # make R globally accessible
-
         v = r("R.Version()$version.string")  # get R-Version
         return v[0]
     except:
         logging.error("Error: R could not be loaded, please download from https://cran.r-project.org/bin/windows/base/R-4.5.1-win.exe, install and set the path accordingly..")
-
-
-# Checks, if necessary R dependencies are installed
-def checkRDependencies(r):
-    # R function to check, if package is installed
-    r("is.installed <- function(mypkg) is.element(mypkg, installed.packages()[,1])")
-
-    # Dialog showing if the necessary R packages are installed / could be installed successfully
-    RPackageAvailable = 0
-    RPackageCheck = 1
-    RPackageError = 2
-    dependencies = {
-        "R": RPackageCheck,
-        "waveslim": RPackageCheck,
-        "signal": RPackageCheck,
-        "ptw": RPackageCheck,
-        "MASS": RPackageCheck,
-        "MassSpecWavelet": RPackageCheck,
-        "baseline": RPackageCheck,
-    }
-    dialog = DependenciesDialog(
-        dependencies=dependencies,
-        statuss={
-            RPackageAvailable: "olivedrab",
-            RPackageCheck: "orange",
-            RPackageError: "firebrick",
-        },
-        dependencyOrder=[
-            "R",
-            "waveslim",
-            "signal",
-            "ptw",
-            "MASS",
-            "MassSpecWavelet",
-            "baseline",
-        ],
-    )
-    dialog.show()
-    dialog.setDependencyStatus("R", RPackageAvailable)
-
-    antiVirusMessage = True
-
-    # Check each dependency, if it is installed and update the dialog accordingly
-    missingDependency = False
-    for dep in ["signal", "waveslim", "ptw", "MASS", "baseline"]:
-        if str(r('is.installed("%s")' % dep)[0]).lower() == "true":
-            dialog.setDependencyStatus(dep, RPackageAvailable)
-            logging.info("  - R package '%s' found" % (dep))
-        else:
-            logging.info("installing %s.." % dep)
-            r("install.packages(\"%s\", repos='http://cran.us.r-project.org')" % dep)
-            if str(r('is.installed("%s")' % dep)[0]).lower() == "true":
-                dialog.setDependencyStatus(dep, RPackageAvailable)
-            else:
-                dialog.setDependencyStatus(dep, RPackageError)
-                missingDependency = True
-
-    for dep in ["MassSpecWavelet"]:
-        if str(r('is.installed("%s")' % dep)[0]).lower() == "true":
-            dialog.setDependencyStatus(dep, RPackageAvailable)
-            logging.info("  - R package '%s' found" % (dep))
-        else:
-            logging.info("installing %s.." % dep)
-            r('if (!require("BiocManager", quietly = TRUE)) {install.packages("BiocManager")}')
-            r('BiocManager::install("%s")' % dep)
-            if str(r('is.installed("%s")' % dep)[0]).lower() == "true":
-                dialog.setDependencyStatus(dep, RPackageAvailable)
-            else:
-                dialog.setDependencyStatus(dep, RPackageError)
-                missingDependency = True
-
-    if not antiVirusMessage:
-        QtWidgets.QMessageBox.warning(
-            None,
-            "MetExtract",
-            "The antivirus protection can now be reactivated",
-            QtWidgets.QMessageBox.Ok,
-        )
-
-    if missingDependency:
-        logging.error(
-            "Error: some packages have not been installed successfully.\n\nPlease retry or contact your system administrator.\n\nSee the console for further information about the installation errors.\n\nTo install the packages manually, please download them from \nhttps://metabolomics-ifa.boku.ac.at/metextractii\n(section 'R packages')\nand place them into either of the folders \n'%s'"
-            % (r("paste0(.libPaths(), collapse=', ')")[0])
-        )
-        QtWidgets.QMessageBox.warning(
-            None,
-            "MetExtract",
-            "Error: some packages have not been installed successfully.\n\nPlease retry or contact your system administrator.\n\nSee the console for further information about the installation errors.\n\nTo install the packages manually, please download them from \nhttps://metabolomics-ifa.boku.ac.at/metextractii\n(section 'R packages')\nand place them into either of the folders \n'%s'"
-            % (r("paste0(.libPaths(), collapse=', ')")[0]),
-            QtWidgets.QMessageBox.Ok,
-        )
-
-    dialog.hide()
-
-    return missingDependency
 
 
 # </editor-fold>
@@ -10921,14 +10912,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
             r = ro.r  # make R globally accessible
             v = r("R.Version()$version.string")
+            rlibPath = r("paste0(.libPaths(), collapse = ', ')")
             module = "AllExtract" if self.labellingExperiment == METABOLOME else ("TracExtract" if self.labellingExperiment == TRACER else "")
-            self.ui.version.versionText = "%s II %s // Python %s (%s) // %s" % (
-                module,
-                MetExtractVersion,
-                platform.python_version(),
-                platform.architecture()[0],
-                str(v)[5 : (len(str(v)) - 1)],
-            )
+            self.ui.version.versionText = "%s II %s // Python %s (%s) // %s // R-libs: %s" % (module, MetExtractVersion, platform.python_version(), platform.architecture()[0], str(v)[5 : (len(str(v)) - 1)], rlibPath)
             self.ui.version.setText(self.ui.version.versionText)
         except Exception as exc:
             logging.info(f"Exception: {exc}")

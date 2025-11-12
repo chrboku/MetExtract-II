@@ -3,6 +3,8 @@ if(FALSE){
     biocLite("MassSpecWavelet")
 }
 
+cat(paste0("\n\nLoading packages from", paste0(.libPaths(), collapse = ", "), "\n\n"))
+
 suppressWarnings(suppressMessages(library(waveslim)))
 suppressWarnings(suppressMessages(library(MassSpecWavelet)))
 suppressWarnings(suppressMessages(library(signal)))
