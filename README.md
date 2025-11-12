@@ -2,9 +2,58 @@
 
 A comprehensive metabolite extraction and analysis tool, migrated from Python 2.7 to Python 3 with modern dependency management using UV.
 
+## Installation
+
+### Optional: Install uv
+Please install uv. For instruction see [https://docs.astral.sh/uv/getting-started/installation/](https://docs.astral.sh/uv/getting-started/installation/)
+
+### Clone MetExtract II
+```bash
+# Clone the repository
+git clone https://github.com/chrboku/MetExtract-II
+cd MetExtract-II
+```
+
+### Setup virtual environment
+```bash
+uv sync
+```
+
+## Quick Start
+```bash
+uv run python -m src.MExtract
+```
+
+## Usage
+
+### Running the Applications
+
+```bash
+# Main application (MExtract) - Primary metabolite extraction interface
+uv run python -m src.MExtract
+
+# MetExtract II Main Interface - Alternative main interface
+uv run python -m src.MetExtractII_Main
+```
+
+### Module Descriptions
+
+- **MExtract**: The primary GUI application for metabolite extraction and analysis
+- **MetExtractII_Main**: Main interface for MetExtract II functionality
+- **FragExtract**: Specialized tool for extracting and analyzing mass spectrometry fragments
+- **FTICRModule**: Module for handling Fourier Transform Ion Cyclotron Resonance mass spectrometry data
+
+
+### Code Formatting
+```bash
+# Format code with Black
+uvx ruff format
+```
+
+
 ## Migration Notes
 
-This version has been migrated from Python 2.7 to Python 3.8+ with the following major changes:
+This version has been migrated from Python 2.7 (published version) to Python 3.11+ with the following major changes:
 
 ### Key Changes Made:
 - **Python 3 Compatibility**: All Python 2.7 syntax updated to Python 3
@@ -21,73 +70,3 @@ This version has been migrated from Python 2.7 to Python 3.8+ with the following
 - **Type Hints**: Gradual addition of type annotations
 - **Modern Setup**: Uses `pyproject.toml` instead of `setup.py`
 - **Code Quality**: Black formatting and linting support
-
-## Installation
-
-### Prerequisites
-- Python 3.8 or higher
-- UV package manager
-
-
-### Install UV
-Please install uv. For instruction see [https://docs.astral.sh/uv/getting-started/installation/](https://docs.astral.sh/uv/getting-started/installation/)
-
-
-### Install MetExtract II
-```bash
-# Clone the repository
-git clone https://github.com/chrboku/MetExtract-II
-cd MetExtract-II
-
-# Install dependencies using UV (automatically creates venv)
-uv sync
-```
-
-### Quick Start
-```bash
-# UV automatically manages the virtual environment
-# No need to manually activate - just use 'uv run'
-uv run python -m src.MExtract
-```
-
-### Why `uv run python -m` Format?
-
-This approach provides several advantages:
-
-- **Automatic Environment Management**: UV handles virtual environment creation and activation
-- **Module Isolation**: Running as modules ensures proper import paths
-- **Consistency**: Same command format across all platforms (Windows, macOS, Linux)
-- **No Script Conflicts**: Avoids issues with script entry points and PATH dependencies
-- **Development Friendly**: Works seamlessly in development and production environments
-
-## Usage
-
-### Running the Applications
-
-```bash
-# Main application (MExtract) - Primary metabolite extraction interface
-uv run python -m src.MExtract
-
-# MetExtract II Main Interface - Alternative main interface
-uv run python -m src.MetExtractII_Main
-
-# Fragment Extraction Tool - For mass spectrometry fragment analysis
-uv run python -m src.FragExtract
-
-# FTICR Module - For Fourier Transform Ion Cyclotron Resonance analysis
-uv run python -m src.FTICRModule
-```
-
-### Module Descriptions
-
-- **MExtract**: The primary GUI application for metabolite extraction and analysis
-- **MetExtractII_Main**: Main interface for MetExtract II functionality
-- **FragExtract**: Specialized tool for extracting and analyzing mass spectrometry fragments
-- **FTICRModule**: Module for handling Fourier Transform Ion Cyclotron Resonance mass spectrometry data
-
-
-### Code Formatting
-```bash
-# Format code with Black
-uvx ruff format
-```

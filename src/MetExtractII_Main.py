@@ -63,6 +63,13 @@ class ModuleSelection(QtWidgets.QMainWindow, Ui_MainWindow):
         self.setWindowTitle("MetExtract II: Module selection")
         self.version.setText("MetExtract II (%s)" % MetExtractVersion)
 
+        self.fragExtractIcon.setVisible(False)
+        self.fragExtractLabel.setVisible(False)
+        self.combineResultsButton.setVisible(False)
+        self.label_2.setVisible(False)
+        self.fticrExtractIcon.setVisible(False)
+        self.label_3.setVisible(False)
+
         self.allExtractIcon.clicked.connect(self.openAllExtract)
         self.tracExtractIcon.clicked.connect(self.openTracExtract)
         self.fragExtractIcon.clicked.connect(self.openFragExtract)
