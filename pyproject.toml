@@ -1,12 +1,12 @@
 [project]
 name = "pymetextract"
-version = "3.4.3"
+version = "3.4.4"
 description = "MetExtract II"
 authors = [
     { name = "MetExtract Team", email = "christoph.bueschl@boku.ac.at" }
 ]
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = "==3.13.3"
 license = { text = "GPL-2.0" }
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -40,6 +40,7 @@ dependencies = [
     "reportlab>=3.5.0",
     "rpy2>=3.6.3",
     "psutil>=7.1.0",
+    "pymzml>=2.5.11",
 ]
 
 [project.optional-dependencies]
