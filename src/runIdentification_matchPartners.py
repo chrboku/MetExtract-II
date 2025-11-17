@@ -141,20 +141,6 @@ def matchPartners(
     reportFunction=None,
     writeExtendedDiagnostics=True,
 ):
-    # debug: print all input parameters
-    try:
-        params = {k: v for k, v in locals().items()}
-        print("matchPartners parameters:\n" + str(params))
-    except Exception as _e:
-        try:
-            for k, v in locals().items():
-                try:
-                    print("%s: %r" % (k, v))
-                except Exception:
-                    print("%s: <unprintable>" % k)
-        except Exception:
-            print("Failed to print parameters")
-
     scanRTRange = stopTime - startTime
 
     cValidationOffset = 1.00335484  # mass difference between 12C and 13C

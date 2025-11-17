@@ -10,6 +10,8 @@ from .MSScan import MS1Scan, MS2Scan
 
 from .utils import Bunch
 
+import pymzml
+
 
 # reads and holds the information of one MZXML file
 class Chromatogram:
@@ -623,8 +625,6 @@ class Chromatogram:
                             )
 
     def parseMzMLFile(self, filename_xml, intensityCutoff, ignoreCharacterData):
-        import pymzml
-
         run = pymzml.run.Reader(filename_xml)
 
         for specturm in run:
@@ -658,18 +658,14 @@ class Chromatogram:
             else:
                 tmp_ms.filter_line = f"NA // MSLevel: {msLevel}, polarity: {tmp_ms.polarity}"
 
-            tmp_ms.peak_count = len(specturm.peaks)
-            if "scan time" in specturm.keys():
-                tmp_ms.retention_time = specturm["scan time"] * 60
-            elif "scan start time" in specturm.keys():
-                tmp_ms.retention_time = specturm["scan start time"] * 60
-            else:
-                raise Exception("no scan retention time found")
+            tmp_ms.peak_count = len(specturm.peaks(peak_type="centroided"))
+            tmp_ms.retention_time = specturm.scan_time_in_minutes() * 60.0
+
             # if tmp_ms.peak_count > 0:
             tmp_ms.total_ion_current = specturm["total ion current"]
             tmp_ms.list_size = 0
-            tmp_ms.mz_list = [p[0] for p in specturm.peaks]
-            tmp_ms.intensity_list = [p[1] for p in specturm.peaks]
+            tmp_ms.mz_list = specturm.peaks(peak_type="centroided")[:, 0].tolist()
+            tmp_ms.intensity_list = specturm.peaks(peak_type="centroided")[:, 1].tolist()
             tmp_ms.msInstrumentID = ""
 
             if msLevel == 1:

@@ -1547,10 +1547,10 @@ class RunIdentification:
                             fwhm_M, area_M, snr_M = getPeakStats(np.vstack((times, eicSmoothed)), int(peakN.peakIndex - peakN.peakLeftFlank), peakN.peakIndex, int(peakN.peakIndex + peakN.peakRightFlank))
                             fwhm_Mp, area_Mp, snr_Mp = getPeakStats(np.vstack((times, eicLSmoothed)), int(peakL.peakIndex - peakL.peakLeftFlank), peakL.peakIndex, int(peakL.peakIndex + peakL.peakRightFlank))
 
-                            print("M: ", int(peakN.peakIndex - peakN.peakLeftFlank), peakN.peakIndex, int(peakN.peakIndex + peakN.peakRightFlank))
-                            print(f"   FWHM: {fwhm_M}, area: {area_M}, SNR: {snr_M}")
-                            print("Mp: ", int(peakL.peakIndex - peakL.peakLeftFlank), peakL.peakIndex, int(peakL.peakIndex + peakL.peakRightFlank))
-                            print(f"   FWHM: {fwhm_Mp}, area: {area_Mp}, SNR: {snr_Mp}")
+                            # print("M: ", int(peakN.peakIndex - peakN.peakLeftFlank), peakN.peakIndex, int(peakN.peakIndex + peakN.peakRightFlank))
+                            # print(f"   FWHM: {fwhm_M}, area: {area_M}, SNR: {snr_M}")
+                            # print("Mp: ", int(peakL.peakIndex - peakL.peakLeftFlank), peakL.peakIndex, int(peakL.peakIndex + peakL.peakRightFlank))
+                            # print(f"   FWHM: {fwhm_Mp}, area: {area_Mp}, SNR: {snr_Mp}")
 
                             peak = ChromPeakPair(
                                 mz=meanmz,
