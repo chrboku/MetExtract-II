@@ -110,6 +110,7 @@ from .utils import corr, getSubGraphs, ChromPeakPair, Bunch
 from .SGR import SGRGenerator
 from .mePyGuis.TracerEdit import ConfiguredTracer
 from . import exportAsFeatureML
+from .chromPeakPicking.CommonChromPeak import getPeakStats
 import numpy as np
 import scipy
 
@@ -538,12 +539,12 @@ class RunIdentification:
 
         curs.execute("DROP TABLE IF EXISTS chromPeaks")
         curs.execute(
-            "CREATE TABLE chromPeaks(id INTEGER PRIMARY KEY, tracer INTEGER, eicID INTEGER, NPeakCenter INTEGER, NPeakCenterMin REAL, NPeakScale FLOAT, NSNR REAL, NPeakArea REAL, NPeakAbundance REAL, mz REAL, lmz REAL, tmz REAL, xcount INTEGER, xcountId INTEGER, LPeakCenter INTEGER, LPeakCenterMin REAL, LPeakScale FLOAT, LSNR REAL, LPeakArea REAL, LPeakAbundance REAL, Loading INTEGER, peaksCorr FLOAT, heteroAtoms TEXT, NBorderLeft INTEGER, NBorderRight INTEGER, LBorderLeft INTEGER, LBorderRight INTEGER, adducts TEXT, heteroAtomsFeaturePairs TEXT, massSpectrumID INTEGER, ionMode TEXT, assignedMZs INTEGER, fDesc TEXT, peaksRatio FLOAT, peaksRatioMp1 FLOAT, peaksRatioMPm1 FLOAT, isotopesRatios TEXT, mzDiffErrors TEXT, peakType TEXT, assignedName TEXT, correlationsToOthers TEXT, comments TEXT, artificialEICLShift INTEGER)"
+            "CREATE TABLE chromPeaks(id INTEGER PRIMARY KEY, tracer INTEGER, eicID INTEGER, NPeakCenter INTEGER, NPeakCenterMin REAL, NPeakScale FLOAT, NSNR REAL, NPeakArea REAL, NPeakAbundance REAL, mz REAL, lmz REAL, tmz REAL, xcount INTEGER, xcountId INTEGER, LPeakCenter INTEGER, LPeakCenterMin REAL, LPeakScale FLOAT, LSNR REAL, LPeakArea REAL, LPeakAbundance REAL, Loading INTEGER, peaksCorr FLOAT, heteroAtoms TEXT, NBorderLeft INTEGER, NBorderRight INTEGER, LBorderLeft INTEGER, LBorderRight INTEGER, adducts TEXT, heteroAtomsFeaturePairs TEXT, massSpectrumID INTEGER, ionMode TEXT, assignedMZs INTEGER, fDesc TEXT, peaksRatio FLOAT, peaksRatioMp1 FLOAT, peaksRatioMPm1 FLOAT, isotopesRatios TEXT, mzDiffErrors TEXT, peakType TEXT, assignedName TEXT, correlationsToOthers TEXT, comments TEXT, artificialEICLShift INTEGER, new_FWHM_M FLOAT, new_FWHM_Mp FLOAT, new_Area_M FLOAT, new_Area_Mp FLOAT, new_SNR_M FLOAT, new_SNR_Mp FLOAT)"
         )
 
         curs.execute("drop table if exists allChromPeaks")
         curs.execute(
-            "CREATE TABLE allChromPeaks(id INTEGER PRIMARY KEY, tracer INTEGER, eicID INTEGER, NPeakCenter INTEGER, NPeakCenterMin REAL, NPeakScale FLOAT, NSNR REAL, NPeakArea REAL, NPeakAbundance REAL, mz REAL, lmz REAL, tmz REAL, xcount INTEGER, xcountId INTEGER, LPeakCenter INTEGER, LPeakCenterMin REAL, LPeakScale FLOAT, LSNR REAL, LPeakArea REAL, LPeakAbundance REAL, Loading INTEGER, peaksCorr FLOAT, heteroAtoms TEXT, NBorderLeft INTEGER, NBorderRight INTEGER, LBorderLeft INTEGER, LBorderRight INTEGER, adducts TEXT, heteroAtomsFeaturePairs TEXT, ionMode TEXT, assignedMZs INTEGER, fDesc TEXT, peaksRatio FLOAT, peaksRatioMp1 FLOAT, peaksRatioMPm1 FLOAT, isotopesRatios TEXT, mzDiffErrors TEXT, peakType TEXT, assignedName TEXT, comment TEXT, comments TEXT, artificialEICLShift INTEGER)"
+            "CREATE TABLE allChromPeaks(id INTEGER PRIMARY KEY, tracer INTEGER, eicID INTEGER, NPeakCenter INTEGER, NPeakCenterMin REAL, NPeakScale FLOAT, NSNR REAL, NPeakArea REAL, NPeakAbundance REAL, mz REAL, lmz REAL, tmz REAL, xcount INTEGER, xcountId INTEGER, LPeakCenter INTEGER, LPeakCenterMin REAL, LPeakScale FLOAT, LSNR REAL, LPeakArea REAL, LPeakAbundance REAL, Loading INTEGER, peaksCorr FLOAT, heteroAtoms TEXT, NBorderLeft INTEGER, NBorderRight INTEGER, LBorderLeft INTEGER, LBorderRight INTEGER, adducts TEXT, heteroAtomsFeaturePairs TEXT, ionMode TEXT, assignedMZs INTEGER, fDesc TEXT, peaksRatio FLOAT, peaksRatioMp1 FLOAT, peaksRatioMPm1 FLOAT, isotopesRatios TEXT, mzDiffErrors TEXT, peakType TEXT, assignedName TEXT, comment TEXT, comments TEXT, artificialEICLShift INTEGER, new_FWHM_M FLOAT, new_FWHM_Mp FLOAT, new_Area_M FLOAT, new_Area_Mp FLOAT, new_SNR_M FLOAT, new_SNR_Mp FLOAT)"
         )
 
         curs.execute("DROP TABLE IF EXISTS featureGroups")
@@ -1541,6 +1542,16 @@ class RunIdentification:
 
                         if closestMatch != -1:
                             peakL = peaksL[closestMatch]
+
+                            # Calculate new peak stats
+                            fwhm_M, area_M, snr_M = getPeakStats(np.vstack((times, eicSmoothed)), int(peakN.peakIndex - peakN.peakLeftFlank), peakN.peakIndex, int(peakN.peakIndex + peakN.peakRightFlank))
+                            fwhm_Mp, area_Mp, snr_Mp = getPeakStats(np.vstack((times, eicLSmoothed)), int(peakL.peakIndex - peakL.peakLeftFlank), peakL.peakIndex, int(peakL.peakIndex + peakL.peakRightFlank))
+
+                            print("M: ", int(peakN.peakIndex - peakN.peakLeftFlank), peakN.peakIndex, int(peakN.peakIndex + peakN.peakRightFlank))
+                            print(f"   FWHM: {fwhm_M}, area: {area_M}, SNR: {snr_M}")
+                            print("Mp: ", int(peakL.peakIndex - peakL.peakLeftFlank), peakL.peakIndex, int(peakL.peakIndex + peakL.peakRightFlank))
+                            print(f"   FWHM: {fwhm_Mp}, area: {area_Mp}, SNR: {snr_Mp}")
+
                             peak = ChromPeakPair(
                                 mz=meanmz,
                                 lmz=meanmzLabelled,
@@ -1574,6 +1585,12 @@ class RunIdentification:
                                 mzDiffErrors=Bunch(),
                                 comments=[],
                                 artificialEICLShift=0,
+                                new_FWHM_M=fwhm_M,
+                                new_Area_M=area_M,
+                                new_SNR_M=snr_M,
+                                new_FWHM_Mp=fwhm_Mp,
+                                new_Area_Mp=area_Mp,
+                                new_SNR_Mp=snr_Mp,
                             )
 
                             lb = int(
@@ -1844,6 +1861,12 @@ class RunIdentification:
                                 peakType="patternFound",
                                 comments=base64.b64encode(dumps(peak.comments)).decode("utf-8"),
                                 artificialEICLShift=peak.artificialEICLShift,
+                                new_FWHM_M=peak.new_FWHM_M,
+                                new_FWHM_Mp=peak.new_FWHM_Mp,
+                                new_Area_M=peak.new_Area_M,
+                                new_Area_Mp=peak.new_Area_Mp,
+                                new_SNR_M=peak.new_SNR_M,
+                                new_SNR_Mp=peak.new_SNR_Mp,
                             )
 
                             SQLInsert(
@@ -1887,6 +1910,12 @@ class RunIdentification:
                                 peakType="patternFound",
                                 comments=base64.b64encode(dumps(peak.comments)).decode("utf-8"),
                                 artificialEICLShift=peak.artificialEICLShift,
+                                new_FWHM_M=peak.new_FWHM_M,
+                                new_FWHM_Mp=peak.new_FWHM_Mp,
+                                new_Area_M=peak.new_Area_M,
+                                new_Area_Mp=peak.new_Area_Mp,
+                                new_SNR_M=peak.new_SNR_M,
+                                new_SNR_Mp=peak.new_SNR_Mp,
                             )
 
                             chromPeaks.append(peak)

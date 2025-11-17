@@ -22,7 +22,7 @@ class QScrollableMessageBox(QtWidgets.QDialog):
         self.scroll.setWidgetResizable(True)
         self.res = QtWidgets.QPlainTextEdit(text)
         self.res.setFont(QtGui.QFont("Consolas"))
-        self.res.setWordWrapMode(0)
+        self.res.setWordWrapMode(QtGui.QTextOption.WrapMode.NoWrap)
         self.scroll.setWidget(self.res)
         o.addWidget(self.scroll, 2, 1)
 

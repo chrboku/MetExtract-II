@@ -5524,7 +5524,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         lk = loads(base64.b64decode(row.adducts.encode("utf-8")))
                         if len(lk) > 0:
                             adducts = ", ".join(lk)
-                    except (ImportError, ModuleNotFoundError, SyntaxError) as e:
+                    except (ImportError, ModuleNotFoundError, SyntaxError, EOFError) as e:
                         logging.warning(f"Could not load adducts from row data: {e}")
                         adducts = ""
 
@@ -5533,7 +5533,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         lk = loads(base64.b64decode(row.fDesc.encode("utf-8")))
                         if len(lk) > 0:
                             fDesc = ", ".join(lk)
-                    except (ImportError, ModuleNotFoundError, SyntaxError) as e:
+                    except (ImportError, ModuleNotFoundError, SyntaxError, EOFError) as e:
                         logging.warning(f"Could not load feature description from row data: {e}")
                         fDesc = ""
 
@@ -6235,6 +6235,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             itl = QtWidgets.QTreeWidgetItem(["Peak MZ deviation"])
             it.addChild(itl)
             itl.myType = "diagnostic - EIC mz deviation"
+
+            itl = QtWidgets.QTreeWidgetItem(["Peak FWHM deviation"])
+            it.addChild(itl)
+            itl.myType = "diagnostic - peak fwhm"
 
         else:
             QtWidgets.QMessageBox.warning(
@@ -8405,7 +8409,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             for row in self.currentOpenResultsFile.curs.execute("SELECT mz, intensity, lmz, tmz, xcount, loading FROM mzs"):
                 mz, intensity, lmz, tmz, xcount, loading = row
                 intensities.append(log10(intensity))
-            self.ui.pl1.twinxs[0].hist(intensities, 50, normed=False, facecolor="green", alpha=0.5)
+            self.ui.pl1.twinxs[0].hist(intensities, 50, facecolor="green", alpha=0.5)
             self.ui.pl1.axes.set_title("Histogram of matched signal pairs - intensity of native signals")
             self.ui.pl1.axes.set_xlabel("Log10(Signal intensity)")
             self.ui.pl1.axes.set_ylabel("Frequency")
@@ -8447,7 +8451,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             for row in self.currentOpenResultsFile.curs.execute("SELECT mz, lmz, tmz, xcount, loading FROM mzs"):
                 mz, lmz, tmz, xcount, loading = row
                 mzdifferrors.append((lmz - mz - tmz) * 1000000 / mz)
-            self.ui.pl1.twinxs[0].hist(mzdifferrors, 50, normed=False, facecolor="green", alpha=0.5)
+            self.ui.pl1.twinxs[0].hist(mzdifferrors, 50, facecolor="green", alpha=0.5)
             self.ui.pl1.axes.set_title("Histogram of matched signal pairs - relative m/z error (ppm)")
             self.ui.pl1.axes.set_xlabel("Relative m/z error (ppm)")
             self.ui.pl1.axes.set_ylabel("Frequency")
@@ -8472,7 +8476,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 binid, mzmin, mzmax, n = row
                 if n > 1:
                     mzdeviations.append((mzmax - mzmin) * 1000000 / mzmin)
-            self.ui.pl1.twinxs[0].hist(mzdeviations, 50, normed=False, facecolor="green", alpha=0.5)
+            self.ui.pl1.twinxs[0].hist(mzdeviations, 50, facecolor="green", alpha=0.5)
             self.ui.pl1.axes.set_title("Histogram of binned signal pairs - relative m/z variance (ppm)")
             self.ui.pl1.axes.set_xlabel("Relative m/z deviation (ppm)")
             self.ui.pl1.axes.set_ylabel("Frequency")
@@ -8486,7 +8490,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.ui.pl1.twinxs[0].hist(
                 peaksCorr,
                 [i / 100.0 for i in range(-100, 100, 1)],
-                normed=False,
                 facecolor="green",
                 alpha=0.5,
             )
@@ -8516,7 +8519,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.ui.pl1.twinxs[0].hist(
                 peaksRatio,
                 [i for i in [i / 10.0 for i in range(-1000, 1000, 25)]],
-                normed=False,
                 facecolor="green",
                 alpha=0.5,
             )
@@ -8554,7 +8556,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.ui.pl1.twinxs[0].hist(
                 peaksRatio,
                 [i for i in [i / 10.0 for i in range(-1000, 1000, 25)]],
-                normed=False,
                 facecolor="green",
                 alpha=0.5,
             )
@@ -8620,7 +8621,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.ui.pl1.twinxs[0].hist(
                 peaksRatio,
                 [i for i in [i / 10.0 for i in range(-1000, 1000, 25)]],
-                normed=False,
                 facecolor="green",
                 alpha=0.5,
             )
@@ -8658,7 +8658,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.ui.pl1.twinxs[0].hist(
                 peaksRatio,
                 [i for i in [i / 10.0 for i in range(-1000, 1000, 25)]],
-                normed=False,
                 facecolor="green",
                 alpha=0.5,
             )
@@ -8708,7 +8707,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             for row in self.currentOpenResultsFile.curs.execute("SELECT assignedMZs FROM chromPeaks"):
                 (n,) = row
                 assignedmzs.append(len(loads(base64.b64decode(n))))
-            self.ui.pl1.twinxs[0].hist(assignedmzs, 30, normed=False, facecolor="green", alpha=0.5)
+            self.ui.pl1.twinxs[0].hist(assignedmzs, 30, facecolor="green", alpha=0.5)
             self.ui.pl1.axes.set_title("Histogram of signal pairs assigned to feature pairs")
             self.ui.pl1.axes.set_xlabel("Number of signal pairs for a feature pair")
             self.ui.pl1.axes.set_ylabel("Frequency")
@@ -8721,7 +8720,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 (mzdifferrors,) = row
                 mzdifferrors = loads(base64.b64decode(mzdifferrors))
                 devMeans.append(mzdifferrors.mean if mzdifferrors.mean is not None else -1)
-            self.ui.pl1.twinxs[0].hist(devMeans, 30, normed=False, facecolor="green", alpha=0.5, label="Means")
+            self.ui.pl1.twinxs[0].hist(devMeans, 30, facecolor="green", alpha=0.5, label="Means")
             self.ui.pl1.twinxs[0].legend(loc="upper right")
             self.ui.pl1.axes.set_title("Histogram of feature pairs (mean m/z) - mean relative m/z error (ppm)")
             self.ui.pl1.axes.set_xlabel("Mean, relative m/z error (ppm)")
@@ -8766,7 +8765,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.ui.pl1.twinxs[0].hist(
                 devVals,
                 30,
-                normed=False,
                 facecolor="blue",
                 alpha=0.5,
                 label="Scan-level",
@@ -8802,7 +8800,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.ui.pl1.twinxs[0].hist(
                 devVals,
                 30,
-                normed=False,
                 facecolor="blue",
                 alpha=0.5,
                 label="Peak-level",
@@ -8810,6 +8807,20 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.ui.pl1.twinxs[0].legend(loc="upper right")
             self.ui.pl1.axes.set_title("Histogram of standard deviations of peak mz deviations")
             self.ui.pl1.axes.set_xlabel("SD(mz deviation of peak) (ppm)")
+            self.ui.pl1.axes.set_ylabel("Frequency")
+            self.drawCanvas(self.ui.pl1)
+
+        elif len(selectedItems) == 1 and selectedItems[0].myType == "diagnostic - peak fwhm":
+            fwhmVals = []
+            for row in self.currentOpenResultsFile.curs.execute("SELECT new_FWHM_M, new_FWHM_Mp FROM chromPeaks c"):
+                (new_FWHM_M, new_FWHM_Mp) = row
+                fwhmVals.append(new_FWHM_M)
+                fwhmVals.append(new_FWHM_Mp)
+            print(fwhmVals)
+            self.ui.pl1.twinxs[0].hist(fwhmVals, 30, facecolor="blue", alpha=0.5, label="FWHM")
+            self.ui.pl1.twinxs[0].legend(loc="upper right")
+            self.ui.pl1.axes.set_title("Histogram of FWHM of M and Mp peaks")
+            self.ui.pl1.axes.set_xlabel("FWHM [sec]")
             self.ui.pl1.axes.set_ylabel("Frequency")
             self.drawCanvas(self.ui.pl1)
 

@@ -582,6 +582,25 @@ class ChromPeakPair:
             self.correlationsToOthers = args["correlationsToOthers"]
             argsUsed += 1
 
+        if "new_FWHM_M" in args:
+            self.new_FWHM_M = args["new_FWHM_M"]
+            argsUsed += 1
+        if "new_FWHM_Mp" in args:
+            self.new_FWHM_Mp = args["new_FWHM_Mp"]
+            argsUsed += 1
+        if "new_Area_M" in args:
+            self.new_Area_M = args["new_Area_M"]
+            argsUsed += 1
+        if "new_Area_Mp" in args:
+            self.new_Area_Mp = args["new_Area_Mp"]
+            argsUsed += 1
+        if "new_SNR_M" in args:
+            self.new_SNR_M = args["new_SNR_M"]
+            argsUsed += 1
+        if "new_SNR_Mp" in args:
+            self.new_SNR_Mp = args["new_SNR_Mp"]
+            argsUsed += 1
+
         assert argsUsed == len(args), "Not all agruments used %d %d" % (
             argsUsed,
             len(args),
@@ -900,7 +919,7 @@ class StdevFunc:
     def finalize(self):
         if self.k < 3:
             return None
-        return math.sqrt(self.S / (self.k - 2))
+        return sqrt(self.S / (self.k - 2))
 
 
 import hashlib

@@ -433,7 +433,7 @@ class Chromatogram:
                 tmp_ms.filter_line = attrs["filterLine"] + " (pol: %s)" % tmp_ms.polarity
             elif len(self.msInstruments) == 1:
                 tmp_ms.filter_line = "%s (MS lvl: %d, pol: %s)" % (
-                    self.msInstruments.values()[0]["msModel"],
+                    self.msInstruments["1"]["msModel"],
                     self.msLevel,
                     tmp_ms.polarity,
                 )
@@ -645,11 +645,18 @@ class Chromatogram:
                 print("What is it?", msLevel, specturm["id"])
                 sys.exit(1)
 
+            if "positive scan" in specturm:
+                tmp_ms.polarity = "+"
+            elif "negative scan" in specturm:
+                tmp_ms.polarity = "-"
+            else:
+                raise RuntimeError("No polarity for scan available")
+
             tmp_ms.id = int(specturm["id"])
-            if "filter string" in specturm.keys():
+            if "filter string" in specturm.__dict__.keys():
                 tmp_ms.filter_line = specturm["filter string"]
             else:
-                tmp_ms.filter_line = "NA"
+                tmp_ms.filter_line = f"NA // MSLevel: {msLevel}, polarity: {tmp_ms.polarity}"
 
             tmp_ms.peak_count = len(specturm.peaks)
             if "scan time" in specturm.keys():
@@ -661,13 +668,6 @@ class Chromatogram:
             # if tmp_ms.peak_count > 0:
             tmp_ms.total_ion_current = specturm["total ion current"]
             tmp_ms.list_size = 0
-
-            if "positive scan" in specturm:
-                tmp_ms.polarity = "+"
-            elif "negative scan" in specturm:
-                tmp_ms.polarity = "-"
-            else:
-                raise RuntimeError("No polarity for scan available")
             tmp_ms.mz_list = [p[0] for p in specturm.peaks]
             tmp_ms.intensity_list = [p[1] for p in specturm.peaks]
             tmp_ms.msInstrumentID = ""
