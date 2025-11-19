@@ -5,6 +5,7 @@ import zlib
 import struct
 import xml.parsers.expat
 from xml.dom.minidom import parse
+import numpy as np
 
 from .MSScan import MS1Scan, MS2Scan
 
@@ -35,8 +36,8 @@ class Chromatogram:
     def getAllMS1Intensities(self):
         h = []
         for scan in self.MS1_list:
-            h.extend(scan.intensity_list)
-        return h
+            h.append(scan.intensity_list)
+        return np.concatenate(h) if h else np.array([])
 
     def getIthMS1Scan(self, index, filterLine):
         i = 0
@@ -168,11 +169,11 @@ class Chromatogram:
         for scan in msLevelList:
             if filterLine == "" or scan.filter_line == filterLine:
                 TIC.append(scan.total_ion_current)
-                # TIC.append(sum(scan.intensity_list))
+                # TIC.append(np.sum(scan.intensity_list))
                 times.append(scan.retention_time)
                 scanIds.append(scan.id)
 
-        return TIC, times, scanIds
+        return np.array(TIC), np.array(times), np.array(scanIds)
 
     # returns a specific area (2-dimensionally bound in rt and mz direction) of the LC-HRMS data
     def getArea(self, startScan, endScan, mz, ppm, filterLine="", intThreshold=0):
@@ -187,17 +188,17 @@ class Chromatogram:
                     bounds = scan.findMZ(mz, ppm)
                     curScan = []
                     if bounds[0] != -1:
-                        for cur in range(bounds[0], bounds[1] + 1):
-                            intensity = scan.intensity_list[cur]
-                            if intensity >= intThreshold:
-                                curScan.append((scan.mz_list[cur], intensity))
+                        mz_subset = scan.mz_list[bounds[0] : bounds[1] + 1]
+                        intensity_subset = scan.intensity_list[bounds[0] : bounds[1] + 1]
+                        mask = intensity_subset >= intThreshold
+                        curScan = list(zip(mz_subset[mask], intensity_subset[mask]))
                     scans.append(curScan)
                     times.append(scan.retention_time)
                     scanIDs.append(scan.id)
 
                 scannum += 1
 
-        return scans, times, scanIDs
+        return scans, np.array(times), np.array(scanIDs)
 
     # returns a specific area (2-dimensionally bound in rt and mz direction) of the LC-HRMS data
     def getSpecificArea(self, startTime, endTime, mzmin, mzmax, filterLine="", intThreshold=0):
@@ -212,19 +213,21 @@ class Chromatogram:
                     bounds = scan._findMZGeneric(mzmin, mzmax)
                     curScan = []
                     if bounds[0] != -1:
-                        for cur in range(bounds[0], bounds[1] + 1):
-                            intensity = scan.intensity_list[cur]
-                            if intensity >= intThreshold:
-                                curScan.append((scan.mz_list[cur], intensity))
+                        mz_subset = scan.mz_list[bounds[0] : bounds[1] + 1]
+                        intensity_subset = scan.intensity_list[bounds[0] : bounds[1] + 1]
+                        mask = intensity_subset >= intThreshold
+                        curScan = list(zip(mz_subset[mask], intensity_subset[mask]))
                     scans.append(curScan)
                     times.append(scan.retention_time)
                     scanIDs.append(scan.id)
 
                 scannum += 1
 
-        return scans, times, scanIDs
+        return scans, np.array(times), np.array(scanIDs)
 
     # returns an eic. Single MS peaks and such below a certain threshold may be removed
+    # Returns: eic (2D array [2, n] where eic[0,:] = times, eic[1,:] = intensities),
+    #          times (1D array), scanIds (1D array), mzs (1D array)
     def getEIC(
         self,
         mz,
@@ -242,46 +245,50 @@ class Chromatogram:
         scanIds = []
         mzs = []
 
-        eicAppend = eic.append
-        timesAppend = times.append
-        scanIdsAppend = scanIds.append
-
         if useMS1:
             for scan in self.MS1_list:
                 if (scan.filter_line == filterLine or filterLine == "") and startTime <= scan.retention_time <= endTime:
                     bounds = scan.findMZ(mz, ppm)
                     if bounds[0] != -1:
-                        df = scan.intensity_list[bounds[0] : (bounds[1] + 1)]
-                        uIndex = df.index(max(scan.intensity_list[bounds[0] : (bounds[1] + 1)]))
-                        eicAppend(scan.intensity_list[bounds[0] + uIndex])
+                        intensity_subset = scan.intensity_list[bounds[0] : (bounds[1] + 1)]
+                        uIndex = np.argmax(intensity_subset)
+                        eic.append(scan.intensity_list[bounds[0] + uIndex])
                         mzs.append(scan.mz_list[bounds[0] + uIndex])
                     else:
-                        eicAppend(0)
+                        eic.append(0)
                         mzs.append(-1)
-                    timesAppend(scan.retention_time)
-                    scanIdsAppend(scan.id)
+                    times.append(scan.retention_time)
+                    scanIds.append(scan.id)
 
         if useMS2:
             for scan in self.MS2_list:
                 if (scan.filter_line == filterLine or filterLine == "") and startTime <= scan.retention_time <= endTime:
                     bounds = scan.findMZ(mz, ppm)
                     if bounds[0] != -1:
-                        df = scan.intensity_list[bounds[0] : (bounds[1] + 1)]
-                        uIndex = df.index(max(scan.intensity_list[bounds[0] : (bounds[1] + 1)]))
-                        eicAppend(scan.intensity_list[bounds[0] + uIndex])
+                        intensity_subset = scan.intensity_list[bounds[0] : (bounds[1] + 1)]
+                        uIndex = np.argmax(intensity_subset)
+                        eic.append(scan.intensity_list[bounds[0] + uIndex])
                         mzs.append(scan.mz_list[bounds[0] + uIndex])
                     else:
-                        eicAppend(0)
+                        eic.append(0)
                         mzs.append(-1)
-                    timesAppend(scan.retention_time)
-                    scanIdsAppend(scan.id)
+                    times.append(scan.retention_time)
+                    scanIds.append(scan.id)
 
-        for i in range(1, len(eic)):
-            if eic[i] < intThreshold:
-                eic[i] = 0
-                mzs[i] = -1
+        # Convert to numpy arrays
+        eic = np.array(eic, dtype=np.float64)
+        times = np.array(times, dtype=np.float64)
+        scanIds = np.array(scanIds, dtype=np.int64)
+        mzs = np.array(mzs, dtype=np.float64)
 
-        if removeSingles:
+        # Apply threshold filter
+        mask = eic < intThreshold
+        mask[0] = False  # Don't filter first element
+        eic[mask] = 0
+        mzs[mask] = -1
+
+        # Remove singles if requested
+        if removeSingles and len(eic) > 2:
             for i in range(1, len(eic) - 1):
                 if eic[i - 1] == 0 and eic[i + 1] == 0:
                     eic[i] = 0
@@ -302,7 +309,7 @@ class Chromatogram:
         totSignals = 0
         for scan in self.MS1_list + self.MS2_list:
             if (scan.filter_line == filterLine or filterLine == "") and startTime <= scan.retention_time <= endTime:
-                totSignals += len([i for i in scan.intensity_list if i >= intThreshold])
+                totSignals += np.sum(scan.intensity_list >= intThreshold)
 
         return totSignals
 
@@ -316,19 +323,20 @@ class Chromatogram:
         startTime=0,
         endTime=1000000,
     ):
-        minInt = 10000000000
+        minInt = np.inf
         maxInt = 0
         avgsum = 0
         avgcount = 0
         for scan in self.MS1_list + self.MS2_list:
             if (scan.filter_line == filterLine or filterLine == "") and startTime <= scan.retention_time <= endTime:
-                uVals = [i for i in scan.intensity_list if i >= intThreshold]
+                mask = scan.intensity_list >= intThreshold
+                uVals = scan.intensity_list[mask]
                 if len(uVals) == 0:
-                    uVals = [0]
+                    uVals = np.array([0])
 
-                minInt = min(minInt, min(uVals))
-                maxInt = max(minInt, max(uVals))
-                avgsum += sum(uVals)
+                minInt = np.minimum(minInt, np.min(uVals))
+                maxInt = np.maximum(maxInt, np.max(uVals))
+                avgsum += np.sum(uVals)
                 avgcount += len(uVals)
 
         if avgcount == 0:
@@ -338,7 +346,6 @@ class Chromatogram:
 
     # converts base64 coded spectrum in an mz and intensity array
     def decode_spectrum(self, line, compression=None, precision=32):
-        idx = 0
         mz_list = []
         intensity_list = []
 
@@ -348,18 +355,17 @@ class Chromatogram:
                 decoded = zlib.decompress(decoded)
 
             if precision == 64:
-                tmp_size = len(decoded) / 8
+                tmp_size = len(decoded) // 8
                 unpack_format1 = ">%dd" % tmp_size
             else:
-                tmp_size = len(decoded) / 4
+                tmp_size = len(decoded) // 4
                 unpack_format1 = ">%df" % tmp_size
 
-            for tmp in struct.unpack(unpack_format1, decoded):
-                if idx % 2 == 0:
-                    mz_list.append(float(tmp))
-                else:
-                    intensity_list.append(float(tmp))
-                idx += 1
+            unpacked = struct.unpack(unpack_format1, decoded)
+            # Use numpy array slicing for efficiency
+            data = np.array(unpacked, dtype=np.float64)
+            mz_list = data[0::2]  # Every even index
+            intensity_list = data[1::2]  # Every odd index
 
         return mz_list, intensity_list
 
@@ -514,19 +520,19 @@ class Chromatogram:
 
             ## Remove peaks below threshold
             if self.intensityCutoff > 0:
-                use = [i for i in range(len(intensity_list)) if intensity_list[i] > self.intensityCutoff and mz_list[i] > 0]
-                mz_list = [mz_list[i] for i in use]
-                intensity_list = [intensity_list[i] for i in use]
+                mask = (intensity_list > self.intensityCutoff) & (mz_list > 0)
+                mz_list = mz_list[mask]
+                intensity_list = intensity_list[mask]
 
             ## Remove peaks with unwanted mz values
             if self.mzFilter != None:
-                keep = []
+                keep_mask = np.zeros(len(mz_list), dtype=bool)
                 for ps, pe in self.mzFilter:
                     a, b = self._findMZGeneric(ps, pe, mz_list)
                     if a != -1:
-                        keep.extend(range(a, b + 1))
-                mz_list = [mz_list[i] for i in sorted(keep)]
-                intensity_list = [intensity_list[i] for i in sorted(keep)]
+                        keep_mask[a : b + 1] = True
+                mz_list = mz_list[keep_mask]
+                intensity_list = intensity_list[keep_mask]
 
             assert len(mz_list) == len(intensity_list)
 
@@ -664,8 +670,9 @@ class Chromatogram:
             # if tmp_ms.peak_count > 0:
             tmp_ms.total_ion_current = specturm["total ion current"]
             tmp_ms.list_size = 0
-            tmp_ms.mz_list = specturm.peaks(peak_type="centroided")[:, 0].tolist()
-            tmp_ms.intensity_list = specturm.peaks(peak_type="centroided")[:, 1].tolist()
+            # Keep as numpy arrays directly from pymzml
+            tmp_ms.mz_list = specturm.peaks(peak_type="centroided")[:, 0].copy()
+            tmp_ms.intensity_list = specturm.peaks(peak_type="centroided")[:, 1].copy()
             tmp_ms.msInstrumentID = ""
 
             if msLevel == 1:
@@ -739,13 +746,19 @@ class Chromatogram:
         if scanID in data and len(data[scanID].mzs) > 0:
             h = data[scanID]
             assert len(h.mzs) == len(h.ints)
-            peaks.childNodes[0].nodeValue = base64.encodebytes("".join([struct.pack(">f", h.mzs[i]) + struct.pack(">f", h.ints[i]) for i in range(len(h.mzs))]).encode("utf-8")).decode("utf-8").strip().replace("\n", "")
+            # Convert numpy arrays to bytes for encoding
+            mzs = np.asarray(h.mzs, dtype=np.float32)
+            ints = np.asarray(h.ints, dtype=np.float32)
+            interleaved = np.empty(len(mzs) * 2, dtype=np.float32)
+            interleaved[0::2] = mzs
+            interleaved[1::2] = ints
+            peaks.childNodes[0].nodeValue = base64.encodebytes(interleaved.tobytes(">f")).decode("utf-8").strip().replace("\n", "")
             scan.setAttribute("peaksCount", str(len(h.mzs)))
-            scan.setAttribute("lowMz", str(min(h.mzs)))
-            scan.setAttribute("highMz", str(max(h.mzs)))
+            scan.setAttribute("lowMz", str(np.min(mzs)))
+            scan.setAttribute("highMz", str(np.max(mzs)))
             scan.setAttribute("basePeakMz", "0")
             scan.setAttribute("basePeakIntensity", "0")
-            scan.setAttribute("totIonCurrent", str(sum(h.ints)))
+            scan.setAttribute("totIonCurrent", str(np.sum(ints)))
         else:
             peaks.childNodes[0].nodeValue = ""
             scan.setAttribute("peaksCount", "0")

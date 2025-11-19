@@ -27,12 +27,15 @@ class Baseline:
         r("suppressWarnings(suppressMessages(library(baseline))); getBaseline<-function(eic){  return(baseline(eic, method='medianWindow', hwm=20)@baseline[1,])  };")
 
     def getBaseline(self, eic, times):
-        eicR = "c(" + ",".join(str(e) for e in eic) + ")"
+        import numpy as np
+
+        eic_arr = np.asarray(eic)
+        eicR = "c(" + ",".join(str(e) for e in eic_arr) + ")"
 
         try:
             ret = r("getBaseline(t(" + eicR + "));")
 
-            ret = [float(i) for i in ret]
+            ret = np.array([float(i) for i in ret])
             return ret
 
         except Exception as e:
@@ -80,13 +83,15 @@ if __name__ == "__main__":
         eic, times, timesI, mzs = chromatogram.getEIC(mz, ppm, scanEvent)
         eicL, times, timesI, mzsL = chromatogram.getEIC(mz + cn * dmz / z, ppm, scanEvent)
 
-        ax.plot([t / 60.0 for t in times], [e for e in eic])
+        import numpy as np
+
+        ax.plot(times / 60.0, eic)
 
         eicBL = BL.getBaseline(eic, times)
 
-        ax.plot([t / 60.0 for t in times], [e for e in eicBL])
+        ax.plot(times / 60.0, eicBL)
 
-        ax.plot([t / 60.0 for t in times], [-max(0, eic[i] - eicBL[i]) for i in range(len(eic))])
+        ax.plot(times / 60.0, -np.maximum(0, eic - eicBL))
 
         ret = CP.getPeaksFor(times, eic, scales=scales, minScans=1)
         for peak in ret:

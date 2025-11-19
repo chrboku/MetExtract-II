@@ -50,34 +50,29 @@ class GradientPeaks:
 
     ### Find any local maximum in a series. Checking and verification of that peak will be performed later
     def getLocalMaxima(self, y, mInt=0):
+        y_arr = numpy.asarray(y)
         maxima = []
 
         ## include left start of series if possible
-        if y[0] >= mInt and y[0] > y[1]:
+        if y_arr[0] >= mInt and y_arr[0] > y_arr[1]:
             maxima.append(0)
 
         ## check any signal except the start and ending
-        for i in range(1, len(y) - 1):
-            if y[i] >= mInt and y[i - 1] < y[i] > y[i + 1]:
-                maxima.append(i)
+        # Vectorized comparison for middle elements
+        middle_mask = (y_arr[1:-1] >= mInt) & (y_arr[:-2] < y_arr[1:-1]) & (y_arr[1:-1] > y_arr[2:])
+        middle_indices = numpy.where(middle_mask)[0] + 1
+        maxima.extend(middle_indices.tolist())
 
         ## include right ending of series if possible
-        if y[len(y) - 1] >= mInt and y[len(y) - 2] <= y[len(y) - 1]:
-            maxima.append(len(y) - 1)
+        if y_arr[-1] >= mInt and y_arr[-2] <= y_arr[-1]:
+            maxima.append(len(y_arr) - 1)
 
         return maxima
 
     ### Add up all intensities between the peak's left and right flank
     def calculatePeakArea(self, x, y, peak):
-        peak.peakArea = sum(
-            [
-                y[i]
-                for i in range(
-                    peak.peakIndex - peak.peakLeftFlank,
-                    peak.peakIndex + peak.peakRightFlank + 1,
-                )
-            ]
-        )
+        y_arr = numpy.asarray(y)
+        peak.peakArea = numpy.sum(y_arr[peak.peakIndex - peak.peakLeftFlank : peak.peakIndex + peak.peakRightFlank + 1])
 
         return True
 
@@ -320,12 +315,12 @@ if __name__ == "__main__":
     sw.stop()
     durationMessages.append("Calculating the EICs took %.1f seconds (100 times)" % sw.getDurationInSeconds())
 
-    timesMin = [t / 60.0 for t in times]
+    timesMin = times / 60.0
 
     import matplotlib.pyplot as plt
 
     plt.plot(timesMin, eicN_raw)
-    plt.plot(timesMin, [-e for e in eicL_raw])
+    plt.plot(timesMin, -eicL_raw)
 
     smoothWin = "savitzkygolay"  ## "gaussian", "flat", "triangle", "gaussian", "flat", "savitzkygolay"
 

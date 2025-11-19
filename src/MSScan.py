@@ -1,4 +1,5 @@
 from math import floor
+import numpy as np
 
 
 # class for one MS scan
@@ -18,20 +19,38 @@ class MSScan:
         self.encoded_mz = ""
         self.encoded_intensity = ""
         self.encodedData = ""
-        self.mz_list = []
-        self.intensity_list = []
+        self.mz_list = np.array([], dtype=np.float64)
+        self.intensity_list = np.array([], dtype=np.float64)
         self.msInstrumentID = ""
+
+    @property
+    def spectrum(self):
+        """Returns spectrum as 2D array: spectrum[0,:] = mz values, spectrum[1,:] = intensities"""
+        return np.vstack([self.mz_list, self.intensity_list])
+
+    @spectrum.setter
+    def spectrum(self, value):
+        """Sets spectrum from 2D array where value[0,:] = mz values, value[1,:] = intensities"""
+        if isinstance(value, np.ndarray) and value.ndim == 2 and value.shape[0] == 2:
+            self.mz_list = value[0, :]
+            self.intensity_list = value[1, :]
+            self.peak_count = len(self.mz_list)
+        else:
+            raise ValueError("Spectrum must be a 2D numpy array with shape (2, n)")
 
     # returns the most abundant ms peak in a given range
     def getMostIntensePeak(self, leftInd, rightInd, minInt=0):
         i = -1
         v = -1
         if leftInd != -1 and rightInd != -1:
-            for s in range(leftInd, rightInd + 1):
-                cInt = self.intensity_list[s]
-                if cInt > minInt and cInt > v:
-                    i = s
-                    v = cInt
+            subset = self.intensity_list[leftInd : rightInd + 1]
+            mask = subset > minInt
+            if np.any(mask):
+                local_max_idx = np.argmax(subset[mask])
+                # Get the actual index in the masked array
+                masked_indices = np.where(mask)[0]
+                i = leftInd + masked_indices[local_max_idx]
+                v = self.intensity_list[i]
         return i
 
     # HELPER METHOD: tests (and returns) if a given mz value is present in the current ms scan
@@ -73,12 +92,12 @@ class MSScan:
     def findMZ(self, mz, ppm, start=None, stop=None):
         mzleft = mz * (1.0 - ppm / 1000000.0)
         mzright = mz * (1.0 + ppm / 1000000.0)
-
+        
         return self._findMZGeneric(mzleft, mzright, start=start, stop=stop)
 
     def freeMe(self):
-        self.intensity_list = []
-        self.mz_list = []
+        self.intensity_list = np.array([], dtype=np.float64)
+        self.mz_list = np.array([], dtype=np.float64)
 
 
 class MS1Scan(MSScan):

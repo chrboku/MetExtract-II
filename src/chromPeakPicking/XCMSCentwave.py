@@ -35,13 +35,17 @@ class XCMSCentwave:
         r("rm(list=ls());gc();")
 
     def getPeaksFor(self, times, eic, scales=[11, 66]):
+        import numpy as np
+
         # precheck
-        if sum(eic) == 0:
+        eic_arr = np.asarray(eic)
+        times_arr = np.asarray(times)
+        if np.sum(eic_arr) == 0:
             return []
 
         # create R-vector of EIC
-        eicRC = str([str(v) for v in eic]).replace("[", "").replace("]", "").replace("'", "")
-        timesRC = str([str(v) for v in times]).replace("[", "").replace("]", "").replace("'", "")
+        eicRC = str([str(v) for v in eic_arr]).replace("[", "").replace("]", "").replace("'", "")
+        timesRC = str([str(v) for v in times_arr]).replace("[", "").replace("]", "").replace("'", "")
 
         # call R-MassSpecWavelet
         try:  # eic, times, scales=c(5,33), snrTh=1, eicSmoothing="None", minCorr=0.85, testCorr=TRUE

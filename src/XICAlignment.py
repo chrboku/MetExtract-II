@@ -7,6 +7,7 @@ except ImportError:
     ro = None
 r = ro.r if R_AVAILABLE else None
 
+import numpy as np
 from .utils import mapArrayToRefTimes
 from copy import deepcopy
 
@@ -29,18 +30,28 @@ def preAppendEICs(
         return eics, scanTimes
 
     for j in range(len(eics)):
-        pInt = max(eics[j]) * mIntMult
+        eic_arr = np.asarray(eics[j])
+        scanTime_arr = np.asarray(scanTimes[j])
 
-        scanTimes[j] = [scanTimes[j][i] + scanDuration * pretend for i in range(len(scanTimes[j]))]
-        mScanTime = max(scanTimes[j])
+        pInt = np.max(eic_arr) * mIntMult
 
-        for i in range(pretend):
-            if addFront:
-                eics[j].insert(0, pInt)
-                scanTimes[j].insert(i, i * scanDuration)
-            if addBack:
-                eics[j].append(pInt)
-                scanTimes[j].append(mScanTime + (1 + i) * scanDuration)
+        scanTime_arr = scanTime_arr + scanDuration * pretend
+        mScanTime = np.max(scanTime_arr)
+
+        if addFront:
+            front_eic = np.full(pretend, pInt)
+            front_times = np.arange(pretend) * scanDuration
+            eic_arr = np.concatenate([front_eic, eic_arr])
+            scanTime_arr = np.concatenate([front_times, scanTime_arr])
+
+        if addBack:
+            back_eic = np.full(pretend, pInt)
+            back_times = mScanTime + (np.arange(1, pretend + 1) * scanDuration)
+            eic_arr = np.concatenate([eic_arr, back_eic])
+            scanTime_arr = np.concatenate([scanTime_arr, back_times])
+
+        eics[j] = eic_arr
+        scanTimes[j] = scanTime_arr
 
     return eics, scanTimes
 
@@ -49,26 +60,28 @@ def preAppendEICs(
 # Used im combination with preAppendEICs
 def undoPreAppendEICs(eics, refTimes, pretend=25, scanDuration=1, removeFront=True, removeBack=False):
     eics = deepcopy(eics)
-    refTimes = deepcopy(refTimes)
+    refTimes = np.asarray(refTimes, dtype=np.float64).copy()
 
     if pretend == 0:
         return eics, refTimes
 
     remTime = scanDuration * (pretend)
-    mStart = min(enumerate(refTimes), key=lambda x: abs(x[1] - remTime))[0]
+    mStart = np.argmin(np.abs(refTimes - remTime))
 
     if removeFront:
         refTimes = refTimes[mStart:]
-        refTimes = [refTimes[i] - remTime for i in range(len(refTimes))]
+        refTimes = refTimes - remTime
 
     if removeBack:
         refTimes = refTimes[:-mStart]
 
     for j in range(len(eics)):
+        eic_arr = np.asarray(eics[j])
         if removeFront:
-            eics[j] = eics[j][mStart:]
+            eic_arr = eic_arr[mStart:]
         if removeBack:
-            eics[j] = eics[j][:-mStart]
+            eic_arr = eic_arr[:-mStart]
+        eics[j] = eic_arr
 
     return eics, refTimes
 
@@ -111,18 +124,15 @@ class XICAlignment:
             # add a constant part before and after the actual EIC as an anchor for the alignment
             eics, scantimesEnlarged = preAppendEICs(eics, scantimes, pretend=pretend, scanDuration=scanDuration)
 
-            maxTime = max((max(scanTime) for scanTime in scantimes))
-            refTimes = [i * scanDuration for i in range(int(maxTime / scanDuration))]
+            maxTime = np.max([np.max(scanTime) for scanTime in scantimes])
+            refTimes = np.arange(0, int(maxTime / scanDuration)) * scanDuration
 
             for i in range(len(eics)):
                 eics[i] = mapArrayToRefTimes(eics[i], scantimesEnlarged[i], refTimes)
                 # peak translation to ref Time
                 for j in range(len(peakss[i])):
                     peakTime = scantimes[i][peakss[i][j].NPeakCenter] + pretend * scanDuration
-                    minindex, minvalue = min(
-                        enumerate((abs(z - peakTime) for z in refTimes)),
-                        key=lambda x: x[1],
-                    )
+                    minindex = np.argmin(np.abs(refTimes - peakTime))
                     peakss[i][j].NPeakCenter = refTimes[minindex]
 
             # convert the EICs to R-function parameters
@@ -186,20 +196,20 @@ class XICAlignment:
         eics, scantimes = preAppendEICs(eics, scantimes, pretend=pretend, scanDuration=scanDuration)
 
         nPolynom = max(nPolynom, 0)
-        maxTime = max([max(scanTime) for scanTime in scantimes])
-        refTimes = range(int(maxTime))
+        maxTime = np.max([np.max(scanTime) for scanTime in scantimes])
+        refTimes = np.arange(int(maxTime))
 
         if len(eics) == 1:
             retl, refTimes = undoPreAppendEICs(
                 [mapArrayToRefTimes(eics[0], scantimes[0], refTimes)],
-                [u for u in refTimes],
+                refTimes,
                 pretend=pretend,
                 scanDuration=scanDuration,
             )
-            undoPreAppendEICs(retl, [u for u in refTimes], pretend=pretend)
+            undoPreAppendEICs(retl, refTimes, pretend=pretend)
 
-        maxTime = max([max(scanTime) for scanTime in scantimes])
-        refTimes = range(int(maxTime))
+        maxTime = np.max([np.max(scanTime) for scanTime in scantimes])
+        refTimes = np.arange(int(maxTime))
 
         eicds = []
         for i in range(len(eics)):

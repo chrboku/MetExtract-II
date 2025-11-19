@@ -147,7 +147,8 @@ def __smooth(x, window_len=11, window="bartlett"):
 
 
 def _smooth(x, window_len=11, window="hanning"):
-    x = list(__smooth(array(x), window_len, window))
+    x_arr = np.asarray(x, dtype=np.float64)
+    x = __smooth(x_arr, window_len, window)
     x = x[int(window_len // 2) : int((len(x) - window_len / 2 + (1 if not (window_len % 2) else 0)))]
     return x
 
@@ -156,16 +157,20 @@ def _smoothTriangle(data, degree, dropVals=False):
     """performs moving triangle smoothing with a variable degree."""
     """note that if dropVals is False, output length will be identical
     to input length, but with copies of data at the flanking regions"""
-    triangle = numpy.array(range(degree) + [degree] + range(degree)[::-1]) + 1
+    data = np.asarray(data, dtype=np.float64)
+    triangle = np.concatenate([np.arange(degree), [degree], np.arange(degree)[::-1]]) + 1
     smoothed = []
+    triangle_sum = np.sum(triangle)
     for i in range(degree, len(data) - degree * 2):
         point = data[i : i + len(triangle)] * triangle
-        smoothed.append(sum(point) / sum(triangle))
+        smoothed.append(np.sum(point) / triangle_sum)
     if dropVals:
-        return smoothed
-    smoothed = [smoothed[0]] * (degree + degree // 2) + smoothed
-    while len(smoothed) < len(data):
-        smoothed.append(smoothed[-1])
+        return np.array(smoothed)
+    # Pad with edge values
+    pad_len = degree + degree // 2
+    smoothed = np.pad(smoothed, (pad_len, 0), mode="edge")
+    if len(smoothed) < len(data):
+        smoothed = np.pad(smoothed, (0, len(data) - len(smoothed)), mode="edge")
     return smoothed
 
 
@@ -178,10 +183,11 @@ def smoothDataSeries(x, y, windowLen=2, polynom=3, window="gaussian", removeNegI
 
     addD = int(round(windowLen / 2.0))
 
-    yi = copycopy(y)
-    for i in range(addD):
-        yi.insert(0, yi[0])
-        yi.append(yi[-1])
+    # Convert to numpy array if not already
+    y_arr = np.asarray(y, dtype=np.float64)
+
+    # Pad the array by repeating first and last values
+    yi = np.pad(y_arr, (addD, addD), mode="edge")
 
     if window == "triangle":
         ys = _smoothTriangle(yi, windowLen)
@@ -201,7 +207,7 @@ def smoothDataSeries(x, y, windowLen=2, polynom=3, window="gaussian", removeNegI
         raise Exception("Unsupported smoothing window")
 
     if removeNegIntensities:
-        ys = [max(0, i) for i in ys]
+        ys = np.maximum(ys, 0)
 
     return ys
 
@@ -648,109 +654,82 @@ def getAtomAdd(p, x):
 # maps and eic to a certain reference time array.
 # Used to reduce the number of scans in EICs before chromatographic alignment
 def mapArrayToRefTimes(data, times, refTimes):
-    assert len(data) == len(times), "Data arrays have different length"
+    data_arr = np.asarray(data, dtype=np.float64)
+    times_arr = np.asarray(times, dtype=np.float64)
+    refTimes_arr = np.asarray(refTimes, dtype=np.float64)
 
-    ref = [0]
-    refTimes.insert(0, 0)
-    data.insert(0, 0)
-    times.insert(0, 0)
-    dlen = len(data)
+    assert len(data_arr) == len(times_arr), "Data arrays have different length"
 
-    j = 1
-    for i in range(1, len(refTimes)):
-        refTime = refTimes[i]
+    # Use numpy's interp for efficient interpolation
+    # This interpolates data values at refTimes based on times
+    ref = np.interp(refTimes_arr, times_arr, data_arr)
 
-        while j < dlen and times[j] < refTime:
-            j = j + 1
-
-        if j == dlen:
-            d = data[j - 1]
-        elif refTime == times[j - 1]:
-            d = data[j - 1]
-        elif refTime == times[j]:
-            d = data[j]
-        elif j < dlen:
-            d = data[j - 1] + (data[j] - data[j - 1]) * (refTime - times[j - 1]) / (times[j] - times[j - 1])
-
-        ref.append(d)
-
-    assert len(ref) == len(refTimes), "Error: Ref arrays have different length"
-
-    data.pop(0)
-    times.pop(0)
-    refTimes.pop(0)
-    ref.pop(0)
     return ref
 
 
 def mean(x, skipExtremes=0):
-    if len(x) == 0:
+    x_arr = np.asarray(x)
+    if len(x_arr) == 0:
         return None
 
     if skipExtremes > 0:
-        x = sorted(x)
-        n = len(x)
-        x = x[int(len(x) * skipExtremes) : int(len(x) - len(x) * skipExtremes)]
+        x_arr = np.sort(x_arr)
+        n = len(x_arr)
+        x_arr = x_arr[int(len(x_arr) * skipExtremes) : int(len(x_arr) - len(x_arr) * skipExtremes)]
 
-    s = sum(x)
-    return s / (len(x) * 1.0)
+    return np.mean(x_arr)
 
 
 def weightedMean(x, w):
-    assert len(x) == len(w)
+    x_arr = np.asarray(x)
+    w_arr = np.asarray(w)
+    assert len(x_arr) == len(w_arr)
 
-    if len(x) == 0:
+    if len(x_arr) == 0:
         return None
 
-    s = 1.0 * sum(w)
-    w = [i / s for i in w]
-
-    xw = [x[i] * w[i] for i in range(len(x))]
-
-    return sum(xw)
+    w_normalized = w_arr / np.sum(w_arr)
+    return np.sum(x_arr * w_normalized)
 
 
 def sd(x):
-    if len(x) <= 1:
+    x_arr = np.asarray(x)
+    if len(x_arr) <= 1:
         return None
 
-    m = mean(x)
-    return sqrt(sum([pow(xi - m, 2) for xi in x]) / len(x))
+    return np.std(x_arr)
 
 
 def weightedSd(x, w):
-    assert len(x) == len(w)
+    x_arr = np.asarray(x)
+    w_arr = np.asarray(w)
+    assert len(x_arr) == len(w_arr)
 
-    if len(x) <= 1:
+    if len(x_arr) <= 1:
         return None
 
-    s = 1.0 * max(w)
-    w = [i / s for i in w]
-
-    m = weightedMean(x, w)
-    return sqrt(sum([w[i] * pow(x[i] - m, 2) for i in range(len(x))]) / len(x))
+    w_normalized = w_arr / np.max(w_arr)
+    m = weightedMean(x_arr, w_arr)
+    return np.sqrt(np.sum(w_normalized * np.power(x_arr - m, 2)) / len(x_arr))
 
 
 def corr(a, b):
-    assert len(a) == len(b)
+    a_arr = np.asarray(a, dtype=np.float64)
+    b_arr = np.asarray(b, dtype=np.float64)
+    assert len(a_arr) == len(b_arr)
 
-    n = len(a)
+    n = len(a_arr)
 
     if n < 2:
         return -1
 
-    a = [float(i) for i in a]
-    b = [float(i) for i in b]
-
-    meana = sum(a) / n
-    meanb = sum(b) / n
-    # if meanb == 1 or meana == 1:
-    #    return -1
-
+    # Use numpy's corrcoef for efficient correlation calculation
     try:
-        rxy = (sum([(a[i] - meana) * (b[i] - meanb) for i in range(n)])) / (sqrt(sum([pow(a[i] - meana, 2) for i in range(n)])) * sqrt(sum([pow(b[i] - meanb, 2) for i in range(n)])))
-        return rxy
-    except RuntimeWarning:
+        corr_matrix = np.corrcoef(a_arr, b_arr)
+        if np.isnan(corr_matrix[0, 1]):
+            return -1
+        return corr_matrix[0, 1]
+    except (RuntimeWarning, FloatingPointError):
         return -1
 
 

@@ -13,7 +13,7 @@ except ImportError:
     r = None
 
 from ..utils import Bunch
-
+import numpy as np
 errorIndex = 2
 
 
@@ -43,32 +43,30 @@ class MassSpecWavelet:
         r("rm(list=ls());gc();")
 
     def getPeaksFor(self, timesi, eici, startIndex=None, endIndex=None):
+
         snrTh = 3
 
         # precheck
-        if sum(eici) == 0:
+        eici_arr = np.asarray(eici)
+        timesi_arr = np.asarray(timesi)
+        if np.sum(eici_arr) == 0:
             return []
 
         if startIndex is None:
             startIndex = 0
 
         if endIndex is None:
-            endIndex = len(eici)
+            endIndex = len(eici_arr)
 
         # crop EIC
-        eici = eici[startIndex:endIndex]
-        timesi = timesi[startIndex:endIndex]
+        eici_arr = eici_arr[startIndex:endIndex]
+        timesi_arr = timesi_arr[startIndex:endIndex]
 
         # add scales at begin and end of eic
         eicAdd = int(self.scales[1]) * 2
-        eic = [0 for u in range(0, eicAdd)]
-        times = [0 for u in range(0, eicAdd)]
-        eic.extend(eici)
-        times.extend(timesi)
-
-        eic.extend([0 for u in range(0, eicAdd)])
-        mt = max(timesi)
-        times.extend([mt for u in range(0, eicAdd)])
+        eic = np.concatenate([np.zeros(eicAdd), eici_arr, np.zeros(eicAdd)])
+        mt = np.max(timesi_arr)
+        times = np.concatenate([np.zeros(eicAdd), timesi_arr, np.full(eicAdd, mt)])
 
         # create R-vector of EIC
         eicRC = str([str(v) for v in eic]).replace("[", "").replace("]", "").replace("'", "")
