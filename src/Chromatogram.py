@@ -119,7 +119,7 @@ class Chromatogram:
                             targetStartTime=10000000,
                             targetEndTime=0,
                             preCursorMz=[],
-                            colisionEnergy=0,
+                            collisionEnergy=0,
                             scanTimes=[],
                         )
                     filterLines[scan.filter_line].targetStartTime = min(
@@ -128,7 +128,7 @@ class Chromatogram:
                     )
                     filterLines[scan.filter_line].targetEndTime = max(filterLines[scan.filter_line].targetEndTime, scan.retention_time)
                     filterLines[scan.filter_line].preCursorMz.append(scan.precursor_mz)
-                    filterLines[scan.filter_line].colisionEnergy = scan.colisionEnergy
+                    filterLines[scan.filter_line].collisionEnergy = scan.collisionEnergy
                     filterLines[scan.filter_line].scanTimes.append(scan.retention_time)
 
             for k, v in filterLines.items():
@@ -158,22 +158,21 @@ class Chromatogram:
         return polarities
 
     def getTIC(self, filterLine="", useMS2=False):
-        TIC = []
-        times = []
-        scanIds = []
+        msLevelList = self.MS2_list if useMS2 else self.MS1_list
 
-        msLevelList = self.MS1_list
-        if useMS2:
-            msLevelList = self.MS2_list
+        if filterLine == "":
+            # Fast path when no filter is needed
+            TIC = np.array([scan.total_ion_current for scan in msLevelList], dtype=np.float64)
+            times = np.array([scan.retention_time for scan in msLevelList], dtype=np.float64)
+            scanIds = np.array([scan.id for scan in msLevelList], dtype=np.int64)
+        else:
+            # Filtered path
+            filtered_scans = [scan for scan in msLevelList if scan.filter_line == filterLine]
+            TIC = np.array([scan.total_ion_current for scan in filtered_scans], dtype=np.float64)
+            times = np.array([scan.retention_time for scan in filtered_scans], dtype=np.float64)
+            scanIds = np.array([scan.id for scan in filtered_scans], dtype=np.int64)
 
-        for scan in msLevelList:
-            if filterLine == "" or scan.filter_line == filterLine:
-                TIC.append(scan.total_ion_current)
-                # TIC.append(np.sum(scan.intensity_list))
-                times.append(scan.retention_time)
-                scanIds.append(scan.id)
-
-        return np.array(TIC), np.array(times), np.array(scanIds)
+        return TIC, times, scanIds
 
     # returns a specific area (2-dimensionally bound in rt and mz direction) of the LC-HRMS data
     def getArea(self, startScan, endScan, mz, ppm, filterLine="", intThreshold=0):
@@ -525,7 +524,7 @@ class Chromatogram:
                 intensity_list = intensity_list[mask]
 
             ## Remove peaks with unwanted mz values
-            if self.mzFilter != None:
+            if self.mzFilter is not None:
                 keep_mask = np.zeros(len(mz_list), dtype=bool)
                 for ps, pe in self.mzFilter:
                     a, b = self._findMZGeneric(ps, pe, mz_list)
@@ -639,8 +638,8 @@ class Chromatogram:
 
             try:
                 msLevel = int(specturm["ms level"])
-            except:
-                print("Error: What is it?", specturm["id"], type(specturm), specturm)
+            except (KeyError, ValueError, TypeError) as e:
+                print(f"Error: Cannot determine MS level for spectrum {specturm['id']}: {e}")
                 continue
 
             if msLevel == 1:

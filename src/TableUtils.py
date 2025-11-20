@@ -243,9 +243,9 @@ class Table:
             s = (time.time() - started) / 60.0
             print("\rApplying (function: %s) took %.1f minutes                                                                                                                                                              " % (funcName, s))
 
-        if pwMaxSet != None:
+        if pwMaxSet is not None:
             pwMaxSet(len(updates))
-        if pwValSet != None:
+        if pwValSet is not None:
             pwValSet(0)
 
         doneS = 0
@@ -253,7 +253,7 @@ class Table:
         for update in updates:
             self.curs.execute(self.updateQuery(update[0]), update[1])
             done += 1
-            if pwValSet != None:
+            if pwValSet is not None:
                 pwValSet(done)
 
             doneS += 1

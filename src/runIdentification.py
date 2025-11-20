@@ -200,7 +200,7 @@ def interpolateToNewRTs(xic, newRTs):
                     leftInd = bestNextRtInd - 1
                     rightInd = bestNextRtInd
 
-                assert leftInd != None, "Branch should not exists..."
+                assert leftInd is not None, "Branch should not exists..."
 
                 nxic[curPosN, 1] = xic[leftInd, 1] + (xic[rightInd, 1] - xic[leftInd, 1]) / (xic[rightInd, 0] - xic[leftInd, 0]) * (rt - xic[leftInd, 0])
 

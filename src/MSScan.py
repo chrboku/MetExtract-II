@@ -92,7 +92,7 @@ class MSScan:
     def findMZ(self, mz, ppm, start=None, stop=None):
         mzleft = mz * (1.0 - ppm / 1000000.0)
         mzright = mz * (1.0 + ppm / 1000000.0)
-        
+
         return self._findMZGeneric(mzleft, mzright, start=start, stop=stop)
 
     def freeMe(self):
@@ -102,14 +102,16 @@ class MSScan:
 
 class MS1Scan(MSScan):
     def __init__(self):
-        pass
+        super().__init__()
 
 
 class MS2Scan(MSScan):
     def __init__(self):
+        super().__init__()
         self.ms1_id = 0
         self.precursor_mz = 0.0
         self.precursor_mz_data = ""
         self.precursor_intensity = 0.0
         self.precursorCharge = 0
-        self.colisionEnergy = 0.0
+        self.collisionEnergy = 0.0
+        self.activationMethod = ""

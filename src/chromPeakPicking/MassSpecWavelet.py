@@ -12,7 +12,7 @@ except ImportError:
     R_AVAILABLE = False
     r = None
 
-from ..utils import Bunch
+from ..utils import Bunch, get_main_dir
 import numpy as np
 errorIndex = 2
 
@@ -20,23 +20,22 @@ errorIndex = 2
 class MassSpecWavelet:
     def __init__(self, scriptLocation=None, scales=None, snrTh=None, minScans=None):
         self.scriptLocation = scriptLocation
-        if self.scriptLocation == None:
-            from ..utils import get_main_dir
-
+        if self.scriptLocation is None:
+            
             self.scriptLocation = get_main_dir() + "/src/chromPeakPicking/MassSpecWaveletIdentification.r"
 
         r('source("' + self.scriptLocation + '")')
 
         self.scales = scales
-        if self.scales == None:
+        if self.scales is None:
             self.scales = [11, 66]
 
         self.snrTh = snrTh
-        if self.snrTh == None:
+        if self.snrTh is None:
             self.snrTh = 0.1
 
         self.minScans = minScans
-        if self.minScans == None:
+        if self.minScans is None:
             self.minScans = 3
 
     def cleanUp(self):

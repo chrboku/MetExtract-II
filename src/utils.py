@@ -5,8 +5,8 @@ from copy import copy as copycopy
 
 
 import numpy
-from numpy import *
 import numpy as np
+from numpy import array, concatenate, vstack, hstack, zeros, ones, argmax, argmin
 
 from scipy.ndimage import gaussian_filter1d
 
@@ -176,7 +176,7 @@ def _smoothTriangle(data, degree, dropVals=False):
 
 # smooth data series
 def smoothDataSeries(x, y, windowLen=2, polynom=3, window="gaussian", removeNegIntensities=True):
-    if window == None or window.lower() == "none":
+    if window is None or window.lower() == "none":
         return y
 
     window = window.lower()
@@ -1250,23 +1250,21 @@ def createTableFromBunch(
 
 
 def printAsTable(heads, data, printInExcelFormat=False, excelSep="\t", sepEach=15):
-    widths = [0 for i in range(len(heads))]
-    for i in range(len(heads)):
-        widths[i] = len(heads[i])
+    widths = [len(head) for head in heads]
 
-    for i in range(len(data)):
-        if len(data[i]) != len(heads):
+    for row in data:
+        if len(row) != len(heads):
             raise Exception("data not consistent")
-        for j in range(len(data[i])):
-            widths[j] = max(widths[j], len(data[i][j]))
+        for j, cell in enumerate(row):
+            widths[j] = max(widths[j], len(cell))
 
     if printInExcelFormat:
-        row_format = excelSep.join("{%d}" % (i) for i in range(len(heads)))
+        row_format = excelSep.join("{%d}" % i for i in range(len(heads)))
     else:
         row_format = "  ".join("{%d:>%d}" % (i, widths[i]) for i in range(len(heads)))
     print(row_format.format(*heads))
     if not printInExcelFormat:
-        hrow = row_format.replace(" ", "-").format(*["".join(["-" for j in range(widths[i])]) for i in range(len(widths))])
+        hrow = row_format.replace(" ", "-").format(*["-" * widths[i] for i in range(len(widths))])
         print(hrow)
 
     j = 0
@@ -1279,9 +1277,7 @@ def printAsTable(heads, data, printInExcelFormat=False, excelSep="\t", sepEach=1
 
 
 def printObjectsAsTable(objs, attrs, printInExcelFormat=False, excelSep="\t"):
-    widths = [0 for i in range(len(attrs))]
-    for i in range(len(attrs)):
-        widths[i] = len(attrs[i])
+    widths = [len(attr) for attr in attrs]
 
     for obj in objs:
         for j, attr in enumerate(attrs):
@@ -1290,12 +1286,12 @@ def printObjectsAsTable(objs, attrs, printInExcelFormat=False, excelSep="\t"):
             widths[j] = max(widths[j], len(str(getattr(obj, attr))))
 
     if printInExcelFormat:
-        row_format = excelSep.join("{%d}" % (i) for i in range(len(attrs)))
+        row_format = excelSep.join("{%d}" % i for i in range(len(attrs)))
     else:
         row_format = "  ".join("{%d:>%d}" % (i, widths[i]) for i in range(len(attrs)))
     print(row_format.format(*attrs))
     if not printInExcelFormat:
-        hrow = row_format.replace(" ", "-").format(*["".join(["-" for j in range(widths[i])]) for i in range(len(widths))])
+        hrow = row_format.replace(" ", "-").format(*["-" * widths[i] for i in range(len(widths))])
         print(hrow)
 
     j = 0
@@ -1311,9 +1307,7 @@ def printObjectsAsTable(objs, attrs, printInExcelFormat=False, excelSep="\t"):
 
 
 def printArraysAsTable(objs, positions, printInExcelFormat=False, excelSep="\t"):
-    widths = [0 for i in range(len(positions))]
-    for i in range(len(positions)):
-        widths[i] = len(str(positions[i]))
+    widths = [len(str(pos)) for pos in positions]
 
     for obj in objs:
         for j, pos in enumerate(positions):
@@ -1322,12 +1316,12 @@ def printArraysAsTable(objs, positions, printInExcelFormat=False, excelSep="\t")
             widths[j] = max(widths[j], len(str(obj[pos])))
 
     if printInExcelFormat:
-        row_format = excelSep.join("{%d}" % (i) for i in range(len(positions)))
+        row_format = excelSep.join("{%d}" % i for i in range(len(positions)))
     else:
         row_format = "  ".join("{%d:>%d}" % (i, widths[i]) for i in range(len(positions)))
     print(row_format.format(*positions))
     if not printInExcelFormat:
-        hrow = row_format.replace(" ", "-").format(*["".join(["-" for j in range(widths[i])]) for i in range(len(widths))])
+        hrow = row_format.replace(" ", "-").format(*["-" * widths[i] for i in range(len(widths))])
         print(hrow)
 
     j = 0
