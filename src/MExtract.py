@@ -9039,7 +9039,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         for ms2_info in sorted(matching_ms2, key=lambda x: x["scan"].precursor_intensity):
             scan = ms2_info["scan"]
             form_label = "M" if ms2_info["form"] == "native" else "M'"
-            item_text = "S %d: %s I %.3g, %.4f @ %.2f min" % (scan.id, form_label, scan.precursor_intensity, scan.precursor_mz, scan.retention_time / 60.0)
+            item_text = "%s: I %.3g, %.4f @ %.2f min" % (form_label, scan.precursor_intensity, scan.precursor_mz, scan.retention_time / 60.0)
             list_item = QtWidgets.QListWidgetItem(item_text)
             list_item.setData(QtCore.Qt.UserRole, scan)  # Store scan object
             list_item.setData(QtCore.Qt.UserRole + 1, ms2_info["form"])  # Store form type
@@ -9048,9 +9048,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # Auto-select last 6 entries
         total_items = self.ui.msms_SpectraList.count()
         if total_items > 0:
-            start_index = max(0, total_items - 6)
-            for i in range(start_index, total_items):
-                self.ui.msms_SpectraList.item(i).setSelected(True)
+            self.ui.msms_SpectraList.item(total_items - 1).setSelected(True)
 
     def plotSelectedMSMSSpectra(self):
         """Plot selected MSMS spectra as subplots with shared x-axis"""
@@ -9116,7 +9114,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             # Set labels and title
             ax.set_xlabel("m/z", fontsize=12)
             ax.set_ylabel("Intensity", fontsize=12)
-            ax.set_title("Scan %d: Precursor %.4f m/z" % (scan.id, scan.precursor_mz), fontsize=12)
+            ax.set_title("Scan %d: %.4f m/z | RT %.2f min | I %.3g" % (scan.id, scan.precursor_mz, scan.retention_time / 60.0, scan.precursor_intensity), fontsize=11)
             ax.tick_params(labelsize=12)
             ax.grid(True, alpha=0.3)
 
@@ -9128,6 +9126,159 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.ui.plMSMS.fig.subplots_adjust(left=0.08, bottom=0.08, right=0.98, top=0.95, hspace=0.4, wspace=0.3)
 
         self.ui.plMSMS.canvas.draw()
+
+    def updateMSMSList_exp(self, selectedItems):
+        """Filter and populate MSMS spectra list for experimental results panel"""
+        self.ui.msms_SpectraList_exp.clear()
+
+        if not hasattr(self, "loadedMZXMLs") or self.loadedMZXMLs is None:
+            return
+
+        # Get ppm tolerance and RT border offset from UI
+        try:
+            ppm = self.ui.doubleSpinBox_resultsExperiment_EICppm.value()
+        except:
+            ppm = 5.0
+
+        try:
+            borderOffset = self.ui.doubleSpinBox_resultsExperiment_PeakWidth.value()
+        except:
+            borderOffset = 0.5  # Default 0.5 minutes
+
+        # Collect RT and m/z ranges from selected features
+        feature_ranges = []
+        for item in selectedItems:
+            if hasattr(item, "bunchData"):
+                bd = item.bunchData
+                if bd.type == "featurePair":
+                    # Get RT range using borderOffset (rt is in seconds)
+                    rt_min = bd.rt - (borderOffset * 60.0)  # Convert minutes to seconds
+                    rt_max = bd.rt + (borderOffset * 60.0)
+
+                    # Store native (M) and labeled (M') ranges separately
+                    native_mz_min = bd.mz * (1 - ppm / 1000000.0)
+                    native_mz_max = bd.mz * (1 + ppm / 1000000.0)
+
+                    feature_ranges.append({"rt_min": rt_min, "rt_max": rt_max, "mz_min": native_mz_min, "mz_max": native_mz_max, "feature_name": "%.4f @ %.2f min" % (bd.mz, bd.rt / 60.0), "form": "native"})
+
+                    # Add labeled form
+                    labeled_mz_min = bd.lmz * (1 - ppm / 1000000.0)
+                    labeled_mz_max = bd.lmz * (1 + ppm / 1000000.0)
+                    feature_ranges.append({"rt_min": rt_min, "rt_max": rt_max, "mz_min": labeled_mz_min, "mz_max": labeled_mz_max, "feature_name": "%.4f @ %.2f min" % (bd.lmz, bd.rt / 60.0), "form": "labeled"})
+
+        if not feature_ranges:
+            return
+
+        # Collect MS2 scans from all loaded files
+        all_ms2_scans = []
+        for file_key, mzxml_file in self.loadedMZXMLs.items():
+            if hasattr(mzxml_file, "MS2_list") and len(mzxml_file.MS2_list) > 0:
+                for ms2_scan in mzxml_file.MS2_list:
+                    # Check if this scan matches any feature range
+                    for fr in feature_ranges:
+                        if fr["rt_min"] <= ms2_scan.retention_time <= fr["rt_max"]:
+                            if fr["mz_min"] <= ms2_scan.precursor_mz <= fr["mz_max"]:
+                                all_ms2_scans.append({"scan": ms2_scan, "form": fr["form"], "file": file_key})
+                                break
+
+        # Add to list widget - sort by filename then RT using natural sort
+        temp_list = []
+        for scan_info in all_ms2_scans:
+            scan = scan_info["scan"]
+            form = scan_info["form"]
+            file_key = scan_info["file"]
+
+            # Extract filename from path
+            filename = os.path.basename(file_key)
+            temp_list.append((scan, form, filename))
+
+        # Sort by filename (natural sort) then by retention time
+        temp_list = natSort(temp_list, key=lambda x: (x[0].precursor_intensity))
+
+        for scan, form, filename in temp_list:
+            item_text = "%s: I %.3g, %.4f @ %.2f, %s" % ("M'" if form == "labeled" else "M", scan.precursor_intensity, scan.precursor_mz, scan.retention_time / 60.0, filename)
+            item = QtWidgets.QListWidgetItem(item_text)
+            item.setData(QtCore.Qt.UserRole, scan)
+            item.setData(QtCore.Qt.UserRole + 1, form)
+            self.ui.msms_SpectraList_exp.addItem(item)
+
+        # Auto-select last 6 entries
+        total_items = self.ui.msms_SpectraList_exp.count()
+        if total_items > 0:
+            self.ui.msms_SpectraList_exp.item(total_items - 1).setSelected(True)
+
+    def plotSelectedMSMSSpectra_exp(self):
+        """Plot selected MSMS spectra from experimental results panel"""
+        selected_items = self.ui.msms_SpectraList_exp.selectedItems()
+
+        if not selected_items:
+            # Clear the plot
+            self.ui.plMSMS_exp.fig.clear()
+            self.ui.plMSMS_exp.axes = []
+            self.ui.plMSMS_exp.canvas.draw()
+            return
+
+        # Clear previous plots
+        self.ui.plMSMS_exp.fig.clear()
+        self.ui.plMSMS_exp.axes = []
+
+        # Calculate subplot grid
+        n_spectra = len(selected_items)
+        n_cols = min(2, n_spectra)
+        n_rows = (n_spectra + n_cols - 1) // n_cols
+
+        # Create subplots with shared x-axis
+        first_ax = None
+        for idx, item in enumerate(selected_items):
+            scan = item.data(QtCore.Qt.UserRole)
+            form_type = item.data(QtCore.Qt.UserRole + 1)
+
+            # Determine color based on form type
+            if form_type == "labeled":
+                spectrum_color = "firebrick"
+                label_color = "darkred"
+            else:  # native
+                spectrum_color = "dodgerblue"
+                label_color = "darkblue"
+
+            # Create subplot with shared x-axis
+            if idx == 0:
+                ax = self.ui.plMSMS_exp.fig.add_subplot(n_rows, n_cols, idx + 1)
+                first_ax = ax
+            else:
+                ax = self.ui.plMSMS_exp.fig.add_subplot(n_rows, n_cols, idx + 1, sharex=first_ax)
+
+            self.ui.plMSMS_exp.axes.append(ax)
+
+            # Plot MS/MS spectrum as stem plot with form-specific color
+            if len(scan.mz_list) > 0:
+                ax.vlines(scan.mz_list, 0, scan.intensity_list, colors=spectrum_color, linewidth=1.5)
+                ax.plot(scan.mz_list, scan.intensity_list, "o", markersize=3, color=spectrum_color)
+
+                # Label the 10 most abundant peaks
+                if len(scan.intensity_list) > 0:
+                    intensity_with_idx = [(intensity, idx) for idx, intensity in enumerate(scan.intensity_list)]
+                    intensity_with_idx.sort(reverse=True)
+                    top_indices = [idx for _, idx in intensity_with_idx[:10]]
+                    for peak_idx in top_indices:
+                        mz_val = scan.mz_list[peak_idx]
+                        intensity_val = scan.intensity_list[peak_idx]
+                        ax.text(mz_val, intensity_val, "%.4f" % mz_val, fontsize=12, ha="center", va="bottom", rotation=90, color=label_color, alpha=0.3)
+
+            # Set labels and title
+            ax.set_xlabel("m/z", fontsize=12)
+            ax.set_ylabel("Intensity", fontsize=12)
+            ax.set_title("Scan %d: %.4f m/z | RT %.2f min | I %.3g" % (scan.id, scan.precursor_mz, scan.retention_time / 60.0, scan.precursor_intensity), fontsize=11)
+            ax.tick_params(labelsize=12)
+            ax.grid(True, alpha=0.3)
+
+        # Apply tight layout for optimal spacing
+        try:
+            self.ui.plMSMS_exp.fig.tight_layout()
+        except Exception:
+            self.ui.plMSMS_exp.fig.subplots_adjust(left=0.08, bottom=0.08, right=0.98, top=0.95, hspace=0.4, wspace=0.3)
+
+        self.ui.plMSMS_exp.canvas.draw()
 
     # </editor-fold>
 
@@ -10404,6 +10555,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 ylim=[0, (done + 1) * 10],
             )
 
+        # Update MSMS spectra list for selected features
+        selectedItems = self.ui.resultsExperiment_TreeWidget.selectedItems()
+        self.updateMSMSList_exp(selectedItems)
+
     def exportAsPDF(self, pdfFile=None):
         experimentalGroups = [
             t.data(QListWidgetItem.UserType)
@@ -11451,6 +11606,19 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         vbox.addWidget(self.ui.resultsExperimentMSScanPeaks_plot.canvas)
         self.ui.resultsExperimentMSScan_widget.setLayout(vbox)
 
+        # Setup experiment MSMS plot - multiple MS/MS spectra subplots
+        self.ui.plMSMS_exp = QtCore.QObject()
+        self.ui.plMSMS_exp.dpi = 50
+        self.ui.plMSMS_exp.fig = Figure((5.0, 4.0), dpi=self.ui.plMSMS_exp.dpi, facecolor="white")
+        self.ui.plMSMS_exp.canvas = FigureCanvas(self.ui.plMSMS_exp.fig)
+        self.ui.plMSMS_exp.canvas.setParent(self.ui.plMSMSWidget_exp)
+        self.ui.plMSMS_exp.mpl_toolbar = NavigationToolbar(self.ui.plMSMS_exp.canvas, self.ui.plMSMSWidget_exp)
+
+        vbox = QtWidgets.QVBoxLayout()
+        vbox.addWidget(self.ui.plMSMS_exp.mpl_toolbar)
+        vbox.addWidget(self.ui.plMSMS_exp.canvas)
+        self.ui.plMSMSWidget_exp.setLayout(vbox)
+
         self.ui.pl2A.xics = []
         self.ui.pl2A.times = []
         self.ui.pl2A.peaks = []
@@ -11487,6 +11655,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.loadedMZXMLs = None
         self.ui.resultsExperiment_TreeWidget.itemSelectionChanged.connect(self.resultsExperimentChangedNew)
+        self.ui.msms_SpectraList_exp.itemSelectionChanged.connect(self.plotSelectedMSMSSpectra_exp)
         self.ui.pushButton_exportAllAsPDF.clicked.connect(self.exportAsPDF)
 
         self.ui.showCustomFeature_pushButton.clicked.connect(self.showCustomFeature)

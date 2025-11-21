@@ -2450,6 +2450,36 @@ class Ui_MainWindow(object):
         self.horizontalLayout_22.addItem(spacerItem65)
         self.gridLayout_43.addLayout(self.horizontalLayout_22, 0, 0, 1, 2)
         self.tabWidget_3.addTab(self.tab_6, _fromUtf8(""))
+        self.tab_msms_exp = QtWidgets.QWidget()
+        self.tab_msms_exp.setObjectName(_fromUtf8("tab_msms_exp"))
+        self.gridLayout_msms_exp = QtWidgets.QGridLayout(self.tab_msms_exp)
+        self.gridLayout_msms_exp.setObjectName(_fromUtf8("gridLayout_msms_exp"))
+        self.splitter_msms_exp = QtWidgets.QSplitter(self.tab_msms_exp)
+        self.splitter_msms_exp.setOrientation(QtCore.Qt.Horizontal)
+        self.splitter_msms_exp.setObjectName(_fromUtf8("splitter_msms_exp"))
+        self.msms_list_container_exp = QtWidgets.QWidget(self.splitter_msms_exp)
+        self.msms_list_container_exp.setObjectName(_fromUtf8("msms_list_container_exp"))
+        self.verticalLayout_msms_exp = QtWidgets.QVBoxLayout(self.msms_list_container_exp)
+        self.verticalLayout_msms_exp.setContentsMargins(0, 0, 0, 0)
+        self.verticalLayout_msms_exp.setObjectName(_fromUtf8("verticalLayout_msms_exp"))
+        self.label_msms_exp = QtWidgets.QLabel(self.msms_list_container_exp)
+        self.label_msms_exp.setObjectName(_fromUtf8("label_msms_exp"))
+        self.verticalLayout_msms_exp.addWidget(self.label_msms_exp)
+        self.msms_SpectraList_exp = QtWidgets.QListWidget(self.msms_list_container_exp)
+        self.msms_SpectraList_exp.setMinimumSize(QtCore.QSize(200, 0))
+        self.msms_SpectraList_exp.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
+        self.msms_SpectraList_exp.setObjectName(_fromUtf8("msms_SpectraList_exp"))
+        self.verticalLayout_msms_exp.addWidget(self.msms_SpectraList_exp)
+        self.plMSMSWidget_exp = QtWidgets.QWidget(self.splitter_msms_exp)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.plMSMSWidget_exp.sizePolicy().hasHeightForWidth())
+        self.plMSMSWidget_exp.setSizePolicy(sizePolicy)
+        self.plMSMSWidget_exp.setMinimumSize(QtCore.QSize(700, 500))
+        self.plMSMSWidget_exp.setObjectName(_fromUtf8("plMSMSWidget_exp"))
+        self.gridLayout_msms_exp.addWidget(self.splitter_msms_exp, 0, 0, 1, 1)
+        self.tabWidget_3.addTab(self.tab_msms_exp, _fromUtf8(""))
         self.gridLayout_40.addWidget(self.tabWidget_3, 4, 1, 1, 1)
         self.scrollArea.setWidget(self.scrollAreaWidgetContents)
         self.gridLayout_2.addWidget(self.scrollArea, 0, 0, 1, 1)
@@ -3090,6 +3120,11 @@ class Ui_MainWindow(object):
         self.tabWidget_3.setTabText(
             self.tabWidget_3.indexOf(self.tab_6),
             _translate("MainWindow", "Separated peaks", None),
+        )
+        self.label_msms_exp.setText(_translate("MainWindow", "MS/MS Spectra in feature", None))
+        self.tabWidget_3.setTabText(
+            self.tabWidget_3.indexOf(self.tab_msms_exp),
+            _translate("MainWindow", "MS/MS", None),
         )
         self.tabWidget.setTabText(
             self.tabWidget.indexOf(self.bracketedResultsTab),

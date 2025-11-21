@@ -938,6 +938,10 @@ def readTSVFileAsBunch(
     if renameRows is None:
         renameRows = {}
 
+    # Convert string parameters to bytes for binary mode file operations
+    delim_bytes = delim.encode("utf-8") if isinstance(delim, str) else delim
+    commentChar_bytes = commentChar.encode("utf-8") if isinstance(commentChar, str) else commentChar
+
     with open(file, "rb") as fin:
         curRowi = 0
         headers = {}
@@ -947,11 +951,11 @@ def readTSVFileAsBunch(
         for line in fin:
             if omitFirstNRows > 0:
                 continue
-            if line.startswith(commentChar):
+            if line.startswith(commentChar_bytes):
                 continue
 
-            hs = line.split(delim)
-            hs = [h.strip() for h in hs]
+            hs = line.split(delim_bytes)
+            hs = [h.strip().decode("utf-8") for h in hs]
             if curRowi == 0:
                 for j, h in enumerate(hs):
                     if h in renameRows.keys():
