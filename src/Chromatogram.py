@@ -632,14 +632,14 @@ class Chromatogram:
     def parseMzMLFile(self, filename_xml, intensityCutoff, ignoreCharacterData):
         run = pymzml.run.Reader(filename_xml)
 
-        for specturm in run:
-            if "time array" in specturm or specturm["id"] is None:
+        for spectrum in run:
+            if "time array" in spectrum or spectrum["id"] is None:
                 continue
 
             try:
-                msLevel = int(specturm["ms level"])
+                msLevel = int(spectrum["ms level"])
             except (KeyError, ValueError, TypeError) as e:
-                print(f"Error: Cannot determine MS level for spectrum {specturm['id']}: {e}")
+                print(f"Error: Cannot determine MS level for spectrum {spectrum['id']}: {e}")
                 continue
 
             if msLevel == 1:
@@ -647,39 +647,39 @@ class Chromatogram:
             elif msLevel == 2:
                 tmp_ms = MS2Scan()
             else:
-                print("What is it?", msLevel, specturm["id"])
+                print("What is it?", msLevel, spectrum["id"])
                 sys.exit(1)
 
-            if "positive scan" in specturm:
+            if "positive scan" in spectrum:
                 tmp_ms.polarity = "+"
-            elif "negative scan" in specturm:
+            elif "negative scan" in spectrum:
                 tmp_ms.polarity = "-"
             else:
                 raise RuntimeError("No polarity for scan available")
 
-            tmp_ms.id = int(specturm["id"])
-            if "filter string" in specturm.__dict__.keys():
-                tmp_ms.filter_line = specturm["filter string"]
+            tmp_ms.id = int(spectrum["id"])
+            if "filter string" in spectrum.__dict__.keys():
+                tmp_ms.filter_line = spectrum["filter string"]
             else:
                 tmp_ms.filter_line = f"NA // MSLevel: {msLevel}, polarity: {tmp_ms.polarity}"
 
-            tmp_ms.peak_count = len(specturm.peaks(peak_type="centroided"))
-            tmp_ms.retention_time = specturm.scan_time_in_minutes() * 60.0
+            tmp_ms.peak_count = len(spectrum.peaks(peak_type="centroided"))
+            tmp_ms.retention_time = spectrum.scan_time_in_minutes() * 60.0
 
             # if tmp_ms.peak_count > 0:
-            tmp_ms.total_ion_current = specturm["total ion current"]
+            tmp_ms.total_ion_current = spectrum["total ion current"]
             tmp_ms.list_size = 0
             # Keep as numpy arrays directly from pymzml
-            tmp_ms.mz_list = specturm.peaks(peak_type="centroided")[:, 0].copy()
-            tmp_ms.intensity_list = specturm.peaks(peak_type="centroided")[:, 1].copy()
+            tmp_ms.mz_list = spectrum.peaks(peak_type="centroided")[:, 0].copy()
+            tmp_ms.intensity_list = spectrum.peaks(peak_type="centroided")[:, 1].copy()
             tmp_ms.msInstrumentID = ""
 
             if msLevel == 1:
                 self.MS1_list.append(tmp_ms)
             elif msLevel == 2:
-                tmp_ms.precursor_mz = specturm["precursors"][0]["mz"]
-                tmp_ms.precursor_intensity = 0
-                tmp_ms.precursor_charge = specturm["precursors"][0]["charge"]
+                tmp_ms.precursor_mz = spectrum.selected_precursors[0].get("mz", 0)
+                tmp_ms.precursor_intensity = spectrum.selected_precursors[0].get("i", 0)
+                tmp_ms.precursor_charge = spectrum.selected_precursors[0].get("charge", 0)
                 self.MS2_list.append(tmp_ms)
 
         precursors = []

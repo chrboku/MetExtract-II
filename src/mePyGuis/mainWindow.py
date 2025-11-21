@@ -1953,6 +1953,7 @@ class Ui_MainWindow(object):
         self.res_ExtractedData.header().setDefaultSectionSize(75)
         self.res_ExtractedData.header().setMinimumSectionSize(30)
         self.gridLayout_46.addWidget(self.res_ExtractedData, 6, 0, 1, 3)
+
         self.horizontalLayout_6 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_6.setObjectName(_fromUtf8("horizontalLayout_6"))
         self.label_59 = QtWidgets.QLabel(self.widget)
@@ -2234,6 +2235,51 @@ class Ui_MainWindow(object):
         self.line_16.setObjectName(_fromUtf8("line_16"))
         self.gridLayout_28.addWidget(self.line_16, 1, 0, 1, 1)
         self.tabWidget_2.addTab(self.tab_2, _fromUtf8(""))
+
+        # MSMS Spectra Plot Tab
+        self.tab_msms = QtWidgets.QWidget()
+        self.tab_msms.setObjectName(_fromUtf8("tab_msms"))
+        self.gridLayout_msms = QtWidgets.QGridLayout(self.tab_msms)
+        self.gridLayout_msms.setObjectName(_fromUtf8("gridLayout_msms"))
+
+        # MSMS Tab Splitter (List on left, Plot on right)
+        self.splitter_msms = QtWidgets.QSplitter(self.tab_msms)
+        self.splitter_msms.setOrientation(QtCore.Qt.Horizontal)
+        self.splitter_msms.setObjectName(_fromUtf8("splitter_msms"))
+
+        # MSMS List Widget Container
+        self.msms_list_container = QtWidgets.QWidget(self.splitter_msms)
+        self.msms_list_container.setObjectName(_fromUtf8("msms_list_container"))
+        self.gridLayout_msms_list = QtWidgets.QGridLayout(self.msms_list_container)
+        self.gridLayout_msms_list.setObjectName(_fromUtf8("gridLayout_msms_list"))
+
+        self.label_msms = QtWidgets.QLabel(self.msms_list_container)
+        self.label_msms.setObjectName(_fromUtf8("label_msms"))
+        self.gridLayout_msms_list.addWidget(self.label_msms, 0, 0, 1, 1)
+
+        self.msms_SpectraList = QtWidgets.QListWidget(self.msms_list_container)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.msms_SpectraList.sizePolicy().hasHeightForWidth())
+        self.msms_SpectraList.setSizePolicy(sizePolicy)
+        self.msms_SpectraList.setMinimumSize(QtCore.QSize(300, 0))
+        self.msms_SpectraList.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
+        self.msms_SpectraList.setObjectName(_fromUtf8("msms_SpectraList"))
+        self.gridLayout_msms_list.addWidget(self.msms_SpectraList, 1, 0, 1, 1)
+
+        # MSMS Plot Widget
+        self.plMSMSWidget = QtWidgets.QWidget(self.splitter_msms)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.plMSMSWidget.sizePolicy().hasHeightForWidth())
+        self.plMSMSWidget.setSizePolicy(sizePolicy)
+        self.plMSMSWidget.setObjectName(_fromUtf8("plMSMSWidget"))
+
+        self.gridLayout_msms.addWidget(self.splitter_msms, 0, 0, 1, 1)
+        self.tabWidget_2.addTab(self.tab_msms, _fromUtf8(""))
+
         self.gridLayout_5.addWidget(self.tabWidget_2, 0, 1, 1, 1)
         self.gridLayout_15.addWidget(self.splitter, 1, 0, 1, 1)
         self.scrollArea_3.setWidget(self.scrollAreaWidgetContents_6)
@@ -2933,6 +2979,7 @@ class Ui_MainWindow(object):
         self.res_ExtractedData.headerItem().setText(1, _translate("MainWindow", "2", None))
         self.res_ExtractedData.headerItem().setText(2, _translate("MainWindow", "3", None))
         self.res_ExtractedData.headerItem().setText(3, _translate("MainWindow", "4", None))
+        self.label_msms.setText(_translate("MainWindow", "MS/MS Spectra in feature", None))
         self.label_59.setText(_translate("MainWindow", "Processed file", None))
         self.label_41.setText(_translate("MainWindow", "Filter", None))
         self.label_22.setText(_translate("MainWindow", "Result name", None))
@@ -3001,6 +3048,10 @@ class Ui_MainWindow(object):
         self.tabWidget_2.setTabText(
             self.tabWidget_2.indexOf(self.tab_2),
             _translate("MainWindow", "Group results", None),
+        )
+        self.tabWidget_2.setTabText(
+            self.tabWidget_2.indexOf(self.tab_msms),
+            _translate("MainWindow", "MS/MS Spectra", None),
         )
         self.tabWidget.setTabText(
             self.tabWidget.indexOf(self.resultsTab),

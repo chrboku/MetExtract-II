@@ -14,6 +14,7 @@ except ImportError:
 
 from ..utils import Bunch, get_main_dir
 import numpy as np
+
 errorIndex = 2
 
 
@@ -21,7 +22,6 @@ class MassSpecWavelet:
     def __init__(self, scriptLocation=None, scales=None, snrTh=None, minScans=None):
         self.scriptLocation = scriptLocation
         if self.scriptLocation is None:
-            
             self.scriptLocation = get_main_dir() + "/src/chromPeakPicking/MassSpecWaveletIdentification.r"
 
         r('source("' + self.scriptLocation + '")')
@@ -42,7 +42,6 @@ class MassSpecWavelet:
         r("rm(list=ls());gc();")
 
     def getPeaksFor(self, timesi, eici, startIndex=None, endIndex=None):
-
         snrTh = 3
 
         # precheck

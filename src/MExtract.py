@@ -5328,12 +5328,14 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 ## Parse raw data
                 pw.setMaxu(1, i=0)
                 self.currentOpenRawFile = Chromatogram()
-                # TODO include when implemented self.currentOpenRawFile.parse_file(b.file)
-                pw.setText("Raw data imported", i=0)
+                self.currentOpenRawFile.parse_file(b.file, ignoreCharacterData=False)
+                pw.setText("Raw data imported (MS1: %d, MS2: %d)" % (len(self.currentOpenRawFile.MS1_list), len(self.currentOpenRawFile.MS2_list)), i=0)
                 pw.setValueu(1, i=0)
 
-            except:
-                pass
+            except Exception as e:
+                logging.warning(f"Could not parse raw file: {e}")
+                self.currentOpenRawFile = None
+                pw.setText("Raw data import failed", i=0)
 
             try:
                 ## Fetched matched MZ signal pairs
@@ -5595,9 +5597,21 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         assignedMZs=assignedMZs,
                     )
 
+                    # Check if MSMS spectra exist for this feature
+                    try:
+                        ppm = float(self.getParametersFromCurrentRes("Mass deviation (+/- ppm)"))
+                    except:
+                        ppm = 5.0
+                    rt_min = xp.NPeakCenterMin - xp.NPeakScale
+                    rt_max = xp.NPeakCenterMin + xp.NPeakScale
+                    rt_min = min(rt_min, xp.LPeakCenterMin - xp.LPeakScale)
+                    rt_max = max(rt_max, xp.LPeakCenterMin + xp.LPeakScale)
+                    has_msms = self.hasMSMSSpectra(xp.mz, rt_min, rt_max, ppm) or self.hasMSMSSpectra(xp.lmz, rt_min, rt_max, ppm)
+                    msms_marker = "* " if has_msms else ""
+
                     d = QtWidgets.QTreeWidgetItem(
                         [
-                            "%.5f" % xp.mz + " (/" + str(row.ionMode) + str(row.Loading) + ") ",
+                            msms_marker + "%.5f" % xp.mz + " (/" + str(row.ionMode) + str(row.Loading) + ") ",
                             "%.2f / %.2f"
                             % (
                                 float(row.NPeakCenterMin) / 60.0,
@@ -5677,6 +5691,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     d.setExpanded(True)
                     cpCount = 0
                     sumRt = 0.0
+                    has_msms_in_group = False
                     for row in SQLSelectAsObject(
                         self.currentOpenResultsFile.curs,
                         "SELECT c.id AS cpID, "
@@ -5790,9 +5805,25 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         xp.peaksCorr = float(row.peaksCorr)
                         xp.peaksRatio = float(row.peaksRatio)
 
+                        # Check if MSMS spectra exist for this feature
+                        try:
+                            ppm = float(self.getParametersFromCurrentRes("Mass deviation (+/- ppm)"))
+                        except:
+                            ppm = 5.0
+                        rt_min = xp.NPeakCenterMin - xp.NPeakScale
+                        rt_max = xp.NPeakCenterMin + xp.NPeakScale
+                        rt_min = min(rt_min, xp.LPeakCenterMin - xp.LPeakScale)
+                        rt_max = max(rt_max, xp.LPeakCenterMin + xp.LPeakScale)
+                        has_msms = self.hasMSMSSpectra(xp.mz, rt_min, rt_max, ppm) or self.hasMSMSSpectra(xp.lmz, rt_min, rt_max, ppm)
+                        msms_marker = "* " if has_msms else ""
+
+                        # Track if any feature in this group has MSMS
+                        if has_msms:
+                            has_msms_in_group = True
+
                         g = QtWidgets.QTreeWidgetItem(
                             [
-                                "%.5f" % xp.mz + " (/" + str(row.ionMode) + str(row.Loading) + ") ",
+                                msms_marker + "%.5f" % xp.mz + " (/" + str(row.ionMode) + str(row.Loading) + ") ",
                                 "%.2f / %.2f"
                                 % (
                                     float(row.NPeakCenterMin) / 60.0,
@@ -5826,6 +5857,11 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         d.setText(1, "%.2f" % (sumRt / cpCount / 60.0))
                     else:
                         d.setText(1, "")
+
+                    # Add asterisk to feature group name if any feature has MSMS
+                    if has_msms_in_group:
+                        d.setText(0, "* " + str(fG.featureName))
+
                     children.append(d)
                     count += 1
                     pw.setValueu(count, i=4)
@@ -8918,6 +8954,181 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             ylim=(minMZH * 1.35, maxMZH * 1.35),
         )
 
+        # Filter and display MSMS spectra for selected features
+        self.updateMSMSList(selectedItems)
+
+    # </editor-fold>
+
+    # <editor-fold desc="### MSMS spectrum functions">
+    def hasMSMSSpectra(self, mz, rt_min, rt_max, ppm=5.0):
+        """Check if MSMS spectra exist for a given m/z and RT range"""
+        if not hasattr(self, "currentOpenRawFile") or self.currentOpenRawFile is None:
+            return False
+
+        if not hasattr(self.currentOpenRawFile, "MS2_list") or len(self.currentOpenRawFile.MS2_list) == 0:
+            return False
+
+        # Calculate m/z range with tolerance
+        mz_min = mz * (1 - ppm / 1000000.0)
+        mz_max = mz * (1 + ppm / 1000000.0)
+
+        # Check if any MS2 scans match the criteria
+        for ms2_scan in self.currentOpenRawFile.MS2_list:
+            if rt_min <= ms2_scan.retention_time <= rt_max:
+                if mz_min <= ms2_scan.precursor_mz <= mz_max:
+                    return True
+
+        return False
+
+    def updateMSMSList(self, selectedItems):
+        """Filter and populate MSMS spectra list based on selected features"""
+        self.ui.msms_SpectraList.clear()
+
+        if not hasattr(self, "currentOpenRawFile") or self.currentOpenRawFile is None:
+            return
+
+        if not hasattr(self.currentOpenRawFile, "MS2_list") or len(self.currentOpenRawFile.MS2_list) == 0:
+            return
+
+        # Collect RT and m/z ranges from selected features
+        feature_ranges = []
+        for item in selectedItems:
+            if hasattr(item, "myType") and (item.myType == "feature" or item.myType == "Features"):
+                if item.myType == "feature":
+                    cp = item.myData
+                    # Get RT range in seconds
+                    rt_min = cp.NPeakCenterMin - cp.NPeakScale
+                    rt_max = cp.NPeakCenterMin + cp.NPeakScale
+                    # Also consider labeled peak RT range
+                    rt_min = min(rt_min, cp.LPeakCenterMin - cp.LPeakScale)
+                    rt_max = max(rt_max, cp.LPeakCenterMin + cp.LPeakScale)
+
+                    # Get m/z range with tolerance
+                    try:
+                        ppm = float(self.getParametersFromCurrentRes("Mass deviation (+/- ppm)"))
+                    except:
+                        ppm = 5.0
+
+                    # Store native (M) and labeled (M') ranges separately
+                    native_mz_min = cp.mz * (1 - ppm / 1000000.0)
+                    native_mz_max = cp.mz * (1 + ppm / 1000000.0)
+
+                    feature_ranges.append({"rt_min": rt_min, "rt_max": rt_max, "mz_min": native_mz_min, "mz_max": native_mz_max, "feature_name": "%.4f @ %.2f min" % (cp.mz, cp.NPeakCenterMin / 60.0), "form": "native"})
+
+                    # Add labeled form if available
+                    if hasattr(cp, "lmz"):
+                        labeled_mz_min = cp.lmz * (1 - ppm / 1000000.0)
+                        labeled_mz_max = cp.lmz * (1 + ppm / 1000000.0)
+                        feature_ranges.append({"rt_min": rt_min, "rt_max": rt_max, "mz_min": labeled_mz_min, "mz_max": labeled_mz_max, "feature_name": "%.4f @ %.2f min" % (cp.lmz, cp.LPeakCenterMin / 60.0), "form": "labeled"})
+
+        if not feature_ranges:
+            return
+
+        # Filter MS2 spectra within feature ranges
+        matching_ms2 = []
+        for ms2_scan in self.currentOpenRawFile.MS2_list:
+            for fr in feature_ranges:
+                # Check if MS2 scan is within RT range
+                if fr["rt_min"] <= ms2_scan.retention_time <= fr["rt_max"]:
+                    # Check if precursor m/z is within feature m/z range
+                    if fr["mz_min"] <= ms2_scan.precursor_mz <= fr["mz_max"]:
+                        matching_ms2.append({"scan": ms2_scan, "feature_name": fr["feature_name"], "form": fr["form"]})
+                        break
+
+        # Populate list widget
+        for ms2_info in sorted(matching_ms2, key=lambda x: x["scan"].precursor_intensity):
+            scan = ms2_info["scan"]
+            form_label = "M" if ms2_info["form"] == "native" else "M'"
+            item_text = "S %d: %s I %.3g, %.4f @ %.2f min" % (scan.id, form_label, scan.precursor_intensity, scan.precursor_mz, scan.retention_time / 60.0)
+            list_item = QtWidgets.QListWidgetItem(item_text)
+            list_item.setData(QtCore.Qt.UserRole, scan)  # Store scan object
+            list_item.setData(QtCore.Qt.UserRole + 1, ms2_info["form"])  # Store form type
+            self.ui.msms_SpectraList.addItem(list_item)
+
+        # Auto-select last 6 entries
+        total_items = self.ui.msms_SpectraList.count()
+        if total_items > 0:
+            start_index = max(0, total_items - 6)
+            for i in range(start_index, total_items):
+                self.ui.msms_SpectraList.item(i).setSelected(True)
+
+    def plotSelectedMSMSSpectra(self):
+        """Plot selected MSMS spectra as subplots with shared x-axis"""
+        selected_items = self.ui.msms_SpectraList.selectedItems()
+
+        if not selected_items:
+            # Clear the plot
+            self.ui.plMSMS.fig.clear()
+            self.ui.plMSMS.axes = []
+            self.ui.plMSMS.canvas.draw()
+            return
+
+        # Clear previous plots
+        self.ui.plMSMS.fig.clear()
+        self.ui.plMSMS.axes = []
+
+        # Calculate subplot grid
+        n_spectra = len(selected_items)
+        n_cols = min(2, n_spectra)
+        n_rows = (n_spectra + n_cols - 1) // n_cols
+
+        # Create subplots with shared x-axis
+        first_ax = None
+        for idx, item in enumerate(selected_items):
+            scan = item.data(QtCore.Qt.UserRole)
+            form_type = item.data(QtCore.Qt.UserRole + 1)  # Get form type (native/labeled)
+
+            # Determine color based on form type
+            if form_type == "labeled":
+                spectrum_color = "firebrick"
+                label_color = "darkred"
+            else:  # native
+                spectrum_color = "dodgerblue"
+                label_color = "darkblue"
+
+            # Create subplot with shared x-axis
+            if idx == 0:
+                ax = self.ui.plMSMS.fig.add_subplot(n_rows, n_cols, idx + 1)
+                first_ax = ax
+            else:
+                ax = self.ui.plMSMS.fig.add_subplot(n_rows, n_cols, idx + 1, sharex=first_ax)
+
+            self.ui.plMSMS.axes.append(ax)
+
+            # Plot MS/MS spectrum as stem plot with form-specific color
+            if len(scan.mz_list) > 0:
+                ax.vlines(scan.mz_list, 0, scan.intensity_list, colors=spectrum_color, linewidth=1.5)
+                ax.plot(scan.mz_list, scan.intensity_list, "o", markersize=3, color=spectrum_color)
+
+                # Label the 10 most abundant peaks
+                if len(scan.intensity_list) > 0:
+                    # Get indices of top 10 peaks by intensity
+                    # Create list of (intensity, index) pairs, sort by intensity, get top 10 indices
+                    intensity_with_idx = [(intensity, idx) for idx, intensity in enumerate(scan.intensity_list)]
+                    intensity_with_idx.sort(reverse=True)
+                    top_indices = [idx for _, idx in intensity_with_idx[:10]]
+                    for peak_idx in top_indices:
+                        mz_val = scan.mz_list[peak_idx]
+                        intensity_val = scan.intensity_list[peak_idx]
+                        # Add text label above the peak
+                        ax.text(mz_val, intensity_val, "%.4f" % mz_val, fontsize=12, ha="center", va="bottom", rotation=90, color=label_color, alpha=0.3)
+
+            # Set labels and title
+            ax.set_xlabel("m/z", fontsize=12)
+            ax.set_ylabel("Intensity", fontsize=12)
+            ax.set_title("Scan %d: Precursor %.4f m/z" % (scan.id, scan.precursor_mz), fontsize=12)
+            ax.tick_params(labelsize=12)
+            ax.grid(True, alpha=0.3)
+
+        # Apply tight layout for optimal spacing
+        try:
+            self.ui.plMSMS.fig.tight_layout()
+        except Exception:
+            # Fallback to manual adjustment if tight_layout fails
+            self.ui.plMSMS.fig.subplots_adjust(left=0.08, bottom=0.08, right=0.98, top=0.95, hspace=0.4, wspace=0.3)
+
+        self.ui.plMSMS.canvas.draw()
+
     # </editor-fold>
 
     # <editor-fold desc="### general plotting functions">
@@ -11157,6 +11368,21 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         vbox.addWidget(self.ui.pl3.canvas)
         self.ui.visualizationWidget3.setLayout(vbox)
 
+        # Setup MSMS plot
+        self.ui.plMSMS = QtCore.QObject()
+        self.ui.plMSMS.dpi = 50
+        self.ui.plMSMS.fig = Figure((5.0, 4.0), dpi=self.ui.plMSMS.dpi, facecolor="white")
+        self.ui.plMSMS.fig.subplots_adjust(left=0.08, bottom=0.08, right=0.98, top=0.95, hspace=0.3)
+        self.ui.plMSMS.canvas = FigureCanvas(self.ui.plMSMS.fig)
+        self.ui.plMSMS.canvas.setParent(self.ui.plMSMSWidget)
+        self.ui.plMSMS.axes = []  # Will hold multiple subplot axes
+        self.ui.plMSMS.mpl_toolbar = NavigationToolbar(self.ui.plMSMS.canvas, self.ui.plMSMSWidget)
+
+        vbox = QtWidgets.QVBoxLayout()
+        vbox.addWidget(self.ui.plMSMS.mpl_toolbar)
+        vbox.addWidget(self.ui.plMSMS.canvas)
+        self.ui.plMSMSWidget.setLayout(vbox)
+
         # Setup experiment plot - overlaid EICs plot
         # http://eli.thegreenplace.net/2009/01/20/matplotlib-with-pyqt-guis/
         self.ui.resultsExperiment_plot = QtCore.QObject()
@@ -11236,6 +11462,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.ui.dataFilter.textChanged.connect(self.filterEdited)
         self.ui.res_ExtractedData.itemDoubleClicked.connect(self.res_doubleClick)
+        self.ui.msms_SpectraList.itemSelectionChanged.connect(self.plotSelectedMSMSSpectra)
 
         self.ui.openRAW.clicked.connect(self.openRawFile)
         self.ui.setChromPeakName.clicked.connect(self.setChromPeakName)
