@@ -279,8 +279,98 @@ def setupR_linux(version="4.5.1", subdir_name=".R-4.5.1"):
 
 
 def setupR_mac():
-    print("Automated setup of R on Darwin/MACOS not yet implmeneted, please configure it yourself!")
-    print("")
+    import subprocess
+    import os
+    import urllib.request
+    from PySide6 import QtWidgets
+
+    # Define the URL and the target path for the R installer for macOS
+    r_installer_url = "https://cran.r-project.org/bin/macosx/big-sur-arm64/base/R-4.5.1-arm64.pkg"
+    r_installer_path = os.path.join(get_main_dir(), "R-4.5.1-arm64.pkg")
+
+    try:
+        # Step 1: Ask if the user wants to download the package
+        response = QtWidgets.QMessageBox.question(
+            None,
+            "MetExtract - R Setup for macOS",
+            "Would you like to download the R installer package for macOS?\n\nNote: Due to macOS security restrictions, you will need to install it manually with administrator privileges.",
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+        )
+        if response == QtWidgets.QMessageBox.Yes:
+            # Download the R installer
+            print("Downloading R installer for macOS...")
+
+            # Show progress dialog during download
+            waitDialog = QtWidgets.QProgressDialog(
+                "Downloading R installer for macOS. Please wait...",
+                None,
+                0,
+                0,
+                None,
+            )
+            waitDialog.setWindowTitle("MetExtract - Downloading R")
+            waitDialog.setWindowModality(QtCore.Qt.ApplicationModal)
+            waitDialog.setCancelButton(None)
+            waitDialog.show()
+            QtCore.QCoreApplication.processEvents()
+
+            urllib.request.urlretrieve(r_installer_url, r_installer_path)
+
+            waitDialog.close()
+            print("R installer downloaded successfully.")
+
+            # Step 2: Tell them where the R package is found and how to install it
+            # Step 3: Tell them to configure the R installation in the RPATH.conf file
+            # Step 4: Tell them to restart
+            installation_instructions = (
+                f"R installer has been downloaded successfully!\n\n"
+                f"Location: {r_installer_path}\n\n"
+                f"Please follow these steps to complete the installation:\n\n"
+                f"1️. INSTALL R:\n"
+                f"   - Locate the downloaded package at:\n"
+                f"     {r_installer_path}\n"
+                f"   - Double-click the .pkg file to start the installer\n"
+                f"   - Follow the installation wizard (requires administrator privileges)\n"
+                f"   - R will typically be installed to: /Library/Frameworks/R.framework/Resources\n\n"
+                f"2️. CONFIGURE RPATH.conf:\n"
+                f"   - After installation, open the file:\n"
+                f"     {os.path.join(get_main_dir(), 'RPATH.conf')}\n"
+                f"   - Add a single line with your R installation path, default installation path is:\n"
+                f"     /Library/Frameworks/R.framework/Resources\n"
+                f"   - Save the file\n\n"
+                f"3️. RESTART MetExtract II:\n"
+                f"   - Close this application completely\n"
+                f"   - Restart MetExtract II to apply the changes\n\n"
+                f"Note: If R is installed in a different location, use that path in RPATH.conf instead."
+            )
+            msgBox = QtWidgets.QMessageBox(None)
+            msgBox.setWindowTitle("MetExtract - R Installation Instructions")
+            msgBox.setText("R Installer Downloaded - Manual Installation Required")
+            msgBox.setInformativeText(installation_instructions)
+            msgBox.setIcon(QtWidgets.QMessageBox.Information)
+            msgBox.setStandardButtons(QtWidgets.QMessageBox.Ok)
+            msgBox.setTextFormat(QtCore.Qt.PlainText)
+
+            # Make the message box wider to accommodate the text
+            msgBox.setStyleSheet("QLabel{min-width: 600px;}")
+
+            msgBox.exec()
+
+            return False  # Return False because manual installation is required
+
+        else:
+            print("User declined to download R installer.")
+            return False
+
+    except Exception as ex:
+        print(f"An error occurred during R setup for macOS: {ex}")
+        QtWidgets.QMessageBox.critical(
+            None,
+            "MetExtract - R Setup Error",
+            f"An error occurred while downloading the R installer:\n\n{str(ex)}\n\nPlease download R manually from:\n{r_installer_url}",
+            QtWidgets.QMessageBox.Ok,
+        )
+        return False
 
 
 def setupR():
