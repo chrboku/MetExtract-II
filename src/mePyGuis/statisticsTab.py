@@ -38,9 +38,9 @@ from PySide6.QtWidgets import (
 
 import matplotlib
 
-matplotlib.use("Qt5Agg")
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+matplotlib.use("QtAgg")
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 from matplotlib.widgets import RectangleSelector
 import matplotlib.pyplot as plt
@@ -232,16 +232,14 @@ class MultiVolcanoWidget(QWidget):
             comparisons: List of (group1, group2) tuples
             data: Dictionary containing feature data and group info
         """
-        # Clear existing canvases
-        for canvas in self.volcano_canvases:
-            canvas.deleteLater()
-        self.volcano_canvases.clear()
-
-        # Clear layout
+        # Clear layout first (this will handle containers but not canvas objects tracked separately)
         while self.layout.count():
             item = self.layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
+
+        # Clear existing canvases list (they were already deleted as children of containers)
+        self.volcano_canvases.clear()
 
         if not comparisons:
             return

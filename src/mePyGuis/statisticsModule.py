@@ -18,7 +18,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from scipy.cluster.hierarchy import linkage, dendrogram
 from scipy import stats
-from typing import List, Dict, Tuple, Optional, Any
+from typing import List, Dict, Tuple, Optional, Any, Callable
 import logging
 
 
@@ -356,7 +356,7 @@ class SelectionManager:
 
     def __init__(self):
         self.selected_indices: List[int] = []
-        self.selection_callbacks: List[callable] = []
+        self.selection_callbacks: List[Callable[[List[int]], None]] = []
 
     def add_selection(self, indices: List[int], additive: bool = False):
         """
@@ -380,12 +380,12 @@ class SelectionManager:
         self.selected_indices = []
         self._notify_callbacks()
 
-    def register_callback(self, callback: callable):
+    def register_callback(self, callback: Callable[[List[int]], None]):
         """Register a callback to be notified of selection changes."""
         if callback not in self.selection_callbacks:
             self.selection_callbacks.append(callback)
 
-    def unregister_callback(self, callback: callable):
+    def unregister_callback(self, callback: Callable[[List[int]], None]):
         """Unregister a selection callback."""
         if callback in self.selection_callbacks:
             self.selection_callbacks.remove(callback)
