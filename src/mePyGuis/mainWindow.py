@@ -2484,6 +2484,22 @@ class Ui_MainWindow(object):
         self.scrollArea.setWidget(self.scrollAreaWidgetContents)
         self.gridLayout_2.addWidget(self.scrollArea, 0, 0, 1, 1)
         self.tabWidget.addTab(self.bracketedResultsTab, _fromUtf8(""))
+
+        # Statistics Tab
+        self.statisticsTab = QtWidgets.QWidget()
+        self.statisticsTab.setEnabled(False)
+        self.statisticsTab.setObjectName(_fromUtf8("statisticsTab"))
+        self.gridLayout_statistics = QtWidgets.QGridLayout(self.statisticsTab)
+        self.gridLayout_statistics.setObjectName(_fromUtf8("gridLayout_statistics"))
+
+        # Import and add the Statistics Tab widget
+        from .statisticsTab import StatisticsTabWidget
+
+        self.statisticsWidget = StatisticsTabWidget(self.statisticsTab)
+        self.statisticsWidget.setObjectName(_fromUtf8("statisticsWidget"))
+        self.gridLayout_statistics.addWidget(self.statisticsWidget, 0, 0, 1, 1)
+        self.tabWidget.addTab(self.statisticsTab, _fromUtf8(""))
+
         self.gridLayout_11.addWidget(self.tabWidget, 1, 0, 1, 1)
         self.version = QtWidgets.QLabel(self.centralWidget)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
@@ -3129,6 +3145,10 @@ class Ui_MainWindow(object):
         self.tabWidget.setTabText(
             self.tabWidget.indexOf(self.bracketedResultsTab),
             _translate("MainWindow", "Experiment results", None),
+        )
+        self.tabWidget.setTabText(
+            self.tabWidget.indexOf(self.statisticsTab),
+            _translate("MainWindow", "Statistics", None),
         )
         self.version.setText(_translate("MainWindow", "TextLabel", None))
         self.menuHelp.setTitle(_translate("MainWindow", "Help", None))

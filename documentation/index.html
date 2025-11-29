@@ -68,6 +68,8 @@
                             </li>
                             <li><a href="#resultsTab">Results</a>
                             </li>
+                            <li><a href="#statisticsTab">Statistics</a>
+                            </li>
                         </ul>
                     </li>
 
@@ -1084,6 +1086,88 @@
 
             <p>Results of FragExtract processing can easily be exported in tab-separated table format. To copy the results of all MS/MS targets in a LC-HRMS/MS file, right-click on the top-level item named "MSMS targets" and select "Copy". To copy the results of a single target, right-click on the target name and select "Copy". The copied information can then be transfered to e.g. Excel via the paste operation (Strg+v). The table contains information about the precursor-ions and the extracted MS/MS peaks as well as generated sum formulas. </p>
 
+        </div>
+
+        <div id="statisticsTab" class="container">
+            <h2>Statistics Tab Page</h2>
+            <p>The Statistics tab provides comprehensive statistical analysis tools for exploring and understanding your metabolomics data. It includes both multivariate and univariate analysis methods, as well as data quality assessments.</p>
+
+            <h3>Accessing Statistical Analysis</h3>
+            <p>The Statistics tab becomes active after experiment results have been processed. On the left side, a tree view displays all available analysis methods organized in categories. Click on any method to view its corresponding visualization on the right side.</p>
+
+            <h3>Data Quality Overview</h3>
+            <p>The Data Quality Overview section provides tools for assessing the quality of your experiment:</p>
+            <dl class="dl-horizontal">
+                <dt>Feature Detection Counts</dt>
+                <dd>Shows histograms of how many features were detected across different numbers of replicates within each experimental group. This helps identify features that are consistently detected vs. those that may be unreliable.</dd>
+                <dt>RSD (Relative Standard Deviation)</dt>
+                <dd>Displays box plots of relative standard deviation (CV%) for each experimental group. Features with high RSD values (typically >30%) may indicate technical variability. A reference line at 30% helps identify features that exceed acceptable variation thresholds.</dd>
+                <dt>Abundance Histograms</dt>
+                <dd>Shows the distribution of feature intensities across all samples on a log10 scale. This helps identify the dynamic range of your data and potential issues with signal detection.</dd>
+            </dl>
+
+            <h3>Multivariate Analysis</h3>
+            <p>Multivariate tools analyze patterns across multiple features simultaneously:</p>
+            <dl class="dl-horizontal">
+                <dt>PCA (Principal Component Analysis)</dt>
+                <dd>Reduces the dimensionality of your data and visualizes sample relationships in a score plot. Samples from the same experimental group typically cluster together. The explained variance for each principal component is shown on the axis labels. Samples are color-coded by group membership.</dd>
+                <dt>HCA (Hierarchical Cluster Analysis)</dt>
+                <dd>Creates a dendrogram showing the hierarchical relationships between samples based on their feature profiles. Samples with similar metabolic profiles cluster together. The Ward linkage method with Euclidean distance is used by default.</dd>
+                <dt>Heat Map</dt>
+                <dd>Displays a color-coded matrix of z-score normalized feature intensities. Rows represent features (showing the top 100 most variable features) and columns represent samples. Red indicates higher abundance, blue indicates lower abundance relative to the mean.</dd>
+            </dl>
+
+            <h3>Univariate Analysis - Volcano Plots</h3>
+            <p>Volcano plots are powerful tools for identifying significantly different features between two experimental groups:</p>
+
+            <h4>Adding Comparisons</h4>
+            <p>Click "Add Volcano Comparison" to define a new comparison between two groups. Select the control/reference group and the treatment/condition group. Multiple comparisons can be added, each appearing as a sub-item under "Volcano Plots" in the tree view.</p>
+
+            <h4>Viewing Volcano Plots</h4>
+            <ul>
+                <li><strong>Individual Comparison:</strong> Click on a specific comparison (e.g., "Control vs Treatment") to view its volcano plot</li>
+                <li><strong>All Comparisons:</strong> Click "All Comparisons" to view all defined volcano plots simultaneously in a grid layout</li>
+            </ul>
+
+            <h4>Volcano Plot Interpretation</h4>
+            <p>Each point represents a feature. The x-axis shows log<sub>2</sub> fold change (positive = higher in treatment, negative = lower in treatment). The y-axis shows -log<sub>10</sub>(p-value). Points are colored:</p>
+            <ul>
+                <li><span style="color: red;">Red</span>: Significantly upregulated (higher in treatment)</li>
+                <li><span style="color: blue;">Blue</span>: Significantly downregulated (lower in treatment)</li>
+                <li><span style="color: gray;">Gray</span>: Not significantly different</li>
+                <li><span style="color: orange;">Orange</span>: Currently selected features</li>
+            </ul>
+            <p>Dashed lines indicate the significance thresholds for fold change (±1 log<sub>2</sub> by default) and p-value (0.05 by default).</p>
+
+            <h4>Interactive Feature Selection</h4>
+            <p>Features can be selected interactively using rectangular selection:</p>
+            <ul>
+                <li><strong>Rectangle Selection:</strong> Click and drag to draw a selection rectangle around features of interest</li>
+                <li><strong>Additive Selection:</strong> Hold Ctrl and drag to add features to the current selection</li>
+                <li><strong>Clear Selection:</strong> Press Escape to clear all selections</li>
+            </ul>
+            <p>When viewing "All Comparisons", selecting features in one volcano plot automatically highlights the same features in all other plots, enabling easy cross-comparison.</p>
+
+            <h3>Selected Features Table</h3>
+            <p>Below the main visualization area, a table displays information about currently selected features, including:</p>
+            <ul>
+                <li>Feature index</li>
+                <li>m/z value</li>
+                <li>Retention time</li>
+                <li>Log<sub>2</sub> fold change</li>
+                <li>p-value</li>
+            </ul>
+
+            <h4>Viewing Raw Data</h4>
+            <p>To examine a selected feature in more detail:</p>
+            <ol>
+                <li>Select the feature in the table or click "View Selected in Experiment Results"</li>
+                <li>Right-click on a feature row and select "View in Experiment Results"</li>
+            </ol>
+            <p>This will switch to the Experiment Results tab and display the corresponding raw data (EICs, mass spectra) for the selected feature.</p>
+
+            <h3>Removing Comparisons</h3>
+            <p>To remove a volcano plot comparison, select it in the tree view and click "Remove Selected Comparison". The "All Comparisons" entry cannot be removed.</p>
         </div>
     </div>
 
