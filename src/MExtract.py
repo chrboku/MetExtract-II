@@ -2892,12 +2892,72 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             logging.error("Multiple file results could not be fetched correctly: " + str(e))
             pass
 
+        # Load data into Statistics tab
+        self._loadStatisticsData()
+
     def closeLoadedGroupsResultsFile(self):
         if hasattr(self, "experimentResults"):
             self.ui.resultsExperiment_TreeWidget.clear()
             self.experimentResults.curs.close()
             self.experimentResults.conn.close()
             delattr(self, "experimentResults")
+
+    def _showFeatureInExperimentResults(self, feature_index: int):
+        """Navigate to the experiment results tab and select the specified feature."""
+        # Switch to the experiment results tab (bracketedResultsTab)
+        for i in range(self.ui.tabWidget.count()):
+            if self.ui.tabWidget.widget(i) == self.ui.bracketedResultsTab:
+                self.ui.tabWidget.setCurrentIndex(i)
+                break
+
+        # Try to find and select the feature in the tree widget
+        if hasattr(self, "experimentResults") and self.experimentResults is not None:
+            for i in range(self.ui.resultsExperiment_TreeWidget.topLevelItemCount()):
+                item = self.ui.resultsExperiment_TreeWidget.topLevelItem(i)
+                if hasattr(item, "bunchData") and hasattr(item.bunchData, "id"):
+                    if item.bunchData.id == feature_index:
+                        self.ui.resultsExperiment_TreeWidget.setCurrentItem(item)
+                        self.ui.resultsExperiment_TreeWidget.scrollToItem(item)
+                        return
+
+    def _loadStatisticsData(self):
+        """Load experiment data into the Statistics tab."""
+        if not hasattr(self.ui, "statisticsWidget"):
+            return
+
+        if not hasattr(self, "experimentResults") or self.experimentResults is None:
+            return
+
+        try:
+            # Collect feature data and group info
+            experiment_data = {"features": {}, "groups": {}, "metadata": {}}
+
+            # Get group info
+            for i in range(self.ui.groupsList.count()):
+                item = self.ui.groupsList.item(i)
+                group_data = item.data(QListWidgetItem.UserType)
+                if group_data:
+                    group_name = str(group_data.name)
+                    experiment_data["groups"][group_name] = [str(f) for f in group_data.files]
+
+            # Load feature data from database if available
+            if hasattr(self, "experimentResults") and self.experimentResults.curs is not None:
+                # Get feature pairs data for statistics
+                features = {}
+                metadata = {"mz": {}, "rt": {}}
+
+                for row in self.experimentResults.curs.execute("SELECT id, mz, rt, xn, charge FROM GroupResults"):
+                    idx = row[0]
+                    metadata["mz"][idx] = row[1]
+                    metadata["rt"][idx] = row[2]
+
+                experiment_data["metadata"] = metadata
+
+            self.ui.statisticsWidget.load_experiment_data(experiment_data)
+            self.ui.statisticsTab.setEnabled(True)
+
+        except Exception as e:
+            logging.error(f"Error loading statistics data: {e}")
 
     def resultsExperimentChanged(self):
         self.clearPlot(self.ui.resultsExperiment_plot)
@@ -11900,6 +11960,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.pushButton_exportAllAsPDF.clicked.connect(self.exportAsPDF)
 
         self.ui.showCustomFeature_pushButton.clicked.connect(self.showCustomFeature)
+
+        # Connect Statistics tab signals
+        if hasattr(self.ui, "statisticsWidget"):
+            self.ui.statisticsWidget.showFeatureInExperiment.connect(self._showFeatureInExperimentResults)
 
         p = self.ui.scrollAreaWidgetContents_5.palette()
         p.setColor(self.ui.scrollAreaWidgetContents_5.backgroundRole(), QtCore.Qt.white)
