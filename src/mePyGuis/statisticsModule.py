@@ -27,10 +27,16 @@ class StatisticsData:
 
     def __init__(self):
         self.feature_data: Optional[pd.DataFrame] = None
+        self.feature_data_N: Optional[pd.DataFrame] = None  # Natural abundance (N)
+        self.feature_data_L: Optional[pd.DataFrame] = None  # Labeled abundance (L)
+        self.current_abundance_type: str = "N"  # "Total", "N", or "L" - default to N
+        self.imputation_method: str = "zero"  # "zero" or "lod_half"
+        self.feature_filter: str = "all"  # "all" or "most_abundant"
         self.group_info: Dict[str, List[str]] = {}  # group_name -> [sample_names]
         self.feature_metadata: Optional[pd.DataFrame] = None
         self.selected_features: List[int] = []
         self.volcano_comparisons: List[Tuple[str, str]] = []  # (group1, group2) pairs
+        self.num_features_used: int = 0  # Track number of features used after filtering
 
     def load_from_experiment(self, experiment_data: Dict[str, Any]) -> bool:
         """
@@ -43,16 +49,139 @@ class StatisticsData:
             True if data was loaded successfully, False otherwise
         """
         try:
+            # Load Total abundance (default)
             if "features" in experiment_data and len(experiment_data["features"]) > 0:
-                self.feature_data = pd.DataFrame(experiment_data["features"])
+                self.feature_data = pd.DataFrame(experiment_data["features"]).T
+                # Set index to Num if available in metadata
+                if "metadata" in experiment_data and "num" in experiment_data["metadata"]:
+                    num_mapping = experiment_data["metadata"]["num"]
+                    self.feature_data.index = [num_mapping.get(idx, idx) for idx in self.feature_data.index]
+                logging.info(f"Loaded Total feature data: {self.feature_data.shape[0]} features x {self.feature_data.shape[1]} samples")
+                logging.info(f"DataFrame columns (first 5): {self.feature_data.columns.tolist()[:5]}")
+                logging.info(f"DataFrame index (first 5): {self.feature_data.index.tolist()[:5]}")
+
+            # Load N abundance (natural/unlabeled)
+            if "features_N" in experiment_data and len(experiment_data["features_N"]) > 0:
+                self.feature_data_N = pd.DataFrame(experiment_data["features_N"]).T
+                # Set index to Num if available in metadata
+                if "metadata" in experiment_data and "num" in experiment_data["metadata"]:
+                    num_mapping = experiment_data["metadata"]["num"]
+                    self.feature_data_N.index = [num_mapping.get(idx, idx) for idx in self.feature_data_N.index]
+                logging.info(f"Loaded N (natural) abundance data: {self.feature_data_N.shape[0]} features x {self.feature_data_N.shape[1]} samples")
+
+            # Load L abundance (labeled)
+            if "features_L" in experiment_data and len(experiment_data["features_L"]) > 0:
+                self.feature_data_L = pd.DataFrame(experiment_data["features_L"]).T
+                # Set index to Num if available in metadata
+                if "metadata" in experiment_data and "num" in experiment_data["metadata"]:
+                    num_mapping = experiment_data["metadata"]["num"]
+                    self.feature_data_L.index = [num_mapping.get(idx, idx) for idx in self.feature_data_L.index]
+                logging.info(f"Loaded L (labeled) abundance data: {self.feature_data_L.shape[0]} features x {self.feature_data_L.shape[1]} samples")
+
             if "groups" in experiment_data:
                 self.group_info = experiment_data["groups"]
+                logging.info(f"Group info loaded: {list(self.group_info.keys())}")
+                for group_name, samples in self.group_info.items():
+                    logging.info(f"  Group '{group_name}': {samples[:3] if len(samples) > 3 else samples}...")
+
             if "metadata" in experiment_data:
                 self.feature_metadata = pd.DataFrame(experiment_data["metadata"])
             return True
+
         except Exception as e:
             logging.error(f"Error loading experiment data: {e}")
+            import traceback
+
+            logging.error(traceback.format_exc())
             return False
+
+    def get_active_data(self) -> Optional[pd.DataFrame]:
+        """Get the currently active feature data based on abundance type selection.
+        Applies imputation and feature filtering."""
+        # Get base data
+        if self.current_abundance_type == "N":
+            data = self.feature_data_N if self.feature_data_N is not None else self.feature_data
+        elif self.current_abundance_type == "L":
+            data = self.feature_data_L if self.feature_data_L is not None else self.feature_data
+        else:  # "Total"
+            data = self.feature_data
+
+        if data is None:
+            return None
+
+        # Apply feature filtering (most abundant per OGroup)
+        if self.feature_filter == "most_abundant" and self.feature_metadata is not None:
+            data = self._filter_most_abundant_features(data)
+
+        # Apply imputation
+        data = self._apply_imputation(data)
+
+        # Store count for display
+        self.num_features_used = len(data)
+
+        return data
+
+    def _filter_most_abundant_features(self, data: pd.DataFrame) -> pd.DataFrame:
+        """Keep only the most abundant feature per OGroup."""
+        try:
+            if "ogroup" not in self.feature_metadata.columns:
+                logging.warning("OGroup column not found in metadata, skipping filtering")
+                return data
+
+            # Calculate mean abundance per feature
+            mean_abundance = data.mean(axis=1)
+
+            # Get OGroup for each feature
+            keep_indices = []
+            grouped = {}
+
+            for idx in data.index:
+                if idx in self.feature_metadata.index:
+                    ogroup = self.feature_metadata.loc[idx, "ogroup"]
+                    if ogroup not in grouped:
+                        grouped[ogroup] = []
+                    grouped[ogroup].append((idx, mean_abundance[idx]))
+
+            # Keep most abundant feature per group
+            for ogroup, features in grouped.items():
+                if features:
+                    # Sort by abundance and take the highest
+                    most_abundant = max(features, key=lambda x: x[1])
+                    keep_indices.append(most_abundant[0])
+
+            filtered_data = data.loc[keep_indices]
+            logging.info(f"Feature filtering: {len(data)} -> {len(filtered_data)} features (most abundant per OGroup)")
+            return filtered_data
+
+        except Exception as e:
+            logging.error(f"Error filtering features: {e}")
+            return data
+
+    def _apply_imputation(self, data: pd.DataFrame) -> pd.DataFrame:
+        """Apply imputation method to missing/zero values."""
+        if self.imputation_method == "zero":
+            # Replace NaN with 0
+            return data.fillna(0)
+        elif self.imputation_method == "lod_half":
+            # Replace zeros/NaN with half of minimum detected value per feature
+            imputed = data.copy()
+            for idx in data.index:
+                row = data.loc[idx]
+                non_zero = row[row > 0]
+                if len(non_zero) > 0:
+                    min_val = non_zero.min()
+                    imputed.loc[idx] = row.replace(0, min_val / 2).fillna(min_val / 2)
+                else:
+                    imputed.loc[idx] = row.fillna(0)
+            return imputed
+        else:
+            return data.fillna(0)
+
+    def set_abundance_type(self, abundance_type: str):
+        """Set the active abundance type: 'Total', 'N', or 'L'."""
+        if abundance_type in ["Total", "N", "L"]:
+            self.current_abundance_type = abundance_type
+            logging.info(f"Switched to {abundance_type} abundance data")
 
     def get_group_names(self) -> List[str]:
         """Return list of available group names."""
@@ -174,6 +303,8 @@ class MultivariateAnalysis:
             # Transpose so samples are rows, features are columns
             X = data.T.values
 
+            print(f"Calculating PCA on data shape: {X.shape}, rownames are {data.columns.tolist()[:5]}, colnames are {data.index.tolist()[:5]}")
+
             # Handle missing values
             X = np.nan_to_num(X, nan=0)
 
@@ -183,10 +314,9 @@ class MultivariateAnalysis:
 
             n_components = min(n_components, min(X.shape))
             pca = PCA(n_components=n_components)
-            scores = pca.fit_transform(X)
 
             return {
-                "scores": scores,
+                "scores": pca.fit_transform(X),
                 "loadings": pca.components_,
                 "explained_variance_ratio": pca.explained_variance_ratio_,
                 "sample_names": data.columns.tolist(),
@@ -279,7 +409,7 @@ class UnivariateAnalysis:
     """Performs univariate statistical analyses (Volcano Plot)."""
 
     @staticmethod
-    def calculate_volcano_data(data: pd.DataFrame, group1_samples: List[str], group2_samples: List[str], fc_threshold: float = 1.0, pvalue_threshold: float = 0.05) -> Dict[str, Any]:
+    def calculate_volcano_data(data: pd.DataFrame, group1_samples: List[str], group2_samples: List[str], fc_threshold: float = 1.0, pvalue_threshold: float = 0.05, metadata: Optional[pd.DataFrame] = None) -> Dict[str, Any]:
         """
         Calculate data for volcano plot visualization.
 
@@ -289,17 +419,29 @@ class UnivariateAnalysis:
             group2_samples: Sample names for second group
             fc_threshold: Log2 fold change threshold for significance
             pvalue_threshold: P-value threshold for significance
+            metadata: Optional DataFrame with feature metadata including featurePairID and featureGroupID
 
         Returns:
-            Dictionary with volcano plot data including fold changes, p-values, and significance flags
+            Dictionary with volcano plot data including fold changes, p-values, significance flags, and group statistics
         """
         try:
             # Get data for each group
             g1_cols = [col for col in data.columns if col in group1_samples]
             g2_cols = [col for col in data.columns if col in group2_samples]
 
-            if len(g1_cols) < 2 or len(g2_cols) < 2:
-                return {"success": False, "error": "Need at least 2 samples per group for statistical testing"}
+            logging.info(f"Volcano plot: Group1 has {len(g1_cols)} samples, Group2 has {len(g2_cols)} samples")
+            logging.info(f"Available columns: {data.columns.tolist()}")
+            logging.info(f"Group1 samples: {group1_samples}")
+            logging.info(f"Group2 samples: {group2_samples}")
+
+            if len(g1_cols) == 0:
+                return {"success": False, "error": f"No samples found for group 1. Available: {data.columns.tolist()[:5]}"}
+            if len(g2_cols) == 0:
+                return {"success": False, "error": f"No samples found for group 2. Available: {data.columns.tolist()[:5]}"}
+            if len(g1_cols) < 2:
+                return {"success": False, "error": f"Need at least 2 samples for group 1 (found {len(g1_cols)})"}
+            if len(g2_cols) < 2:
+                return {"success": False, "error": f"Need at least 2 samples for group 2 (found {len(g2_cols)})"}
 
             group1_data = data[g1_cols]
             group2_data = data[g2_cols]
@@ -311,10 +453,17 @@ class UnivariateAnalysis:
             # Calculate log2 fold change
             # Add small value to avoid log(0)
             epsilon = 1e-10
-            log2_fc = np.log2((g2_means + epsilon) / (g1_means + epsilon))
+            log2_fc = np.log2((g1_means + epsilon) / (g2_means + epsilon))
 
-            # Perform t-test
+            # Perform t-test and calculate group statistics
             pvalues = []
+            g1_mean_list = []
+            g1_median_list = []
+            g1_sd_list = []
+            g2_mean_list = []
+            g2_median_list = []
+            g2_sd_list = []
+
             for i in range(len(data)):
                 g1_vals = group1_data.iloc[i].values
                 g2_vals = group2_data.iloc[i].values
@@ -329,11 +478,59 @@ class UnivariateAnalysis:
                 else:
                     pvalues.append(1.0)
 
+                # Calculate group 1 statistics
+                if len(g1_valid) > 0:
+                    g1_mean_list.append(np.mean(g1_valid))
+                    g1_median_list.append(np.median(g1_valid))
+                    g1_sd_list.append(np.std(g1_valid, ddof=1) if len(g1_valid) > 1 else 0.0)
+                else:
+                    g1_mean_list.append(np.nan)
+                    g1_median_list.append(np.nan)
+                    g1_sd_list.append(np.nan)
+
+                # Calculate group 2 statistics
+                if len(g2_valid) > 0:
+                    g2_mean_list.append(np.mean(g2_valid))
+                    g2_median_list.append(np.median(g2_valid))
+                    g2_sd_list.append(np.std(g2_valid, ddof=1) if len(g2_valid) > 1 else 0.0)
+                else:
+                    g2_mean_list.append(np.nan)
+                    g2_median_list.append(np.nan)
+                    g2_sd_list.append(np.nan)
+
             pvalues = np.array(pvalues)
             neg_log10_pval = -np.log10(pvalues + epsilon)
 
             # Determine significance
             significant = (np.abs(log2_fc) >= fc_threshold) & (pvalues <= pvalue_threshold)
+
+            # Extract feature and group IDs from metadata if available
+            feature_pair_ids = []
+            feature_group_ids = []
+
+            if metadata is not None and not metadata.empty:
+                for idx in data.index:
+                    try:
+                        if idx in metadata.index:
+                            # Get values, handling potential NaN/None
+                            fp_id = metadata.loc[idx, "num"] if "num" in metadata.columns else 0
+                            fg_id = metadata.loc[idx, "ogroup"] if "ogroup" in metadata.columns else 0
+
+                            # Convert to int if not None/NaN
+                            fp_id = int(fp_id) if pd.notna(fp_id) else 0
+                            fg_id = int(fg_id) if pd.notna(fg_id) else 0
+
+                            feature_pair_ids.append(fp_id)
+                            feature_group_ids.append(fg_id)
+                        else:
+                            feature_pair_ids.append(0)
+                            feature_group_ids.append(0)
+                    except Exception as e:
+                        feature_pair_ids.append(0)
+                        feature_group_ids.append(0)
+            else:
+                feature_pair_ids = [0] * len(data)
+                feature_group_ids = [0] * len(data)
 
             return {
                 "log2_fc": log2_fc.values,
@@ -342,12 +539,23 @@ class UnivariateAnalysis:
                 "significant": significant,
                 "feature_indices": np.arange(len(data)),
                 "feature_names": data.index.tolist() if hasattr(data.index, "tolist") else list(range(len(data))),
+                "featurePairIDs": feature_pair_ids,
+                "featureGroupIDs": feature_group_ids,
+                "g1_means": np.array(g1_mean_list),
+                "g1_medians": np.array(g1_median_list),
+                "g1_sds": np.array(g1_sd_list),
+                "g2_means": np.array(g2_mean_list),
+                "g2_medians": np.array(g2_median_list),
+                "g2_sds": np.array(g2_sd_list),
                 "fc_threshold": fc_threshold,
                 "pvalue_threshold": pvalue_threshold,
                 "success": True,
             }
         except Exception as e:
             logging.error(f"Volcano plot calculation failed: {e}")
+            import traceback
+
+            logging.error(traceback.format_exc())
             return {"success": False, "error": str(e)}
 
 

@@ -916,8 +916,10 @@ class procAreaInFile:
             )
 
         nFound = False
+        areaN = 0.0
         if r is not None:
             area, abundance, snr = r
+            areaN = area
             if self.addPeakArea:
                 oldData[self.colInd[colToProc + "_Area_N"]] = area
             if self.addPeakAbundance:
@@ -951,8 +953,10 @@ class procAreaInFile:
             )
 
         lFound = False
+        areaL = 0.0
         if r is not None:
             area, abundance, snr = r
+            areaL = area
             if self.addPeakArea:
                 oldData[self.colInd[colToProc + "_Area_L"]] = area
             if self.addPeakAbundance:
@@ -961,6 +965,10 @@ class procAreaInFile:
                 oldData[self.colInd[colToProc + "_SNR_L"]] = snr
 
             lFound = True
+
+        # Track this re-integrated feature for database insertion
+        if nFound or lFound:
+            self.reintegratedFeatures.append({"resID": oldData[self.colInd["Num"]], "fileName": colToProc, "areaN": areaN, "areaL": areaL})
 
         self.done += 1
 
@@ -1080,6 +1088,9 @@ class procAreaInFile:
         self.addPeakAbundance = addPeakAbundance
         self.addPeakSNR = addPeakSNR
 
+        # Initialize list to track re-integrated features for database insertion
+        self.reintegratedFeatures = []
+
         self.queue = None
         self.pID = None
 
@@ -1151,10 +1162,14 @@ class procAreaInFile:
         if self.queue is not None:
             self.queue.put(Bunch(pid=self.pID, mes="end"))
 
-        return self.forFile, self.newData
+        return self.forFile, self.newData, self.getReintegratedFeatures()
 
     def getIntegratedData(self):
         return self.newData
+
+    def getReintegratedFeatures(self):
+        """Return list of re-integrated features for database insertion."""
+        return self.reintegratedFeatures
 
     # re-integrated data needs to be matched to the correct columns in the grouped results
     def matchIntegratedDataToTable(self, oldData):
@@ -1396,6 +1411,9 @@ def _integrateResultsFile(
     assert colIonMode in cols
     assert colnum in cols
 
+    # get old data
+    oldData = TableUtils.readFile(file + ".tmp.tsv", delim="\t").getData()
+
     # initialise multiprocessing queue
     p = Pool(processes=min(len(colToProc), cpus), maxtasksperchild=1)  # only in python >=2.7; experimental
     manager = Manager()
@@ -1447,14 +1465,14 @@ def _integrateResultsFile(
         i += 1
 
     # start the multiprocessing pool
-    res = p.imap_unordered(integrateFile, toProcFiles)
+    imap_results = p.imap_unordered(integrateFile, toProcFiles)
 
     # wait until all subprocesses have finished re-integrating their respective LC-HRMS data file
     loop = True
     freeSlots = list(range(min(len(colToProc), cpus)))
     assignedThreads = {}
     while loop and not selfObj.terminateJobs:
-        completed = res._index
+        completed = imap_results._index
         if completed == len(colToProc):
             loop = False
         else:
@@ -1527,21 +1545,66 @@ def _integrateResultsFile(
     logging.info("Re-integrating finished after %s%s. Results will be saved next" % (hours, mins))
 
     # after all LC-HRMS data files have been re-integrated, match the individual results
-    newDat = None
+    new_integration_data = None
+    allReintegratedFeatures = []
     u = None
-    for re in res:
-        if newDat == None:
+    for re in imap_results:
+        # Get results for database
+        reintFeats = re[2]
+        if reintFeats:
+            allReintegratedFeatures.extend(reintFeats)
+
+        # Get results for TSV file
+        if new_integration_data == None:
             u = filesDict[re[0]]
-            newDat = re[1]
+            new_integration_data = re[1]
         else:
             nd = re[1]
             for rowi, row in enumerate(nd):
                 for coli, col in enumerate(row):
-                    if newDat[rowi][coli] == "" and col != "":
-                        newDat[rowi][coli] = col
+                    if new_integration_data[rowi][coli] == "" and col != "":
+                        new_integration_data[rowi][coli] = col
 
-    u.newData = newDat
+    u.newData = new_integration_data
     table.applyFunction(u.matchIntegratedDataToTable)
+
+    # Insert into database with thread-safe handling
+    if allReintegratedFeatures:
+        logging.info(f"Inserting {len(allReintegratedFeatures)} re-integrated features into database...")
+        try:
+            # Re-open database connection for inserts
+            from .utils import SQLInsert
+
+            # resDB.conn.execute("PRAGMA synchronous = NORMAL")
+            # resDB.conn.execute("PRAGMA journal_mode = WAL")  # Write-Ahead Logging for better concurrency
+
+            for feat in allReintegratedFeatures:
+                print(f"Inserting found feature {feat['resID']} for {feat['fileName']} with {feat['areaN']} and {feat['areaL']}")
+                SQLInsert(
+                    resDB.curs,
+                    "FoundFeaturePairs",
+                    resID=feat["resID"],
+                    file=feat["fileName"],
+                    featurePairID=0,  # Not applicable for re-integrated features
+                    featureGroupID=0,  # Not applicable for re-integrated features
+                    NPeakScale=0.0,
+                    LPeakScale=0.0,
+                    NBorderLeft=0.0,
+                    NBorderRight=0.0,
+                    LBorderLeft=0.0,
+                    LBorderRight=0.0,
+                    areaN=feat["areaN"],
+                    areaL=feat["areaL"],
+                    featureType="re-integrated",
+                )
+
+            logging.info("Successfully inserted re-integrated features into database")
+
+        except Exception as e:
+            logging.error(f"Error inserting re-integrated features into database: {e}")
+            import traceback
+
+            logging.error(traceback.format_exc())
 
     if writeConfig:
         processingParams = Bunch()
@@ -2912,13 +2975,27 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         # Try to find and select the feature in the tree widget
         if hasattr(self, "experimentResults") and self.experimentResults is not None:
+            # Iterate through all top-level items (metabolite groups and standalone features)
             for i in range(self.ui.resultsExperiment_TreeWidget.topLevelItemCount()):
                 item = self.ui.resultsExperiment_TreeWidget.topLevelItem(i)
+
+                # Check if this is a feature (standalone or metabolite group)
                 if hasattr(item, "bunchData") and hasattr(item.bunchData, "id"):
                     if item.bunchData.id == feature_index:
                         self.ui.resultsExperiment_TreeWidget.setCurrentItem(item)
                         self.ui.resultsExperiment_TreeWidget.scrollToItem(item)
+                        self.ui.resultsExperiment_TreeWidget.expandItem(item.parent() if item.parent() else item)
                         return
+
+                # If this is a metabolite group, check its children
+                for child_idx in range(item.childCount()):
+                    child = item.child(child_idx)
+                    if hasattr(child, "bunchData") and hasattr(child.bunchData, "id"):
+                        if child.bunchData.id == feature_index:
+                            self.ui.resultsExperiment_TreeWidget.setCurrentItem(child)
+                            self.ui.resultsExperiment_TreeWidget.scrollToItem(child)
+                            self.ui.resultsExperiment_TreeWidget.expandItem(item)
+                            return
 
     def _loadStatisticsData(self):
         """Load experiment data into the Statistics tab."""
@@ -2932,32 +3009,124 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             # Collect feature data and group info
             experiment_data = {"features": {}, "groups": {}, "metadata": {}}
 
-            # Get group info
+            # Get group info - store both full paths and basenames for matching
+            file_path_to_basename = {}
             for i in range(self.ui.groupsList.count()):
                 item = self.ui.groupsList.item(i)
                 group_data = item.data(QListWidgetItem.UserType)
                 if group_data:
                     group_name = str(group_data.name)
-                    experiment_data["groups"][group_name] = [str(f) for f in group_data.files]
+                    # Store basenames without file extension for the statistics module
+                    basenames = []
+                    for f in group_data.files:
+                        basename = os.path.basename(str(f))
+                        # Remove file extension (.mzML, .mzXML, etc.)
+                        basename_no_ext = os.path.splitext(basename)[0]
+                        basenames.append(basename_no_ext)
+                        file_path_to_basename[str(f)] = basename_no_ext
+                    experiment_data["groups"][group_name] = basenames
 
             # Load feature data from database if available
             if hasattr(self, "experimentResults") and self.experimentResults.curs is not None:
                 # Get feature pairs data for statistics
-                features = {}
-                metadata = {"mz": {}, "rt": {}}
+                # Create separate dictionaries for N and L abundances
+                features_N = {}
+                features_L = {}
+                features_total = {}
+                metadata = {"mz": {}, "rt": {}, "num": {}, "ogroup": {}, "featurePairID": {}, "featureGroupID": {}}
 
-                for row in self.experimentResults.curs.execute("SELECT id, mz, rt, xn, charge FROM GroupResults"):
+                # First, get all features and their metadata (including OGroup and Num)
+                for row in self.experimentResults.curs.execute("SELECT id, mz, rt, xn, charge, OGroup FROM GroupResults"):
                     idx = row[0]
                     metadata["mz"][idx] = row[1]
                     metadata["rt"][idx] = row[2]
+                    metadata["num"][idx] = idx  # Use id as Num
+                    metadata["ogroup"][idx] = row[5] if row[5] is not None else idx  # OGroup
+                    # Initialize empty dict for this feature's intensity values
+                    features_N[idx] = {}
+                    features_L[idx] = {}
+                    features_total[idx] = {}
 
+                # Get featurePairID and featureGroupID from FoundFeaturePairs table
+                # Note: One resID can have multiple entries (one per file), so we take the first non-zero value
+                feature_pair_map = {}
+                feature_group_map = {}
+                for row in self.experimentResults.curs.execute("SELECT resID, featurePairID, featureGroupID FROM FoundFeaturePairs"):
+                    res_id = row[0]
+                    feature_pair_id = row[1]
+                    feature_group_id = row[2]
+
+                    # Store first non-zero occurrence
+                    if res_id not in feature_pair_map and feature_pair_id is not None and feature_pair_id != 0:
+                        feature_pair_map[res_id] = feature_pair_id
+                    if res_id not in feature_group_map and feature_group_id is not None and feature_group_id != 0:
+                        feature_group_map[res_id] = feature_group_id
+
+                # Add to metadata
+                for idx in metadata["mz"].keys():
+                    metadata["featurePairID"][idx] = feature_pair_map.get(idx, 0)
+                    metadata["featureGroupID"][idx] = feature_group_map.get(idx, 0)
+
+                # Debug logging for first few features
+                logging.info(f"Feature pair map has {len(feature_pair_map)} entries")
+                logging.info(f"Feature group map has {len(feature_group_map)} entries")
+                sample_ids = list(metadata["mz"].keys())[:3]
+                for idx in sample_ids:
+                    logging.info(f"Feature {idx}: featurePairID={metadata['featurePairID'][idx]}, featureGroupID={metadata['featureGroupID'][idx]}")
+
+                # Now get the intensity data for each feature in each file
+                # Query: get feature ID, file name, and area values
+                query = """
+                    SELECT 
+                        ffp.resID,
+                        ffp.file,
+                        ffp.areaN,
+                        ffp.areaL
+                    FROM FoundFeaturePairs ffp
+                """
+
+                for row in self.experimentResults.curs.execute(query):
+                    feature_id = row[0]
+                    file_path = row[1]
+                    area_n = row[2] if row[2] is not None else 0.0
+                    area_l = row[3] if row[3] is not None else 0.0
+
+                    # Get the sample name without extension
+                    if file_path in file_path_to_basename:
+                        file_key = file_path_to_basename[file_path]
+                    else:
+                        basename = os.path.basename(file_path)
+                        file_key = os.path.splitext(basename)[0]
+
+                    # Store N, L, and total areas separately
+                    if feature_id in features_N:
+                        features_N[feature_id][file_key] = area_n
+                        features_L[feature_id][file_key] = area_l
+                        features_total[feature_id][file_key] = area_n + area_l
+
+                # Store all three versions for the statistics module to choose from
+                experiment_data["features"] = features_total  # Default to total
+                experiment_data["features_N"] = features_N
+                experiment_data["features_L"] = features_L
                 experiment_data["metadata"] = metadata
+
+                # Debug: Show what sample names we're using
+                if features_total:
+                    first_feature = list(features_total.values())[0]
+                    logging.info(f"Statistics: Sample names in features (first 3): {list(first_feature.keys())[:3]}")
+                logging.info(f"Statistics: Group names: {list(experiment_data.get('groups', {}).keys())}")
+                for group_name, samples in experiment_data.get("groups", {}).items():
+                    logging.info(f"Statistics: Group '{group_name}' samples (first 3): {samples[:3]}")
 
             self.ui.statisticsWidget.load_experiment_data(experiment_data)
             self.ui.statisticsTab.setEnabled(True)
+            logging.info(f"Statistics data loaded: {len(experiment_data.get('features', {}))} features")
 
         except Exception as e:
             logging.error(f"Error loading statistics data: {e}")
+            import traceback
+
+            logging.error(traceback.format_exc())
 
     def resultsExperimentChanged(self):
         self.clearPlot(self.ui.resultsExperiment_plot)
