@@ -5,7 +5,7 @@
 __pycache__/
 .ruff_cache/
 .venv/
-sfcache.db
+sfcache.pqts
 
 # Windows image file caches
 Thumbs.db
@@ -64,11 +64,11 @@ run_Exp134.bat
 dist/
 build/
 resources/R-2.15.2-win.exe
-fileImport.sqlite.cache
+fileImport.pqts.cache
 Ruser/
 run_170117_321.bat
 run_170503_354.bat
-sfcache.db/cache.sqlite
+sfcache.pqts/cache.parquet
 run_382_forPublication.bat
 .R-4.5.1/
 RPATH.conf

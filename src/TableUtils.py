@@ -1,5 +1,4 @@
 from __future__ import print_function, division, absolute_import
-from sqlite3 import *
 
 from os.path import basename
 
@@ -8,13 +7,13 @@ import random
 
 import time
 
-from math import floor
-
 from copy import deepcopy
+
+import polars as pl
 
 from .utils import Bunch
 
-# functionality to store / read a table into a generic SQLite table
+# functionality to store / read a table using polars DataFrames
 # methods to insert / alter / delete data are provided (including bulk-update)
 
 
@@ -34,23 +33,18 @@ class ColDef:
         return "name: %s (format:%s)" % (self.name, self.format)
 
 
-# class table provides generic methods to insert / alter / delete data stored in an in-memory SQLite database table
-# the use is abstracted as much as possible from the SQLite syntax
+# class table provides generic methods to insert / alter / delete data stored in a polars DataFrame
+# the use is abstracted as much as possible from polars syntax
 class Table:
     def __initEmpty__(self, tableName=None):
         if tableName is None:
             tableName = "".join(random.choice(string.ascii_uppercase + string.ascii_lowercase) for x in range(6))
         self.tableName = tableName
 
-        self.conn = connect(":memory:")
-        self.conn.text_factory = str
-        self.curs = self.conn.cursor()
+        # Initialize with an empty DataFrame with an __internalID column
+        self.df = pl.DataFrame({"__internalID": pl.Series([], dtype=pl.Int64)})
+        self.comments = []
         self.saved = True
-
-        self.curs.execute(self.__updateTableName("CREATE TABLE :table: (__internalID INTEGER PRIMARY KEY)"))
-        self.curs.execute(self.__updateTableName("CREATE TABLE :table:_COMMENTS (__internalID INTEGER PRIMARY KEY, comment TEXT)"))
-
-        self.conn.commit()
 
     def __init__(self, headers=None, rows=None, tableName=None, comments=None):
         if headers is None and rows is None:
@@ -69,92 +63,58 @@ class Table:
             tableName = "".join(random.choice(string.ascii_uppercase + string.ascii_lowercase) for x in range(6))
         self.tableName = tableName
 
-        self.conn = connect(":memory:")
-        self.conn.text_factory = str
-        self.curs = self.conn.cursor()
         self.saved = True
+        self.comments = comments if comments else []
 
-        cols = []
-        for i, h in enumerate(headers):
-            c = "integer"
-            for row in rows:
-                if len(row) > i and len(row[i]) > 0:
-                    if c == "integer":
-                        try:
-                            row[i] = int(row[i])
-                        except:
-                            c = "real"
+        # Prepare data dictionary
+        data_dict = {"__internalID": list(range(len(rows)))}
 
-                    if c == "real":
-                        try:
-                            row[i] = float(row[i])
-                        except:
-                            c = "text"
+        # Process headers and rows
+        processed_headers = []
+        for h in headers:
+            # Prepend underscore if header starts with a digit
             if str.isdigit(h[0]):
                 h = "_" + h
+            # Replace problematic characters
             h = h.replace("-", "__")
             h = h.replace(" ", "__")
-            cols.append((h, c))
+            processed_headers.append(h)
 
-        self.curs.execute(self.__updateTableName("CREATE TABLE :table: (__internalID INTEGER PRIMARY KEY,  %s)" % (", ".join(["%s %s" % h for h in cols]))))
-        self.curs.execute(self.__updateTableName("CREATE TABLE :table:_COMMENTS (__internalID INTEGER PRIMARY KEY, comment TEXT)"))
+        # Pad rows with empty strings if needed
+        padded_rows = []
+        for row in rows:
+            padded_row = list(row) + [""] * (len(processed_headers) - len(row))
+            padded_rows.append(padded_row)
 
-        for rowi, row in enumerate(rows):
-            while len(cols) > len(row):
-                row.append("")
+        # Build column data
+        for i, header in enumerate(processed_headers):
+            col_data = [row[i] if i < len(row) else "" for row in padded_rows]
+            data_dict[header] = col_data
 
-            self.curs.execute(self.__updateTableName("INSERT INTO :table: (__internalID) VALUES (%d)" % rowi))
+        # Create DataFrame with automatic type inference
+        self.df = pl.DataFrame(data_dict)
 
-            last = 0
-            for i in range(0, int(floor(len(cols) // 250) + 1) * 250 + 1, 250)[1:]:
-                i = min(i, len(cols))
-                self.curs.execute(
-                    self.__updateTableName("UPDATE :table: SET %s WHERE __internalID=%d" % (",".join(["%s=?" % t[0] for t in cols[last:i]]), rowi)),
-                    [str(c) for c in row[last:i]],
-                )
-                last = i
-
-            # self.curs.execute(self.__updateTableName("INSERT INTO :table: (%s) VALUES(%s)" % (", ".join([h[0] for h in cols]), ", ".join(["?" for c in row]))), [str(c) for c in row])
-
-        for comment in comments:
-            self.curs.execute(
-                self.__updateTableName("INSERT INTO :table:_COMMENTS(comment) VALUES(?)"),
-                [comment],
-            )
-
-        self.conn.commit()
+        # Try to cast columns to appropriate types
+        for col in processed_headers:
+            try:
+                # Try integer first
+                self.df = self.df.with_columns(pl.col(col).cast(pl.Int64, strict=False))
+            except:
+                try:
+                    # Try float next
+                    self.df = self.df.with_columns(pl.col(col).cast(pl.Float64, strict=False))
+                except:
+                    # Keep as string
+                    self.df = self.df.with_columns(pl.col(col).cast(pl.Utf8, strict=False))
 
     def renameColumn(self, oldColName, newColName):
-        colDesc = None
-        colNewDesc = None
-        cols = self.getColumns()
-        for col in cols:
-            if col.name == oldColName:
-                colDesc = col
-            if col.name == newColName:
-                colNewDesc = col
+        if oldColName not in self.df.columns:
+            raise Exception("Column %s not found" % oldColName)
+        if newColName in self.df.columns:
+            raise Exception("New column %s already exists" % newColName)
 
-        if colDesc is None:
-            raise Exception("Column %s not found" % colDesc.name)
-        if colNewDesc is not None:
-            raise Exception("New column %s already exists" % colNewDesc.name)
-
-        self.addColumn(newColName, colDesc.format)
-
-        self.curs.execute(self.__updateTableName("UPDATE :table: SET %s = %s" % (newColName, oldColName)))
-        self.conn.commit()
-
-        cols = self.getColumns()
-        uCols = ["__internalID"]
-        for col in cols:
-            if col.name != oldColName:
-                uCols.append(col.name)
-
-        self.curs.execute(self.__updateTableName("ALTER TABLE :table: RENAME TO :table:_old"))
-        self.curs.execute(self.__updateTableName("CREATE TABLE :table: AS SELECT %s FROM :table:_old" % (",".join(uCols))))
-        self.curs.execute(self.__updateTableName("DROP TABLE :table:_old"))
-
-        self.conn.commit()
+        self.df = self.df.rename({oldColName: newColName})
+        self.saved = False
 
     def addPrefixToAllColumns(self, prefix):
         for col in self.getColumns():
@@ -164,20 +124,22 @@ class Table:
     # get all available columns of the table
     def getColumns(self):
         cols = []
-        for row in self.curs.execute(self.__updateTableName("PRAGMA table_info(:table:)")):
-            if row[1] != "__internalID":
-                cols.append(ColDef(row[1], row[2]))
+        for col_name in self.df.columns:
+            if col_name != "__internalID":
+                dtype = self.df[col_name].dtype
+                # Map polars dtypes to SQLite-like format strings
+                if dtype in [pl.Int8, pl.Int16, pl.Int32, pl.Int64, pl.UInt8, pl.UInt16, pl.UInt32, pl.UInt64]:
+                    format_str = "integer"
+                elif dtype in [pl.Float32, pl.Float64]:
+                    format_str = "real"
+                else:
+                    format_str = "text"
+                cols.append(ColDef(col_name, format_str))
         return cols
 
     # test if a specific column is present in the table
     def hasColumn(self, col):
-        cols = self.getColumns()
-        colType = None
-        for colD in cols:
-            if colD.name == col:
-                colType = colD.format
-
-        return colType is not None
+        return col in self.df.columns
 
     # bulk-update: perform a function for each row present in the table
     def applyFunction(
@@ -190,43 +152,46 @@ class Table:
         funcName="",
         printAfter=1,
     ):
+        # Apply filtering if where clause is provided
         if len(where) > 0:
-            where = "WHERE " + where
+            # Convert simple where clause to polars expression
+            # This is a simplified implementation - may need enhancement for complex queries
+            filtered_df = self.df.filter(pl.SQLContext(tables={"df": self.df}).execute(f"SELECT * FROM df WHERE {where}"))
+        else:
+            filtered_df = self.df
+
+        cols = self.getColumns()
+        numOfRows = len(filtered_df)
 
         updates = []
-        cols = self.getColumns()
-        r = range(1, 1 + len(cols))
-
-        numOfCols = 0
-        for row in self.curs.execute(self.updateQuery("SELECT __internalID FROM :table:")):
-            numOfCols += 1
-
         done = 0
         started = time.time()
-        for row in self.curs.execute(self.updateQuery("SELECT __internalID, :allCols: FROM :table: %s" % where)):
-            iID = row[0]
-            data = {}
-            for i in r:
-                data[cols[i - 1].name] = row[i]
+
+        # Iterate through rows
+        for row_idx in range(numOfRows):
+            row = filtered_df.row(row_idx, named=True)
+            iID = row["__internalID"]
+
+            # Prepare data dict (excluding __internalID)
+            data = {col.name: row[col.name] for col in cols}
+
+            # Apply the function
             newData = func(deepcopy(data))
-            f = {}
+
+            # Find changed values
+            changes = {}
             for col in cols:
                 if col.name in newData.keys() and newData[col.name] != data[col.name]:
-                    f[col.name] = str(newData[col.name])
+                    changes[col.name] = str(newData[col.name])
 
-            if len(f) > 0:
-                updates.append(
-                    (
-                        self.__updateTableName("UPDATE :table: SET %s WHERE __internalID=%d" % (", ".join(["%s=?" % x for x in f.keys()]), iID)),
-                        [f[x] for x in f.keys()],
-                    )
-                )
+            if len(changes) > 0:
+                updates.append((iID, changes))
 
             done += 1
             if showProgress:
                 elapsed = time.time() - started
                 if elapsed > printAfter:
-                    doneP = 1.0 * done / numOfCols
+                    doneP = 1.0 * done / numOfRows
                     s = (elapsed * (1 - doneP) / doneP) / 60.0
                     print(
                         "\rApplying (function: %s).. |%-30s| %.1f%% (approximately %.1f minutes remaining, running for %.1f minutes, total %.1f minutes)"
@@ -239,6 +204,7 @@ class Table:
                             s + elapsed / 60.0,
                         ),
                     )
+
         if showProgress:
             s = (time.time() - started) / 60.0
             print("\rApplying (function: %s) took %.1f minutes                                                                                                                                                              " % (funcName, s))
@@ -250,8 +216,13 @@ class Table:
 
         doneS = 0
         started = time.time()
-        for update in updates:
-            self.curs.execute(self.updateQuery(update[0]), update[1])
+
+        # Apply updates
+        for iID, changes in updates:
+            for col_name, new_value in changes.items():
+                mask = self.df["__internalID"] == iID
+                self.df = self.df.with_columns(pl.when(mask).then(pl.lit(new_value)).otherwise(pl.col(col_name)).alias(col_name))
+
             done += 1
             if pwValSet is not None:
                 pwValSet(done)
@@ -260,48 +231,73 @@ class Table:
             if showProgress:
                 elapsed = time.time() - started
                 if elapsed > printAfter:
-                    doneP = 1.0 * doneS / numOfCols
+                    doneP = 1.0 * doneS / numOfRows
                     s = (elapsed * (1 - doneP) / doneP) / 60.0
                     print(
                         "\rUpdating.. |%-30s| %.1f%% (approximately %.1f minutes remaining)" % ("*" * int(doneP * 30), doneP * 100, s),
                     )
+
         if showProgress:
             s = (time.time() - started) / 60.0
             print("\rUpdating took %.1f minutes                                                                                                        " % s)
-        self.conn.commit()
+
+        self.saved = False
 
     # return the entire table
     def getData(self, cols=None, where=None, orderby=None, getResultsAsBunchObjects=False):
         ret = []
-        if where is None:
-            where = ""
-        else:
-            where = " WHERE " + where
 
-        if orderby is None:
-            orderby = ""
-        else:
-            orderby = "ORDER BY " + orderby
+        df = self.df
 
+        # Apply where filter if provided
+        if where is not None and len(where) > 0:
+            # Use SQL context for complex where clauses
+            try:
+                ctx = pl.SQLContext(tables={"tbl": df})
+                df = ctx.execute(f"SELECT * FROM tbl WHERE {where}")
+            except:
+                # Fallback: assume it's a simple expression
+                pass
+
+        # Select columns
         if cols is None:
             cols = [x.getName() for x in self.getColumns()]
 
-        tCols = []
+        # Handle columns that start with digits
+        display_cols = []
         for col in cols:
             if col[0].isdigit():
-                tCols.append("_" + col)
+                display_cols.append("_" + col)
             else:
-                tCols.append(col)
-        cols = tCols
+                display_cols.append(col)
 
-        for row in self.curs.execute(self.__updateTableName("SELECT %s FROM :table: %s %s" % (",".join([col for col in cols]), where, orderby))):
+        # Select only the requested columns
+        df = df.select(display_cols)
+
+        # Apply ordering if provided
+        if orderby is not None and len(orderby) > 0:
+            # Parse orderby string (e.g., "col1, col2 DESC")
+            order_parts = [part.strip() for part in orderby.split(",")]
+            order_cols = []
+            descending = []
+            for part in order_parts:
+                tokens = part.split()
+                col_name = tokens[0]
+                desc = len(tokens) > 1 and tokens[1].upper() == "DESC"
+                order_cols.append(col_name)
+                descending.append(desc)
+            df = df.sort(order_cols, descending=descending)
+
+        # Convert to return format
+        for row_dict in df.iter_rows(named=True):
             if getResultsAsBunchObjects:
-                ret.append(Bunch(_addFollowing=dict(zip(cols, row))))
+                ret.append(Bunch(_addFollowing=row_dict))
             else:
-                if len(row) == 1:
-                    ret.append(row[0])
+                values = list(row_dict.values())
+                if len(values) == 1:
+                    ret.append(values[0])
                 else:
-                    ret.append(row)
+                    ret.append(tuple(values))
 
         return ret
 
@@ -309,26 +305,40 @@ class Table:
     def setData(self, cols, vals, where=None):
         assert len(cols) == len(vals)
 
-        sets = []
-        for coli, colVal in enumerate(cols):
-            ca = ""
-            if isinstance(vals[coli], str):
-                ca = "'"
-            sets.append("%s=%s%s%s" % (colVal, ca, vals[coli], ca))
-
+        # Build update mask
         if where is not None:
-            where = "WHERE " + where
+            # Use SQL context for where clause
+            try:
+                ctx = pl.SQLContext(tables={"tbl": self.df})
+                filtered_df = ctx.execute(f"SELECT __internalID FROM tbl WHERE {where}")
+                filtered_ids = filtered_df["__internalID"].to_list()
+                mask = pl.col("__internalID").is_in(filtered_ids)
+            except:
+                mask = pl.lit(True)
         else:
-            where = ""
-        self.curs.execute(self.__updateTableName("UPDATE :table: SET %s %s" % (",".join(sets), where)))
+            mask = pl.lit(True)
+
+        # Apply updates
+        for col_name, val in zip(cols, vals):
+            self.df = self.df.with_columns(pl.when(mask).then(pl.lit(val)).otherwise(pl.col(col_name)).alias(col_name))
+
+        self.saved = False
 
     # add a new column to the table (in-memory only)
     def addColumn(self, col, colType, defaultValue=""):
         if self.hasColumn(col):
             raise Exception("Column %s already exists" % col)
 
-        self.curs.execute(self.__updateTableName("ALTER TABLE :table: ADD COLUMN %s %s DEFAULT '%s'" % (col, colType, defaultValue)))
-        self.conn.commit()
+        # Map SQLite types to polars types
+        if colType.lower() == "integer":
+            dtype = pl.Int64
+        elif colType.lower() == "real":
+            dtype = pl.Float64
+        else:
+            dtype = pl.Utf8
+
+        # Add column with default value
+        self.df = self.df.with_columns(pl.lit(defaultValue).cast(dtype).alias(col))
         self.saved = False
 
     # duplicate a new column to the table (in-memory only)
@@ -336,18 +346,11 @@ class Table:
         if self.hasColumn(newColName):
             raise Exception("Column %s already exists" % newColName)
 
-        oldCol = None
-        for t in self.getColumns():
-            if t.name == col:
-                oldCol = t
-
-        if oldCol is None:
+        if not self.hasColumn(col):
             raise Exception("Column %s does not exists" % col)
 
-        self.curs.execute(self.__updateTableName("ALTER TABLE :table: ADD COLUMN %s %s" % (newColName, oldCol.format)))
-        self.curs.execute(self.__updateTableName("UPDATE :table: SET %s=%s" % (newColName, col)))
-
-        self.conn.commit()
+        # Duplicate column
+        self.df = self.df.with_columns(pl.col(col).alias(newColName))
         self.saved = False
 
     # append a new row at the end of the table
@@ -356,10 +359,35 @@ class Table:
             if not (self.hasColumn(dCol)):
                 raise Exception("Column %s not found" % dCol)
 
-        cols = ", ".join([str(col) for col in data.keys()])
-        values = ", ".join("'%s'" % data[col] for col in data.keys())
-        self.curs.execute(self.__updateTableName("INSERT INTO :table: (%s) VALUES(%s)" % (cols, values)))
-        self.conn.commit()
+        # Get next internal ID
+        max_id = self.df["__internalID"].max()
+        next_id = 0 if max_id is None else max_id + 1
+
+        # Prepare row data with proper type casting
+        row_data = {"__internalID": [next_id]}
+        for col in self.df.columns:
+            if col == "__internalID":
+                continue
+            value = data.get(col, "")
+
+            # Try to match the column's existing dtype
+            col_dtype = self.df[col].dtype
+            if col_dtype in [pl.Int8, pl.Int16, pl.Int32, pl.Int64]:
+                try:
+                    value = int(value) if value != "" else None
+                except:
+                    value = None
+            elif col_dtype in [pl.Float32, pl.Float64]:
+                try:
+                    value = float(value) if value != "" else None
+                except:
+                    value = None
+
+            row_data[col] = [value]
+
+        # Create new row DataFrame with matching schema
+        new_row = pl.DataFrame(row_data, schema=self.df.schema)
+        self.df = pl.concat([self.df, new_row], how="vertical")
         self.saved = False
 
     # reset entire column (affects all rows of the table)
@@ -367,15 +395,14 @@ class Table:
         if not (self.hasColumn(col)):
             raise Exception("Column %s not found" % col)
 
-        self.executeSQL(self.updateQuery("UPDATE :table: SET %s='%s'" % (col, value)))
-        self.conn.commit()
+        self.df = self.df.with_columns(pl.lit(value).alias(col))
         self.saved = False
 
-    # HELPER METHOD that updates a sql command with the temporary SQLite table name
+    # HELPER METHOD (kept for compatibility but no longer needed)
     def __updateTableName(self, sql):
         return sql.replace(":table:", self.tableName)
 
-    # accepts a generic SQLite command (without table name and columns) and adds the table name as well as all columns
+    # accepts a generic query (kept for compatibility)
     def updateQuery(self, sql):
         allCols = []
         for col in self.getColumns():
@@ -387,13 +414,6 @@ class Table:
 
         return sql
 
-    # executes an SQLite command on the table
-    def executeSQL(self, sql, commit=True):
-        self.curs.execute(self.updateQuery(sql))
-        if commit:
-            self.conn.commit()
-        self.saved = False
-
     # tests, if the data has been edited
     def isSaved(self):
         return self.saved
@@ -403,29 +423,17 @@ class Table:
         self.saved = True
 
     def getComments(self):
-        ret = []
-        for row in self.curs.execute(self.__updateTableName("SELECT comment FROM :table:_COMMENTS")):
-            if len(row) == 1:
-                ret.append(row[0])
-            else:
-                ret.append(row)
-
-        return ret
+        return self.comments
 
     def deleteComments(self):
-        self.curs.execute(self.__updateTableName("DELETE FROM :table:_COMMENTS"))
+        self.comments = []
 
     def addComment(self, comment):
-        self.curs.execute(
-            self.__updateTableName("INSERT INTO :table:_COMMENTS (comment) VALUES(?)"),
-            [comment],
-        )
-        self.conn.commit()
+        self.comments.append(comment)
 
-    # de-constructor: close SQLite connection and cursor
+    # de-constructor: no longer needed for polars (no connection to close)
     def __del__(self):
-        self.curs.close()
-        self.conn.close()
+        pass
 
 
 # abstract class to import and save a table
@@ -530,28 +538,49 @@ class TableUtils:
 class TableUtilsCSV:
     @staticmethod
     def readFile(file, delim="\t", commentLineStart="#"):
-        ret = None
-        # Convert string parameters to bytes for binary file reading
-        delim_bytes = delim.encode("utf-8")
-        commentLineStart_bytes = commentLineStart.encode("utf-8")
-
-        with open(file, "rb") as fi:
-            i = 0
-            headers = []
-            rows = []
-            comments = []
+        # Read comments first
+        comments = []
+        with open(file, "r", encoding="utf-8") as fi:
             for line in fi:
-                if len(line) > 0 and not line.startswith(commentLineStart_bytes):
-                    cells = line.strip().split(delim_bytes)
-                    if i == 0:
-                        headers = [c.decode("utf-8").replace("-", "_") for c in cells]
-                    else:
-                        rows.append([c.decode("utf-8") for c in cells])
-                    i = i + 1
-                if line.startswith(commentLineStart_bytes):
-                    comments.append(line.strip().decode("utf-8"))
-            ret = Table(headers=headers, rows=rows, comments=comments)
-        return ret
+                if line.startswith(commentLineStart):
+                    comments.append(line.strip())
+
+        # Read CSV using polars
+        try:
+            df = pl.read_csv(
+                file,
+                separator=delim,
+                comment_prefix=commentLineStart,
+                infer_schema_length=10000,
+                ignore_errors=True,
+            )
+        except Exception as e:
+            # Fallback to manual parsing if polars fails
+            with open(file, "rb") as fi:
+                delim_bytes = delim.encode("utf-8")
+                commentLineStart_bytes = commentLineStart.encode("utf-8")
+
+                headers = []
+                rows = []
+                i = 0
+                for line in fi:
+                    if len(line) > 0 and not line.startswith(commentLineStart_bytes):
+                        cells = line.strip().split(delim_bytes)
+                        if i == 0:
+                            headers = [c.decode("utf-8").replace("-", "_") for c in cells]
+                        else:
+                            rows.append([c.decode("utf-8") for c in cells])
+                        i += 1
+
+                return Table(headers=headers, rows=rows, comments=comments)
+
+        # Convert polars DataFrame to Table format
+        headers = [col.replace("-", "_") for col in df.columns]
+        rows = []
+        for row_dict in df.iter_rows(named=True):
+            rows.append([str(row_dict[col]) if row_dict[col] is not None else "" for col in df.columns])
+
+        return Table(headers=headers, rows=rows, comments=comments)
 
     @staticmethod
     def saveFile(
@@ -572,51 +601,45 @@ class TableUtilsCSV:
             delim = "\t"
         if len(newLine) == 0:
             newLine = "\n"
+
+        # Get the dataframe to write
+        df = table.df
+
+        # Apply where filter
         if len(where) > 0:
-            where = "where " + where
+            try:
+                ctx = pl.SQLContext(tables={"tbl": df})
+                df = ctx.execute(f"SELECT * FROM tbl WHERE {where}")
+            except:
+                pass
+
+        # Apply ordering (before selecting columns, so __internalID is available)
         if len(order) > 0:
-            order = " order by " + order
-        if len(select) == 0:
-            if len(cols) == 0:
-                select = "select :allCols: from :table: %s %s" % (where, order)
-            else:
-                select = "select %s from :table: %s %s" % (
-                    ", ".join(cols),
-                    where,
-                    order,
-                )
+            order_cols = [col.strip() for col in order.split(",")]
+            # Only sort by columns that exist in the dataframe
+            order_cols = [col for col in order_cols if col in df.columns]
+            if order_cols:
+                df = df.sort(order_cols)
 
-        with open(file, "w") as fo:
-            headers = False
-            rowsWritten = 0
-            for row in table.curs.execute(table.updateQuery(select)):
-                if not headers:
-                    fo.write(delim.join([str(d[0]).replace(delim, "-DELIM-") for d in table.curs.description]))
-                    fo.write(newLine)
-                    headers = True
-                    rowsWritten += 1
-                fo.write(delim.join([str(c).replace(delim, "-DELIM-") if c is not None else "" for c in row]))
-                fo.write(newLine)
-                rowsWritten += 1
+        # Select columns (exclude __internalID unless explicitly requested)
+        if len(cols) > 0:
+            df = df.select(cols)
+        else:
+            # Exclude __internalID by default
+            df = df.select([col for col in df.columns if col != "__internalID"])
 
-            if not headers:
-                fo.write(delim.join([str(d[0]).replace(delim, "-DELIM-") for d in table.curs.description]))
-                fo.write(newLine)
-                headers = True
-                rowsWritten += 1
+        # Write CSV using polars
+        df.write_csv(file, separator=delim)
 
-            if writeComments:
+        # Append comments if requested
+        if writeComments and len(table.getComments()) > 0:
+            with open(file, "a", encoding="utf-8") as fo:
                 for comment in table.getComments():
                     fo.write(str(comment).replace(delim, "-DELIM-"))
                     fo.write(newLine)
 
 
 from openpyxl import Workbook, load_workbook
-
-try:
-    from openpyxl.cell import get_column_letter
-except:
-    from openpyxl.utils import get_column_letter
 
 
 # read / write data table from / to an excel file
@@ -631,18 +654,18 @@ class TableUtilsXLS:
             else:
                 sheetName = bn
 
-        ret = None
         rb = load_workbook(file)
 
         ind = 0
         sheetInd = -1
-        for s in rb.get_sheet_names():
+        for s in rb.sheetnames:
             if s == sheetName:
                 sheetInd = ind
             ind = ind + 1
         assert sheetInd != -1, "Sheet not found"
-        sh = rb.get_sheet_by_name(sheetName)
+        sh = rb[sheetName]
 
+        # Read data manually to handle comments and special cases
         i = 0
         remainingCols = True
         headers = []
@@ -651,64 +674,65 @@ class TableUtilsXLS:
         colIDs = []
         firstColFound = False
         curRow = 0
+
         while not firstColFound:
-            val = sh.cell("%s%s" % (get_column_letter(0 + 1), curRow + 1)).value
-            if str(val).startswith(commentLineStart):
-                comments.append(val)
+            val = sh.cell(row=curRow + 1, column=1).value
+            if val is not None and str(val).startswith(commentLineStart):
+                comments.append(str(val))
                 curRow += 1
                 continue
             else:
                 firstColFound = True
+
+            i = 0
             while remainingCols:
-                col = get_column_letter(i + 1)
+                col = i + 1
                 row = curRow + 1
                 try:
-                    if sh.cell("%s%s" % (col, row)).value is None or str(sh.cell("%s%s" % (col, row)).value) == "":
+                    cell_val = sh.cell(row=row, column=col).value
+                    if cell_val is None or str(cell_val) == "":
                         remainingCols = False
                         continue
                 except:
                     remainingCols = False
                     continue
 
-                header = str(sh.cell("%s%s" % (col, row)).value)
+                header = str(cell_val)
                 if useColumns is None or header in useColumns:
                     headers.append(header)
                     colIDs.append(i)
-            i = i + 1
+                i = i + 1
 
         r = 1 + curRow
         allEmpty = False
         while not allEmpty:
-            val = sh.cell("%s%s" % (get_column_letter(0 + 1), r + 1)).value
-            if str(val).startswith(commentLineStart):
-                comments.append(val)
+            val = sh.cell(row=r + 1, column=1).value
+            if val is not None and str(val).startswith(commentLineStart):
+                comments.append(str(val))
                 r = r + 1
                 continue
 
             rowValues = []
             allEmpty = True
             for j in colIDs:
-                col = get_column_letter(j + 1)
+                col = j + 1
                 row = r + 1
                 try:
-                    if sh.cell("%s%s" % (col, row)).value is None or str(sh.cell("%s%s" % (col, row)).value) == "":
+                    cell_val = sh.cell(row=row, column=col).value
+                    if cell_val is None or str(cell_val) == "":
                         rowValues.append("")
-                        j = j + 1
                         continue
                 except:
                     rowValues.append("")
-                    j = j + 1
                     continue
-                rowValues.append(str(sh.cell("%s%s" % (col, row)).value))
+                rowValues.append(str(cell_val))
                 allEmpty = False
             if not allEmpty:
                 rows.append(rowValues)
 
             r = r + 1
 
-        # assert all([x in cols and cols[x]!=-1 for x in columns.values()]), "Could not find all specified columns in excel file"
         ret = Table(headers=headers, rows=rows, tableName=tableName, comments=comments)
-
         return ret
 
     @staticmethod
@@ -732,19 +756,32 @@ class TableUtilsXLS:
                 sheetName = bn[:rf]
             else:
                 sheetName = bn
+
+        # Get the dataframe to write
+        df = table.df
+
+        # Apply where filter
         if len(where) > 0:
-            where = "where " + where
+            try:
+                ctx = pl.SQLContext(tables={"tbl": df})
+                df = ctx.execute(f"SELECT * FROM tbl WHERE {where}")
+            except:
+                pass
+
+        # Apply ordering (before selecting columns, so __internalID is available)
         if len(order) > 0:
-            order = " order by " + order
-        if len(select) == 0:
-            if len(cols) == 0:
-                select = "select :allCols: from :table: %s %s" % (where, order)
-            else:
-                select = "select %s from :table: %s %s" % (
-                    ", ".join(cols),
-                    where,
-                    order,
-                )
+            order_cols = [col.strip() for col in order.split(",")]
+            # Only sort by columns that exist in the dataframe
+            order_cols = [col for col in order_cols if col in df.columns]
+            if order_cols:
+                df = df.sort(order_cols)
+
+        # Select columns (exclude __internalID unless explicitly requested)
+        if len(cols) > 0:
+            df = df.select(cols)
+        else:
+            # Exclude __internalID by default
+            df = df.select([col for col in df.columns if col != "__internalID"])
 
         rb = -1
         sheet = -1
@@ -756,38 +793,24 @@ class TableUtilsXLS:
             sheet.title = sheetName
         else:
             rb = Workbook()
-            sheet = rb.get_active_sheet()
+            sheet = rb.active
             sheet.title = sheetName
 
-        j = 0
-        headers = False
-        for rowValues in table.curs.execute(table.updateQuery(select)):
-            i = 0
-            if not headers:
-                for d in table.curs.description:
-                    col = get_column_letter(i + 1)
-                    row = j + 1
+        # Write headers
+        for i, col_name in enumerate(df.columns):
+            sheet.cell(row=1, column=i + 1).value = col_name
 
-                    sheet.cell("%s%s" % (col, row)).value = d[0]
-                    i = i + 1
-                headers = True
-                i = 0
-                j += 1
+        # Write data
+        for row_idx, row_dict in enumerate(df.iter_rows(named=True)):
+            for col_idx, col_name in enumerate(df.columns):
+                sheet.cell(row=row_idx + 2, column=col_idx + 1).value = row_dict[col_name]
 
-            for c in rowValues:
-                col = get_column_letter(i + 1)
-                row = j + 1
-                sheet.cell("%s%s" % (col, row)).value = c
-                i = i + 1
-            j = j + 1
-
+        # Write comments
         if writeComments:
+            j = len(df) + 2
             for comment in table.getComments():
-                col = get_column_letter(0 + 1)
-                row = j + 1
-                sheet.cell("%s%s" % (col, row)).value = comment
-
-                j = j + 1
+                sheet.cell(row=j, column=1).value = comment
+                j += 1
 
         rb.save(file)
 

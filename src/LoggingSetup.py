@@ -32,11 +32,6 @@ class LoggingSetup:
 
         formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
-        ## default log to PyMetExtract's directory
-        fileHandler = logging.FileHandler(os.environ["LOCALAPPDATA"] + "/MetExtractII/Log.txt")
-        fileHandler.setFormatter(formatter)
-        logging.getLogger().addHandler(fileHandler)
-
         if location is not None:
             fileHandler = logging.FileHandler(location + "/Log.txt")
             fileHandler.setFormatter(formatter)

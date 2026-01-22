@@ -1151,7 +1151,8 @@ def calculateMetaboliteGroups(
                 where="doublePeak>0",
             )
 
-        table.executeSQL("DELETE FROM :table: WHERE doublePeak>0")
+        # Delete rows where doublePeak > 0
+        table.df = table.df.filter(table.df["doublePeak"] <= 0)
         ## file specific columns
 
         for group in useGroups:
@@ -1459,7 +1460,12 @@ def calculateMetaboliteGroups(
 
         ## reassign feature group ids
         resDB.curs.execute("UPDATE GroupResults SET OGroup='X'||OGroup")
-        table.executeSQL("UPDATE :table: SET OGroup='X'||OGroup")
+        # Update OGroup column to prefix with 'X'
+        import polars as pl
+
+        # Ensure OGroup is string type before concatenation
+        table.df = table.df.with_columns(pl.col("OGroup").cast(pl.Utf8))
+        table.df = table.df.with_columns(pl.concat_str([pl.lit("X"), pl.col("OGroup")]).alias("OGroup"))
         oGrps = []
         curGrp = 1
         curFP = 1

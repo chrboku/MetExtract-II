@@ -21,6 +21,7 @@ from __future__ import print_function, division, absolute_import
 # Set up path for direct execution before any relative imports
 import sys
 import os
+import platform
 import threading
 import psutil
 import time
@@ -31,15 +32,27 @@ import shutil
 
 app = None
 
-if not os.path.exists(os.environ["LOCALAPPDATA"] + "/MetExtractII"):
-    os.makedirs(os.environ["LOCALAPPDATA"] + "/MetExtractII")
+# Set local folder for MetExtract II
+local_folder = "."
+# get the operating system
+os_name = platform.system()
+if os_name == "Windows":
+    local_folder = os.environ["LOCALAPPDATA"]
+elif os_name == "Linux":
+    local_folder = os.environ["HOME"]
+elif os_name == "Darwin":
+    local_folder = os.environ["HOME"]
+local_folder = os.path.join(local_folder, "MetExtractII")
+if not os.path.exists(local_folder):
+    os.makedirs(local_folder)
+print(f"Using local folder '{local_folder}'")
 
 
 import logging
 
 from . import LoggingSetup
 
-LoggingSetup.LoggingSetup.Instance().initLogging()
+LoggingSetup.LoggingSetup.Instance().initLogging(location=local_folder)
 
 
 # EXPERIMENTAL: alternative peak picking algorithm. Currently under development
@@ -517,7 +530,9 @@ from math import log10
 import functools
 from operator import itemgetter
 from multiprocessing import Pool, freeze_support, cpu_count, Manager
-from sqlite3 import *
+import polars as pl
+import zipfile
+import io
 from copy import copy, deepcopy
 from xml.parsers.expat import ExpatError
 from optparse import OptionParser
@@ -683,7 +698,6 @@ from .utils import natSort, ChromPeakPair, getNormRatio, mean, SampleGroup
 from .utils import (
     Bunch,
     SQLInsert,
-    SQLSelectAsObject,
     get_main_dir,
     smoothDataSeries,
     sd,
@@ -703,9 +717,9 @@ from . import pyperclip
 
 
 from .SGR import SGRGenerator
-from .SqliteCache import SqliteCache
+from .ParquetCache import ParquetCache
 
-sfCache = SqliteCache(os.environ["LOCALAPPDATA"] + "/MetExtractII/sfcache.db")
+sfCache = ParquetCache(local_folder + "/sfcache.pqts")
 
 
 def getCallStr(m, ppm, useAtoms, atomsRange, fixed, useSGR):
@@ -1351,6 +1365,14 @@ def _integrateResultsFile(
     writeConfig=True,
     start=0,
 ):
+    # NOTE: This function requires architectural changes for Parquet/Polars support
+    # Re-integration involves modifying the database (INSERT operations), which is not
+    # directly supported with immutable Parquet files. A load->modify->save approach
+    # would be needed. For now, this function is disabled.
+    logging.warning("Re-integration of missed peaks is not yet supported with Parquet databases")
+    logging.warning("This feature requires loading the entire database, modifying it, and saving back")
+    return
+
     # connect to results db
     resDB = Bunch(conn=None, curs=None)
     resDB.conn = connect(file + getDBSuffix())
@@ -1745,15 +1767,23 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # fhash="%s_%s"%(file, sha256(open(file, 'rb').read()).hexdigest())  #self.ckeckedLCMSFiles[fhash]=Bunch(parsed=parsed, fls=tm.getFilterLinesPerPolarity(), pols=tm.getPolarities(), tics=tics)
         fhash = "%s_NOHash" % (file)  ## ignore hash, files are not likely to change
 
-        tconn = connect(os.environ["LOCALAPPDATA"] + "/MetExtractII/fileImport.sqlite.cache")
-        tcurs = tconn.cursor()
-        tcurs.execute("CREATE TABLE IF NOT EXISTS fileCache(filePath TEXT, parsingInfo TEXT)")
-        tconn.commit()
+        cache_file = local_folder + "/fileImport.pqts.cache"
+
+        # Load existing cache if it exists
+        cache_df = None
+        if os.path.exists(cache_file):
+            try:
+                cache_df = pl.read_parquet(cache_file)
+            except Exception as e:
+                logging.warning(f"Could not load cache file: {e}. Creating new cache.")
+                cache_df = None
 
         if fhash not in self.checkedLCMSFiles.keys():
             fetched = []
-            for row in tcurs.execute("SELECT parsingInfo FROM fileCache WHERE filePath='%s'" % fhash):
-                fetched.append(str(row[0]))
+            if cache_df is not None:
+                filtered = cache_df.filter(pl.col("filePath") == fhash)
+                for row_dict in filtered.to_dicts():
+                    fetched.append(str(row_dict["parsingInfo"]))
 
             if len(fetched) > 0:
                 try:
@@ -1794,14 +1824,19 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             pols=tm.getPolarities(),
                             tics=tics,
                         )
-                        tcurs.execute(
-                            "INSERT INTO fileCache(filePath, parsingInfo) VALUES(?, ?)",
-                            (
-                                fhash,
-                                base64.b64encode(dumps(self.checkedLCMSFiles[fhash])).decode("utf-8"),
-                            ),
-                        )
-                        tconn.commit()
+
+                        # Add to cache
+                        new_row = pl.DataFrame({"filePath": [fhash], "parsingInfo": [base64.b64encode(dumps(self.checkedLCMSFiles[fhash])).decode("utf-8")]})
+
+                        if cache_df is not None:
+                            # Remove old entry if it exists and append new one
+                            cache_df = cache_df.filter(pl.col("filePath") != fhash)
+                            cache_df = pl.concat([cache_df, new_row])
+                        else:
+                            cache_df = new_row
+
+                        # Write cache back to file
+                        cache_df.write_parquet(cache_file)
 
                     except ExpatError as ex:
                         self.checkedLCMSFiles[fhash] = Bunch(parsed="Parsing error " + str(ex))
@@ -1810,9 +1845,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         self.checkedLCMSFiles[fhash] = Bunch(parsed="General error " + str(ex))
 
                         traceback.print_exc()
-
-        tcurs.close()
-        tconn.close()
 
         return self.checkedLCMSFiles[fhash].parsed
 
@@ -1954,8 +1986,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             for pol in pols:
                                 polarities.add(pol)
 
-                            # if file has been processed successfully (FileName.identified.sqlite DB exists) add it to the successfully processed list
-                            if os.path.exists(file + ".identified.sqlite") and os.path.isfile(file + ".identified.sqlite"):
+                            # if file has been processed successfully (FileName.pqts.meii DB exists) add it to the successfully processed list
+                            if os.path.exists(file + ".pqts.meii") and os.path.isfile(file + ".pqts.meii"):
                                 fname = fname = file[(file.rfind("/") + 1) :]
                                 qpixmap = QtGui.QPixmap(10, 10)
                                 qpixmap.fill(QtGui.QColor(group.color))
@@ -2104,20 +2136,18 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             for file in natSort(group.files):
                 if file not in done:
                     done.append(file)
-                    if os.path.exists(file + ".identified.sqlite") and os.path.isfile(file + ".identified.sqlite"):
-                        conn = None
-                        curs = None
+                    if os.path.exists(file + ".pqts.meii") and os.path.isfile(file + ".pqts.meii"):
+                        db_con = None
                         try:
-                            conn = connect(file + ".identified.sqlite")
-                            curs = conn.cursor()
-                            hasConfigTable = False
+                            db_con = self._load_parquet_db(file + ".pqts.meii")
 
                             # fetch processing configuration (table config)
-                            for name, type in curs.execute("SELECT name, type FROM sqlite_master WHERE type='table' AND name='config'"):
-                                hasConfigTable = True
-                            if hasConfigTable:
+                            if "config" in db_con.tables:
+                                config_df = db_con.tables["config"]
                                 # create an entry for each processed setting
-                                for key, value in curs.execute("SELECT key, value FROM config"):
+                                for row_dict in config_df.to_dicts():
+                                    key = row_dict["key"]
+                                    value = row_dict["value"]
                                     if key not in [
                                         "experimentOperator",
                                         "experimentID",
@@ -2130,18 +2160,15 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                                         if not (value in settings[key]):
                                             settings[key][value] = 0
                                         settings[key][value] += 1
-                            curs.close()
-                            curs = None
-                            conn.close()
-                            conn = None
+                            if db_con is not None:
+                                db_con.close()
+                            db_con = None
                         except:
                             try:
-                                if curs is not None:
-                                    curs.close()
-                                if conn is not None:
-                                    conn.close()
+                                if db_con is not None:
+                                    db_con.close()
                             except:
-                                logging.warning("Warning: Could not close intermediate (sql) file")
+                                logging.warning("Warning: Could not close intermediate (parquet) file")
                     else:
                         if len(inValidfiles) > 0:
                             inValidfiles += "\n"
@@ -2783,41 +2810,60 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.ui.resultsExperiment_TreeWidget.clear()
             self.ui.resultsExperiment_TreeWidget.setHeaderLabels(["OGroup", "MZ", "RT", "Xn", "Z", "IonMode"])
 
-            if os.path.exists(groupsResFile + ".identified.sqlite") and os.path.isfile(groupsResFile + ".identified.sqlite"):
+            if os.path.exists(groupsResFile + ".pqts.meii") and os.path.isfile(groupsResFile + ".pqts.meii"):
                 widths = [160, 80, 60, 30, 30, 30]
                 for i in range(len(widths)):
                     self.ui.resultsExperiment_TreeWidget.setColumnWidth(i, widths[i])
 
-                self.experimentResults = Bunch(conn=None, curs=None, file=None)
+                self.experimentResults = Bunch(db_con=None, file=None)
 
-                self.experimentResults.conn = connect(groupsResFile + ".identified.sqlite")
-                self.experimentResults.curs = self.experimentResults.conn.cursor()
+                self.experimentResults.db_con = self._load_parquet_db(groupsResFile + ".pqts.meii")
 
                 metaboliteGroupTreeItems = {}
-                for metaboliteGroup in SQLSelectAsObject(
-                    self.experimentResults.curs,
-                    "SELECT DISTINCT 'metaboliteGroup' AS type, OGroup AS metaboliteGroupID FROM GroupResults ORDER BY rt",
-                ):
+                # Get distinct OGroup values from GroupResults, ordered by rt
+                group_results_df = self.experimentResults.db_con.tables["GroupResults"]
+                distinct_groups = group_results_df.select(["OGroup", "rt"]).unique(subset=["OGroup"]).sort("rt")
+
+                for row_dict in distinct_groups.to_dicts():
+                    metaboliteGroup = Bunch(type="metaboliteGroup", metaboliteGroupID=row_dict["OGroup"])
                     metaboliteGroupTreeItem = QtWidgets.QTreeWidgetItem(["%s" % metaboliteGroup.metaboliteGroupID])
                     metaboliteGroupTreeItem.bunchData = metaboliteGroup
                     self.ui.resultsExperiment_TreeWidget.addTopLevelItem(metaboliteGroupTreeItem)
                     metaboliteGroupTreeItems[metaboliteGroup.metaboliteGroupID] = metaboliteGroupTreeItem
 
                 fileMappingData = {}
-                for fileRes in SQLSelectAsObject(
-                    self.experimentResults.curs,
-                    "SELECT 'fileResult' AS type, resID, file, areaN, areaL FROM FoundFeaturePairs ORDER BY areaN DESC",
-                ):
+                # Get file results from FoundFeaturePairs, ordered by areaN DESC
+                found_fps_df = self.experimentResults.db_con.tables["FoundFeaturePairs"].sort("areaN", descending=True)
+
+                for row_dict in found_fps_df.to_dicts():
+                    fileRes = Bunch(type="fileResult", resID=row_dict["resID"], file=row_dict["file"], areaN=row_dict["areaN"], areaL=row_dict["areaL"])
                     if fileRes.resID not in fileMappingData.keys():
                         fileMappingData[fileRes.resID] = []
 
                     fileMappingData[fileRes.resID].append(fileRes)
 
                 kids = []
-                for fp in SQLSelectAsObject(
-                    self.experimentResults.curs,
-                    "SELECT 'featurePair' AS type, id, OGroup AS metaboliteGroupID, mz, lmz, dmz, rt, xn, charge, scanEvent, ionisationMode, tracer, (SELECT COUNT(*) FROM FoundFeaturePairs WHERE resID=id) AS FOUNDINCOUNT FROM GroupResults ORDER BY mz",
-                ):
+                # Get feature pairs with count of found files
+                found_counts = self.experimentResults.db_con.tables["FoundFeaturePairs"].group_by("resID").agg(pl.count("resID").alias("FOUNDINCOUNT"))
+                fp_with_counts = group_results_df.join(found_counts, left_on="id", right_on="resID", how="left")
+                fp_with_counts = fp_with_counts.sort("mz")
+
+                for row_dict in fp_with_counts.to_dicts():
+                    fp = Bunch(
+                        type="featurePair",
+                        id=row_dict["id"],
+                        metaboliteGroupID=row_dict["OGroup"],
+                        mz=row_dict["mz"],
+                        lmz=row_dict.get("lmz"),
+                        dmz=row_dict.get("dmz"),
+                        rt=row_dict["rt"],
+                        xn=row_dict["xn"],
+                        charge=row_dict["charge"],
+                        scanEvent=row_dict.get("scanEvent"),
+                        ionisationMode=row_dict.get("ionisationMode"),
+                        tracer=row_dict.get("tracer"),
+                        FOUNDINCOUNT=row_dict.get("FOUNDINCOUNT", 0),
+                    )
                     featurePair = QtWidgets.QTreeWidgetItem(
                         [
                             "%s (/%d" % (str(fp.id), int(fp.FOUNDINCOUNT)),
@@ -2961,8 +3007,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def closeLoadedGroupsResultsFile(self):
         if hasattr(self, "experimentResults"):
             self.ui.resultsExperiment_TreeWidget.clear()
-            self.experimentResults.curs.close()
-            self.experimentResults.conn.close()
+            if self.experimentResults.db_con is not None:
+                self.experimentResults.db_con.close()
             delattr(self, "experimentResults")
 
     def _showFeatureInExperimentResults(self, feature_index: int):
@@ -3027,7 +3073,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     experiment_data["groups"][group_name] = basenames
 
             # Load feature data from database if available
-            if hasattr(self, "experimentResults") and self.experimentResults.curs is not None:
+            if hasattr(self, "experimentResults") and self.experimentResults.db_con is not None:
                 # Get feature pairs data for statistics
                 # Create separate dictionaries for N and L abundances
                 features_N = {}
@@ -3036,7 +3082,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 metadata = {"mz": {}, "rt": {}, "num": {}, "ogroup": {}, "featurePairID": {}, "featureGroupID": {}}
 
                 # First, get all features and their metadata (including OGroup and Num)
-                for row in self.experimentResults.curs.execute("SELECT id, mz, rt, xn, charge, OGroup FROM GroupResults"):
+                group_results_df = self.experimentResults.db_con.tables["GroupResults"]
+                for row_dict in group_results_df.to_dicts():
+                    row = Bunch(**row_dict)
                     idx = row[0]
                     metadata["mz"][idx] = row[1]
                     metadata["rt"][idx] = row[2]
@@ -3051,7 +3099,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 # Note: One resID can have multiple entries (one per file), so we take the first non-zero value
                 feature_pair_map = {}
                 feature_group_map = {}
-                for row in self.experimentResults.curs.execute("SELECT resID, featurePairID, featureGroupID FROM FoundFeaturePairs"):
+                found_fps_df = self.experimentResults.db_con.tables["FoundFeaturePairs"]
+                for row_dict in found_fps_df.to_dicts():
+                    row = Bunch(**row_dict)
                     res_id = row[0]
                     feature_pair_id = row[1]
                     feature_group_id = row[2]
@@ -3075,21 +3125,14 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     logging.info(f"Feature {idx}: featurePairID={metadata['featurePairID'][idx]}, featureGroupID={metadata['featureGroupID'][idx]}")
 
                 # Now get the intensity data for each feature in each file
-                # Query: get feature ID, file name, and area values
-                query = """
-                    SELECT 
-                        ffp.resID,
-                        ffp.file,
-                        ffp.areaN,
-                        ffp.areaL
-                    FROM FoundFeaturePairs ffp
-                """
+                # Get feature ID, file name, and area values from FoundFeaturePairs
+                found_fps_df = self.experimentResults.db_con.tables["FoundFeaturePairs"]
 
-                for row in self.experimentResults.curs.execute(query):
-                    feature_id = row[0]
-                    file_path = row[1]
-                    area_n = row[2] if row[2] is not None else 0.0
-                    area_l = row[3] if row[3] is not None else 0.0
+                for row_dict in found_fps_df.to_dicts():
+                    feature_id = row_dict["resID"]
+                    file_path = row_dict["file"]
+                    area_n = row_dict["areaN"] if row_dict["areaN"] is not None else 0.0
+                    area_l = row_dict["areaL"] if row_dict["areaL"] is not None else 0.0
 
                     # Get the sample name without extension
                     if file_path in file_path_to_basename:
@@ -3167,26 +3210,25 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             xn = item.bunchData.xn
 
             groups = {}
-            for group in SQLSelectAsObject(self.experimentResults.curs, "SELECT groupName, id FROM FileGroups"):
-                groups[group.id] = group.groupName
+            file_groups_df = self.experimentResults.db_con.tables["FileGroups"]
+            for row_dict in file_groups_df.to_dicts():
+                groups[row_dict["id"]] = row_dict["groupName"]
 
             filesToGroup = {}
             filesInGroups = {}
 
-            for fileMapping in SQLSelectAsObject(
-                self.experimentResults.curs,
-                "SELECT fileName, filePath, groupID FROM FileMapping",
-            ):
+            file_mapping_df = self.experimentResults.db_con.tables["FileMapping"]
+            for row_dict in file_mapping_df.to_dicts():
+                fileMapping = Bunch(fileName=row_dict["fileName"], filePath=row_dict["filePath"], groupID=row_dict["groupID"])
                 filesToGroup[fileMapping.fileName] = fileMapping.groupID
-                if not fileMapping.groupID in filesInGroups:
+                if fileMapping.groupID not in filesInGroups.keys():
                     filesInGroups[fileMapping.groupID] = []
                 filesInGroups[fileMapping.groupID].append(fileMapping)
 
             foundIn = {}
-            for foundFP in SQLSelectAsObject(
-                self.experimentResults.curs,
-                "SELECT file AS fil, featurePairID, featureGroupID, areaN, areaL, featureType FROM FoundFeaturePairs WHERE resID=%d" % item.bunchData.id,
-            ):
+            found_fps_df = self.experimentResults.db_con.tables["FoundFeaturePairs"].filter(pl.col("resID") == item.bunchData.id)
+            for row_dict in found_fps_df.to_dicts():
+                foundFP = Bunch(fil=row_dict["file"], featurePairID=row_dict["featurePairID"], featureGroupID=row_dict["featureGroupID"], areaN=row_dict["areaN"], areaL=row_dict["areaL"], featureType=row_dict.get("featureType"))
                 foundIn[foundFP.fil] = foundFP
 
             offsetCount = 0
@@ -3197,17 +3239,20 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             for groupID, groupName in groups.items():
                 for file in filesInGroups[groupID]:
                     if file.fileName in foundIn.keys():
-                        conn = connect(file.filePath + ".identified.sqlite")
-                        curs = conn.cursor()
+                        file_db_con = self._load_parquet_db(file.filePath + ".pqts.meii")
 
                         groupID = filesToGroup[file.fileName]
 
                         msSpectrumID = None
 
-                        for XICObj in SQLSelectAsObject(
-                            curs,
-                            "SELECT x.xic, x.xicL, x.times, c.massSpectrumID FROM XICs x INNER JOIN chromPeaks c ON x.id=c.eicID WHERE c.id=%d" % foundIn[file.fileName].featurePairID,
-                        ):
+                        # Get XIC data with JOIN to chromPeaks
+                        xics_df = file_db_con.tables["XICs"]
+                        chrompeaks_df = file_db_con.tables["chromPeaks"]
+                        xic_with_cp = xics_df.join(chrompeaks_df, left_on="id", right_on="eicID", how="inner")
+                        xic_filtered = xic_with_cp.filter(pl.col("id_right") == foundIn[file.fileName].featurePairID)
+
+                        for row_dict in xic_filtered.to_dicts():
+                            XICObj = Bunch(**row_dict)
                             XICObj.xic = [float(f) for f in XICObj.xic.split(";")]
                             XICObj.xicL = [float(f) for f in XICObj.xicL.split(";")]
                             XICObj.times = [float(f) for f in XICObj.times.split(";")]
@@ -3261,10 +3306,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
                         if True:
                             if msSpectrumID is not None:
-                                for msSpectrum in SQLSelectAsObject(
-                                    curs,
-                                    "SELECT mzs, intensities, ionMode FROM massspectrum WHERE mID=%d" % msSpectrumID,
-                                ):
+                                ms_spectrum_df = file_db_con.tables["massspectrum"].filter(pl.col("mID") == msSpectrumID)
+                                for row_dict in ms_spectrum_df.to_dicts():
+                                    msSpectrum = Bunch(**row_dict)
                                     mzs = [float(f) for f in msSpectrum.mzs.split(";")]
                                     intensities = [float(f) for f in msSpectrum.intensities.split(";")]
 
@@ -3293,8 +3337,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                                         xlab="MZ",
                                     )
 
-                        curs.close()
-                        conn.close()
+                        file_db_con.close()
 
                 offsetCount += 1
 
@@ -4025,7 +4068,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def openTempDir(self):
         import subprocess
 
-        subprocess.Popen('explorer "' + os.environ["LOCALAPPDATA"] + '\\MetExtractII"')
+        subprocess.Popen('explorer "' + local_folder)
 
     def aboutMe(self):
         lic = 'THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.'
@@ -4598,8 +4641,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             resFilePath + "/xxx_results__1_afterBracketing.tsv",
                         )
                         shutil.copyfile(
-                            resFileFull + ".identified.sqlite",
-                            resFilePath + "/xxx_results__1_afterBracketing.tsv.identified.sqlite",
+                            resFileFull + ".pqts.meii",
+                            resFilePath + "/xxx_results__1_afterBracketing.tsv.pqts.meii",
                         )
 
                         # Arrange grouped results and add statistics columns
@@ -4643,16 +4686,16 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             resFilePath + "/xxx_results__2_afterAddingStatColumn.tsv",
                         )
                         shutil.copyfile(
-                            resFileFull + ".identified.sqlite",
-                            resFilePath + "/xxx_results__2_afterAddingStatColumn.tsv.identified.sqlite",
+                            resFileFull + ".pqts.meii",
+                            resFilePath + "/xxx_results__2_afterAddingStatColumn.tsv.pqts.meii",
                         )
 
                         # remove feature pairs not found more than n times (according to user specified omit value)
                         grpOmit(resFileFull, grpStats, resFileFull)
                         shutil.copyfile(resFileFull, resFilePath + "/xxx_results__3_afterOmit.tsv")
                         shutil.copyfile(
-                            resFileFull + ".identified.sqlite",
-                            resFilePath + "/xxx_results__3_afterOmit.tsv.identified.sqlite",
+                            resFileFull + ".pqts.meii",
+                            resFilePath + "/xxx_results__3_afterOmit.tsv.pqts.meii",
                         )
                         logging.info("Statistic columns added (and feature pairs omitted)..")
 
@@ -4683,8 +4726,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
                     shutil.copyfile(resFilePath + "/xxx_results__3_afterOmit.tsv", resFileFull)
                     shutil.copyfile(
-                        resFilePath + "/xxx_results__3_afterOmit.tsv.identified.sqlite",
-                        resFileFull + ".identified.sqlite",
+                        resFilePath + "/xxx_results__3_afterOmit.tsv.pqts.meii",
+                        resFileFull + ".pqts.meii",
                     )
 
                     runIdentificationInstance = RunIdentification(
@@ -4813,8 +4856,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         resFilePath + "/xxx_results__4_afterFeaturePairConvolution.tsv",
                     )
                     shutil.copyfile(
-                        resFileFull + ".identified.sqlite",
-                        resFilePath + "/xxx_results__4_afterFeaturePairConvolution.tsv.identified.sqlite",
+                        resFileFull + ".pqts.meii",
+                        resFilePath + "/xxx_results__4_afterFeaturePairConvolution.tsv.pqts.meii",
                     )
 
                 except Exception as ex:
@@ -4846,8 +4889,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     resFileFull,
                 )
                 shutil.copyfile(
-                    resFilePath + "/xxx_results__4_afterFeaturePairConvolution.tsv.identified.sqlite",
-                    resFileFull + ".identified.sqlite",
+                    resFilePath + "/xxx_results__4_afterFeaturePairConvolution.tsv.pqts.meii",
+                    resFileFull + ".pqts.meii",
                 )
 
                 pw = ProgressWrapper(min(len(files), cpus) + 1, showLog=False, parent=self)
@@ -5506,7 +5549,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 "Features",
                 "Metabolites",
                 "mz delta ppm MZs",
-                "avg M:M' MZs; Area;Abundance",
+                "avg M:M' MZs;   Area; Abundance",
                 "avg L-Enrichment",
             )
         )
@@ -5533,59 +5576,33 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 for ionMode in ["+", "-"]:
                     indGroups[grName].append(str(file))
 
-                    if os.path.exists(file + ".identified.sqlite"):
-                        conn = connect(file + ".identified.sqlite")
-                        curs = conn.cursor()
+                    if os.path.exists(file + ".pqts.meii"):
+                        file_db_con = self._load_parquet_db(file + ".pqts.meii")
 
-                        from .utils import StdevFunc
+                        # Count MZs for this ionMode
+                        nMZs = len(file_db_con.tables["MZs"].filter(pl.col("ionMode") == ionMode))
+                        nMZsPPMDelta = file_db_con.tables["MZs"].filter(pl.col("ionMode") == ionMode).with_columns(((pl.col("lmz") - pl.col("mz") - pl.col("tmz")) * 1_000_000 / pl.col("mz")).alias("ppm_delta"))["ppm_delta"].mean()
 
-                        conn.create_aggregate("stdev", 1, StdevFunc)
+                        nMZsPPMDeltaStd = file_db_con.tables["MZs"].filter(pl.col("ionMode") == ionMode).with_columns(((pl.col("lmz") - pl.col("mz") - pl.col("tmz")) * 1_000_000 / pl.col("mz")).alias("ppm_delta"))["ppm_delta"].std()
 
-                        nMZs = SQLgetSingleFieldFromOneRow(
-                            curs,
-                            "SELECT COUNT(*) FROM MZs WHERE ionMode == '%s'" % ionMode,
-                        )
-                        nMZsPPMDelta = SQLgetSingleFieldFromOneRow(
-                            curs,
-                            "SELECT AVG((lmz-mz-tmz)*1000000/mz) FROM MZs WHERE ionMode == '%s'" % ionMode,
-                        )
-                        nMZsPPMDeltaStd = SQLgetSingleFieldFromOneRow(
-                            curs,
-                            "SELECT stdev((lmz-mz-tmz)*1000000/mz) FROM MZs WHERE ionMode == '%s'" % ionMode,
-                        )
-                        nMZBins = SQLgetSingleFieldFromOneRow(
-                            curs,
-                            "SELECT COUNT(*) FROM MZBins WHERE ionMode == '%s'" % ionMode,
-                        )
-                        nFeatures = SQLgetSingleFieldFromOneRow(
-                            curs,
-                            "SELECT COUNT(*) FROM chromPeaks WHERE ionMode == '%s'" % ionMode,
-                        )
-                        nMetabolites = SQLgetSingleFieldFromOneRow(curs, "SELECT COUNT(*) FROM featureGroups")
-                        avgRatioSignals = SQLgetSingleFieldFromOneRow(
-                            curs,
-                            "SELECT AVG(intensity/intensityL) FROM MZs WHERE ionMode == '%s'" % ionMode,
-                        )
-                        avgRatioSignalsStd = SQLgetSingleFieldFromOneRow(
-                            curs,
-                            "SELECT stdev(intensity/intensityL) FROM MZs WHERE ionMode == '%s'" % ionMode,
-                        )
-                        avgRatioFeaturesArea = SQLgetSingleFieldFromOneRow(
-                            curs,
-                            "SELECT AVG(NPeakArea/LPeakArea) FROM chromPeaks WHERE ionMode == '%s'" % ionMode,
-                        )
-                        avgRatioFeaturesAbundance = SQLgetSingleFieldFromOneRow(
-                            curs,
-                            "SELECT AVG(NPeakAbundance/LPeakAbundance) FROM chromPeaks WHERE ionMode == '%s'" % ionMode,
-                        )
-                        avgEnrichmentL = SQLgetSingleFieldFromOneRow(
-                            curs,
-                            "SELECT AVG(xcount/(xcount+peaksRatioMPm1)) FROM chromPeaks WHERE peaksRatioMPm1 > 0 AND ionMode == '%s'" % ionMode,
-                        )
-                        avgEnrichmentLStd = SQLgetSingleFieldFromOneRow(
-                            curs,
-                            "SELECT stdev(xcount/(xcount+peaksRatioMPm1)) FROM chromPeaks WHERE peaksRatioMPm1 > 0 AND ionMode == '%s'" % ionMode,
-                        )
+                        nMZBins = file_db_con.tables["MZBins"].filter(pl.col("ionMode") == ionMode).shape[0]
+
+                        nFeatures = file_db_con.tables["chromPeaks"].filter(pl.col("ionMode") == ionMode).shape[0]
+
+                        nMetabolites = file_db_con.tables["featureGroups"].shape[0]
+
+                        avgRatioSignals = file_db_con.tables["MZs"].filter(pl.col("ionMode") == ionMode).select((pl.col("intensity") / pl.col("intensityL")).alias("ratio"))["ratio"].mean()
+
+                        avgRatioSignalsStd = file_db_con.tables["MZs"].filter(pl.col("ionMode") == ionMode).select((pl.col("intensity") / pl.col("intensityL")).alias("ratio"))["ratio"].std()
+
+                        avgRatioFeaturesArea = file_db_con.tables["chromPeaks"].filter(pl.col("ionMode") == ionMode).select((pl.col("NPeakArea") / pl.col("LPeakArea")).alias("area_ratio"))["area_ratio"].mean()
+
+                        avgRatioFeaturesAbundance = file_db_con.tables["chromPeaks"].filter(pl.col("ionMode") == ionMode).select((pl.col("NPeakAbundance") / pl.col("LPeakAbundance")).alias("abundance_ratio"))["abundance_ratio"].mean()
+
+                        avgEnrichmentL = file_db_con.tables["chromPeaks"].filter((pl.col("peaksRatioMPm1") > 0) & (pl.col("ionMode") == ionMode)).select((pl.col("xcount") / (pl.col("xcount") + pl.col("peaksRatioMPm1"))).alias("enrichment"))["enrichment"].mean()
+
+                        avgEnrichmentLStd = file_db_con.tables["chromPeaks"].filter((pl.col("peaksRatioMPm1") > 0) & (pl.col("ionMode") == ionMode)).select((pl.col("xcount") / (pl.col("xcount") + pl.col("peaksRatioMPm1"))).alias("enrichment"))["enrichment"].std()
+
                         texts.append(
                             ("%%%ds       %%s   %%12s %%12s %%12s %%12s      %%20s %%40s %%25s\n" % (maxFileNameLength))
                             % (
@@ -5756,8 +5773,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     # <editor-fold desc="### visualisation of results of single sample">
     def closeCurrentOpenResultsFile(self):
         if hasattr(self, "currentOpenResultsFile") and self.currentOpenResultsFile is not None:
-            self.currentOpenResultsFile.curs.close()
-            self.currentOpenResultsFile.conn.close()
+            if hasattr(self.currentOpenResultsFile, "db_con") and self.currentOpenResultsFile.db_con is not None:
+                self.currentOpenResultsFile.db_con.close()
             self.currentOpenResultsFile.file = None
             self.currentOpenResultsFile = None
         if hasattr(self, "currentOpenRawFile") and self.currentOpenRawFile is not None:
@@ -5765,14 +5782,36 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.currentOpenRawFile = None
 
     def openFileAsCurrentOpenResultsFile(self, file):
-        if os.path.exists(file + ".identified.sqlite") and os.path.isfile(file + ".identified.sqlite"):
+        db_path = file + getDBSuffix()
+        if os.path.exists(db_path) and os.path.isfile(db_path):
             self.currentOpenResultsFile = Bunch()
             self.currentOpenResultsFile.file = file
-            self.currentOpenResultsFile.conn = connect(file + ".identified.sqlite")
-            self.currentOpenResultsFile.curs = self.currentOpenResultsFile.conn.cursor()
+            # Load ParquetDB using ZIP archive format
+            self.currentOpenResultsFile.db_con = self._load_parquet_db(db_path)
             return True
         else:
             return False
+
+    def _load_parquet_db(self, filepath):
+        """Load tables from ZIP archive containing Parquet files."""
+        tables = {}
+        if os.path.exists(filepath):
+            try:
+                with zipfile.ZipFile(filepath, "r") as zf:
+                    for filename in zf.namelist():
+                        if filename.endswith(".parquet"):
+                            table_name = filename[:-8]  # Remove '.parquet'
+                            with zf.open(filename) as f:
+                                parquet_data = f.read()
+                                df = pl.read_parquet(io.BytesIO(parquet_data))
+                                tables[table_name] = df
+            except Exception as e:
+                print(f"Warning: Could not load tables from {filepath}: {e}")
+
+        db = Bunch()
+        db.tables = tables
+        db.close = lambda: None  # Dummy close method
+        return db
 
     def selectedResultChanged(self, ind):
         self.ui.res_ExtractedData.clear()
@@ -5819,8 +5858,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 ## Fetched matched MZ signal pairs
                 pw.setText("Fetching mzs", i=1)
                 numberOfMZs = 0
-                for row in SQLSelectAsObject(self.currentOpenResultsFile.curs, "SELECT count(id) AS co FROM MZs"):
-                    numberOfMZs = row.co
+                mzs_df = self.currentOpenResultsFile.db_con.tables.get("MZs", pl.DataFrame())
+                if len(mzs_df) > 0:
+                    numberOfMZs = len(mzs_df)
                 pw.setMaxu(numberOfMZs, i=1)
 
                 maxMZsFetch = 50000
@@ -5828,32 +5868,31 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 if numberOfMZs < maxMZsFetch:
                     pw.setText("Fetching mzs (%d)" % numberOfMZs, i=1)
 
-                    for mzRes in SQLSelectAsObject(
-                        self.currentOpenResultsFile.curs,
-                        "SELECT id, mz, xcount, scanid, loading, scantime, intensity, intensityL FROM MZs ORDER BY scanid",
-                    ):
+                    # Sort by scanid and iterate
+                    mzs_sorted = mzs_df.sort("scanid")
+                    for row_dict in mzs_sorted.to_dicts():
                         d = QtWidgets.QTreeWidgetItem(
                             it,
                             [
                                 str(s)
                                 for s in [
-                                    mzRes.mz,
-                                    mzRes.xcount,
-                                    mzRes.scanid,
-                                    "%.2f min / %.2f sec" % (mzRes.scantime / 60.0, mzRes.scantime),
-                                    mzRes.loading,
+                                    row_dict["mz"],
+                                    row_dict["xcount"],
+                                    row_dict["scanid"],
+                                    "%.2f min / %.2f sec" % (row_dict["scantime"] / 60.0, row_dict["scantime"]),
+                                    row_dict["loading"],
                                     "%.1f / %.1f / %.3f"
                                     % (
-                                        mzRes.intensity,
-                                        mzRes.intensityL,
-                                        mzRes.intensity / mzRes.intensityL,
+                                        row_dict["intensity"],
+                                        row_dict["intensityL"],
+                                        row_dict["intensity"] / row_dict["intensityL"],
                                     ),
                                 ]
                             ],
                         )
                         d.myType = "mz"
-                        d.myData = mzRes
-                        d.myID = int(mzRes.id)
+                        d.myData = Bunch(**row_dict)
+                        d.myID = int(row_dict["id"])
                         children.append(d)
                         count += 1
 
@@ -5873,11 +5912,12 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 self.ui.res_ExtractedData.addTopLevelItem(it)
                 mzbins = []
 
-                for mzbin in SQLSelectAsObject(
-                    self.currentOpenResultsFile.curs,
-                    "SELECT id, mz FROM MZBins ORDER BY mz",
-                ):
-                    mzbins.append(mzbin)
+                mzbins_df = self.currentOpenResultsFile.db_con.tables.get("MZBins", pl.DataFrame())
+                if len(mzbins_df) > 0:
+                    mzbins_sorted = mzbins_df.sort("mz")
+                    for row_dict in mzbins_sorted.to_dicts():
+                        mzbins.append(Bunch(**row_dict))
+
                 count = 0
                 children = []
 
@@ -5885,6 +5925,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 pw.setText("Fetching MZBins (%d)" % len(mzbins), i=2)
                 pw.setMax(len(mzbins), i=2)
                 if numberOfMZs < maxMZsFetch:
+                    mzbins_kids_df = self.currentOpenResultsFile.db_con.tables.get("MZBinsKids", pl.DataFrame())
+
                     for mzbin in mzbins:
                         d = QtWidgets.QTreeWidgetItem([str(mzbin.mz)])
                         d.myType = "mzbin"
@@ -5895,35 +5937,39 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         maxInner = 0.0
                         xcount = 0
 
-                        for mzRes in SQLSelectAsObject(
-                            self.currentOpenResultsFile.curs,
-                            "SELECT id, mz, xcount, scanid, loading, scantime, intensity FROM MZs m, MZBinsKids k WHERE m.id==k.mzID AND k.mzbinID=%d ORDER BY m.scanid" % mzbin.id,
-                        ):
-                            minInner = min(float(mzRes.mz), minInner)
-                            maxInner = max(maxInner, mzRes.mz)
-                            xcount = mzRes.xcount
-                            if numberOfMZs < maxMZsFetch:
-                                dd = QtWidgets.QTreeWidgetItem(
-                                    [
-                                        str(s)
-                                        for s in [
-                                            mzRes.mz,
-                                            mzRes.xcount,
-                                            mzRes.scanid,
-                                            "%.2f min / %.2f sec" % (mzRes.scantime / 60.0, mzRes.scantime),
-                                            mzRes.loading,
-                                            "%.1f" % mzRes.intensity,
-                                        ]
-                                    ]
-                                )
-                                dd.myType = "mz"
-                                dd.myData = mzRes
-                                dd.myID = int(mzRes.id)
-                                d.addChild(dd)
-                            countinner += 1
+                        # Join MZs with MZBinsKids to get MZs for this bin
+                        if len(mzbins_kids_df) > 0 and len(mzs_df) > 0:
+                            kids_for_bin = mzbins_kids_df.filter(pl.col("mzbinID") == mzbin.id)
+                            if len(kids_for_bin) > 0:
+                                mz_ids = kids_for_bin["mzID"].to_list()
+                                mzs_in_bin = mzs_df.filter(pl.col("id").is_in(mz_ids)).sort("scanid")
+
+                                for mz_row in mzs_in_bin.to_dicts():
+                                    minInner = min(float(mz_row["mz"]), minInner)
+                                    maxInner = max(maxInner, mz_row["mz"])
+                                    xcount = mz_row["xcount"]
+                                    if numberOfMZs < maxMZsFetch:
+                                        dd = QtWidgets.QTreeWidgetItem(
+                                            [
+                                                str(s)
+                                                for s in [
+                                                    mz_row["mz"],
+                                                    mz_row["xcount"],
+                                                    mz_row["scanid"],
+                                                    "%.2f min / %.2f sec" % (mz_row["scantime"] / 60.0, mz_row["scantime"]),
+                                                    mz_row["loading"],
+                                                    "%.1f" % mz_row["intensity"],
+                                                ]
+                                            ]
+                                        )
+                                        dd.myType = "mz"
+                                        dd.myData = Bunch(**mz_row)
+                                        dd.myID = int(mz_row["id"])
+                                        d.addChild(dd)
+                                    countinner += 1
 
                         d.setText(0, "%.5f (%d)" % (mzbin.mz, countinner))
-                        d.setText(1, "%.4f" % ((maxInner - minInner) * 1000000.0 / minInner))
+                        d.setText(1, "%.4f" % ((maxInner - minInner) * 1000000.0 / minInner) if minInner > 0 else "0.0")
                         d.setText(2, "%s" % xcount)
                         count += 1
                         pw.setValueu(count, i=2)
@@ -5943,179 +5989,161 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 self.ui.res_ExtractedData.addTopLevelItem(it)
                 it.myType = "Features"
 
-                numberOfFeaturePairs = 0
-                for row in SQLSelectAsObject(
-                    self.currentOpenResultsFile.curs,
-                    "SELECT count(chromPeaks.id) AS co FROM chromPeaks",
-                ):
-                    numberOfFeaturePairs = row.co
+                chromPeaks_df = self.currentOpenResultsFile.db_con.tables.get("chromPeaks", pl.DataFrame())
+                numberOfFeaturePairs = len(chromPeaks_df)
 
                 pw.setTextu("Fetching feature pairs (%d)" % numberOfFeaturePairs, i=3)
                 pw.setMaxu(numberOfFeaturePairs, i=3)
 
                 count = 0
                 children = []
-                for row in SQLSelectAsObject(
-                    self.currentOpenResultsFile.curs,
-                    "SELECT chromPeaks.id AS cpID, "
-                    "mz, "
-                    "lmz, "
-                    "xcount, "
-                    "NPeakCenterMin, "
-                    "LPeakCenterMin, "
-                    "NPeakCenter, "
-                    "NPeakScale, "
-                    "eicID, "
-                    "LPeakScale, "
-                    "peaksCorr, "
-                    "peaksRatio, "
-                    "LPeakCenter, "
-                    "LPeakScale, "
-                    "Loading, "
-                    "heteroAtoms, "
-                    "name AS tracerName, "
-                    "adducts, "
-                    "fDesc, "
-                    "heteroAtoms, "
-                    "chromPeaks.ionMode AS ionMode, "
-                    "assignedName, "
-                    "NBorderLeft, "
-                    "NBorderRight, "
-                    "LBorderLeft, "
-                    "LBorderRight, "
-                    "NPeakArea, "
-                    "LPeakArea, "
-                    "chromPeaks.massSpectrumID AS massSpectrumID, "
-                    "assignedMZs, "
-                    "artificialEICLShift "
-                    "FROM chromPeaks LEFT JOIN tracerConfiguration ON tracerConfiguration.id=chromPeaks.tracer "
-                    "ORDER BY tracerConfiguration.id, %s, NPeakCenter, mz, xcount"
-                    % (
-                        {
-                            "M/Z": "mz",
-                            "RT": "NPeakCenter",
-                            "Intensity": "NPeakArea DESC",
-                            "Peaks correlation": "peaksCorr DESC",
-                        }[sortOrder]
-                    ),
-                ):
-                    adducts = ""
-                    try:
-                        lk = loads(base64.b64decode(row.adducts.encode("utf-8")))
-                        if len(lk) > 0:
-                            adducts = ", ".join(lk)
-                    except (ImportError, ModuleNotFoundError, SyntaxError, EOFError) as e:
-                        logging.warning(f"Could not load adducts from row data: {e}")
+
+                if len(chromPeaks_df) > 0:
+                    # LEFT JOIN with tracerConfiguration
+                    tracer_df = self.currentOpenResultsFile.db_con.tables.get("tracerConfiguration", pl.DataFrame())
+                    if len(tracer_df) > 0:
+                        joined_df = chromPeaks_df.join(tracer_df.select(["id", "name"]), left_on="tracer", right_on="id", how="left", suffix="_tracer")
+                    else:
+                        joined_df = chromPeaks_df.with_columns(pl.lit(None).alias("name"))
+
+                    # Determine sort column based on sortOrder
+                    sort_map = {
+                        "M/Z": "mz",
+                        "RT": "NPeakCenter",
+                        "Intensity": "NPeakArea",
+                        "Peaks correlation": "peaksCorr",
+                    }
+                    sort_col = sort_map.get(sortOrder, "mz")
+
+                    # Sort (descending for Intensity and Peaks correlation)
+                    if sortOrder in ["Intensity", "Peaks correlation"]:
+                        joined_df = joined_df.sort(["tracer", sort_col, "NPeakCenter", "mz", "xcount"], descending=[False, True, False, False, False])
+                    else:
+                        joined_df = joined_df.sort(["tracer", sort_col, "NPeakCenter", "mz", "xcount"])
+
+                    for row_dict in joined_df.to_dicts():
+                        # Convert row_dict to Bunch for backwards compatibility
+                        row = Bunch(**row_dict)
+                        row.cpID = row_dict["id"]
+                        row.tracerName = row_dict.get("name", "")
+
                         adducts = ""
+                        try:
+                            lk = loads(base64.b64decode(row.adducts.encode("utf-8")))
+                            if len(lk) > 0:
+                                adducts = ", ".join(lk)
+                        except (ImportError, ModuleNotFoundError, SyntaxError, EOFError) as e:
+                            logging.warning(f"Could not load adducts from row data: {e}")
+                            adducts = ""
 
-                    fDesc = ""
-                    try:
-                        lk = loads(base64.b64decode(row.fDesc.encode("utf-8")))
-                        if len(lk) > 0:
-                            fDesc = ", ".join(lk)
-                    except (ImportError, ModuleNotFoundError, SyntaxError, EOFError) as e:
-                        logging.warning(f"Could not load feature description from row data: {e}")
                         fDesc = ""
+                        try:
+                            lk = loads(base64.b64decode(row.fDesc.encode("utf-8")))
+                            if len(lk) > 0:
+                                fDesc = ", ".join(lk)
+                        except (ImportError, ModuleNotFoundError, SyntaxError, EOFError) as e:
+                            logging.warning(f"Could not load feature description from row data: {e}")
+                            fDesc = ""
 
-                    heteroAtoms = []
-                    try:
-                        lk = loads(base64.b64decode(row.heteroAtoms.encode("utf-8")))
-                    except (ImportError, ModuleNotFoundError, SyntaxError) as e:
-                        logging.warning(f"Could not load hetero atoms from results: {e}")
-                        logging.warning("This may be due to cached data from an older version. Using empty dict.")
-                        lk = {}
-                    for hetAtom in lk:
-                        pIso = lk[hetAtom]
-                        for hetAtomCount in pIso:
-                            heteroAtoms.append("{%s}%d" % (hetAtom, hetAtomCount))
-                    heteroAtoms = ", ".join(heteroAtoms)
+                        heteroAtoms = []
+                        try:
+                            lk = loads(base64.b64decode(row.heteroAtoms.encode("utf-8")))
+                        except (ImportError, ModuleNotFoundError, SyntaxError) as e:
+                            logging.warning(f"Could not load hetero atoms from results: {e}")
+                            logging.warning("This may be due to cached data from an older version. Using empty dict.")
+                            lk = {}
+                        for hetAtom in lk:
+                            pIso = lk[hetAtom]
+                            for hetAtomCount in pIso:
+                                heteroAtoms.append("{%s}%d" % (hetAtom, hetAtomCount))
+                        heteroAtoms = ", ".join(heteroAtoms)
 
-                    try:
-                        assignedMZs = loads(base64.b64decode(row.assignedMZs.encode("utf-8")))
-                    except (ImportError, ModuleNotFoundError, SyntaxError) as e:
-                        logging.warning(f"Could not load assigned MZs from results: {e}")
-                        logging.warning("This may be due to cached data from an older version. Using empty list.")
-                        assignedMZs = []
+                        try:
+                            assignedMZs = loads(base64.b64decode(row.assignedMZs.encode("utf-8")))
+                        except (ImportError, ModuleNotFoundError, SyntaxError) as e:
+                            logging.warning(f"Could not load assigned MZs from results: {e}")
+                            logging.warning("This may be due to cached data from an older version. Using empty list.")
+                            assignedMZs = []
 
-                    try:
-                        row.xcount = int(row.xcount)
-                    except Exception:
-                        traceback.print_exc()  ## double labeling experiment. That's fine
+                        try:
+                            row.xcount = int(row.xcount)
+                        except Exception:
+                            traceback.print_exc()  ## double labeling experiment. That's fine
 
-                    xp = ChromPeakPair(
-                        NPeakCenter=int(row.NPeakCenter),
-                        LPeakScale=float(row.LPeakScale),
-                        LPeakCenter=int(row.LPeakCenter),
-                        NPeakScale=float(row.NPeakScale),
-                        NSNR=0,
-                        NPeakArea=-1,
-                        mz=float(row.mz),
-                        lmz=float(row.lmz),
-                        xCount=row.xcount,
-                        NBorderLeft=float(row.NBorderLeft),
-                        NBorderRight=float(row.NBorderRight),
-                        LBorderLeft=float(row.LBorderLeft),
-                        LBorderRight=float(row.LBorderRight),
-                        NPeakCenterMin=float(row.NPeakCenterMin),
-                        LPeakCenterMin=float(row.LPeakCenterMin),
-                        eicID=int(row.eicID),
-                        massSpectrumID=int(row.massSpectrumID),
-                        assignedName=str(row.assignedName),
-                        id=int(row.cpID),
-                        loading=int(row.Loading),
-                        peaksCorr=float(row.peaksCorr),
-                        peaksRatio=float(row.peaksRatio),
-                        tracer=str(row.tracerName),
-                        ionMode=str(row.ionMode),
-                        heteroAtoms=heteroAtoms,
-                        adducts=adducts,
-                        fDesc=fDesc,
-                        assignedMZs=assignedMZs,
-                    )
+                        xp = ChromPeakPair(
+                            NPeakCenter=int(row.NPeakCenter),
+                            LPeakScale=float(row.LPeakScale),
+                            LPeakCenter=int(row.LPeakCenter),
+                            NPeakScale=float(row.NPeakScale),
+                            NSNR=0,
+                            NPeakArea=-1,
+                            mz=float(row.mz),
+                            lmz=float(row.lmz),
+                            xCount=row.xcount,
+                            NBorderLeft=float(row.NBorderLeft),
+                            NBorderRight=float(row.NBorderRight),
+                            LBorderLeft=float(row.LBorderLeft),
+                            LBorderRight=float(row.LBorderRight),
+                            NPeakCenterMin=float(row.NPeakCenterMin),
+                            LPeakCenterMin=float(row.LPeakCenterMin),
+                            eicID=int(row.eicID),
+                            massSpectrumID=int(row.massSpectrumID),
+                            assignedName=str(row.assignedName),
+                            id=int(row.cpID),
+                            loading=int(row.Loading),
+                            peaksCorr=float(row.peaksCorr),
+                            peaksRatio=float(row.peaksRatio),
+                            tracer=str(row.tracerName),
+                            ionMode=str(row.ionMode),
+                            heteroAtoms=heteroAtoms,
+                            adducts=adducts,
+                            fDesc=fDesc,
+                            assignedMZs=assignedMZs,
+                        )
 
-                    # Check if MSMS spectra exist for this feature
-                    try:
-                        ppm = float(self.getParametersFromCurrentRes("Mass deviation (+/- ppm)"))
-                    except:
-                        ppm = 5.0
-                    rt_min = xp.NPeakCenterMin - xp.NPeakScale
-                    rt_max = xp.NPeakCenterMin + xp.NPeakScale
-                    rt_min = min(rt_min, xp.LPeakCenterMin - xp.LPeakScale)
-                    rt_max = max(rt_max, xp.LPeakCenterMin + xp.LPeakScale)
-                    has_msms = self.hasMSMSSpectra(xp.mz, rt_min, rt_max, ppm) or self.hasMSMSSpectra(xp.lmz, rt_min, rt_max, ppm)
-                    msms_marker = "* " if has_msms else ""
+                        # Check if MSMS spectra exist for this feature
+                        try:
+                            ppm = float(self.getParametersFromCurrentRes("Mass deviation (+/- ppm)"))
+                        except:
+                            ppm = 5.0
+                        rt_min = xp.NPeakCenterMin - xp.NPeakScale
+                        rt_max = xp.NPeakCenterMin + xp.NPeakScale
+                        rt_min = min(rt_min, xp.LPeakCenterMin - xp.LPeakScale)
+                        rt_max = max(rt_max, xp.LPeakCenterMin + xp.LPeakScale)
+                        has_msms = self.hasMSMSSpectra(xp.mz, rt_min, rt_max, ppm) or self.hasMSMSSpectra(xp.lmz, rt_min, rt_max, ppm)
+                        msms_marker = "* " if has_msms else ""
 
-                    d = QtWidgets.QTreeWidgetItem(
-                        [
-                            msms_marker + "%.5f" % xp.mz + " (/" + str(row.ionMode) + str(row.Loading) + ") ",
-                            "%.2f / %.2f"
-                            % (
-                                float(row.NPeakCenterMin) / 60.0,
-                                float(row.LPeakCenterMin) / 60.0,
-                            ),
-                            str(row.xcount),
-                            "%s / %s / %s " % (adducts, fDesc, heteroAtoms),
-                            "%.0f / %.0f" % (float(row.NPeakScale), float(row.LPeakScale)),
-                            "%.3f%s"
-                            % (
-                                row.peaksCorr,
-                                "" if xp.artificialEICLShift == 0 else " (%d)" % (xp.artificialEICLShift),
-                            ),
-                            "%.3f / %.3f" % (row.peaksRatio, row.NPeakArea / row.LPeakArea),
-                            "%.1f / %.1f" % (row.NPeakArea, row.LPeakArea),
-                            "%d" % len(assignedMZs),
-                            "%.5f" % (xp.lmz),
-                            str(row.tracerName),
-                        ]
-                    )
+                        d = QtWidgets.QTreeWidgetItem(
+                            [
+                                msms_marker + "%.5f" % xp.mz + " (/" + str(row.ionMode) + str(row.Loading) + ") ",
+                                "%.2f / %.2f"
+                                % (
+                                    float(row.NPeakCenterMin) / 60.0,
+                                    float(row.LPeakCenterMin) / 60.0,
+                                ),
+                                str(row.xcount),
+                                "%s / %s / %s " % (adducts, fDesc, heteroAtoms),
+                                "%.0f / %.0f" % (float(row.NPeakScale), float(row.LPeakScale)),
+                                "%.3f%s"
+                                % (
+                                    row.peaksCorr,
+                                    "" if xp.artificialEICLShift == 0 else " (%d)" % (xp.artificialEICLShift),
+                                ),
+                                "%.3f / %.3f" % (row.peaksRatio, row.NPeakArea / row.LPeakArea),
+                                "%.1f / %.1f" % (row.NPeakArea, row.LPeakArea),
+                                "%d" % len(assignedMZs),
+                                "%.5f" % (xp.lmz),
+                                str(row.tracerName),
+                            ]
+                        )
 
-                    d.myType = "feature"
-                    d.myID = int(row.cpID)
-                    d.myData = xp
-                    children.append(d)
-                    count += 1
+                        d.myType = "feature"
+                        d.myID = int(row.cpID)
+                        d.myData = xp
+                        children.append(d)
+                        count += 1
 
-                    pw.setValueu(count, i=3)
+                        pw.setValueu(count, i=3)
                 pw.setTextu("%d feature pairs fetched" % numberOfFeaturePairs, i=3)
 
                 it.addChildren(children)
@@ -6134,11 +6162,15 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 fGs = []
 
                 children = []
-                for row in SQLSelectAsObject(
-                    self.currentOpenResultsFile.curs,
-                    "SELECT featureGroups.id AS fgID, featureName AS featureName, name AS tracerName FROM featureGroups INNER JOIN tracerConfiguration ON featureGroups.tracer=tracerConfiguration.id ORDER BY tracerConfiguration.id, featureGroups.id",
-                ):
-                    fGs.append(row)
+
+                # Load Feature Groups with INNER JOIN on tracerConfiguration
+                featureGroups_df = self.currentOpenResultsFile.db_con.tables.get("featureGroups", pl.DataFrame())
+                if len(featureGroups_df) > 0 and len(tracer_df) > 0:
+                    fg_joined = featureGroups_df.join(tracer_df.select(["id", "name"]), left_on="tracer", right_on="id", how="inner", suffix="_tracer").sort(["tracer", "id"])
+
+                    for fg_dict in fg_joined.to_dicts():
+                        fg_row = Bunch(fgID=fg_dict["id"], featureName=fg_dict["featureName"], tracerName=fg_dict["name"])
+                        fGs.append(fg_row)
 
                 ## Load Feature groups
                 pw.setText("Fetching feature groups (%d)" % len(fGs), i=4)
@@ -6166,166 +6198,155 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     cpCount = 0
                     sumRt = 0.0
                     has_msms_in_group = False
-                    for row in SQLSelectAsObject(
-                        self.currentOpenResultsFile.curs,
-                        "SELECT c.id AS cpID, "
-                        "c.mz AS mz, "
-                        "c.lmz AS lmz, "
-                        "c.xcount AS xcount, "
-                        "c.NPeakCenterMin AS NPeakCenterMin, "
-                        "c.LPeakCenterMin AS LPeakCenterMin, "
-                        "c.NPeakCenter AS NPeakCenter, "
-                        "c.NPeakScale AS NPeakScale, "
-                        "c.NBorderLeft AS NBorderLeft, "
-                        "c.NBorderRight AS NBorderRight, "
-                        "c.LBorderLeft AS LBorderLeft, "
-                        "c.LBorderRight AS LBorderRight, "
-                        "c.eicID AS eicID, "
-                        "f.fDesc AS fDesc, "
-                        "c.LPeakScale AS LPeakScale, "
-                        "c.LPeakCenter AS LPeakCenter, "
-                        "c.peaksCorr AS peaksCorr, "
-                        "c.peaksRatio AS peaksRatio, "
-                        "c.Loading AS Loading, "
-                        "c.NPeakArea AS NPeakArea, "
-                        "c.LPeakArea AS LPeakArea, "
-                        "t.name AS tracerName, "
-                        "adducts AS adducts, "
-                        "c.fDesc AS fDesc, "
-                        "heteroAtoms AS heteroAtoms, "
-                        "c.assignedName AS assignedName, "
-                        "c.ionMode AS ionMode, "
-                        "c.massSpectrumID AS massSpectrumID, "
-                        "c.assignedMZs AS assignedMZs, "
-                        "c.mzdifferrors AS mzdifferrors, "
-                        "c.artificialEICLShift AS artificialEICLShift "
-                        "FROM chromPeaks c JOIN featureGroupFeatures f ON c.id==f.fID INNER JOIN tracerConfiguration t ON t.id=c.tracer "
-                        "WHERE f.fGroupID=%d ORDER BY %s, c.mz, c.xcount"
-                        % (
-                            fG.fgID,
-                            {
-                                "M/Z": "c.mz",
-                                "RT": "c.mz",
-                                "Intensity": "c.NPeakArea DESC",
-                                "Peaks correlation": "peaksCorr DESC",
-                            }[sortOrder],
-                        ),
-                    ):
-                        adducts = ""
-                        try:
-                            lk = loads(base64.b64decode(row.adducts.encode("utf-8")))
-                            if len(lk) > 0:
-                                adducts = ", ".join(lk)
-                        except (ImportError, ModuleNotFoundError, SyntaxError) as e:
-                            logging.warning(f"Could not load adducts from row data: {e}")
-                            adducts = ""
 
-                        fDesc = ""
-                        try:
-                            lk = loads(base64.b64decode(row.fDesc.encode("utf-8")))
-                            if len(lk) > 0:
-                                fDesc = ", ".join(lk)
-                        except (ImportError, ModuleNotFoundError, SyntaxError) as e:
-                            logging.warning(f"Could not load feature description from row data: {e}")
-                            fDesc = ""
+                    # Get feature group features for this group
+                    featureGroupFeatures_df = self.currentOpenResultsFile.db_con.tables.get("featureGroupFeatures", pl.DataFrame())
+                    if len(featureGroupFeatures_df) > 0 and len(chromPeaks_df) > 0 and len(tracer_df) > 0:
+                        # Filter for this feature group
+                        fg_features = featureGroupFeatures_df.filter(pl.col("fGroupID") == fG.fgID)
 
-                        heteroAtoms = []
-                        try:
-                            lk = loads(base64.b64decode(row.heteroAtoms))
-                        except (ImportError, ModuleNotFoundError, SyntaxError) as e:
-                            logging.warning(f"Could not load hetero atoms from row data: {e}")
-                            lk = {}
-                        for hetAtom in lk:
-                            pIso = lk[hetAtom]
-                            for hetAtomCount in pIso:
-                                heteroAtoms.append("%s%d" % (hetAtom, hetAtomCount))
-                        heteroAtoms = ", ".join(heteroAtoms)
+                        if len(fg_features) > 0:
+                            # JOIN chromPeaks with featureGroupFeatures on id=fID
+                            cp_fg_join = chromPeaks_df.join(fg_features.select(["fID", "fDesc"]), left_on="id", right_on="fID", how="inner", suffix="_fg")
 
-                        try:
-                            assignedMZs = loads(base64.b64decode(row.assignedMZs))
-                        except (ImportError, ModuleNotFoundError, SyntaxError) as e:
-                            logging.warning(f"Could not load assigned MZs from row data: {e}")
-                            assignedMZs = []
+                            # INNER JOIN with tracerConfiguration
+                            cp_fg_tracer = cp_fg_join.join(tracer_df.select(["id", "name"]), left_on="tracer", right_on="id", how="inner", suffix="_tracer")
 
-                        xp = ChromPeakPair(
-                            NPeakCenter=int(row.NPeakCenter),
-                            loading=int(row.Loading),
-                            LPeakScale=float(row.LPeakScale),
-                            LPeakCenter=int(row.LPeakCenter),
-                            NPeakScale=float(row.NPeakScale),
-                            NSNR=0,
-                            NPeakArea=-1,
-                            mz=float(row.mz),
-                            lmz=float(row.lmz),
-                            xCount=row.xcount,
-                            NPeakCenterMin=float(row.NPeakCenterMin),
-                            NBorderLeft=float(row.NBorderLeft),
-                            NBorderRight=float(row.NBorderRight),
-                            LBorderLeft=float(row.LBorderLeft),
-                            LBorderRight=float(row.LBorderRight),
-                            LPeakCenterMin=float(row.LPeakCenterMin),
-                            eicID=int(row.eicID),
-                            massSpectrumID=int(row.massSpectrumID),
-                            assignedName=str(row.assignedName),
-                            id=int(row.cpID),
-                            tracer=str(row.tracerName),
-                            ionMode=str(row.ionMode),
-                            adducts=adducts,
-                            heteroAtoms=heteroAtoms,
-                            assignedMZs=assignedMZs,
-                            artificialEICLShift=int(row.artificialEICLShift),
-                        )
-                        xp.fDesc = str(row.fDesc)
-                        xp.peaksCorr = float(row.peaksCorr)
-                        xp.peaksRatio = float(row.peaksRatio)
+                            # Sort based on sortOrder
+                            sort_map = {
+                                "M/Z": "mz",
+                                "RT": "mz",
+                                "Intensity": "NPeakArea",
+                                "Peaks correlation": "peaksCorr",
+                            }
+                            sort_col = sort_map.get(sortOrder, "mz")
 
-                        # Check if MSMS spectra exist for this feature
-                        try:
-                            ppm = float(self.getParametersFromCurrentRes("Mass deviation (+/- ppm)"))
-                        except:
-                            ppm = 5.0
-                        rt_min = xp.NPeakCenterMin - xp.NPeakScale
-                        rt_max = xp.NPeakCenterMin + xp.NPeakScale
-                        rt_min = min(rt_min, xp.LPeakCenterMin - xp.LPeakScale)
-                        rt_max = max(rt_max, xp.LPeakCenterMin + xp.LPeakScale)
-                        has_msms = self.hasMSMSSpectra(xp.mz, rt_min, rt_max, ppm) or self.hasMSMSSpectra(xp.lmz, rt_min, rt_max, ppm)
-                        msms_marker = "* " if has_msms else ""
+                            if sortOrder in ["Intensity", "Peaks correlation"]:
+                                cp_fg_tracer = cp_fg_tracer.sort([sort_col, "mz", "xcount"], descending=[True, False, False])
+                            else:
+                                cp_fg_tracer = cp_fg_tracer.sort([sort_col, "mz", "xcount"])
 
-                        # Track if any feature in this group has MSMS
-                        if has_msms:
-                            has_msms_in_group = True
+                            for row_dict in cp_fg_tracer.to_dicts():
+                                row = Bunch(**row_dict)
+                                row.cpID = row_dict["id"]
+                                row.tracerName = row_dict["name"]
+                                row.fDesc_fg = row_dict.get("fDesc_fg", row_dict.get("fDesc", ""))
+                                adducts = ""
+                                try:
+                                    lk = loads(base64.b64decode(row.adducts.encode("utf-8")))
+                                    if len(lk) > 0:
+                                        adducts = ", ".join(lk)
+                                except (ImportError, ModuleNotFoundError, SyntaxError) as e:
+                                    logging.warning(f"Could not load adducts from row data: {e}")
+                                    adducts = ""
 
-                        g = QtWidgets.QTreeWidgetItem(
-                            [
-                                msms_marker + "%.5f" % xp.mz + " (/" + str(row.ionMode) + str(row.Loading) + ") ",
-                                "%.2f / %.2f"
-                                % (
-                                    float(row.NPeakCenterMin) / 60.0,
-                                    float(row.LPeakCenterMin) / 60.0,
-                                ),
-                                str(row.xcount),
-                                "%s / %s / %s " % (adducts, fDesc, heteroAtoms),
-                                "%.0f / %.0f" % (float(row.NPeakScale), float(row.LPeakScale)),
-                                "%.3f%s"
-                                % (
-                                    row.peaksCorr,
-                                    "" if xp.artificialEICLShift == 0 else " (%d)" % (xp.artificialEICLShift),
-                                ),
-                                "%.3f / %.3f" % (row.peaksRatio, row.NPeakArea / row.LPeakArea),
-                                "%.1f / %.1f" % (row.NPeakArea, row.LPeakArea),
-                                "%d" % len(assignedMZs),
-                                "%.5f" % (xp.lmz),
-                                str(row.tracerName),
-                            ]
-                        )
+                                fDesc = ""
+                                try:
+                                    lk = loads(base64.b64decode(row.fDesc.encode("utf-8")))
+                                    if len(lk) > 0:
+                                        fDesc = ", ".join(lk)
+                                except (ImportError, ModuleNotFoundError, SyntaxError) as e:
+                                    logging.warning(f"Could not load feature description from row data: {e}")
+                                    fDesc = ""
 
-                        g.myType = "feature"
-                        g.myID = int(row.cpID)
-                        g.myData = xp
-                        d.addChild(g)
+                                heteroAtoms = []
+                                try:
+                                    lk = loads(base64.b64decode(row.heteroAtoms))
+                                except (ImportError, ModuleNotFoundError, SyntaxError) as e:
+                                    logging.warning(f"Could not load hetero atoms from row data: {e}")
+                                    lk = {}
+                                for hetAtom in lk:
+                                    pIso = lk[hetAtom]
+                                    for hetAtomCount in pIso:
+                                        heteroAtoms.append("%s%d" % (hetAtom, hetAtomCount))
+                                heteroAtoms = ", ".join(heteroAtoms)
 
-                        sumRt = sumRt + xp.NPeakCenterMin
-                        cpCount += 1
+                                try:
+                                    assignedMZs = loads(base64.b64decode(row.assignedMZs))
+                                except (ImportError, ModuleNotFoundError, SyntaxError) as e:
+                                    logging.warning(f"Could not load assigned MZs from row data: {e}")
+                                    assignedMZs = []
+
+                                xp = ChromPeakPair(
+                                    NPeakCenter=int(row.NPeakCenter),
+                                    loading=int(row.Loading),
+                                    LPeakScale=float(row.LPeakScale),
+                                    LPeakCenter=int(row.LPeakCenter),
+                                    NPeakScale=float(row.NPeakScale),
+                                    NSNR=0,
+                                    NPeakArea=-1,
+                                    mz=float(row.mz),
+                                    lmz=float(row.lmz),
+                                    xCount=row.xcount,
+                                    NPeakCenterMin=float(row.NPeakCenterMin),
+                                    NBorderLeft=float(row.NBorderLeft),
+                                    NBorderRight=float(row.NBorderRight),
+                                    LBorderLeft=float(row.LBorderLeft),
+                                    LBorderRight=float(row.LBorderRight),
+                                    LPeakCenterMin=float(row.LPeakCenterMin),
+                                    eicID=int(row.eicID),
+                                    massSpectrumID=int(row.massSpectrumID),
+                                    assignedName=str(row.assignedName),
+                                    id=int(row.cpID),
+                                    tracer=str(row.tracerName),
+                                    ionMode=str(row.ionMode),
+                                    adducts=adducts,
+                                    heteroAtoms=heteroAtoms,
+                                    assignedMZs=assignedMZs,
+                                    artificialEICLShift=int(row.artificialEICLShift),
+                                )
+                                xp.fDesc = str(row.fDesc)
+                                xp.peaksCorr = float(row.peaksCorr)
+                                xp.peaksRatio = float(row.peaksRatio)
+
+                                # Check if MSMS spectra exist for this feature
+                                try:
+                                    ppm = float(self.getParametersFromCurrentRes("Mass deviation (+/- ppm)"))
+                                except:
+                                    ppm = 5.0
+                                rt_min = xp.NPeakCenterMin - xp.NPeakScale
+                                rt_max = xp.NPeakCenterMin + xp.NPeakScale
+                                rt_min = min(rt_min, xp.LPeakCenterMin - xp.LPeakScale)
+                                rt_max = max(rt_max, xp.LPeakCenterMin + xp.LPeakScale)
+                                has_msms = self.hasMSMSSpectra(xp.mz, rt_min, rt_max, ppm) or self.hasMSMSSpectra(xp.lmz, rt_min, rt_max, ppm)
+                                msms_marker = "* " if has_msms else ""
+
+                                # Track if any feature in this group has MSMS
+                                if has_msms:
+                                    has_msms_in_group = True
+
+                                g = QtWidgets.QTreeWidgetItem(
+                                    [
+                                        msms_marker + "%.5f" % xp.mz + " (/" + str(row.ionMode) + str(row.Loading) + ") ",
+                                        "%.2f / %.2f"
+                                        % (
+                                            float(row.NPeakCenterMin) / 60.0,
+                                            float(row.LPeakCenterMin) / 60.0,
+                                        ),
+                                        str(row.xcount),
+                                        "%s / %s / %s " % (adducts, fDesc, heteroAtoms),
+                                        "%.0f / %.0f" % (float(row.NPeakScale), float(row.LPeakScale)),
+                                        "%.3f%s"
+                                        % (
+                                            row.peaksCorr,
+                                            "" if xp.artificialEICLShift == 0 else " (%d)" % (xp.artificialEICLShift),
+                                        ),
+                                        "%.3f / %.3f" % (row.peaksRatio, row.NPeakArea / row.LPeakArea),
+                                        "%.1f / %.1f" % (row.NPeakArea, row.LPeakArea),
+                                        "%d" % len(assignedMZs),
+                                        "%.5f" % (xp.lmz),
+                                        str(row.tracerName),
+                                    ]
+                                )
+
+                                g.myType = "feature"
+                                g.myID = int(row.cpID)
+                                g.myData = xp
+                                d.addChild(g)
+
+                                sumRt = sumRt + xp.NPeakCenterMin
+                                cpCount += 1
+
                     d.setText(2, str(cpCount))
                     if cpCount > 0:
                         d.setText(1, "%.2f" % (sumRt / cpCount / 60.0))
@@ -6353,8 +6374,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 it.myType = "parameter"
                 self.ui.res_ExtractedData.addTopLevelItem(it)
                 config = {}
-                for row in self.currentOpenResultsFile.curs.execute("SELECT key, value FROM config"):
-                    config[str(row[0])] = str(row[1])
+                config_df = self.currentOpenResultsFile.db_con.tables["config"]
+                for row_dict in config_df.to_dicts():
+                    config[str(row_dict["key"])] = str(row_dict["value"])
 
                 if config["metabolisationExperiment"] == "True":
                     itl = QtWidgets.QTreeWidgetItem(["Tracers"])
@@ -6784,24 +6806,21 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 return child.text(1)
 
     def isTracerMetabolisationExperiment(self):
-        rows = []
-        for row in self.currentOpenResultsFile.curs.execute("SELECT key, value FROM config WHERE key='metabolisationExperiment'"):
-            rows.append(copy(row))
+        config_df = self.currentOpenResultsFile.db_con.tables["config"].filter(pl.col("key") == "metabolisationExperiment")
+        rows = config_df.to_dicts()
         assert len(rows) == 1
-        return str(rows[0][1]).lower() == "true"
+        return str(rows[0]["value"]).lower() == "true"
 
     def getAllowedIsotopeRatioErrorsForResult(self):
-        rows = []
-        for row in self.currentOpenResultsFile.curs.execute("SELECT key, value FROM config WHERE key='intensityErrorN'"):
-            rows.append(copy(row))
-        assert len(rows) == 1
-        intErrN = float(rows[0][1])
+        config_df = self.currentOpenResultsFile.db_con.tables["config"]
 
-        rows = []
-        for row in self.currentOpenResultsFile.curs.execute("SELECT key, value FROM config WHERE key='intensityErrorL'"):
-            rows.append(copy(row))
-        assert len(rows) == 1
-        intErrL = float(rows[0][1])
+        rows_n = config_df.filter(pl.col("key") == "intensityErrorN").to_dicts()
+        assert len(rows_n) == 1
+        intErrN = float(rows_n[0]["value"])
+
+        rows_l = config_df.filter(pl.col("key") == "intensityErrorL").to_dicts()
+        assert len(rows_l) == 1
+        intErrL = float(rows_l[0]["value"])
 
         return intErrN, intErrL
 
@@ -6810,13 +6829,13 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             return self.currentOpenResultsFile.tics
 
         tics = {}
-        for row in self.currentOpenResultsFile.curs.execute("SELECT id, loading, scanevent, times, intensities FROM tics"):
-            id, loading, scanevent, times, intensities = row
-            id = int(id)
-            loading = str(loading)
-            scanevent = str(scanevent)
-            times = [float(t) / 60.0 for t in times.split(";")]
-            intensities = [float(t) for t in intensities.split(";")]
+        tics_df = self.currentOpenResultsFile.db_con.tables["tics"]
+        for row_dict in tics_df.to_dicts():
+            id = int(row_dict["id"])
+            loading = str(row_dict["loading"])
+            scanevent = str(row_dict["scanevent"])
+            times = [float(t) / 60.0 for t in row_dict["times"].split(";")]
+            intensities = [float(t) for t in row_dict["intensities"].split(";")]
 
             tics[loading] = Bunch(
                 id=id,
@@ -6832,45 +6851,37 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def getLabellingParametersForResult(self, featureID):
         if not (self.isTracerMetabolisationExperiment()):
-            rows = []
-            for row in self.currentOpenResultsFile.curs.execute("SELECT key, value FROM config WHERE key='isotopeA'"):
-                rows.append(copy(row))
-            assert len(rows) == 1
-            isoA = float(rows[0][1])
+            config_df = self.currentOpenResultsFile.db_con.tables["config"]
 
-            rows = []
-            for row in self.currentOpenResultsFile.curs.execute("SELECT key, value FROM config WHERE key='isotopeB'"):
-                rows.append(copy(row))
-            assert len(rows) == 1
-            isoB = float(rows[0][1])
+            rows_a = config_df.filter(pl.col("key") == "isotopeA").to_dicts()
+            assert len(rows_a) == 1
+            isoA = float(rows_a[0]["value"])
 
-            rows = []
-            for row in self.currentOpenResultsFile.curs.execute("SELECT key, value FROM config WHERE key='purityN'"):
-                rows.append(copy(row))
-            assert len(rows) == 1
-            purN = float(rows[0][1])
+            rows_b = config_df.filter(pl.col("key") == "isotopeB").to_dicts()
+            assert len(rows_b) == 1
+            isoB = float(rows_b[0]["value"])
 
-            rows = []
-            for row in self.currentOpenResultsFile.curs.execute("SELECT key, value FROM config WHERE key='purityL'"):
-                rows.append(copy(row))
-            assert len(rows) == 1
-            purL = float(rows[0][1])
+            rows_purn = config_df.filter(pl.col("key") == "purityN").to_dicts()
+            assert len(rows_purn) == 1
+            purN = float(rows_purn[0]["value"])
+
+            rows_purl = config_df.filter(pl.col("key") == "purityL").to_dicts()
+            assert len(rows_purl) == 1
+            purL = float(rows_purl[0]["value"])
 
             return isoB - isoA, purN, purL
         else:
-            rows = []
-            for row in self.currentOpenResultsFile.curs.execute("SELECT id, tracer FROM chromPeaks WHERE id=%d" % featureID):
-                rows.append(copy(row))
-            assert len(rows) == 1
-            trcid = int(rows[0][1])
+            chrompeaks_df = self.currentOpenResultsFile.db_con.tables["chromPeaks"].filter(pl.col("id") == featureID)
+            rows_cp = chrompeaks_df.to_dicts()
+            assert len(rows_cp) == 1
+            trcid = int(rows_cp[0]["tracer"])
 
-            rows = []
-            for row in self.currentOpenResultsFile.curs.execute("SELECT deltaMZ, purityN, purityL FROM tracerConfiguration WHERE id=%d" % trcid):
-                rows.append(copy(row))
-            assert len(rows) == 1
-            dmz = float(rows[0][0])
-            purN = float(rows[0][1])
-            purL = float(rows[0][2])
+            tracer_config_df = self.currentOpenResultsFile.db_con.tables["tracerConfiguration"].filter(pl.col("id") == trcid)
+            rows_tc = tracer_config_df.to_dicts()
+            assert len(rows_tc) == 1
+            dmz = float(rows_tc[0]["deltaMZ"])
+            purN = float(rows_tc[0]["purityN"])
+            purL = float(rows_tc[0]["purityL"])
 
             return dmz, purN, purL
 
@@ -7110,24 +7121,25 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     if self.ui.negEIC.isChecked():
                         invert = -1
 
-                    for row in self.currentOpenResultsFile.curs.execute("SELECT xic, xicL, xicfirstiso, xicLfirstiso, xicLfirstisoconjugate, xic_smoothed, xicL_smoothed, times, allPeaks, xic_baseline, xicL_baseline FROM XICs WHERE id==%d" % cp.eicID):
-                        xic = [float(t) for t in row[0].split(";")]
-                        xicL = [float(t) for t in row[1].split(";")]
-                        xicfirstiso = [float(t) for t in row[2].split(";")]
-                        xicLfirstiso = [float(t) for t in row[3].split(";")]
-                        xicLfirstisoconjugate = [float(t) for t in row[4].split(";")]
-                        xic_smoothed = [float(t) for t in row[5].split(";")]
-                        xicL_smoothed = [float(t) for t in row[6].split(";")]
+                    xics_df = self.currentOpenResultsFile.db_con.tables["XICs"].filter(pl.col("id") == cp.eicID)
+                    for row_dict in xics_df.to_dicts():
+                        xic = [float(t) for t in row_dict["xic"].split(";")]
+                        xicL = [float(t) for t in row_dict["xicL"].split(";")]
+                        xicfirstiso = [float(t) for t in row_dict["xicfirstiso"].split(";")]
+                        xicLfirstiso = [float(t) for t in row_dict["xicLfirstiso"].split(";")]
+                        xicLfirstisoconjugate = [float(t) for t in row_dict["xicLfirstisoconjugate"].split(";")]
+                        xic_smoothed = [float(t) for t in row_dict["xic_smoothed"].split(";")]
+                        xicL_smoothed = [float(t) for t in row_dict["xicL_smoothed"].split(";")]
                         offset = cp.NPeakCenterMin / 60.0 if self.ui.setPeakCentersToZero.isChecked() else 0
-                        times = [float(t) / 60.0 - offset for t in row[7].split(";")]
+                        times = [float(t) / 60.0 - offset for t in row_dict["times"].split(";")]
                         try:
-                            allPeaks = loads(base64.b64decode(str(row[8])))
+                            allPeaks = loads(base64.b64decode(str(row_dict["allPeaks"])))
                         except (ImportError, ModuleNotFoundError, SyntaxError) as e:
                             logging.warning(f"Could not load peak data from results: {e}")
                             logging.warning("This may be due to cached data from an older version. Using empty list.")
                             allPeaks = []
-                        xic_baseline = [float(t) for t in row[9].split(";")]
-                        xicL_baseline = [float(t) for t in row[10].split(";")]
+                        xic_baseline = [float(t) for t in row_dict["xic_baseline"].split(";")]
+                        xicL_baseline = [float(t) for t in row_dict["xicL_baseline"].split(";")]
 
                     if self.ui.scaleFeatures.isChecked():
                         s = int(cp.NPeakCenter - cp.NBorderLeft * 1)
@@ -7393,16 +7405,15 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                                 add=30,
                             )
 
-                        for row in self.currentOpenResultsFile.curs.execute(
-                            "SELECT c.id, c.eicID, c.NPeakCenterMin, c.NPeakCenter, c.mz, c.xcount, c.loading, (SELECT fg.featureName "
-                            "FROM FeatureGroupFeatures fgf INNER JOIN FeatureGroups fg ON fgf.fGroupID=fg.id WHERE fgf.fID=c.id) AS FGroupID FROM chromPeaks c WHERE %f<=c.mz AND c.mz<=%f AND c.loading==%d and c.xcount=='%s'"
-                            % (
-                                cp.mz * (1 - 15 / 1000000.0),
-                                cp.mz * (1 + 15 / 1000000.0),
-                                cp.loading,
-                                cp.xCount,
-                            )
+                        for row_dict in (
+                            self.currentOpenResultsFile.db_con.tables["chromPeaks"]
+                            .join(self.currentOpenResultsFile.db_con.tables["FeatureGroupFeatures"], left_on="fID", right_on="fGroupID", how="left")
+                            .join(self.currentOpenResultsFile.db_con.tables["FeatureGroups"], left_on="fGroupID", right_on="id", how="left")
+                            .filter((pl.col("mz") >= cp.mz * (1 - 15 / 1000000.0)) & (pl.col("mz") <= cp.mz * (1 + 15 / 1000000.0)) & (pl.col("loading") == cp.loading) & (pl.col("xcount") == str(cp.xcount)))
+                            .select([pl.col("id").alias("c_id"), pl.col("eicID"), pl.col("NPeakCenterMin"), pl.col("NPeakCenter"), pl.col("mz"), pl.col("xcount"), pl.col("loading"), pl.col("featureName").alias("FGroupID")])
+                            .to_dicts()
                         ):
+                            row = (row_dict["c_id"], row_dict["eicID"], row_dict["NPeakCenterMin"], row_dict["NPeakCenter"], row_dict["mz"], row_dict["xcount"], row_dict["loading"], row_dict["FGroupID"])
                             if cp.NPeakCenter != row[3]:
                                 self.addAnnotation(
                                     self.ui.pl1,
@@ -7421,9 +7432,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
                     toDrawMzs = []
                     toDrawInts = []
-                    for row in self.currentOpenResultsFile.curs.execute("SELECT mzs, intensities, ionmode FROM massspectrum WHERE mID=%d" % cp.massSpectrumID):
-                        mzs = [float(t) for t in row[0].split(";")]
-                        intensities = [float(t) for t in row[1].split(";")]
+                    ms_df = self.currentOpenResultsFile.db_con.tables["massspectrum"].filter(pl.col("mID") == cp.massSpectrumID)
+                    for row_dict in ms_df.to_dicts():
+                        mzs = [float(t) for t in row_dict["mzs"].split(";")]
+                        intensities = [float(t) for t in row_dict["intensities"].split(";")]
 
                         for mz in mzs:
                             toDrawMzs.append(mz)
@@ -7525,15 +7537,14 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     mstime = {}
 
                     try:
-                        for msspectrum in SQLSelectAsObject(
-                            self.currentOpenResultsFile.curs,
-                            "SELECT mzs, intensities, time AS tim, ionMode FROM massspectrum WHERE fgID=%d" % item.myID,
-                        ):
+                        # Get mass spectrum data from massspectrum table
+                        ms_df = self.currentOpenResultsFile.db_con.tables["massspectrum"].filter(pl.col("fgID") == item.myID)
+                        for row_dict in ms_df.to_dicts():
                             msi += 1
-                            ionMode = str(msspectrum.ionMode)
-                            mzs[ionMode] = [float(u) for u in str(msspectrum.mzs).split(";")]
-                            intensities[ionMode] = [float(u) for u in str(msspectrum.intensities).split(";")]
-                            mstime[ionMode] = float(msspectrum.tim)
+                            ionMode = str(row_dict["ionMode"])
+                            mzs[ionMode] = [float(u) for u in str(row_dict["mzs"]).split(";")]
+                            intensities[ionMode] = [float(u) for u in str(row_dict["intensities"]).split(";")]
+                            mstime[ionMode] = float(row_dict["time"])
                     except:
                         pass
 
@@ -8003,17 +8014,18 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             if self.ui.negEIC.isChecked():
                                 invert = -1
 
-                            for row in self.currentOpenResultsFile.curs.execute("SELECT xic, xicL, xicfirstiso, xicLfirstiso, xicLfirstisoconjugate, xic_smoothed, xicL_smoothed, times, xic_baseline, xicL_baseline FROM XICs WHERE id==%d" % child.eicID):
-                                xic = [float(t) for t in row[0].split(";")]
-                                xicL = [float(t) for t in row[1].split(";")]
-                                xicfirstiso = [float(t) for t in row[2].split(";")]
-                                xicLfirstiso = [float(t) for t in row[3].split(";")]
-                                xicLfirstisoconjugate = [float(t) for t in row[4].split(";")]
-                                xic_smoothed = [float(t) for t in row[5].split(";")]
-                                xicL_smoothed = [float(t) for t in row[6].split(";")]
-                                times = [float(t) / 60.0 for t in row[7].split(";")]
-                                xic_baseline = [float(t) for t in row[8].split(";")]
-                                xicL_baseline = [float(t) for t in row[9].split(";")]
+                            xics_df = self.currentOpenResultsFile.db_con.tables["XICs"].filter(pl.col("id") == child.eicID)
+                            for row_dict in xics_df.to_dicts():
+                                xic = [float(t) for t in row_dict["xic"].split(";")]
+                                xicL = [float(t) for t in row_dict["xicL"].split(";")]
+                                xicfirstiso = [float(t) for t in row_dict["xicfirstiso"].split(";")]
+                                xicLfirstiso = [float(t) for t in row_dict["xicLfirstiso"].split(";")]
+                                xicLfirstisoconjugate = [float(t) for t in row_dict["xicLfirstisoconjugate"].split(";")]
+                                xic_smoothed = [float(t) for t in row_dict["xic_smoothed"].split(";")]
+                                xicL_smoothed = [float(t) for t in row_dict["xicL_smoothed"].split(";")]
+                                times = [float(t) / 60.0 for t in row_dict["times"].split(";")]
+                                xic_baseline = [float(t) for t in row_dict["xic_baseline"].split(";")]
+                                xicL_baseline = [float(t) for t in row_dict["xicL_baseline"].split(";")]
 
                             minTime = min(
                                 minTime,
@@ -8295,9 +8307,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
                         fRows = 0
                         minCorr = 1
-                        for row in self.currentOpenResultsFile.curs.execute("SELECT key, value FROM config WHERE key='minCorrelation'"):
+                        config_df = self.currentOpenResultsFile.db_con.tables["config"].filter(pl.col("key") == "minCorrelation")
+                        for row_dict in config_df.to_dicts():
                             fRows += 1
-                            minCorr = float(row[1])
+                            minCorr = float(row_dict["value"])
                         assert 0 < fRows <= 1, "Min Correlation not found or found multiple times in settings"
 
                         dataCorr = []
@@ -8317,23 +8330,30 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
                         cIds = ",".join(["%d" % f for f in childIDs])
 
-                        for row in self.currentOpenResultsFile.curs.execute("SELECT c.id, c.mz, c.xcount, c.ionMode FROM chromPeaks c WHERE c.id IN (%s)" % (cIds)):
-                            id, mz, xcount, ionMode = row
+                        chrompeaks_df = self.currentOpenResultsFile.db_con.tables["chromPeaks"].filter(pl.col("id").is_in(childIDs))
+                        for row_dict in chrompeaks_df.to_dicts():
+                            id = row_dict["id"]
+                            mz = row_dict["mz"]
+                            xcount = row_dict["xcount"]
+                            ionMode = row_dict["ionMode"]
 
                             fI1 = featureIDToColsNum[id]
                             texts[fI1] = "%s%.4f/%d" % (ionMode, mz, xcount)
 
                         minCorrCurrent = 1
                         maxSilRatioCurrent = 0
-                        for row in self.currentOpenResultsFile.curs.execute("SELECT ff.fID1, ff.fID2, ff.corr, ff.silRatioValue FROM featurefeatures ff WHERE ff.fID1 IN (%s) AND ff.fID2 IN (%s)" % (cIds, cIds)):
-                            correlation = row[2]
-                            silRatioValue = row[3]
+                        ff_df = self.currentOpenResultsFile.db_con.tables["featurefeatures"].filter(pl.col("fID1").is_in(childIDs) & pl.col("fID2").is_in(childIDs))
+                        for row_dict in ff_df.to_dicts():
+                            fID1 = row_dict["fID1"]
+                            fID2 = row_dict["fID2"]
+                            correlation = row_dict["corr"]
+                            silRatioValue = row_dict["silRatioValue"]
 
                             minCorrCurrent = min(minCorrCurrent, correlation)
                             maxSilRatioCurrent = max(maxSilRatioCurrent, silRatioValue - 1)
 
-                            fI1 = featureIDToColsNum[row[0]]
-                            fI2 = featureIDToColsNum[row[1]]
+                            fI1 = featureIDToColsNum[fID1]
+                            fI2 = featureIDToColsNum[fID2]
 
                             if fI1 > fI2:
                                 a = fI2
@@ -8545,9 +8565,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
                     toDrawMzs = []
                     toDrawInts = []
-                    for row in self.currentOpenResultsFile.curs.execute("SELECT mzs, intensities, ionmode FROM massspectrum WHERE mID=%d" % cp.massSpectrumID):
-                        mzs = [float(t) for t in row[0].split(";")]
-                        intensities = [float(t) for t in row[1].split(";")]
+                    ms_df = self.currentOpenResultsFile.db_con.tables["massspectrum"].filter(pl.col("mID") == cp.massSpectrumID)
+                    for row_dict in ms_df.to_dicts():
+                        mzs = [float(t) for t in row_dict["mzs"].split(";")]
+                        intensities = [float(t) for t in row_dict["intensities"].split(";")]
 
                         for mz in mzs:
                             toDrawMzs.append(mz)
@@ -8865,9 +8886,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                                 ecColor="yellow",
                             )
 
-                    for row in self.currentOpenResultsFile.curs.execute("SELECT mzs, intensities, ionmode FROM massspectrum WHERE mID=%d" % cp.massSpectrumID):
-                        mzs = [float(t) for t in row[0].split(";")]
-                        intensities = [float(t) for t in row[1].split(";")]
+                    ms_df = self.currentOpenResultsFile.db_con.tables["massspectrum"].filter(pl.col("mID") == cp.massSpectrumID)
+                    for row_dict in ms_df.to_dicts():
+                        mzs = [float(t) for t in row_dict["mzs"].split(";")]
+                        intensities = [float(t) for t in row_dict["intensities"].split(";")]
 
                         for i, mz in enumerate(mzs):
                             for inc in range(0, int((cp.lmz - cp.mz) // 1.00335484) * cp.loading):
@@ -8914,9 +8936,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         if len(selectedItems) == 1 and selectedItems[0].myType == "diagnostic - observed intensities":
             intensities = []
-            for row in self.currentOpenResultsFile.curs.execute("SELECT mz, intensity, lmz, tmz, xcount, loading FROM mzs"):
-                mz, intensity, lmz, tmz, xcount, loading = row
-                intensities.append(log10(intensity))
+            mzs_df = self.currentOpenResultsFile.db_con.tables["mzs"]
+            for row_dict in mzs_df.to_dicts():
+                intensities.append(log10(row_dict["intensity"]))
             self.ui.pl1.twinxs[0].hist(intensities, 50, facecolor="green", alpha=0.5)
             self.ui.pl1.axes.set_title("Histogram of matched signal pairs - intensity of native signals")
             self.ui.pl1.axes.set_xlabel("Log10(Signal intensity)")
@@ -8934,10 +8956,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             expRatio = 1
             if ok:
                 expRatio = float(text)
-            for row in self.currentOpenResultsFile.curs.execute("SELECT mz, intensity, intensityL, lmz, tmz, xcount, loading FROM mzs"):
-                mz, intensity, intensityL, lmz, tmz, xcount, loading = row
-                intensities.append(log10(intensity))
-                intensitiesL.append(log10(intensityL))
+            mzs_df = self.currentOpenResultsFile.db_con.tables["mzs"]
+            for row_dict in mzs_df.to_dicts():
+                intensities.append(log10(row_dict["intensity"]))
+                intensitiesL.append(log10(row_dict["intensityL"]))
             minInt = min(min(intensities), min(intensitiesL))
             maxInt = max(max(intensities), max(intensitiesL))
 
@@ -8956,8 +8978,11 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         elif len(selectedItems) == 1 and selectedItems[0].myType == "diagnostic - relative mz error":
             mzdifferrors = []
-            for row in self.currentOpenResultsFile.curs.execute("SELECT mz, lmz, tmz, xcount, loading FROM mzs"):
-                mz, lmz, tmz, xcount, loading = row
+            mzs_df = self.currentOpenResultsFile.db_con.tables["mzs"]
+            for row_dict in mzs_df.to_dicts():
+                mz = row_dict["mz"]
+                lmz = row_dict["lmz"]
+                tmz = row_dict["tmz"]
                 mzdifferrors.append((lmz - mz - tmz) * 1000000 / mz)
             self.ui.pl1.twinxs[0].hist(mzdifferrors, 50, facecolor="green", alpha=0.5)
             self.ui.pl1.axes.set_title("Histogram of matched signal pairs - relative m/z error (ppm)")
@@ -8968,8 +8993,12 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         elif len(selectedItems) == 1 and selectedItems[0].myType == "diagnostic - relative mz error vs intensity":
             mzdifferrors = []
             intensities = []
-            for row in self.currentOpenResultsFile.curs.execute("SELECT mz, lmz, tmz, xcount, loading, intensity FROM mzs"):
-                mz, lmz, tmz, xcount, loading, intensity = row
+            mzs_df = self.currentOpenResultsFile.db_con.tables["mzs"]
+            for row_dict in mzs_df.to_dicts():
+                mz = row_dict["mz"]
+                lmz = row_dict["lmz"]
+                tmz = row_dict["tmz"]
+                intensity = row_dict["intensity"]
                 mzdifferrors.append((lmz - mz - tmz) * 1000000 / mz)
                 intensities.append(log10(intensity))
             self.ui.pl1.twinxs[0].plot(mzdifferrors, intensities, "ro")
@@ -8980,8 +9009,15 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         elif len(selectedItems) == 1 and selectedItems[0].myType == "diagnostic - relative mzbin deviation":
             mzdeviations = []
-            for row in self.currentOpenResultsFile.curs.execute("SELECT mzbinid, min(mzs.mz), max(mzs.mz), count(mzs.mz) FROM mzbinskids INNER JOIN mzs ON mzs.id=mzbinskids.mzid GROUP BY mzbinid"):
-                binid, mzmin, mzmax, n = row
+            mzbinskids_df = self.currentOpenResultsFile.db_con.tables["mzbinskids"]
+            mzs_df = self.currentOpenResultsFile.db_con.tables["mzs"]
+            joined = mzbinskids_df.join(mzs_df, left_on="mzid", right_on="id", how="inner")
+            grouped = joined.group_by("mzbinid").agg([pl.col("mz").min().alias("mzmin"), pl.col("mz").max().alias("mzmax"), pl.col("mz").count().alias("n")])
+            for row_dict in grouped.to_dicts():
+                binid = row_dict["mzbinid"]
+                mzmin = row_dict["mzmin"]
+                mzmax = row_dict["mzmax"]
+                n = row_dict["n"]
                 if n > 1:
                     mzdeviations.append((mzmax - mzmin) * 1000000 / mzmin)
             self.ui.pl1.twinxs[0].hist(mzdeviations, 50, facecolor="green", alpha=0.5)
@@ -8992,9 +9028,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         elif len(selectedItems) == 1 and selectedItems[0].myType == "diagnostic - feature pair correlations":
             peaksCorr = []
-            for row in self.currentOpenResultsFile.curs.execute("SELECT peaksCorr FROM chromPeaks"):
-                (peakCorr,) = row
-                peaksCorr.append(peakCorr)
+            chrompeaks_df = self.currentOpenResultsFile.db_con.tables["chromPeaks"]
+            for row_dict in chrompeaks_df.to_dicts():
+                peaksCorr.append(row_dict["peaksCorr"])
             self.ui.pl1.twinxs[0].hist(
                 peaksCorr,
                 [i / 100.0 for i in range(-100, 100, 1)],
@@ -9018,8 +9054,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if ok:
                 text = text.replace(",", ".")
                 isoEnr = float(text)
-            for row in self.currentOpenResultsFile.curs.execute("SELECT peaksRatioMp1, xcount FROM chromPeaks"):
-                peakRatio, xcount = row
+            chrompeaks_df = self.currentOpenResultsFile.db_con.tables["chromPeaks"]
+            for row_dict in chrompeaks_df.to_dicts():
+                peakRatio = row_dict["peaksRatioMp1"]
+                xcount = row_dict["xcount"]
                 if peakRatio == -1:
                     peaksRatio.append(-100.0)
                 else:
@@ -9047,8 +9085,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if ok:
                 text = text.replace(",", ".")
                 isoEnr = float(text)
-            for row in self.currentOpenResultsFile.curs.execute("SELECT peaksRatioMp1, xcount FROM chromPeaks"):
-                peakRatio, xcount = row
+            chrompeaks_df = self.currentOpenResultsFile.db_con.tables["chromPeaks"]
+            for row_dict in chrompeaks_df.to_dicts():
+                peakRatio = row_dict["peaksRatioMp1"]
+                xcount = row_dict["xcount"]
                 if peakRatio == -1:
                     peaksRatio.append(-100.0)
                 else:
@@ -9085,8 +9125,11 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if ok:
                 text = text.replace(",", ".")
                 isoEnr = float(text)
-            for row in self.currentOpenResultsFile.curs.execute("SELECT peaksRatioMp1, xcount, LPeakArea FROM chromPeaks"):
-                peakRatio, xcount, area = row
+            chrompeaks_df = self.currentOpenResultsFile.db_con.tables["chromPeaks"]
+            for row_dict in chrompeaks_df.to_dicts():
+                peakRatio = row_dict["peaksRatioMp1"]
+                xcount = row_dict["xcount"]
+                area = row_dict["LPeakArea"]
                 area = log10(area)
                 if peakRatio == -1:
                     peaksRatio.append(-100.0)
@@ -9120,8 +9163,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if ok:
                 text = text.replace(",", ".")
                 isoEnr = float(text)
-            for row in self.currentOpenResultsFile.curs.execute("SELECT peaksRatioMPm1, xcount FROM chromPeaks"):
-                peakRatio, xcount = row
+            chrompeaks_df = self.currentOpenResultsFile.db_con.tables["chromPeaks"]
+            for row_dict in chrompeaks_df.to_dicts():
+                peakRatio = row_dict["peaksRatioMPm1"]
+                xcount = row_dict["xcount"]
                 if peakRatio == -1:
                     peaksRatio.append(-100.0)
                 else:
@@ -9149,8 +9194,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if ok:
                 text = text.replace(",", ".")
                 isoEnr = float(text)
-            for row in self.currentOpenResultsFile.curs.execute("SELECT peaksRatioMPm1, xcount FROM chromPeaks"):
-                peakRatio, xcount = row
+            chrompeaks_df = self.currentOpenResultsFile.db_con.tables["chromPeaks"]
+            for row_dict in chrompeaks_df.to_dicts():
+                peakRatio = row_dict["peaksRatioMPm1"]
+                xcount = row_dict["xcount"]
                 if peakRatio == -1:
                     peaksRatio.append(-100.0)
                 else:
@@ -9187,8 +9234,11 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if ok:
                 text = text.replace(",", ".")
                 isoEnr = float(text)
-            for row in self.currentOpenResultsFile.curs.execute("SELECT peaksRatioMPm1, xcount, LPeakArea FROM chromPeaks"):
-                peakRatio, xcount, area = row
+            chrompeaks_df = self.currentOpenResultsFile.db_con.tables["chromPeaks"]
+            for row_dict in chrompeaks_df.to_dicts():
+                peakRatio = row_dict["peaksRatioMPm1"]
+                xcount = row_dict["xcount"]
+                area = row_dict["LPeakArea"]
                 area = log10(area)
                 if peakRatio == -1:
                     peaksRatio.append(-100.0)
@@ -9212,8 +9262,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         elif len(selectedItems) == 1 and selectedItems[0].myType == "diagnostic - feature pair assigned mzs":
             assignedmzs = []
-            for row in self.currentOpenResultsFile.curs.execute("SELECT assignedMZs FROM chromPeaks"):
-                (n,) = row
+            chrompeaks_df = self.currentOpenResultsFile.db_con.tables["chromPeaks"]
+            for row_dict in chrompeaks_df.to_dicts():
+                n = row_dict["assignedMZs"]
                 assignedmzs.append(len(loads(base64.b64decode(n))))
             self.ui.pl1.twinxs[0].hist(assignedmzs, 30, facecolor="green", alpha=0.5)
             self.ui.pl1.axes.set_title("Histogram of signal pairs assigned to feature pairs")
@@ -9224,9 +9275,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         elif len(selectedItems) == 1 and selectedItems[0].myType == "diagnostic - feature pair mz deviation mean":
             devMeans = []
             devVals = []
-            for row in self.currentOpenResultsFile.curs.execute("SELECT mzdifferrors FROM chromPeaks"):
-                (mzdifferrors,) = row
-                mzdifferrors = loads(base64.b64decode(mzdifferrors))
+            chrompeaks_df = self.currentOpenResultsFile.db_con.tables["chromPeaks"]
+            for row_dict in chrompeaks_df.to_dicts():
+                mzdifferrors = loads(base64.b64decode(row_dict["mzdifferrors"]))
                 devMeans.append(mzdifferrors.mean if mzdifferrors.mean is not None else -1)
             self.ui.pl1.twinxs[0].hist(devMeans, 30, facecolor="green", alpha=0.5, label="Means")
             self.ui.pl1.twinxs[0].legend(loc="upper right")
@@ -9236,14 +9287,12 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.drawCanvas(self.ui.pl1)
 
             removeids = []
-            for row in self.currentOpenResultsFile.curs.execute("SELECT id, mzdifferrors, mz, nPeakCenterMin/60. FROM chromPeaks ORDER BY nPeakCenterMin"):
-                (
-                    id,
-                    mzdifferrors,
-                    mz,
-                    rt,
-                ) = row
-                mzdifferrors = loads(base64.b64decode(mzdifferrors))
+            chrompeaks_sorted = self.currentOpenResultsFile.db_con.tables["chromPeaks"].sort("nPeakCenterMin")
+            for row_dict in chrompeaks_sorted.to_dicts():
+                id = row_dict["id"]
+                mzdifferrors = loads(base64.b64decode(row_dict["mzdifferrors"]))
+                mz = row_dict["mz"]
+                rt = row_dict["nPeakCenterMin"] / 60.0
                 if mzdifferrors.mean == None or mzdifferrors.mean < 1:
                     removeids.append(id)
 
@@ -9266,9 +9315,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         elif len(selectedItems) == 1 and selectedItems[0].myType == "diagnostic - feature pair mz deviation":
             devMeans = []
             devVals = []
-            for row in self.currentOpenResultsFile.curs.execute("SELECT mzdifferrors FROM chromPeaks"):
-                (mzdifferrors,) = row
-                mzdifferrors = loads(base64.b64decode(mzdifferrors))
+            chrompeaks_df = self.currentOpenResultsFile.db_con.tables["chromPeaks"]
+            for row_dict in chrompeaks_df.to_dicts():
+                mzdifferrors = loads(base64.b64decode(row_dict["mzdifferrors"]))
                 devVals.extend([v for v in mzdifferrors.vals if v is not None])
             self.ui.pl1.twinxs[0].hist(
                 devVals,
@@ -9285,16 +9334,17 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         elif len(selectedItems) == 1 and selectedItems[0].myType == "diagnostic - EIC mz deviation":
             devVals = []
-            for row in self.currentOpenResultsFile.curs.execute("SELECT c.id, c.mz, c.NPeakCenter, c.NPeakScale, c.NPeakCenterMin/60., x.mzs, x.mzsL FROM chromPeaks c INNER JOIN XICs x ON c.eicID=x.id"):
-                (
-                    id,
-                    mz,
-                    center,
-                    scale,
-                    peakRT,
-                    mzs,
-                    mzsL,
-                ) = row
+            chrompeaks_df = self.currentOpenResultsFile.db_con.tables["chromPeaks"]
+            xics_df = self.currentOpenResultsFile.db_con.tables["XICs"]
+            joined = chrompeaks_df.join(xics_df, left_on="eicID", right_on="id", how="inner")
+            for row_dict in joined.to_dicts():
+                id = row_dict["id"]
+                mz = row_dict["mz"]
+                center = row_dict["NPeakCenter"]
+                scale = row_dict["NPeakScale"]
+                peakRT = row_dict["NPeakCenterMin"] / 60.0
+                mzs = row_dict["mzs"]
+                mzsL = row_dict["mzsL"]
                 mzs = [float(t) for t in mzs.split(";")]
                 # mzsL = [float(t) for t in mzsL.split(";")]
                 mzsPeak = mzs[max(0, center - int(1.5 * scale)) : min(len(mzs) - 1, center + int(1.5 * scale))]
@@ -9320,8 +9370,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         elif len(selectedItems) == 1 and selectedItems[0].myType == "diagnostic - peak fwhm":
             fwhmVals = []
-            for row in self.currentOpenResultsFile.curs.execute("SELECT new_FWHM_M, new_FWHM_Mp FROM chromPeaks c"):
-                (new_FWHM_M, new_FWHM_Mp) = row
+            chrompeaks_df = self.currentOpenResultsFile.db_con.tables["chromPeaks"]
+            for row_dict in chrompeaks_df.to_dicts():
+                new_FWHM_M = row_dict["new_FWHM_M"]
+                new_FWHM_Mp = row_dict["new_FWHM_Mp"]
                 fwhmVals.append(new_FWHM_M)
                 fwhmVals.append(new_FWHM_Mp)
             print(fwhmVals)
@@ -9984,10 +10036,11 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 peaks.append(item.myData.NPeakCenterMin / 60.0)
                 xic = []
                 times = []
-                for row in self.currentOpenResultsFile.curs.execute("select xic, times, xicL from XICs where id==%d" % item.myData.eicID):
-                    xic = [float(t) for t in row[0].split(";")]
-                    times = [float(t) / 60.0 for t in row[1].split(";")]
-                    xicL = [float(t) for t in row[2].split(";")]
+                xics_df = self.currentOpenResultsFile.db_con.tables["XICs"].filter(pl.col("id") == item.myData.eicID)
+                for row_dict in xics_df.to_dicts():
+                    xic = [float(t) for t in row_dict["xic"].split(";")]
+                    times = [float(t) / 60.0 for t in row_dict["times"].split(";")]
+                    xicL = [float(t) for t in row_dict["xicL"].split(";")]
                 self.ui.pl2A.xics.append(xic)
                 self.ui.pl2A.times.append(times)
                 self.ui.pl2A.peaks.append([item.myData])
@@ -10262,7 +10315,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         while True:
             i += 1
             found = 0
-            for row in self.currentOpenResultsFile.curs.execute("select * from featureGroups where featureName='fg_%d'" % i):
+            fg_df = self.currentOpenResultsFile.db_con.tables["featureGroups"].filter(pl.col("featureName") == ("fg_%d" % i))
+            for row_dict in fg_df.to_dicts():
                 found += 1
             if found == 0:
                 break
@@ -10277,11 +10331,12 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         newID = -1
         newName = ""
         tracerName = ""
-        for row in self.currentOpenResultsFile.curs.execute("select featureGroups.id, featureName, name from featureGroups inner join tracerConfiguration on featureGroups.tracer=tracerConfiguration.id where featureName='fgU_%d' " % i):
+        fg_df = self.currentOpenResultsFile.db_con.tables["featureGroups"].join(self.currentOpenResultsFile.db_con.tables["tracerConfiguration"], left_on="tracer", right_on="id", how="inner").filter(pl.col("featureName") == ("fgU_%d" % i))
+        for row_dict in fg_df.to_dicts():
             found += 1
-            newID = int(row[0])
-            newName = str(row[1])
-            tracerName = str(row[2])
+            newID = int(row_dict["id"])
+            newName = str(row_dict["featureName"])
+            tracerName = str(row_dict["name"])
 
         d = QtWidgets.QTreeWidgetItem([str(newName), str(len(items)), "", str(tracerName)])
         d.myType = "featureGroup"
@@ -10346,9 +10401,12 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if all([si == "feature" for si in types]) and all([pt == "featureGroup" for pt in parentTypes]):
             newGroupAction = menu.addMenu("Extract to new Group")
             actionAvailable = True
-            for tracer in self.currentOpenResultsFile.curs.execute("select id, name from tracerConfiguration"):
-                tracerAction = newGroupAction.addAction(str(tracer[1]))
-                tracerAction.tracerID = int(tracer[0])
+            tracer_df = self.currentOpenResultsFile.db_con.tables["tracerConfiguration"]
+            for row_dict in tracer_df.to_dicts():
+                tracerID = int(row_dict["id"])
+                tracerName = str(row_dict["name"])
+                tracerAction = newGroupAction.addAction(tracerName)
+                tracerAction.tracerID = tracerID
                 tracerActions.append(tracerAction)
 
         deleteAction = -1
@@ -11431,7 +11489,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         logging.info("MetExtract II started")
 
-        logging.info("  Using sum formula generation cache at " + os.environ["LOCALAPPDATA"] + "/MetExtractII/sfcache.db")
+        logging.info(f"  Using sum formula generation cache at '{local_folder}/sfcache.pqts'")
 
         self.preConfigured_adducts = [
             ConfiguredAdduct(

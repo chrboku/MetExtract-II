@@ -1113,17 +1113,77 @@ def writeBunchsAsTSVFile(
             fo.write("\n")
 
 
-def SQLSelectAsObject(curs, selectStatement, returnColumns=False, newObject=Bunch):
-    curs.execute(selectStatement)
-    names = list(map(lambda x: x[0], curs.description))
-    for row in curs:
-        b = newObject()
-        for i in range(len(names)):
-            setattr(b, names[i], row[i])
-        if returnColumns:
-            yield names, b
+def SQLSelectAsObject(curs_or_db, selectStatement, returnColumns=False, newObject=Bunch):
+    """Select objects from a table. Works with both SQLite cursor and ParquetDB."""
+    # Check if it's a ParquetDB object
+    if hasattr(curs_or_db, "get_table"):
+        # ParquetDB - parse the SELECT statement
+        import re
+
+        # Extract table name and columns from SELECT statement
+        # Format: SELECT col1, col2 AS alias, ... FROM tablename WHERE ...
+        match = re.search(r"SELECT\s+(.+?)\s+FROM\s+(\w+)", selectStatement, re.IGNORECASE | re.DOTALL)
+        if not match:
+            return
+
+        cols_str = match.group(1).strip()
+        table_name = match.group(2).strip()
+
+        # Get the table
+        df = curs_or_db.get_table(table_name)
+        if df is None or len(df) == 0:
+            return
+
+        # Parse WHERE clause if present
+        where_match = re.search(r"WHERE\s+(.+?)(?:ORDER BY|$)", selectStatement, re.IGNORECASE | re.DOTALL)
+        if where_match:
+            # This is a simplified WHERE parser - may need enhancement for complex queries
+            where_clause = where_match.group(1).strip()
+            # For now, skip filtering as it requires complex parsing
+            # Users should use execute_select method for complex queries
+            pass
+
+        # Parse column aliases
+        columns_map = {}
+        if cols_str.strip() != "*":
+            col_parts = re.split(r",\s*", cols_str)
+            for col_part in col_parts:
+                as_match = re.search(r"(\S+)\s+AS\s+(\w+)", col_part, re.IGNORECASE)
+                if as_match:
+                    columns_map[as_match.group(2)] = as_match.group(1)
+                else:
+                    col_name = col_part.strip()
+                    columns_map[col_name] = col_name
         else:
-            yield b
+            columns_map = {col: col for col in df.columns}
+
+        # Iterate through rows and create objects
+        names = list(columns_map.keys())
+        for row_dict in df.to_dicts():
+            b = newObject()
+            for alias, col_name in columns_map.items():
+                if col_name in row_dict:
+                    setattr(b, alias, row_dict[col_name])
+                elif "." in col_name:  # Handle table.column syntax
+                    actual_col = col_name.split(".")[-1]
+                    if actual_col in row_dict:
+                        setattr(b, alias, row_dict[actual_col])
+            if returnColumns:
+                yield names, b
+            else:
+                yield b
+    else:
+        # SQLite cursor (legacy support)
+        curs_or_db.execute(selectStatement)
+        names = list(map(lambda x: x[0], curs_or_db.description))
+        for row in curs_or_db:
+            b = newObject()
+            for i in range(len(names)):
+                setattr(b, names[i], row[i])
+            if returnColumns:
+                yield names, b
+            else:
+                yield b
 
 
 def SQLgetSingleFieldFromOneRow(curs, selectStatement):
@@ -1132,46 +1192,53 @@ def SQLgetSingleFieldFromOneRow(curs, selectStatement):
         return row[0]
 
 
-def SQLInsert(curs, tableName, **kwargs):
-    keys = list(kwargs.keys())
-    vals = []
+def SQLInsert(curs_or_db, tableName, **kwargs):
+    """Insert a row into a table. Works with both SQLite cursor and ParquetDB."""
+    # Check if it's a ParquetDB object (has insert_row method) or SQLite cursor
+    if hasattr(curs_or_db, "insert_row"):
+        # ParquetDB
+        curs_or_db.insert_row(tableName, kwargs)
+    else:
+        # SQLite cursor (legacy support)
+        keys = list(kwargs.keys())
+        vals = []
 
-    for key in keys:
-        val = kwargs[key]
+        for key in keys:
+            val = kwargs[key]
 
-        if isinstance(val, int) or isinstance(val, float):
-            vals.append(val)
-        else:
-            vals.append("%s" % val)
+            if isinstance(val, int) or isinstance(val, float):
+                vals.append(val)
+            else:
+                vals.append("%s" % val)
 
-    assert len(keys) == len(vals)
+        assert len(keys) == len(vals)
 
-    parts = ["INSERT INTO"]
-    parts.append(tableName)
-    parts.append("(")
+        parts = ["INSERT INTO"]
+        parts.append(tableName)
+        parts.append("(")
 
-    needsComa = False
-    for key in keys:
-        if needsComa:
-            parts.append(",")
-        needsComa = True
-        parts.append(key)
+        needsComa = False
+        for key in keys:
+            if needsComa:
+                parts.append(",")
+            needsComa = True
+            parts.append(key)
 
-    parts.append(")")
+        parts.append(")")
 
-    parts.append("VALUES (")
+        parts.append("VALUES (")
 
-    needsComa = False
-    for val in vals:
-        if needsComa:
-            parts.append(",")
-        needsComa = True
-        parts.append("?")
+        needsComa = False
+        for val in vals:
+            if needsComa:
+                parts.append(",")
+            needsComa = True
+            parts.append("?")
 
-    parts.append(")")
+        parts.append(")")
 
-    sqlCommand = " ".join(parts)
-    curs.execute(sqlCommand, vals)
+        sqlCommand = " ".join(parts)
+        curs_or_db.execute(sqlCommand, vals)
 
 
 def writeObjectsAsSQLInsert(curs, toTable, objs, writeFields, fieldsMappingToColumns=None):

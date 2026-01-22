@@ -18,16 +18,20 @@
 from __future__ import print_function, division, absolute_import
 import base64
 import functools
+import io
 import logging
 import os
 import platform
 import pprint
 import re
 import time
+import zipfile
 from copy import copy
 from math import floor
 from pickle import loads, dumps
-from sqlite3 import *
+import polars as pl
+import json
+import traceback
 
 try:
     import rpy2
@@ -100,8 +104,6 @@ from .utils import (
     sd,
     weightedSd,
     smoothDataSeries,
-    SQLInsert,
-    SQLSelectAsObject,
 )
 from .MZHCA import HierarchicalClustering, cutTreeSized
 from .chromPeakPicking.MassSpecWavelet import MassSpecWavelet
@@ -115,8 +117,114 @@ import numpy as np
 import scipy
 
 
+class ParquetDB:
+    """Helper class to manage multiple tables in a single Parquet file."""
+
+    def __init__(self, filepath):
+        self.filepath = filepath
+        self.tables = {}
+        self.load_all_tables()
+
+    def load_all_tables(self):
+        """Load all tables from the ZIP archive if it exists."""
+        if os.path.exists(self.filepath):
+            try:
+                with zipfile.ZipFile(self.filepath, "r") as zf:
+                    # List all .parquet files in the archive
+                    for filename in zf.namelist():
+                        if filename.endswith(".parquet"):
+                            # Extract table name from filename (remove .parquet extension)
+                            table_name = filename[:-8]  # Remove '.parquet'
+                            # Read the Parquet file from the archive
+                            with zf.open(filename) as f:
+                                parquet_data = f.read()
+                                df = pl.read_parquet(io.BytesIO(parquet_data))
+                                self.tables[table_name] = df
+            except Exception as e:
+                # File read error or corrupted archive
+                print(f"Warning: Could not load tables from {self.filepath}: {e}")
+                self.tables = {}
+
+    def create_table(self, table_name, schema):
+        """Create a new empty table with given schema."""
+        self.tables[table_name] = pl.DataFrame(schema=schema)
+
+    def insert_row(self, table_name, row_dict):
+        """Insert a single row into a table."""
+        if table_name not in self.tables:
+            raise ValueError(f"Table '{table_name}' does not exist. Create it first with create_table().")
+
+        # Get the table's schema
+        table_schema = self.tables[table_name].schema
+
+        # Cast values to match the schema types
+        casted_dict = {}
+        for col_name, col_type in table_schema.items():
+            if col_name in row_dict:
+                value = row_dict[col_name]
+                # Convert value to appropriate type
+                if value is None:
+                    casted_dict[col_name] = None
+                elif col_type == pl.Int64:
+                    casted_dict[col_name] = int(value) if value is not None else None
+                elif col_type == pl.Float64:
+                    casted_dict[col_name] = float(value) if value is not None else None
+                elif col_type == pl.Utf8:
+                    casted_dict[col_name] = str(value) if value is not None else None
+                else:
+                    casted_dict[col_name] = value
+            else:
+                # Column not provided, use None
+                casted_dict[col_name] = None
+
+        # Create DataFrame with explicit schema casting
+        new_row = pl.DataFrame([casted_dict], schema=table_schema)
+        self.tables[table_name] = pl.concat([self.tables[table_name], new_row], how="vertical")
+
+    def get_table(self, table_name):
+        """Get a table as a Polars DataFrame."""
+        return self.tables.get(table_name, pl.DataFrame())
+
+    def delete_rows(self, table_name, condition):
+        """Delete rows from a table based on a condition (Polars expression)."""
+        if table_name in self.tables:
+            self.tables[table_name] = self.tables[table_name].filter(~condition)
+
+    def update_rows(self, table_name, condition, updates):
+        """Update rows in a table based on a condition."""
+        if table_name in self.tables:
+            df = self.tables[table_name]
+            for col, value in updates.items():
+                df = df.with_columns(pl.when(condition).then(pl.lit(value)).otherwise(pl.col(col)).alias(col))
+            self.tables[table_name] = df
+
+    def cursor(self):
+        """Return self for compatibility with SQLite interface."""
+        return self
+
+    def commit(self):
+        """Save all tables to a ZIP archive, each as a separate Parquet file."""
+        if not self.tables:
+            return
+
+        # Write each table as a separate Parquet file in a ZIP archive
+        with zipfile.ZipFile(self.filepath, "w", zipfile.ZIP_DEFLATED) as zf:
+            for table_name, df in self.tables.items():
+                # Write each table to a BytesIO buffer as Parquet
+                buffer = io.BytesIO()
+                df.write_parquet(buffer, compression="snappy")
+                buffer.seek(0)
+                # Add the Parquet file to the ZIP archive
+                zf.writestr(f"{table_name}.parquet", buffer.getvalue())
+
+    def close(self):
+        """Close the database (commit and cleanup)."""
+        self.commit()
+        self.tables = {}
+
+
 def getDBSuffix():
-    return ".identified.sqlite"
+    return ".pqts.meii"
 
 
 # returns the abbreviation for a given element
@@ -511,205 +619,250 @@ class RunIdentification:
             foundIsotopes[iso] = {useCn: isoD[useCn]}
 
     # store configuration used for processing the LC-HRMS file into the database
-    def writeConfigurationToDB(self, conn, curs):
-        curs.execute("DROP TABLE IF EXISTS config")
-        curs.execute("CREATE TABLE config (id INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT, value TEXT)")
+    def writeConfigurationToDB(self, db_con):
+        # db_con is a ParquetDB object
+        # Create empty tables with appropriate schemas
+        db_con.create_table("config", {"key": pl.Utf8, "value": pl.Utf8})
 
-        curs.execute("DROP TABLE IF EXISTS tracerConfiguration")
-        curs.execute(
-            "create table tracerConfiguration(id INTEGER PRIMARY KEY, name TEXT, elementCount INTEGER, natural TEXT, labelling TEXT, deltaMZ REAL, purityN REAL, purityL REAL, amountN REAL, amountL REAL, monoisotopicRatio REAL, checkRatio TEXT, lowerError REAL, higherError REAL, tracertype TEXT)"
-        )
-
-        curs.execute("DROP TABLE IF EXISTS MZs")
-        curs.execute("create table MZs(id INTEGER PRIMARY KEY, tracer INTEGER, mz REAL, lmz REAL, tmz REAL, xcount INTEGER, scanid INTEGER, scantime REAL, loading INTEGER, intensity FLOAT, intensityL FLOAT, ionMode TEXT)")
-
-        curs.execute("DROP TABLE IF EXISTS MZBins")
-        curs.execute("CREATE TABLE MZBins(id INTEGER PRIMARY KEY, mz REAL, ionMode TEXT)")
-
-        curs.execute("DROP TABLE IF EXISTS MZBinsKids")
-        curs.execute("CREATE TABLE MZBinsKids(mzbinID INTEGER, mzID INTEGER)")
-
-        curs.execute("DROP TABLE IF EXISTS XICs")
-        curs.execute(
-            "CREATE TABLE XICs(id INTEGER PRIMARY KEY, avgmz REAL, xcount INTEGER, loading INTEGER, polarity TEXT, xic TEXT, xic_smoothed TEXT, xic_baseline TEXT, xicL TEXT, xicL_smoothed TEXT, xicL_baseline TEXT, xicfirstiso TEXT, xicLfirstiso TEXT, xicLfirstisoconjugate TEXT, mzs TEXT, mzsL TEXT, mzsfirstiso TEXT, mzsLfirstiso TEXT, mzsLfirstisoconjugate TEXT, times TEXT, scanCount INTEGER, allPeaks TEXT)"
-        )
-
-        curs.execute("DROP TABLE IF EXISTS tics")
-        curs.execute("CREATE TABLE tics(id INTEGER PRIMARY KEY, loading INTEGER, scanevent TEXT, times TEXT, intensities TEXT)")
-
-        curs.execute("DROP TABLE IF EXISTS chromPeaks")
-        curs.execute(
-            "CREATE TABLE chromPeaks(id INTEGER PRIMARY KEY, tracer INTEGER, eicID INTEGER, NPeakCenter INTEGER, NPeakCenterMin REAL, NPeakScale FLOAT, NSNR REAL, NPeakArea REAL, NPeakAbundance REAL, mz REAL, lmz REAL, tmz REAL, xcount INTEGER, xcountId INTEGER, LPeakCenter INTEGER, LPeakCenterMin REAL, LPeakScale FLOAT, LSNR REAL, LPeakArea REAL, LPeakAbundance REAL, Loading INTEGER, peaksCorr FLOAT, heteroAtoms TEXT, NBorderLeft INTEGER, NBorderRight INTEGER, LBorderLeft INTEGER, LBorderRight INTEGER, adducts TEXT, heteroAtomsFeaturePairs TEXT, massSpectrumID INTEGER, ionMode TEXT, assignedMZs INTEGER, fDesc TEXT, peaksRatio FLOAT, peaksRatioMp1 FLOAT, peaksRatioMPm1 FLOAT, isotopesRatios TEXT, mzDiffErrors TEXT, peakType TEXT, assignedName TEXT, correlationsToOthers TEXT, comments TEXT, artificialEICLShift INTEGER, new_FWHM_M FLOAT, new_FWHM_Mp FLOAT, new_Area_M FLOAT, new_Area_Mp FLOAT, new_SNR_M FLOAT, new_SNR_Mp FLOAT)"
+        db_con.create_table(
+            "tracerConfiguration",
+            {
+                "id": pl.Int64,
+                "name": pl.Utf8,
+                "elementCount": pl.Int64,
+                "natural": pl.Utf8,
+                "labelling": pl.Utf8,
+                "deltaMZ": pl.Float64,
+                "purityN": pl.Float64,
+                "purityL": pl.Float64,
+                "amountN": pl.Float64,
+                "amountL": pl.Float64,
+                "monoisotopicRatio": pl.Float64,
+                "checkRatio": pl.Utf8,
+                "lowerError": pl.Float64,
+                "higherError": pl.Float64,
+                "tracertype": pl.Utf8,
+            },
         )
 
-        curs.execute("drop table if exists allChromPeaks")
-        curs.execute(
-            "CREATE TABLE allChromPeaks(id INTEGER PRIMARY KEY, tracer INTEGER, eicID INTEGER, NPeakCenter INTEGER, NPeakCenterMin REAL, NPeakScale FLOAT, NSNR REAL, NPeakArea REAL, NPeakAbundance REAL, mz REAL, lmz REAL, tmz REAL, xcount INTEGER, xcountId INTEGER, LPeakCenter INTEGER, LPeakCenterMin REAL, LPeakScale FLOAT, LSNR REAL, LPeakArea REAL, LPeakAbundance REAL, Loading INTEGER, peaksCorr FLOAT, heteroAtoms TEXT, NBorderLeft INTEGER, NBorderRight INTEGER, LBorderLeft INTEGER, LBorderRight INTEGER, adducts TEXT, heteroAtomsFeaturePairs TEXT, ionMode TEXT, assignedMZs INTEGER, fDesc TEXT, peaksRatio FLOAT, peaksRatioMp1 FLOAT, peaksRatioMPm1 FLOAT, isotopesRatios TEXT, mzDiffErrors TEXT, peakType TEXT, assignedName TEXT, comment TEXT, comments TEXT, artificialEICLShift INTEGER, new_FWHM_M FLOAT, new_FWHM_Mp FLOAT, new_Area_M FLOAT, new_Area_Mp FLOAT, new_SNR_M FLOAT, new_SNR_Mp FLOAT)"
+        db_con.create_table("MZs", {"id": pl.Int64, "tracer": pl.Int64, "mz": pl.Float64, "lmz": pl.Float64, "tmz": pl.Float64, "xcount": pl.Int64, "scanid": pl.Int64, "scantime": pl.Float64, "loading": pl.Int64, "intensity": pl.Float64, "intensityL": pl.Float64, "ionMode": pl.Utf8})
+
+        db_con.create_table("MZBins", {"id": pl.Int64, "mz": pl.Float64, "ionMode": pl.Utf8})
+
+        db_con.create_table("MZBinsKids", {"mzbinID": pl.Int64, "mzID": pl.Int64})
+
+        db_con.create_table(
+            "XICs",
+            {
+                "id": pl.Int64,
+                "avgmz": pl.Float64,
+                "xcount": pl.Int64,
+                "loading": pl.Utf8,
+                "polarity": pl.Utf8,
+                "xic": pl.Utf8,
+                "xic_smoothed": pl.Utf8,
+                "xic_baseline": pl.Utf8,
+                "xicL": pl.Utf8,
+                "xicL_smoothed": pl.Utf8,
+                "xicL_baseline": pl.Utf8,
+                "xicfirstiso": pl.Utf8,
+                "xicLfirstiso": pl.Utf8,
+                "xicLfirstisoconjugate": pl.Utf8,
+                "mzs": pl.Utf8,
+                "mzsL": pl.Utf8,
+                "mzsfirstiso": pl.Utf8,
+                "mzsLfirstiso": pl.Utf8,
+                "mzsLfirstisoconjugate": pl.Utf8,
+                "times": pl.Utf8,
+                "scanCount": pl.Int64,
+                "allPeaks": pl.Utf8,
+            },
         )
 
-        curs.execute("DROP TABLE IF EXISTS featureGroups")
-        curs.execute("CREATE TABLE featureGroups (id INTEGER PRIMARY KEY, featureName TEXT, tracer INTEGER)")
+        db_con.create_table("tics", {"id": pl.Int64, "loading": pl.Utf8, "scanevent": pl.Utf8, "times": pl.Utf8, "intensities": pl.Utf8})
 
-        curs.execute("DROP TABLE IF EXISTS featureGroupFeatures")
-        curs.execute("CREATE TABLE featureGroupFeatures (id INTEGER PRIMARY KEY, fID INTEGER, fDesc TEXT, fGroupID INTEGER)")
+        db_con.create_table(
+            "chromPeaks",
+            {
+                "id": pl.Int64,
+                "tracer": pl.Int64,
+                "eicID": pl.Int64,
+                "NPeakCenter": pl.Int64,
+                "NPeakCenterMin": pl.Float64,
+                "NPeakScale": pl.Float64,
+                "NSNR": pl.Float64,
+                "NPeakArea": pl.Float64,
+                "NPeakAbundance": pl.Float64,
+                "mz": pl.Float64,
+                "lmz": pl.Float64,
+                "tmz": pl.Float64,
+                "xcount": pl.Int64,
+                "xcountId": pl.Int64,
+                "LPeakCenter": pl.Int64,
+                "LPeakCenterMin": pl.Float64,
+                "LPeakScale": pl.Float64,
+                "LSNR": pl.Float64,
+                "LPeakArea": pl.Float64,
+                "LPeakAbundance": pl.Float64,
+                "Loading": pl.Utf8,
+                "peaksCorr": pl.Float64,
+                "heteroAtoms": pl.Utf8,
+                "NBorderLeft": pl.Int64,
+                "NBorderRight": pl.Int64,
+                "LBorderLeft": pl.Int64,
+                "LBorderRight": pl.Int64,
+                "adducts": pl.Utf8,
+                "heteroAtomsFeaturePairs": pl.Utf8,
+                "massSpectrumID": pl.Int64,
+                "ionMode": pl.Utf8,
+                "assignedMZs": pl.Utf8,
+                "fDesc": pl.Utf8,
+                "peaksRatio": pl.Float64,
+                "peaksRatioMp1": pl.Float64,
+                "peaksRatioMPm1": pl.Float64,
+                "isotopesRatios": pl.Utf8,
+                "mzDiffErrors": pl.Utf8,
+                "peakType": pl.Utf8,
+                "assignedName": pl.Utf8,
+                "correlationsToOthers": pl.Utf8,
+                "comments": pl.Utf8,
+                "artificialEICLShift": pl.Int64,
+                "new_FWHM_M": pl.Float64,
+                "new_FWHM_Mp": pl.Float64,
+                "new_Area_M": pl.Float64,
+                "new_Area_Mp": pl.Float64,
+                "new_SNR_M": pl.Float64,
+                "new_SNR_Mp": pl.Float64,
+            },
+        )
 
-        curs.execute("DROP TABLE IF EXISTS featurefeatures")
-        curs.execute("CREATE TABLE featurefeatures (fID1 INTEGER, fID2 INTEGER, corr FLOAT, silRatioValue FLOAT, desc1 TEXT, desc2 TEXT, add1 TEXT, add2 TEXT)")
+        db_con.create_table(
+            "allChromPeaks",
+            {
+                "id": pl.Int64,
+                "tracer": pl.Int64,
+                "eicID": pl.Int64,
+                "NPeakCenter": pl.Int64,
+                "NPeakCenterMin": pl.Float64,
+                "NPeakScale": pl.Float64,
+                "NSNR": pl.Float64,
+                "NPeakArea": pl.Float64,
+                "NPeakAbundance": pl.Float64,
+                "mz": pl.Float64,
+                "lmz": pl.Float64,
+                "tmz": pl.Float64,
+                "xcount": pl.Int64,
+                "xcountId": pl.Int64,
+                "LPeakCenter": pl.Int64,
+                "LPeakCenterMin": pl.Float64,
+                "LPeakScale": pl.Float64,
+                "LSNR": pl.Float64,
+                "LPeakArea": pl.Float64,
+                "LPeakAbundance": pl.Float64,
+                "Loading": pl.Utf8,
+                "peaksCorr": pl.Float64,
+                "heteroAtoms": pl.Utf8,
+                "NBorderLeft": pl.Int64,
+                "NBorderRight": pl.Int64,
+                "LBorderLeft": pl.Int64,
+                "LBorderRight": pl.Int64,
+                "adducts": pl.Utf8,
+                "heteroAtomsFeaturePairs": pl.Utf8,
+                "ionMode": pl.Utf8,
+                "assignedMZs": pl.Int64,
+                "fDesc": pl.Utf8,
+                "peaksRatio": pl.Float64,
+                "peaksRatioMp1": pl.Float64,
+                "peaksRatioMPm1": pl.Float64,
+                "isotopesRatios": pl.Utf8,
+                "mzDiffErrors": pl.Utf8,
+                "peakType": pl.Utf8,
+                "assignedName": pl.Utf8,
+                "comment": pl.Utf8,
+                "comments": pl.Utf8,
+                "artificialEICLShift": pl.Int64,
+                "new_FWHM_M": pl.Float64,
+                "new_FWHM_Mp": pl.Float64,
+                "new_Area_M": pl.Float64,
+                "new_Area_Mp": pl.Float64,
+                "new_SNR_M": pl.Float64,
+                "new_SNR_Mp": pl.Float64,
+            },
+        )
 
-        curs.execute("DROP TABLE IF EXISTS massspectrum")
-        curs.execute("CREATE TABLE massspectrum (mID INTEGER, fgID INTEGER, time FLOAT, mzs TEXT, intensities TEXT, ionMode TEXT)")
+        db_con.create_table("featureGroups", {"id": pl.Int64, "featureName": pl.Utf8, "tracer": pl.Int64})
 
-        curs.execute("DROP TABLE IF EXISTS stats")
-        curs.execute("CREATE TABLE stats (key TEXT, value TEXT)")
+        db_con.create_table("featureGroupFeatures", {"id": pl.Int64, "fID": pl.Int64, "fDesc": pl.Utf8, "fGroupID": pl.Int64})
 
-        SQLInsert(curs, "config", key="MetExtractVersion", value=self.meVersion)
-        SQLInsert(curs, "config", key="RVersion", value=self.rVersion)
+        db_con.create_table("featurefeatures", {"fID1": pl.Int64, "fID2": pl.Int64, "corr": pl.Float64, "silRatioValue": pl.Float64, "desc1": pl.Utf8, "desc2": pl.Utf8, "add1": pl.Utf8, "add2": pl.Utf8})
 
-        SQLInsert(curs, "config", key="ExperimentName", value=self.experimentName)
-        SQLInsert(curs, "config", key="ExperimentOperator", value=self.experimentOperator)
-        SQLInsert(curs, "config", key="ExperimentID", value=self.experimentID)
-        SQLInsert(curs, "config", key="ExperimentComments", value=self.experimentComments)
+        db_con.create_table("massspectrum", {"mID": pl.Int64, "fgID": pl.Int64, "time": pl.Float64, "mzs": pl.Utf8, "intensities": pl.Utf8, "ionMode": pl.Utf8})
 
-        SQLInsert(curs, "config", key="labellingElement", value=self.labellingElement)
-        SQLInsert(curs, "config", key="isotopeA", value=self.isotopeA)
-        SQLInsert(curs, "config", key="isotopeB", value=self.isotopeB)
-        SQLInsert(
-            curs,
-            "config",
-            key="useCValidation",
-            value=self.useCIsotopePatternValidation,
-        )
-        SQLInsert(curs, "config", key="minRatio", value=self.minRatio)
-        SQLInsert(curs, "config", key="maxRatio", value=self.maxRatio)
-        SQLInsert(curs, "config", key="useRatio", value=str(self.useRatio))
-        SQLInsert(
-            curs,
-            "config",
-            key="metabolisationExperiment",
-            value=str(self.metabolisationExperiment),
-        )
-        SQLInsert(
-            curs,
-            "config",
-            key="configuredTracer",
-            value=base64.b64encode(dumps(self.configuredTracer)).decode("utf-8"),
-        )
-        SQLInsert(curs, "config", key="startTime", value=self.startTime)
-        SQLInsert(curs, "config", key="stopTime", value=self.stopTime)
-        SQLInsert(curs, "config", key="positiveScanEvent", value=self.positiveScanEvent)
-        SQLInsert(curs, "config", key="negativeScanEvent", value=self.negativeScanEvent)
-        SQLInsert(curs, "config", key="intensityThreshold", value=self.intensityThreshold)
-        SQLInsert(curs, "config", key="intensityCutoff", value=self.intensityCutoff)
-        SQLInsert(curs, "config", key="maxLoading", value=self.maxLoading)
-        SQLInsert(curs, "config", key="xCounts", value=self.xCountsString)
-        SQLInsert(curs, "config", key="xOffset", value=self.xOffset)
-        SQLInsert(curs, "config", key="ppm", value=self.ppm)
-        SQLInsert(
-            curs,
-            "config",
-            key="isotopicPatternCountLeft",
-            value=self.isotopicPatternCountLeft,
-        )
-        SQLInsert(
-            curs,
-            "config",
-            key="isotopicPatternCountRight",
-            value=self.isotopicPatternCountRight,
-        )
-        SQLInsert(
-            curs,
-            "config",
-            key="lowAbundanceIsotopeCutoff",
-            value=str(self.lowAbundanceIsotopeCutoff),
-        )
-        SQLInsert(
-            curs,
-            "config",
-            key="intensityThresholdIsotopologs",
-            value=str(self.intensityThresholdIsotopologs),
-        )
-        SQLInsert(curs, "config", key="intensityErrorN", value=self.intensityErrorN)
-        SQLInsert(curs, "config", key="intensityErrorL", value=self.intensityErrorL)
-        SQLInsert(curs, "config", key="purityN", value=self.purityN)
-        SQLInsert(curs, "config", key="purityL", value=self.purityL)
-        SQLInsert(curs, "config", key="clustPPM", value=self.clustPPM)
-        SQLInsert(curs, "config", key="chromPeakPPM", value=self.chromPeakPPM)
-        SQLInsert(curs, "config", key="eicSmoothing", value=self.eicSmoothingWindow)
-        SQLInsert(
-            curs,
-            "config",
-            key="eicSmoothingWindowSize",
-            value=self.eicSmoothingWindowSize,
-        )
-        SQLInsert(curs, "config", key="eicSmoothingPolynom", value=self.eicSmoothingPolynom)
-        SQLInsert(
-            curs,
-            "config",
-            key="artificialMPshift_start",
-            value=self.artificialMPshift_start,
-        )
-        SQLInsert(
-            curs,
-            "config",
-            key="artificialMPshift_stop",
-            value=self.artificialMPshift_stop,
-        )
-        SQLInsert(curs, "config", key="snrTh", value=self.snrTh)
-        SQLInsert(
-            curs,
-            "config",
-            key="scales",
-            value=base64.b64encode(dumps(self.scales)).decode("utf-8"),
-        )
-        SQLInsert(
-            curs,
-            "config",
-            key="peakAbundanceCriteria",
-            value="Center +- %d signals (%d total)" % (peakAbundanceUseSignalsSides, peakAbundanceUseSignals),
-        )
-        SQLInsert(curs, "config", key="peakCenterError", value=self.peakCenterError)
-        SQLInsert(curs, "config", key="peakScaleError", value=self.peakScaleError)
-        SQLInsert(curs, "config", key="minPeakCorr", value=self.minPeakCorr)
-        SQLInsert(curs, "config", key="checkPeaksRatio", value=str(self.checkPeaksRatio))
-        SQLInsert(curs, "config", key="minPeaksRatio", value=self.minPeaksRatio)
-        SQLInsert(curs, "config", key="maxPeaksRatio", value=self.maxPeaksRatio)
-        SQLInsert(curs, "config", key="calcIsoRatioNative", value=self.calcIsoRatioNative)
-        SQLInsert(curs, "config", key="calcIsoRatioLabelled", value=self.calcIsoRatioLabelled)
-        SQLInsert(curs, "config", key="calcIsoRatioMoiety", value=self.calcIsoRatioMoiety)
-        SQLInsert(curs, "config", key="minSpectraCount", value=self.minSpectraCount)
-        SQLInsert(
-            curs,
-            "config",
-            key="configuredHeteroAtoms",
-            value=base64.b64encode(dumps(self.heteroAtoms)).decode("utf-8"),
-        )
-        SQLInsert(curs, "config", key="haIntensityError", value=self.hAIntensityError)
-        SQLInsert(curs, "config", key="haMinScans", value=self.hAMinScans)
-        SQLInsert(curs, "config", key="minCorrelation", value=self.minCorrelation)
-        SQLInsert(
-            curs,
-            "config",
-            key="minCorrelationConnections",
-            value=self.minCorrelationConnections,
-        )
-        SQLInsert(
-            curs,
-            "config",
-            key="adducts",
-            value=base64.b64encode(dumps(self.adducts)).decode("utf-8"),
-        )
-        SQLInsert(
-            curs,
-            "config",
-            key="elements",
-            value=base64.b64encode(dumps(self.elements)).decode("utf-8"),
-        )
-        SQLInsert(
-            curs,
-            "config",
-            key="simplifyInSourceFragments",
-            value=str(self.simplifyInSourceFragments),
-        )
+        db_con.create_table("stats", {"key": pl.Utf8, "value": pl.Utf8})
+
+        db_con.insert_row("config", {"key": "MetExtractVersion", "value": self.meVersion})
+        db_con.insert_row("config", {"key": "RVersion", "value": self.rVersion})
+
+        db_con.insert_row("config", {"key": "ExperimentName", "value": self.experimentName})
+        db_con.insert_row("config", {"key": "ExperimentOperator", "value": self.experimentOperator})
+        db_con.insert_row("config", {"key": "ExperimentID", "value": self.experimentID})
+        db_con.insert_row("config", {"key": "ExperimentComments", "value": self.experimentComments})
+
+        db_con.insert_row("config", {"key": "labellingElement", "value": self.labellingElement})
+        db_con.insert_row("config", {"key": "isotopeA", "value": self.isotopeA})
+        db_con.insert_row("config", {"key": "isotopeB", "value": self.isotopeB})
+        db_con.insert_row("config", {"key": "useCValidation", "value": self.useCIsotopePatternValidation})
+        db_con.insert_row("config", {"key": "minRatio", "value": self.minRatio})
+        db_con.insert_row("config", {"key": "maxRatio", "value": self.maxRatio})
+        db_con.insert_row("config", {"key": "useRatio", "value": str(self.useRatio)})
+        db_con.insert_row("config", {"key": "metabolisationExperiment", "value": str(self.metabolisationExperiment)})
+        db_con.insert_row("config", {"key": "configuredTracer", "value": base64.b64encode(dumps(self.configuredTracer)).decode("utf-8")})
+        db_con.insert_row("config", {"key": "startTime", "value": self.startTime})
+        db_con.insert_row("config", {"key": "stopTime", "value": self.stopTime})
+        db_con.insert_row("config", {"key": "positiveScanEvent", "value": self.positiveScanEvent})
+        db_con.insert_row("config", {"key": "negativeScanEvent", "value": self.negativeScanEvent})
+        db_con.insert_row("config", {"key": "intensityThreshold", "value": self.intensityThreshold})
+        db_con.insert_row("config", {"key": "intensityCutoff", "value": self.intensityCutoff})
+        db_con.insert_row("config", {"key": "maxLoading", "value": self.maxLoading})
+        db_con.insert_row("config", {"key": "xCounts", "value": self.xCountsString})
+        db_con.insert_row("config", {"key": "xOffset", "value": self.xOffset})
+        db_con.insert_row("config", {"key": "ppm", "value": self.ppm})
+        db_con.insert_row("config", {"key": "isotopicPatternCountLeft", "value": self.isotopicPatternCountLeft})
+        db_con.insert_row("config", {"key": "isotopicPatternCountRight", "value": self.isotopicPatternCountRight})
+        db_con.insert_row("config", {"key": "lowAbundanceIsotopeCutoff", "value": str(self.lowAbundanceIsotopeCutoff)})
+        db_con.insert_row("config", {"key": "intensityThresholdIsotopologs", "value": str(self.intensityThresholdIsotopologs)})
+        db_con.insert_row("config", {"key": "intensityErrorN", "value": self.intensityErrorN})
+        db_con.insert_row("config", {"key": "intensityErrorL", "value": self.intensityErrorL})
+        db_con.insert_row("config", {"key": "purityN", "value": self.purityN})
+        db_con.insert_row("config", {"key": "purityL", "value": self.purityL})
+        db_con.insert_row("config", {"key": "clustPPM", "value": self.clustPPM})
+        db_con.insert_row("config", {"key": "chromPeakPPM", "value": self.chromPeakPPM})
+        db_con.insert_row("config", {"key": "eicSmoothing", "value": self.eicSmoothingWindow})
+        db_con.insert_row("config", {"key": "eicSmoothingWindowSize", "value": self.eicSmoothingWindowSize})
+        db_con.insert_row("config", {"key": "eicSmoothingPolynom", "value": self.eicSmoothingPolynom})
+        db_con.insert_row("config", {"key": "artificialMPshift_start", "value": self.artificialMPshift_start})
+        db_con.insert_row("config", {"key": "artificialMPshift_stop", "value": self.artificialMPshift_stop})
+        db_con.insert_row("config", {"key": "snrTh", "value": self.snrTh})
+        db_con.insert_row("config", {"key": "scales", "value": base64.b64encode(dumps(self.scales)).decode("utf-8")})
+        db_con.insert_row("config", {"key": "peakAbundanceCriteria", "value": "Center +- %d signals (%d total)" % (peakAbundanceUseSignalsSides, peakAbundanceUseSignals)})
+        db_con.insert_row("config", {"key": "peakCenterError", "value": self.peakCenterError})
+        db_con.insert_row("config", {"key": "peakScaleError", "value": self.peakScaleError})
+        db_con.insert_row("config", {"key": "minPeakCorr", "value": self.minPeakCorr})
+        db_con.insert_row("config", {"key": "checkPeaksRatio", "value": str(self.checkPeaksRatio)})
+        db_con.insert_row("config", {"key": "minPeaksRatio", "value": self.minPeaksRatio})
+        db_con.insert_row("config", {"key": "maxPeaksRatio", "value": self.maxPeaksRatio})
+        db_con.insert_row("config", {"key": "calcIsoRatioNative", "value": self.calcIsoRatioNative})
+        db_con.insert_row("config", {"key": "calcIsoRatioLabelled", "value": self.calcIsoRatioLabelled})
+        db_con.insert_row("config", {"key": "calcIsoRatioMoiety", "value": self.calcIsoRatioMoiety})
+        db_con.insert_row("config", {"key": "minSpectraCount", "value": self.minSpectraCount})
+        db_con.insert_row("config", {"key": "configuredHeteroAtoms", "value": base64.b64encode(dumps(self.heteroAtoms)).decode("utf-8")})
+        db_con.insert_row("config", {"key": "haIntensityError", "value": self.hAIntensityError})
+        db_con.insert_row("config", {"key": "haMinScans", "value": self.hAMinScans})
+        db_con.insert_row("config", {"key": "minCorrelation", "value": self.minCorrelation})
+        db_con.insert_row("config", {"key": "minCorrelationConnections", "value": self.minCorrelationConnections})
+        db_con.insert_row("config", {"key": "adducts", "value": base64.b64encode(dumps(self.adducts)).decode("utf-8")})
+        db_con.insert_row("config", {"key": "elements", "value": base64.b64encode(dumps(self.elements)).decode("utf-8")})
+        db_con.insert_row("config", {"key": "simplifyInSourceFragments", "value": str(self.simplifyInSourceFragments)})
 
         import uuid
         import platform
@@ -720,41 +873,37 @@ class RunIdentification:
             str(platform.node()),
             str(datetime.datetime.now()),
         )
-        SQLInsert(
-            curs,
-            "config",
-            key="processingUUID_ext",
-            value=base64.b64encode(str(self.processingUUID).encode("utf-8")),
-        )
+        db_con.insert_row("config", {"key": "processingUUID_ext", "value": base64.b64encode(str(self.processingUUID).encode("utf-8"))})
 
         i = 1
         if self.metabolisationExperiment:
             tracer = self.configuredTracer
             tracer.id = i
-            SQLInsert(
-                curs,
+            db_con.insert_row(
                 "tracerConfiguration",
-                id=tracer.id,
-                name=tracer.name,
-                elementCount=tracer.elementCount,
-                natural=tracer.isotopeA,
-                labelling=tracer.isotopeB,
-                deltaMZ=getIsotopeMass(tracer.isotopeB)[0] - getIsotopeMass(tracer.isotopeA)[0],
-                purityN=tracer.enrichmentA,
-                purityL=tracer.enrichmentB,
-                amountN=tracer.amountA,
-                amountL=tracer.amountB,
-                monoisotopicRatio=tracer.monoisotopicRatio,
-                checkRatio=str(tracer.checkRatio),
-                lowerError=tracer.maxRelNegBias,
-                higherError=tracer.maxRelPosBias,
-                tracertype=tracer.tracerType,
+                {
+                    "id": tracer.id,
+                    "name": tracer.name,
+                    "elementCount": tracer.elementCount,
+                    "natural": tracer.isotopeA,
+                    "labelling": tracer.isotopeB,
+                    "deltaMZ": getIsotopeMass(tracer.isotopeB)[0] - getIsotopeMass(tracer.isotopeA)[0],
+                    "purityN": tracer.enrichmentA,
+                    "purityL": tracer.enrichmentB,
+                    "amountN": tracer.amountA,
+                    "amountL": tracer.amountB,
+                    "monoisotopicRatio": tracer.monoisotopicRatio,
+                    "checkRatio": str(tracer.checkRatio),
+                    "lowerError": tracer.maxRelNegBias,
+                    "higherError": tracer.maxRelPosBias,
+                    "tracertype": tracer.tracerType,
+                },
             )
 
         else:
             # ConfiguredTracer(name="Full metabolome labeling experiment", id=0)
-            SQLInsert(curs, "tracerConfiguration", id=0, name="FLE")
-        conn.commit()
+            db_con.insert_row("tracerConfiguration", {"id": 0, "name": "FLE"})
+        db_con.commit()
 
     def parseMzXMLFile(self):
         mzxml = Chromatogram()
@@ -1206,10 +1355,7 @@ class RunIdentification:
 
     # store detected signal pairs (1st data processing step) in the database
     def writeSignalPairsToDB(self, mzs, mzxml, tracerID):
-        conn = connect(self.file + getDBSuffix(), isolation_level="DEFERRED")
-        conn.execute("""PRAGMA synchronous = OFF""")
-        conn.execute("""PRAGMA journal_mode = OFF""")
-        curs = conn.cursor()
+        db_con = ParquetDB(self.file + getDBSuffix())
 
         for mz in mzs:
             mz.id = self.curMZId
@@ -1221,28 +1367,28 @@ class RunIdentification:
             elif mz.ionMode == "-":
                 scanEvent = self.negativeScanEvent
 
-            SQLInsert(
-                curs,
+            db_con.insert_row(
                 "MZs",
-                id=mz.id,
-                tracer=mz.tid,
-                mz=mz.mz,
-                lmz=mz.lmz,
-                tmz=mz.tmz,
-                xcount=mz.xCount,
-                scanid=mzxml.getIthMS1Scan(mz.scanIndex, scanEvent).id,
-                scanTime=mzxml.getIthMS1Scan(mz.scanIndex, scanEvent).retention_time,
-                loading=mz.loading,
-                intensity=mz.nIntensity,
-                intensityL=mz.lIntensity,
-                ionMode=mz.ionMode,
+                {
+                    "id": mz.id,
+                    "tracer": mz.tid,
+                    "mz": mz.mz,
+                    "lmz": mz.lmz,
+                    "tmz": mz.tmz,
+                    "xcount": mz.xCount,
+                    "scanid": mzxml.getIthMS1Scan(mz.scanIndex, scanEvent).id,
+                    "scanTime": mzxml.getIthMS1Scan(mz.scanIndex, scanEvent).retention_time,
+                    "loading": mz.loading,
+                    "intensity": mz.nIntensity,
+                    "intensityL": mz.lIntensity,
+                    "ionMode": mz.ionMode,
+                },
             )
 
             self.curMZId = self.curMZId + 1
 
-        conn.commit()
-        curs.close()
-        conn.close()
+        db_con.commit()
+        db_con.close()
 
     # data processing step 2: cluster detected signal pairs with HCA
     def clusterFeaturePairs(self, mzs, reportFunction=None):
@@ -1327,32 +1473,17 @@ class RunIdentification:
 
     # store signal pair clusters (2nd data processing step) in the database
     def writeFeaturePairClustersToDB(self, mzbins):
-        conn = connect(self.file + getDBSuffix(), isolation_level="DEFERRED")
-        conn.execute("""PRAGMA synchronous = OFF""")
-        conn.execute("""PRAGMA journal_mode = OFF""")
-        curs = conn.cursor()
+        db_con = ParquetDB(self.file + getDBSuffix())
 
         for ionMode in ["+", "-"]:
             for mzbin in mzbins[ionMode]:
-                SQLInsert(
-                    curs,
-                    "MZBins",
-                    id=self.curMZBinId,
-                    mz=mzbin.getValue(),
-                    ionMode=ionMode,
-                )
+                db_con.insert_row("MZBins", {"id": self.curMZBinId, "mz": mzbin.getValue(), "ionMode": ionMode})
                 for kid in mzbin.getKids():
-                    SQLInsert(
-                        curs,
-                        "MZBinsKids",
-                        mzbinID=self.curMZBinId,
-                        mzID=kid.getObject().id,
-                    )
+                    db_con.insert_row("MZBinsKids", {"mzbinID": self.curMZBinId, "mzID": kid.getObject().id})
                 self.curMZBinId = self.curMZBinId + 1
 
-        conn.commit()
-        curs.close()
-        conn.close()
+        db_con.commit()
+        db_con.close()
 
     def removeImpossibleFeaturePairClusters(self, mzbins):
         mzBinsNew = {}
@@ -1399,10 +1530,7 @@ class RunIdentification:
     # present in both EICs at approximately the same retention time and very their chromatographic peak shapes.
     # if all criteria are passed, write this detected feature pair to the database
     def findChromatographicPeaksAndWriteToDB(self, mzbins, mzxml, tracerID, reportFunction=None):
-        conn = connect(self.file + getDBSuffix(), isolation_level="DEFERRED")
-        conn.execute("""PRAGMA synchronous = OFF""")
-        conn.execute("""PRAGMA journal_mode = OFF""")
-        curs = conn.cursor()
+        db_con = ParquetDB(self.file + getDBSuffix())
         chromPeaks = []
 
         totalBins = len(mzbins["+"]) + len(mzbins["-"])
@@ -1781,31 +1909,32 @@ class RunIdentification:
                         keepScans.add(len(eic) - 1)
 
                         # save the native and labelled EICs to the database
-                        SQLInsert(
-                            curs,
+                        db_con.insert_row(
                             "XICs",
-                            id=self.curEICId,
-                            avgmz=meanmz,
-                            xcount=xcount,
-                            loading=kids[0].getObject().loading,
-                            polarity=ionMode,
-                            xic=";".join(["%f" % i for i in eic]),
-                            xicL=";".join(["%f" % i for i in eicL]),
-                            xicfirstiso=";".join(["%f" % i for i in eicfirstiso]),
-                            xicLfirstiso=";".join(["%f" % i for i in eicLfirstiso]),
-                            xicLfirstisoconjugate=";".join(["%f" % i for i in eicLfirstisoconjugate]),
-                            xic_smoothed=";".join(["%f" % i for i in eicSmoothed]),
-                            xicL_smoothed=";".join(["%f" % i for i in eicLSmoothed]),
-                            xic_baseline=";".join(["%f" % i for i in eicBaseline]),
-                            xicL_baseline=";".join(["%f" % i for i in eicLBaseline]),
-                            mzs=";".join(["%f" % (mzs[i]) for i in range(0, len(eic))]),
-                            mzsL=";".join(["%f" % (mzsL[i]) for i in range(0, len(eic))]),
-                            mzsfirstiso=";".join(["%f" % (mzsfirstiso[i]) for i in range(0, len(eic))]),
-                            mzsLfirstiso=";".join(["%f" % (mzsLfirstiso[i]) for i in range(0, len(eic))]),
-                            mzsLfirstisoconjugate=";".join(["%f" % (mzsLfirstisoconjugate[i]) for i in range(0, len(eic))]),
-                            times=";".join(["%f" % (times[i]) for i in range(0, len(times))]),
-                            scanCount=len(eic),
-                            allPeaks=base64.b64encode(dumps({"peaksN": peaksN, "peaksL": peaksL})).decode("utf-8"),
+                            {
+                                "id": self.curEICId,
+                                "avgmz": meanmz,
+                                "xcount": xcount,
+                                "loading": kids[0].getObject().loading,
+                                "polarity": ionMode,
+                                "xic": ";".join(["%f" % i for i in eic]),
+                                "xicL": ";".join(["%f" % i for i in eicL]),
+                                "xicfirstiso": ";".join(["%f" % i for i in eicfirstiso]),
+                                "xicLfirstiso": ";".join(["%f" % i for i in eicLfirstiso]),
+                                "xicLfirstisoconjugate": ";".join(["%f" % i for i in eicLfirstisoconjugate]),
+                                "xic_smoothed": ";".join(["%f" % i for i in eicSmoothed]),
+                                "xicL_smoothed": ";".join(["%f" % i for i in eicLSmoothed]),
+                                "xic_baseline": ";".join(["%f" % i for i in eicBaseline]),
+                                "xicL_baseline": ";".join(["%f" % i for i in eicLBaseline]),
+                                "mzs": ";".join(["%f" % (mzs[i]) for i in range(0, len(eic))]),
+                                "mzsL": ";".join(["%f" % (mzsL[i]) for i in range(0, len(eic))]),
+                                "mzsfirstiso": ";".join(["%f" % (mzsfirstiso[i]) for i in range(0, len(eic))]),
+                                "mzsLfirstiso": ";".join(["%f" % (mzsLfirstiso[i]) for i in range(0, len(eic))]),
+                                "mzsLfirstisoconjugate": ";".join(["%f" % (mzsLfirstisoconjugate[i]) for i in range(0, len(eic))]),
+                                "times": ";".join(["%f" % (times[i]) for i in range(0, len(times))]),
+                                "scanCount": len(eic),
+                                "allPeaks": base64.b64encode(dumps({"peaksN": peaksN, "peaksL": peaksL})).decode("utf-8"),
+                            },
                         )
 
                         # save the detected feature pairs in these EICs to the database
@@ -1819,112 +1948,113 @@ class RunIdentification:
                                 adjcCount = adjcCount + getAtomAdd(self.purityL, peak.xCount) + getAtomAdd(self.purityN, peak.xCount)
                                 peak.correctedXCount = adjcCount
 
-                            SQLInsert(
-                                curs,
+                            db_con.insert_row(
                                 "chromPeaks",
-                                id=peak.id,
-                                tracer=tracerID,
-                                eicID=peak.eicID,
-                                mz=peak.mz,
-                                lmz=peak.lmz,
-                                tmz=peak.tmz,
-                                xcount=peak.correctedXCount,
-                                xcountId=peak.xCount,
-                                Loading=peak.loading,
-                                ionMode=ionMode,
-                                NPeakCenter=peak.NPeakCenter,
-                                NPeakCenterMin=peak.NPeakCenterMin,
-                                NPeakScale=peak.NPeakScale,
-                                NSNR=peak.NSNR,
-                                NPeakArea=peak.NPeakArea,
-                                NPeakAbundance=peak.NPeakAbundance,
-                                NBorderLeft=peak.NBorderLeft,
-                                NBorderRight=peak.NBorderRight,
-                                LPeakCenter=peak.LPeakCenter,
-                                LPeakCenterMin=peak.LPeakCenterMin,
-                                LPeakScale=peak.LPeakScale,
-                                LSNR=peak.LSNR,
-                                LPeakArea=peak.LPeakArea,
-                                LPeakAbundance=peak.LPeakAbundance,
-                                LBorderLeft=peak.LBorderLeft,
-                                LBorderRight=peak.LBorderRight,
-                                peaksCorr=peak.peaksCorr,
-                                heteroAtoms="",
-                                adducts="",
-                                heteroAtomsFeaturePairs="",
-                                massSpectrumID=0,
-                                assignedMZs=base64.b64encode(dumps(peak.assignedMZs)).decode("utf-8"),
-                                fDesc=base64.b64encode(dumps([])).decode("utf-8"),
-                                peaksRatio=peak.peaksRatio,
-                                peaksRatioMp1=peak.peaksRatioMp1,
-                                peaksRatioMPm1=peak.peaksRatioMPm1,
-                                peakType="patternFound",
-                                comments=base64.b64encode(dumps(peak.comments)).decode("utf-8"),
-                                artificialEICLShift=peak.artificialEICLShift,
-                                new_FWHM_M=peak.new_FWHM_M,
-                                new_FWHM_Mp=peak.new_FWHM_Mp,
-                                new_Area_M=peak.new_Area_M,
-                                new_Area_Mp=peak.new_Area_Mp,
-                                new_SNR_M=peak.new_SNR_M,
-                                new_SNR_Mp=peak.new_SNR_Mp,
+                                {
+                                    "id": peak.id,
+                                    "tracer": tracerID,
+                                    "eicID": peak.eicID,
+                                    "mz": peak.mz,
+                                    "lmz": peak.lmz,
+                                    "tmz": peak.tmz,
+                                    "xcount": peak.correctedXCount,
+                                    "xcountId": peak.xCount,
+                                    "Loading": peak.loading,
+                                    "ionMode": ionMode,
+                                    "NPeakCenter": peak.NPeakCenter,
+                                    "NPeakCenterMin": peak.NPeakCenterMin,
+                                    "NPeakScale": peak.NPeakScale,
+                                    "NSNR": peak.NSNR,
+                                    "NPeakArea": peak.NPeakArea,
+                                    "NPeakAbundance": peak.NPeakAbundance,
+                                    "NBorderLeft": peak.NBorderLeft,
+                                    "NBorderRight": peak.NBorderRight,
+                                    "LPeakCenter": peak.LPeakCenter,
+                                    "LPeakCenterMin": peak.LPeakCenterMin,
+                                    "LPeakScale": peak.LPeakScale,
+                                    "LSNR": peak.LSNR,
+                                    "LPeakArea": peak.LPeakArea,
+                                    "LPeakAbundance": peak.LPeakAbundance,
+                                    "LBorderLeft": peak.LBorderLeft,
+                                    "LBorderRight": peak.LBorderRight,
+                                    "peaksCorr": peak.peaksCorr,
+                                    "heteroAtoms": "",
+                                    "adducts": "",
+                                    "heteroAtomsFeaturePairs": "",
+                                    "massSpectrumID": 0,
+                                    "assignedMZs": base64.b64encode(dumps(peak.assignedMZs)).decode("utf-8"),
+                                    "fDesc": base64.b64encode(dumps([])).decode("utf-8"),
+                                    "peaksRatio": peak.peaksRatio,
+                                    "peaksRatioMp1": peak.peaksRatioMp1,
+                                    "peaksRatioMPm1": peak.peaksRatioMPm1,
+                                    "peakType": "patternFound",
+                                    "comments": base64.b64encode(dumps(peak.comments)).decode("utf-8"),
+                                    "artificialEICLShift": peak.artificialEICLShift,
+                                    "new_FWHM_M": peak.new_FWHM_M,
+                                    "new_FWHM_Mp": peak.new_FWHM_Mp,
+                                    "new_Area_M": peak.new_Area_M,
+                                    "new_Area_Mp": peak.new_Area_Mp,
+                                    "new_SNR_M": peak.new_SNR_M,
+                                    "new_SNR_Mp": peak.new_SNR_Mp,
+                                },
                             )
 
-                            SQLInsert(
-                                curs,
+                            db_con.insert_row(
                                 "allChromPeaks",
-                                id=peak.id,
-                                tracer=tracerID,
-                                eicID=peak.eicID,
-                                mz=peak.mz,
-                                lmz=peak.lmz,
-                                tmz=peak.tmz,
-                                xcount=peak.correctedXCount,
-                                xcountId=peak.xCount,
-                                Loading=peak.loading,
-                                ionMode=ionMode,
-                                NPeakCenter=peak.NPeakCenter,
-                                NPeakCenterMin=peak.NPeakCenterMin,
-                                NPeakScale=peak.NPeakScale,
-                                NSNR=peak.NSNR,
-                                NPeakArea=peak.NPeakArea,
-                                NPeakAbundance=peak.NPeakAbundance,
-                                NBorderLeft=peak.NBorderLeft,
-                                NBorderRight=peak.NBorderRight,
-                                LPeakCenter=peak.LPeakCenter,
-                                LPeakCenterMin=peak.LPeakCenterMin,
-                                LPeakScale=peak.LPeakScale,
-                                LSNR=peak.LSNR,
-                                LPeakArea=peak.LPeakArea,
-                                LPeakAbundance=peak.LPeakAbundance,
-                                LBorderLeft=peak.LBorderLeft,
-                                LBorderRight=peak.LBorderRight,
-                                peaksCorr=peak.peaksCorr,
-                                heteroAtoms="",
-                                adducts="",
-                                heteroAtomsFeaturePairs="",
-                                assignedMZs=len(peak.assignedMZs),
-                                fDesc=base64.b64encode(dumps([])).decode("utf-8"),
-                                peaksRatio=peak.peaksRatio,
-                                peaksRatioMp1=peak.peaksRatioMp1,
-                                peaksRatioMPm1=peak.peaksRatioMPm1,
-                                peakType="patternFound",
-                                comments=base64.b64encode(dumps(peak.comments)).decode("utf-8"),
-                                artificialEICLShift=peak.artificialEICLShift,
-                                new_FWHM_M=peak.new_FWHM_M,
-                                new_FWHM_Mp=peak.new_FWHM_Mp,
-                                new_Area_M=peak.new_Area_M,
-                                new_Area_Mp=peak.new_Area_Mp,
-                                new_SNR_M=peak.new_SNR_M,
-                                new_SNR_Mp=peak.new_SNR_Mp,
+                                {
+                                    "id": peak.id,
+                                    "tracer": tracerID,
+                                    "eicID": peak.eicID,
+                                    "mz": peak.mz,
+                                    "lmz": peak.lmz,
+                                    "tmz": peak.tmz,
+                                    "xcount": peak.correctedXCount,
+                                    "xcountId": peak.xCount,
+                                    "Loading": peak.loading,
+                                    "ionMode": ionMode,
+                                    "NPeakCenter": peak.NPeakCenter,
+                                    "NPeakCenterMin": peak.NPeakCenterMin,
+                                    "NPeakScale": peak.NPeakScale,
+                                    "NSNR": peak.NSNR,
+                                    "NPeakArea": peak.NPeakArea,
+                                    "NPeakAbundance": peak.NPeakAbundance,
+                                    "NBorderLeft": peak.NBorderLeft,
+                                    "NBorderRight": peak.NBorderRight,
+                                    "LPeakCenter": peak.LPeakCenter,
+                                    "LPeakCenterMin": peak.LPeakCenterMin,
+                                    "LPeakScale": peak.LPeakScale,
+                                    "LSNR": peak.LSNR,
+                                    "LPeakArea": peak.LPeakArea,
+                                    "LPeakAbundance": peak.LPeakAbundance,
+                                    "LBorderLeft": peak.LBorderLeft,
+                                    "LBorderRight": peak.LBorderRight,
+                                    "peaksCorr": peak.peaksCorr,
+                                    "heteroAtoms": "",
+                                    "adducts": "",
+                                    "heteroAtomsFeaturePairs": "",
+                                    "assignedMZs": len(peak.assignedMZs),
+                                    "fDesc": base64.b64encode(dumps([])).decode("utf-8"),
+                                    "peaksRatio": peak.peaksRatio,
+                                    "peaksRatioMp1": peak.peaksRatioMp1,
+                                    "peaksRatioMPm1": peak.peaksRatioMPm1,
+                                    "peakType": "patternFound",
+                                    "comments": base64.b64encode(dumps(peak.comments)).decode("utf-8"),
+                                    "artificialEICLShift": peak.artificialEICLShift,
+                                    "new_FWHM_M": peak.new_FWHM_M,
+                                    "new_FWHM_Mp": peak.new_FWHM_Mp,
+                                    "new_Area_M": peak.new_Area_M,
+                                    "new_Area_Mp": peak.new_Area_Mp,
+                                    "new_SNR_M": peak.new_SNR_M,
+                                    "new_SNR_Mp": peak.new_SNR_Mp,
+                                },
                             )
 
                             chromPeaks.append(peak)
                             self.curPeakId = self.curPeakId + 1
 
                     self.curEICId = self.curEICId + 1
-        conn.commit()
-        curs.close()
-        conn.close()
+        db_con.commit()
+        db_con.close()
         return chromPeaks
 
     # data processing step 4: remove those feature pairs, which represent incorrect pairings of
@@ -1932,10 +2062,7 @@ class RunIdentification:
     # and increased mz value and/or a decreased number of labelled carbon atoms. Such identified
     # incorrect pairings are then removed from the database and thus the processing results
     def removeFalsePositiveFeaturePairsAndUpdateDB(self, chromPeaks, reportFunction=None):
-        conn = connect(self.file + getDBSuffix(), isolation_level="DEFERRED")
-        conn.execute("""PRAGMA synchronous = OFF""")
-        conn.execute("""PRAGMA journal_mode = OFF""")
-        curs = conn.cursor()
+        db_con = ParquetDB(self.file + getDBSuffix())
 
         todel = {}
 
@@ -2027,14 +2154,17 @@ class RunIdentification:
         delet.reverse()
         for dele in delet:
             cp = chromPeaks.pop(dele)
-            curs.execute("DELETE FROM chromPeaks WHERE id=%d" % cp.id)
-            curs.execute("UPDATE allChromPeaks SET comment='%s' WHERE id=%d" % (",".join(todel[dele]), cp.id))
+            # Delete from chromPeaks
+            db_con.tables["chromPeaks"] = db_con.tables["chromPeaks"].filter(pl.col("id") != cp.id)
+            # Update allChromPeaks comment
+            db_con.tables["allChromPeaks"] = db_con.tables["allChromPeaks"].with_columns(pl.when(pl.col("id") == cp.id).then(pl.lit(",".join(todel[dele]))).otherwise(pl.col("comment")).alias("comment"))
 
-        curs.execute("DELETE FROM XICs WHERE id NOT IN (SELECT eicID FROM chromPeaks)")
+        # Delete XICs not in chromPeaks
+        valid_eic_ids = db_con.tables["chromPeaks"]["eicID"].unique().to_list()
+        db_con.tables["XICs"] = db_con.tables["XICs"].filter(pl.col("id").is_in(valid_eic_ids))
 
-        conn.commit()
-        curs.close()
-        conn.close()
+        db_con.commit()
+        db_con.close()
 
     # data processing step 5: in full metabolome labeling experiments hetero atoms (e.g. S, Cl) may
     # show characterisitc isotope patterns on the labeled metabolite ion side. There, these peaks may not be
@@ -2043,10 +2173,7 @@ class RunIdentification:
     # on a MS scan level and does not directly use the chromatographic information (no chromatographic
     # peak picking is performed)
     def annotateFeaturePairs(self, chromPeaks, mzxml, tracer, reportFunction=None):
-        conn = connect(self.file + getDBSuffix(), isolation_level="DEFERRED")
-        conn.execute("""PRAGMA synchronous = OFF""")
-        conn.execute("""PRAGMA journal_mode = OFF""")
-        curs = conn.cursor()
+        db_con = ParquetDB(self.file + getDBSuffix())
 
         self.postMessageToProgressWrapper("text", "%s: Annotating feature pairs" % tracer.name)
         for i in range(0, len(chromPeaks)):
@@ -2320,47 +2447,25 @@ class RunIdentification:
             )
             peak.mzDiffErrors = Bunch(mean=mean(diffs), sd=sd(diffs), vals=diffs)
 
-        ## TODO this is really, really slow as
+        # Batch update using Polars for better performance
+        updates_dict = {"heteroAtoms": {}, "isotopesRatios": {}, "mzDiffErrors": {}}
+
         for i in range(len(chromPeaks)):
             peak = chromPeaks[i]
-            curs.execute(
-                "UPDATE chromPeaks SET heteroAtoms=? WHERE id=?",
-                (
-                    base64.b64encode(dumps(peak.heteroIsotopologues)).decode("utf-8"),
-                    peak.id,
-                ),
-            )
-            curs.execute(
-                "UPDATE allChromPeaks SET heteroAtoms=? WHERE id=?",
-                (
-                    base64.b64encode(dumps(peak.heteroIsotopologues)).decode("utf-8"),
-                    peak.id,
-                ),
-            )
+            updates_dict["heteroAtoms"][peak.id] = base64.b64encode(dumps(peak.heteroIsotopologues)).decode("utf-8")
+            updates_dict["isotopesRatios"][peak.id] = base64.b64encode(dumps(peak.isotopeRatios)).decode("utf-8")
+            updates_dict["mzDiffErrors"][peak.id] = base64.b64encode(dumps(peak.mzDiffErrors)).decode("utf-8")
 
-            curs.execute(
-                "UPDATE chromPeaks SET isotopesRatios=? WHERE id=?",
-                (base64.b64encode(dumps(peak.isotopeRatios)).decode("utf-8"), peak.id),
-            )
-            curs.execute(
-                "UPDATE allChromPeaks SET isotopesRatios=? WHERE id=?",
-                (base64.b64encode(dumps(peak.isotopeRatios)).decode("utf-8"), peak.id),
-            )
-
-            curs.execute(
-                "UPDATE chromPeaks SET mzDiffErrors=? WHERE id=?",
-                (base64.b64encode(dumps(peak.mzDiffErrors)).decode("utf-8"), peak.id),
-            )
-            curs.execute(
-                "UPDATE allChromPeaks SET mzDiffErrors=? WHERE id=?",
-                (base64.b64encode(dumps(peak.mzDiffErrors)).decode("utf-8"), peak.id),
-            )
+        # Update chromPeaks
+        for col_name, id_val_map in updates_dict.items():
+            for peak_id, value in id_val_map.items():
+                db_con.tables["chromPeaks"] = db_con.tables["chromPeaks"].with_columns(pl.when(pl.col("id") == peak_id).then(pl.lit(value)).otherwise(pl.col(col_name)).alias(col_name))
+                db_con.tables["allChromPeaks"] = db_con.tables["allChromPeaks"].with_columns(pl.when(pl.col("id") == peak_id).then(pl.lit(value)).otherwise(pl.col(col_name)).alias(col_name))
 
         self.printMessage("%s: Annotating feature pairs done." % tracer.name, type="info")
 
-        conn.commit()
-        curs.close()
-        conn.close()
+        db_con.commit()
+        db_con.close()
 
     # annotate a metabolite group (consisting of ChromPeakPair instances) with the defined
     # hetero atoms based on detected feature pairs
@@ -3281,10 +3386,7 @@ class RunIdentification:
     # profiles of different metabolite ions
     def groupFeaturePairsUntargetedAndWriteToDB(self, chromPeaks, mzxml, tracer, tracerID, reportFunction=None):
         try:
-            conn = connect(self.file + getDBSuffix(), isolation_level="DEFERRED")
-            conn.execute("""PRAGMA synchronous = OFF""")
-            conn.execute("""PRAGMA journal_mode = OFF""")
-            curs = conn.cursor()
+            db_con = ParquetDB(self.file + getDBSuffix())
 
             nodes = {}
             correlations = {}
@@ -3426,24 +3528,10 @@ class RunIdentification:
                                 logging.error("Error while convoluting two feature pairs, skipping.. (%s)" % str(e))
 
                             try:
-                                SQLInsert(
-                                    curs,
-                                    "featurefeatures",
-                                    fID1=peakA.id,
-                                    fID2=peakB.id,
-                                    corr=pb,
-                                    silRatioValue=silRatiosFold,
-                                )
+                                db_con.insert_row("featurefeatures", {"fID1": peakA.id, "fID2": peakB.id, "corr": pb, "silRatioValue": silRatiosFold})
                             except Exception as e:
                                 logging.error("Error while convoluting two feature pairs, skipping.. (%s)" % str(e))
-                                SQLInsert(
-                                    curs,
-                                    "featurefeatures",
-                                    fID1=peakA.id,
-                                    fID2=peakB.id,
-                                    corr=0,
-                                    silRatioValue=0,
-                                )
+                                db_con.insert_row("featurefeatures", {"fID1": peakA.id, "fID2": peakB.id, "corr": 0, "silRatioValue": 0})
 
             self.postMessageToProgressWrapper("text", "%s: Convoluting feature groups" % tracer.name)
 
@@ -3585,34 +3673,20 @@ class RunIdentification:
             for peak in chromPeaks:
                 adds = countEntries(peak.adducts)
                 peak.adducts = list(adds.keys())
-                curs.execute(
-                    "UPDATE chromPeaks SET adducts=?, fDesc=?, correlationsToOthers=? WHERE id=?",
-                    (
-                        base64.b64encode(dumps(peak.adducts)).decode("utf-8"),
-                        base64.b64encode(dumps(peak.fDesc)).decode("utf-8"),
-                        base64.b64encode(dumps(peak.correlationsToOthers)).decode("utf-8"),
-                        peak.id,
-                    ),
-                )
-                curs.execute(
-                    "UPDATE allChromPeaks SET adducts=?, fDesc=? WHERE id=?",
-                    (
-                        base64.b64encode(dumps(peak.adducts)).decode("utf-8"),
-                        base64.b64encode(dumps(peak.fDesc)).decode("utf-8"),
-                        peak.id,
-                    ),
+
+                # Update chromPeaks
+                db_con.tables["chromPeaks"] = db_con.tables["chromPeaks"].with_columns(
+                    pl.when(pl.col("id") == peak.id).then(pl.lit(base64.b64encode(dumps(peak.adducts)).decode("utf-8"))).otherwise(pl.col("adducts")).alias("adducts"),
+                    pl.when(pl.col("id") == peak.id).then(pl.lit(base64.b64encode(dumps(peak.fDesc)).decode("utf-8"))).otherwise(pl.col("fDesc")).alias("fDesc"),
+                    pl.when(pl.col("id") == peak.id).then(pl.lit(base64.b64encode(dumps(peak.correlationsToOthers)).decode("utf-8"))).otherwise(pl.col("correlationsToOthers")).alias("correlationsToOthers"),
+                    pl.when(pl.col("id") == peak.id).then(pl.lit(base64.b64encode(dumps(peak.heteroAtomsFeaturePairs)).decode("utf-8"))).otherwise(pl.col("heteroAtomsFeaturePairs")).alias("heteroAtomsFeaturePairs"),
                 )
 
-                curs.execute(
-                    "UPDATE chromPeaks SET heteroAtomsFeaturePairs=? WHERE id=?",
-                    (
-                        base64.b64encode(dumps(peak.heteroAtomsFeaturePairs)).decode("utf-8"),
-                        peak.id,
-                    ),
-                )
-                curs.execute(
-                    "UPDATE allChromPeaks SET heteroAtomsFeaturePairs=? WHERE id=?",
-                    (base64.b64encode(dumps(peak.heteroAtomsFeaturePairs)), peak.id),
+                # Update allChromPeaks
+                db_con.tables["allChromPeaks"] = db_con.tables["allChromPeaks"].with_columns(
+                    pl.when(pl.col("id") == peak.id).then(pl.lit(base64.b64encode(dumps(peak.adducts)).decode("utf-8"))).otherwise(pl.col("adducts")).alias("adducts"),
+                    pl.when(pl.col("id") == peak.id).then(pl.lit(base64.b64encode(dumps(peak.fDesc)).decode("utf-8"))).otherwise(pl.col("fDesc")).alias("fDesc"),
+                    pl.when(pl.col("id") == peak.id).then(pl.lit(base64.b64encode(dumps(peak.heteroAtomsFeaturePairs)).decode("utf-8"))).otherwise(pl.col("heteroAtomsFeaturePairs")).alias("heteroAtomsFeaturePairs"),
                 )
 
             # store feature group in the database
@@ -3620,13 +3694,7 @@ class RunIdentification:
                 groups,
                 key=lambda x: sum([allPeaks[p].NPeakCenterMin / 60.0 for p in x]) / len(x),
             ):
-                SQLInsert(
-                    curs,
-                    "featureGroups",
-                    id=self.curFeatureGroupID,
-                    featureName="fg_%d" % self.curFeatureGroupID,
-                    tracer=tracerID,
-                )
+                db_con.insert_row("featureGroups", {"id": self.curFeatureGroupID, "featureName": "fg_%d" % self.curFeatureGroupID, "tracer": tracerID})
                 groupMeanElutionIndex = 0
 
                 hasPos = False
@@ -3639,13 +3707,7 @@ class RunIdentification:
                     groupMeanElutionIndex += allPeaks[p].NPeakCenter
 
                     allPeaks[p].fGroupID = self.curFeatureGroupID
-                    SQLInsert(
-                        curs,
-                        "featureGroupFeatures",
-                        fID=p,
-                        fDesc="",
-                        fGroupID=self.curFeatureGroupID,
-                    )
+                    db_con.insert_row("featureGroupFeatures", {"fID": p, "fDesc": "", "fGroupID": self.curFeatureGroupID})
 
                 groupMeanElutionIndex = groupMeanElutionIndex / len(group)
 
@@ -3654,47 +3716,26 @@ class RunIdentification:
                 if hasPos:
                     scan = mzxml.getIthMS1Scan(int(groupMeanElutionIndex), self.positiveScanEvent)
 
-                    SQLInsert(
-                        curs,
-                        "massspectrum",
-                        mID=self.curMassSpectrumID,
-                        fgID=self.curFeatureGroupID,
-                        time=scan.retention_time,
-                        mzs=";".join([str(u) for u in scan.mz_list]),
-                        intensities=";".join([str(u) for u in scan.intensity_list]),
-                        ionMode="+",
-                    )
+                    db_con.insert_row("massspectrum", {"mID": self.curMassSpectrumID, "fgID": self.curFeatureGroupID, "time": scan.retention_time, "mzs": ";".join([str(u) for u in scan.mz_list]), "intensities": ";".join([str(u) for u in scan.intensity_list]), "ionMode": "+"})
                     self.curMassSpectrumID += 1
                 if hasNeg:
                     scan = mzxml.getIthMS1Scan(int(groupMeanElutionIndex), self.negativeScanEvent)
 
-                    SQLInsert(
-                        curs,
-                        "massspectrum",
-                        mID=self.curMassSpectrumID,
-                        fgID=self.curFeatureGroupID,
-                        time=scan.retention_time,
-                        mzs=";".join([str(u) for u in scan.mz_list]),
-                        intensities=";".join([str(u) for u in scan.intensity_list]),
-                        ionMode="-",
-                    )
+                    db_con.insert_row("massspectrum", {"mID": self.curMassSpectrumID, "fgID": self.curFeatureGroupID, "time": scan.retention_time, "mzs": ";".join([str(u) for u in scan.mz_list]), "intensities": ";".join([str(u) for u in scan.intensity_list]), "ionMode": "-"})
                     self.curMassSpectrumID += 1
 
                 self.curFeatureGroupID += 1
 
-            conn.commit()
+            db_con.commit()
             self.printMessage(
                 "%s: Feature grouping done. " % tracer.name + str(len(groups)) + " feature groups",
                 type="info",
             )
 
-            conn.commit()
-            curs.close()
-            conn.close()
+            db_con.commit()
+            db_con.close()
 
         except Exception as ex:
-            import traceback
-
             traceback.print_exc()
 
             self.printMessage("Error in %s: %s" % (self.file, str(ex)), type="error")
@@ -3702,10 +3743,8 @@ class RunIdentification:
 
     # store one MS scan for each detected feature pair in the database
     def writeMassSpectraToDB(self, chromPeaks, mzxml, reportFunction=None):
-        conn = connect(self.file + getDBSuffix(), isolation_level="DEFERRED")
-        conn.execute("""PRAGMA synchronous = OFF""")
-        conn.execute("""PRAGMA journal_mode = OFF""")
-        curs = conn.cursor()
+        db_con = ParquetDB(self.file + getDBSuffix())
+
         massSpectraWrittenPos = {}
         massSpectraWrittenNeg = {}
         for pi in range(len(chromPeaks)):
@@ -3731,40 +3770,35 @@ class RunIdentification:
             if peak.NPeakCenter not in massSpectraWritten.keys():
                 scan = mzxml.getIthMS1Scan(peak.NPeakCenter, scanEvent)
 
-                SQLInsert(
-                    curs,
-                    "massspectrum",
-                    mID=self.curMassSpectrumID,
-                    fgID=-1,
-                    time=scan.retention_time,
-                    mzs=";".join([str(u) for u in scan.mz_list]),
-                    intensities=";".join([str(u) for u in scan.intensity_list]),
-                    ionMode=iMode,
-                )
+                db_con.insert_row("massspectrum", {"mID": self.curMassSpectrumID, "fgID": -1, "time": scan.retention_time, "mzs": ";".join([str(u) for u in scan.mz_list]), "intensities": ";".join([str(u) for u in scan.intensity_list]), "ionMode": iMode})
 
                 massSpectraWritten[peak.NPeakCenter] = self.curMassSpectrumID
                 self.curMassSpectrumID = self.curMassSpectrumID + 1
 
-            curs.execute("UPDATE chromPeaks SET massSpectrumID=%d WHERE id=%d" % (massSpectraWritten[peak.NPeakCenter], peak.id))
+            # Update massSpectrumID in chromPeaks
+            db_con.tables["chromPeaks"] = db_con.tables["chromPeaks"].with_columns(pl.when(pl.col("id") == peak.id).then(pl.lit(massSpectraWritten[peak.NPeakCenter])).otherwise(pl.col("massSpectrumID")).alias("massSpectrumID"))
 
-        conn.commit()
-        curs.close()
-        conn.close()
+        db_con.commit()
+        db_con.close()
 
     ## write a new featureML file
     def writeResultsToFeatureML(self, forFile):
-        conn = connect(forFile + getDBSuffix(), isolation_level="DEFERRED")
-        conn.execute("""PRAGMA synchronous = OFF""")
-        conn.execute("""PRAGMA journal_mode = OFF""")
-        curs = conn.cursor()
+        db_con = ParquetDB(forFile + getDBSuffix())
 
         features = []
 
-        for chromPeak in SQLSelectAsObject(
-            curs,
-            "SELECT c.id AS id, c.mz AS mz, c.lmz AS lmz, c.xcount AS xCount, c.Loading AS loading, c.NPeakCenterMin AS NPeakCenterMin, c.ionMode AS ionMode FROM chromPeaks c",
-            newObject=ChromPeakPair,
-        ):
+        # Get chromPeaks data directly from Polars DataFrame
+        df = db_con.tables.get("chromPeaks", pl.DataFrame())
+        for row in df.to_dicts():
+            chromPeak = ChromPeakPair()
+            chromPeak.id = row["id"]
+            chromPeak.mz = row["mz"]
+            chromPeak.lmz = row["lmz"]
+            chromPeak.xCount = row["xcount"]
+            chromPeak.loading = row["Loading"]
+            chromPeak.NPeakCenterMin = row["NPeakCenterMin"]
+            chromPeak.ionMode = row["ionMode"]
+
             b = Bunch(
                 id=chromPeak.id,
                 ogroup="-1",
@@ -3783,60 +3817,82 @@ class RunIdentification:
     # write feature pairs detected in this LC-HRMS data file into a new TSV file.
     # Each row represent one feature pair
     def writeResultsToTSVFile(self, forFile):
-        conn = connect(forFile + getDBSuffix(), isolation_level="DEFERRED")
-        conn.execute("""PRAGMA synchronous = OFF""")
-        conn.execute("""PRAGMA journal_mode = OFF""")
-        curs = conn.cursor()
+        db_con = ParquetDB(forFile + getDBSuffix())
 
         chromPeaks = []
         configTracers = {}
 
-        for chromPeak in SQLSelectAsObject(
-            curs,
-            "SELECT c.id AS id, g.fGroupID AS fGroupID, c.mz AS mz, c.lmz AS lmz, c.tmz AS tmz, c.xcount AS xCount, c.Loading AS loading, "
-            "c.ionMode AS ionMode, c.NPeakCenter AS NPeakCenter, c.NPeakCenterMin AS NPeakCenterMin, "
-            "c.NPeakScale AS NPeakScale, c.NPeakArea AS NPeakArea, c.NPeakAbundance AS NPeakAbundance, c.LPeakCenter AS LPeakCenter, "
-            "c.LPeakCenterMin AS LPeakCenterMin, c.LPeakScale AS LPeakScale, c.LPeakArea AS LPeakArea, c.LPeakAbundance AS LPeakAbundance, "
-            "c.NBorderLeft as NBorderLeft, c.NBorderRight as NBorderRight, c.LBorderLeft as LBorderLeft, c.LBorderRight as LBorderRight, "
-            "c.peaksCorr AS peaksCorr, c.assignedMZs AS assignedMZs, c.heteroAtoms AS HAs, c.adducts AS ADs, "
-            "c.fDesc AS DSc, t.id AS tracer, t.name AS tracerName, "
-            "c.peaksRatio AS peaksRatio, c.peaksRatioMp1 AS peaksRatioMp1, c.peaksRatioMPm1 as peaksRatioMPm1, "
-            "c.isotopesRatios AS isotopeRatios , c.mzDiffErrors AS mzDiffErrors , c.comments AS comments, c.artificialEICLShift AS artificialEICLShift FROM "
-            "chromPeaks c INNER JOIN featureGroupFeatures g ON c.id=g.fID INNER JOIN tracerConfiguration t ON c.tracer=t.id",
-            newObject=ChromPeakPair,
-        ):
-            chromPeak.NPeakCenterMin = chromPeak.NPeakCenterMin / 60.0
-            chromPeak.LPeakCenterMin = chromPeak.LPeakCenterMin / 60.0
-            setattr(chromPeak, "heteroIsotopologues", loads(base64.b64decode(chromPeak.HAs)))
-            setattr(chromPeak, "adducts", loads(base64.b64decode(chromPeak.ADs)))
-            setattr(chromPeak, "fDesc", loads(base64.b64decode(chromPeak.DSc)))
-            setattr(
-                chromPeak,
-                "isotopeRatios",
-                loads(base64.b64decode(chromPeak.isotopeRatios)),
-            )
-            setattr(
-                chromPeak,
-                "mzDiffErrors",
-                loads(base64.b64decode(chromPeak.mzDiffErrors)),
-            )
-            setattr(
-                chromPeak,
-                "comments",
-                "; ".join(loads(base64.b64decode(chromPeak.comments))),
-            )
-            chromPeaks.append(chromPeak)
+        # Join chromPeaks with featureGroupFeatures and tracerConfiguration
+        chrom_df = db_con.tables.get("chromPeaks", pl.DataFrame())
+        fg_df = db_con.tables.get("featureGroupFeatures", pl.DataFrame())
+        tracer_df = db_con.tables.get("tracerConfiguration", pl.DataFrame())
+
+        if len(chrom_df) > 0 and len(fg_df) > 0 and len(tracer_df) > 0:
+            # Perform joins
+            joined_df = chrom_df.join(fg_df, left_on="id", right_on="fID", how="inner")
+            joined_df = joined_df.join(tracer_df, left_on="tracer", right_on="id", how="inner", suffix="_tracer")
+
+            for row in joined_df.to_dicts():
+                chromPeak = ChromPeakPair()
+                chromPeak.id = row["id"]
+                chromPeak.fGroupID = row["fGroupID"]
+                chromPeak.mz = row["mz"]
+                chromPeak.lmz = row["lmz"]
+                chromPeak.tmz = row["tmz"]
+                chromPeak.xCount = row["xcount"]
+                chromPeak.loading = row["Loading"]
+                chromPeak.ionMode = row["ionMode"]
+                chromPeak.NPeakCenter = row["NPeakCenter"]
+                chromPeak.NPeakCenterMin = row["NPeakCenterMin"] / 60.0
+                chromPeak.NPeakScale = row["NPeakScale"]
+                chromPeak.NPeakArea = row["NPeakArea"]
+                chromPeak.NPeakAbundance = row["NPeakAbundance"]
+                chromPeak.LPeakCenter = row["LPeakCenter"]
+                chromPeak.LPeakCenterMin = row["LPeakCenterMin"] / 60.0
+                chromPeak.LPeakScale = row["LPeakScale"]
+                chromPeak.LPeakArea = row["LPeakArea"]
+                chromPeak.LPeakAbundance = row["LPeakAbundance"]
+                chromPeak.NBorderLeft = row["NBorderLeft"]
+                chromPeak.NBorderRight = row["NBorderRight"]
+                chromPeak.LBorderLeft = row["LBorderLeft"]
+                chromPeak.LBorderRight = row["LBorderRight"]
+                chromPeak.peaksCorr = row["peaksCorr"]
+                chromPeak.assignedMZs = row["assignedMZs"]
+                chromPeak.tracer = row["tracer"]
+                chromPeak.tracerName = row["name"]
+                chromPeak.peaksRatio = row["peaksRatio"]
+                chromPeak.peaksRatioMp1 = row["peaksRatioMp1"]
+                chromPeak.peaksRatioMPm1 = row["peaksRatioMPm1"]
+                chromPeak.artificialEICLShift = row["artificialEICLShift"]
+
+                setattr(chromPeak, "heteroIsotopologues", loads(base64.b64decode(row["heteroAtoms"])))
+                setattr(chromPeak, "adducts", loads(base64.b64decode(row["adducts"])))
+                setattr(chromPeak, "fDesc", loads(base64.b64decode(row["fDesc"])))
+                setattr(chromPeak, "isotopeRatios", loads(base64.b64decode(row["isotopesRatios"])))
+                setattr(chromPeak, "mzDiffErrors", loads(base64.b64decode(row["mzDiffErrors"])))
+                setattr(chromPeak, "comments", "; ".join(loads(base64.b64decode(row["comments"]))))
+                chromPeaks.append(chromPeak)
 
         if self.metabolisationExperiment:
-            for tracer in SQLSelectAsObject(
-                curs,
-                "SELECT t.id AS id, t.name AS name, t.elementCount AS elementCount, t.natural AS isotopeA, t.labelling AS isotopeB, t.deltaMZ AS mzDelta, t.purityN AS enrichmentA, t.purityL AS enrichmentB, t.amountN AS amountA, t.amountL AS amountB, t.monoisotopicRatio AS monoisotopicRatio, t.lowerError AS maxRelNegBias, t.higherError AS maxRelPosBias, t.tracerType AS tracerType FROM tracerConfiguration t",
-                newObject=ConfiguredTracer,
-            ):
+            for row in tracer_df.to_dicts():
+                tracer = ConfiguredTracer()
+                tracer.id = row["id"]
+                tracer.name = row["name"]
+                tracer.elementCount = row["elementCount"]
+                tracer.isotopeA = row["natural"]
+                tracer.isotopeB = row["labelling"]
+                tracer.mzDelta = row["deltaMZ"]
+                tracer.enrichmentA = row["purityN"]
+                tracer.enrichmentB = row["purityL"]
+                tracer.amountA = row["amountN"]
+                tracer.amountB = row["amountL"]
+                tracer.monoisotopicRatio = row["monoisotopicRatio"]
+                tracer.maxRelNegBias = row["lowerError"]
+                tracer.maxRelPosBias = row["higherError"]
+                tracer.tracerType = row["tracertype"]
                 configTracers[tracer.id] = tracer
 
-        curs.close()
-        conn.close()
+        db_con.close()
 
         csvFile = open(forFile + ".tsv", "w")
         csvFile.write(
@@ -4094,7 +4150,7 @@ class RunIdentification:
 
     # include the grouped feature pairs as a) an overlaid EIC plot and b) a list
     # illustrating the relationships between the different feature pairs in a feature group
-    def createPDFGroupPages(self, curs, pdf, gPeaks, lGroupID):
+    def createPDFGroupPages(self, db_con, pdf, gPeaks, lGroupID):
         drawing = Drawing(500, 350)
         lp = LinePlot()
         lp.x = 50
@@ -4172,14 +4228,27 @@ class RunIdentification:
         ]
 
         cIds = ",".join(["%d" % f[0].id for f in gPeaks])
-        for row in curs.execute("SELECT ff.fID1, ff.fID2, ff.corr FROM featurefeatures ff, chrompeaks c, chrompeaks f WHERE ff.fID1==c.id AND ff.fID2==f.id AND ff.fID1 IN (%s) AND ff.fID2 IN (%s) ORDER BY c.mz" % (cIds, cIds)):
-            fI1 = idCols[row[0]]
-            fI2 = idCols[row[1]]
-            correlation = row[2]
-            if fI1 > fI2:
-                a = fI2
-                fI2 = fI1
-                fI1 = a
+        cIds_list = [f[0].id for f in gPeaks]
+
+        # Get featurefeatures data with joins using Polars
+        ff_df = db_con.tables.get("featurefeatures", pl.DataFrame())
+        chrom_df = db_con.tables.get("chromPeaks", pl.DataFrame())
+
+        if len(ff_df) > 0 and len(chrom_df) > 0:
+            # Filter for our feature IDs
+            filtered_ff = ff_df.filter(pl.col("fID1").is_in(cIds_list) & pl.col("fID2").is_in(cIds_list))
+            # Join with chromPeaks to get mz for sorting
+            result_df = filtered_ff.join(chrom_df, left_on="fID1", right_on="id", how="inner")
+            result_df = result_df.sort("mz")
+
+            for row in result_df.select(["fID1", "fID2", "corr"]).to_dicts():
+                fI1 = idCols[row["fID1"]]
+                fI2 = idCols[row["fID2"]]
+                correlation = row["corr"]
+                if fI1 > fI2:
+                    a = fI2
+                    fI2 = fI1
+                    fI1 = a
 
             bgColor = colors.orange
             if correlation >= self.minCorrelation:
@@ -4376,8 +4445,6 @@ class RunIdentification:
                     p.wrapOn(pdf, pagesizes.A4[0] * 0.9, pagesizes.A4[1] * 0.9)
                     p.drawOn(pdf, *coord(30, 660))
         except Exception as ex:
-            import traceback
-
             traceback.print_exc()
 
             self.printMessage("Error in %s: %s" % (self.file, str(ex)), type="error")
@@ -4456,54 +4523,80 @@ class RunIdentification:
 
     # create a PDF file illustrating the detected feature pairs and convoluted feature groups
     def writeResultsToPDF(self, mzxml, reportFunction=None):
-        conn = connect(self.file + getDBSuffix(), isolation_level="DEFERRED")
-        conn.execute("""PRAGMA synchronous = OFF""")
-        conn.execute("""PRAGMA journal_mode = OFF""")
-        curs = conn.cursor()
+        db_con = ParquetDB(self.file + getDBSuffix())
 
         allChromPeaks = []
         configTracers = {}
         try:
-            for chromPeak in SQLSelectAsObject(
-                curs,
-                "SELECT c.id AS id, g.fGroupID AS fGroupID, c.mz AS mz, c.lmz AS lmz, c.xcount AS xCount, c.Loading AS loading, "
-                "c.ionMode AS ionMode, c.NPeakCenter AS NPeakCenter, c.NPeakCenterMin AS NPeakCenterMin, "
-                "c.NPeakScale AS NPeakScale, c.NPeakArea AS NPeakArea, c.LPeakCenter AS LPeakCenter, "
-                "c.LPeakCenterMin AS LPeakCenterMin, c.LPeakScale AS LPeakScale, c.LPeakArea AS LPeakArea, "
-                "c.NBorderLeft as NBorderLeft, c.NBorderRight as NBorderRight, c.LBorderLeft as LBorderLeft, c.LBorderRight as LBorderRight,"
-                "c.peaksCorr AS peaksCorr, c.assignedMZs AS assignedMZs, c.heteroAtoms AS HAs, c.adducts AS ADs, "
-                "c.fDesc AS DSc, t.id AS tracer, t.name AS tracerName, "
-                "c.peaksRatio AS peaksRatio, c.peaksRatioMp1 AS peaksRatioMp1, c.peaksRatioMPm1 AS peaksRatioMPm1, c.comments AS comments FROM "
-                "chromPeaks c INNER JOIN featureGroupFeatures g ON c.id=g.fID INNER JOIN tracerConfiguration t ON c.tracer=t.id",
-                newObject=ChromPeakPair,
-            ):
-                chromPeak.NPeakCenterMin = chromPeak.NPeakCenterMin / 60.0
-                chromPeak.LPeakCenterMin = chromPeak.LPeakCenterMin / 60.0
-                setattr(
-                    chromPeak,
-                    "heteroIsotopologues",
-                    loads(base64.b64decode(chromPeak.HAs)),
-                )
-                setattr(chromPeak, "adducts", loads(base64.b64decode(chromPeak.ADs)))
-                setattr(chromPeak, "fDesc", loads(base64.b64decode(chromPeak.DSc)))
-                setattr(chromPeak, "comments", loads(base64.b64decode(chromPeak.comments)))
-                chromPeak.assignedMZs = loads(base64.b64decode(chromPeak.assignedMZs))
+            # Join chromPeaks with featureGroupFeatures and tracerConfiguration
+            chrom_df = db_con.tables.get("chromPeaks", pl.DataFrame())
+            fg_df = db_con.tables.get("featureGroupFeatures", pl.DataFrame())
+            tracer_df = db_con.tables.get("tracerConfiguration", pl.DataFrame())
 
-                allChromPeaks.append(chromPeak)
+            if len(chrom_df) > 0 and len(fg_df) > 0 and len(tracer_df) > 0:
+                # Perform joins
+                joined_df = chrom_df.join(fg_df, left_on="id", right_on="fID", how="inner")
+                joined_df = joined_df.join(tracer_df, left_on="tracer", right_on="id", how="inner", suffix="_tracer")
+
+                for row in joined_df.to_dicts():
+                    chromPeak = ChromPeakPair()
+                    chromPeak.id = row["id"]
+                    chromPeak.fGroupID = row["fGroupID"]
+                    chromPeak.mz = row["mz"]
+                    chromPeak.lmz = row["lmz"]
+                    chromPeak.xCount = row["xcount"]
+                    chromPeak.loading = row["Loading"]
+                    chromPeak.ionMode = row["ionMode"]
+                    chromPeak.NPeakCenter = row["NPeakCenter"]
+                    chromPeak.NPeakCenterMin = row["NPeakCenterMin"] / 60.0
+                    chromPeak.NPeakScale = row["NPeakScale"]
+                    chromPeak.NPeakArea = row["NPeakArea"]
+                    chromPeak.LPeakCenter = row["LPeakCenter"]
+                    chromPeak.LPeakCenterMin = row["LPeakCenterMin"] / 60.0
+                    chromPeak.LPeakScale = row["LPeakScale"]
+                    chromPeak.LPeakArea = row["LPeakArea"]
+                    chromPeak.NBorderLeft = row["NBorderLeft"]
+                    chromPeak.NBorderRight = row["NBorderRight"]
+                    chromPeak.LBorderLeft = row["LBorderLeft"]
+                    chromPeak.LBorderRight = row["LBorderRight"]
+                    chromPeak.peaksCorr = row["peaksCorr"]
+                    chromPeak.tracer = row["tracer"]
+                    chromPeak.tracerName = row["name"]
+                    chromPeak.peaksRatio = row["peaksRatio"]
+                    chromPeak.peaksRatioMp1 = row["peaksRatioMp1"]
+                    chromPeak.peaksRatioMPm1 = row["peaksRatioMPm1"]
+
+                    setattr(chromPeak, "heteroIsotopologues", loads(base64.b64decode(row["heteroAtoms"])))
+                    setattr(chromPeak, "adducts", loads(base64.b64decode(row["adducts"])))
+                    setattr(chromPeak, "fDesc", loads(base64.b64decode(row["fDesc"])))
+                    setattr(chromPeak, "comments", loads(base64.b64decode(row["comments"])))
+                    chromPeak.assignedMZs = loads(base64.b64decode(row["assignedMZs"]))
+
+                    allChromPeaks.append(chromPeak)
 
             if self.metabolisationExperiment:
-                for tracer in SQLSelectAsObject(
-                    curs,
-                    "SELECT t.id AS id, t.name AS name, t.elementCount AS elementCount, t.natural AS isotopeA, t.labelling AS isotopeB, t.deltaMZ AS mzDelta, t.purityN AS enrichmentA, t.purityL AS enrichmentB, t.amountN AS amountA, t.amountL AS amountB, t.monoisotopicRatio AS monoisotopicRatio, t.lowerError AS maxRelNegBias, t.higherError AS maxRelPosBias, t.tracerType AS tracerType FROM tracerConfiguration t",
-                    newObject=ConfiguredTracer,
-                ):
+                for row in tracer_df.to_dicts():
+                    tracer = ConfiguredTracer()
+                    tracer.id = row["id"]
+                    tracer.name = row["name"]
+                    tracer.elementCount = row["elementCount"]
+                    tracer.isotopeA = row["natural"]
+                    tracer.isotopeB = row["labelling"]
+                    tracer.mzDelta = row["deltaMZ"]
+                    tracer.enrichmentA = row["purityN"]
+                    tracer.enrichmentB = row["purityL"]
+                    tracer.amountA = row["amountN"]
+                    tracer.amountB = row["amountL"]
+                    tracer.monoisotopicRatio = row["monoisotopicRatio"]
+                    tracer.maxRelNegBias = row["lowerError"]
+                    tracer.maxRelPosBias = row["higherError"]
+                    tracer.tracerType = row["tracertype"]
                     configTracers[tracer.id] = tracer
             else:
-                for tracer in SQLSelectAsObject(
-                    curs,
-                    "SELECT t.id AS id, t.name AS name FROM tracerConfiguration t",
-                    newObject=ConfiguredTracer,
-                ):
+                for row in tracer_df.to_dicts():
+                    tracer = ConfiguredTracer()
+                    tracer.id = row["id"]
+                    tracer.name = row["name"]
                     configTracers[tracer.id] = tracer
 
             self.postMessageToProgressWrapper("text", "Creating PDF")
@@ -4546,7 +4639,7 @@ class RunIdentification:
                     cpeak += 1
 
                     if lGroupID != -1 and lGroupID != peak.fGroupID and len(gPeaks) > 1 and platform.system() != "Darwin":
-                        self.createPDFGroupPages(curs, pdf, gPeaks, lGroupID)
+                        self.createPDFGroupPages(db_con, pdf, gPeaks, lGroupID)
 
                     if lGroupID != peak.fGroupID:
                         lGroupID = peak.fGroupID
@@ -4747,16 +4840,13 @@ class RunIdentification:
                     pdf.showPage()
 
                 if lGroupID != -1 and len(gPeaks) > 1 and platform.system() != "Darwin":
-                    self.createPDFGroupPages(curs, pdf, gPeaks, lGroupID)
+                    self.createPDFGroupPages(db_con, pdf, gPeaks, lGroupID)
 
             pdf.save()
 
-            curs.close()
-            conn.close()
+            db_con.close()
 
         except Exception as ex:
-            import traceback
-
             traceback.print_exc()
 
             self.printMessage("Error in %s: %s" % (self.file, str(ex)), type="error")
@@ -4860,10 +4950,7 @@ class RunIdentification:
 
     # stores the TICs of the LC-HRMS data in the database
     def writeTICsToDB(self, mzxml, scanEvents):
-        conn = connect(self.file + getDBSuffix(), isolation_level="DEFERRED")
-        conn.execute("""PRAGMA synchronous = OFF""")
-        conn.execute("""PRAGMA journal_mode = OFF""")
-        curs = conn.cursor()
+        db_con = ParquetDB(self.file + getDBSuffix())
 
         ## save TICs
         ## save mean, sd scan time
@@ -4871,38 +4958,26 @@ class RunIdentification:
         for pol, scanEvent in scanEvents.items():
             if scanEvent != "None":
                 TIC, times, scanIds = mzxml.getTIC(filterLine=scanEvent)
-                curs.execute(
-                    "INSERT INTO tics(id, loading, scanevent, times, intensities) VALUES(%d, '%s', '%s', '%s', '%s')"
-                    % (
-                        i,
-                        pol,
-                        scanEvent,
-                        ";".join([str(t) for t in times]),
-                        ";".join(["%.0f" % t for t in TIC]),
-                    )
-                )
+
+                # Insert into tics table
+                db_con.insert_row("tics", {"id": i, "loading": pol, "scanevent": scanEvent, "times": ";".join([str(t) for t in times]), "intensities": ";".join(["%.0f" % t for t in TIC])})
                 i = i + 1
 
                 scanTimes = [times[i + 1] - times[i] for i in range(len(times) - 1)]
-                curs.execute("INSERT INTO stats(key, value) VALUES('%s', '%s')" % ("MeanScanTime_%s" % pol, str(mean(scanTimes))))
-                curs.execute("INSERT INTO stats(key, value) VALUES('%s', '%s')" % ("SDScanTime_%s" % pol, str(sd(scanTimes))))
-                curs.execute("INSERT INTO stats(key, value) VALUES('%s', '%s')" % ("NumberOfScans_%s" % pol, len(times)))
-                curs.execute(
-                    "INSERT INTO stats(key, value) VALUES('%s', '%s')"
-                    % (
-                        "TotalNumberOfSignals_%s" % pol,
-                        mzxml.getSignalCount(filterLine=scanEvent),
-                    )
-                )
+
+                # Insert stats
+                db_con.insert_row("stats", {"key": "MeanScanTime_%s" % pol, "value": str(mean(scanTimes))})
+                db_con.insert_row("stats", {"key": "SDScanTime_%s" % pol, "value": str(sd(scanTimes))})
+                db_con.insert_row("stats", {"key": "NumberOfScans_%s" % pol, "value": str(len(times))})
+                db_con.insert_row("stats", {"key": "TotalNumberOfSignals_%s" % pol, "value": str(mzxml.getSignalCount(filterLine=scanEvent))})
 
                 minInt, maxInt, avgInt = mzxml.getMinMaxAvgSignalIntensities(filterLine=scanEvent)
-                curs.execute("INSERT INTO stats(key, value) VALUES('%s', '%s')" % ("MinSignalInt_%s" % pol, minInt))
-                curs.execute("INSERT INTO stats(key, value) VALUES('%s', '%s')" % ("MaxSignalInt_%s" % pol, maxInt))
-                curs.execute("INSERT INTO stats(key, value) VALUES('%s', '%s')" % ("AvgSignalInt_%s" % pol, avgInt))
+                db_con.insert_row("stats", {"key": "MinSignalInt_%s" % pol, "value": str(minInt)})
+                db_con.insert_row("stats", {"key": "MaxSignalInt_%s" % pol, "value": str(maxInt)})
+                db_con.insert_row("stats", {"key": "AvgSignalInt_%s" % pol, "value": str(avgInt)})
 
-        conn.commit()
-        curs.close()
-        conn.close()
+        db_con.commit()
+        db_con.close()
 
     # method, which is called by the multiprocessing module to actually process the LC-HRMS data
     def identify(self):
@@ -4970,15 +5045,11 @@ class RunIdentification:
 
             if os.path.exists(self.file + getDBSuffix()) and os.path.isfile(self.file + getDBSuffix()):
                 os.remove(self.file + getDBSuffix())
-            conn = connect(self.file + getDBSuffix(), isolation_level="DEFERRED")
-            conn.execute("""PRAGMA synchronous = OFF""")
-            conn.execute("""PRAGMA journal_mode = OFF""")
-            curs = conn.cursor()
+            db_con = ParquetDB(self.file + getDBSuffix())
 
-            self.writeConfigurationToDB(conn, curs)
+            self.writeConfigurationToDB(db_con)
 
-            curs.close()
-            conn.close()
+            db_con.close()
             # endregion
 
             # region Parse mzXML file
@@ -5247,8 +5318,6 @@ class RunIdentification:
             self.postMessageToProgressWrapper("end")
 
         except Exception as ex:
-            import traceback
-
             traceback.print_exc()
 
             self.printMessage("Error in %s: %s" % (self.file, str(ex)), type="error")
