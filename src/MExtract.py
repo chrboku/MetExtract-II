@@ -72,7 +72,7 @@ from .mePyGuis.RegExTestDialog import RegExTestDialog
 from .mePyGuis.ProgressWrapper import ProgressWrapper
 from .mePyGuis.calcIsoEnrichmentDialog import calcIsoEnrichmentDialog
 
-from .utils import USEGRADIENTDESCENDPEAKPICKING, get_main_dir
+from .utils import USEGRADIENTDESCENDPEAKPICKING, get_main_dir, getDBSuffix, getDBFormat
 
 from .MetExtractII_Main import MetExtractVersion
 
@@ -533,6 +533,7 @@ from multiprocessing import Pool, freeze_support, cpu_count, Manager
 import polars as pl
 import zipfile
 import io
+from .PolarsDB import PolarsDB
 from copy import copy, deepcopy
 from xml.parsers.expat import ExpatError
 from optparse import OptionParser
@@ -674,11 +675,7 @@ except Error as err:
         logging.error("Identification/Processing of new files is not available: %s" % (str(err)))
 # </editor-fold>
 # <editor-fold desc="### Group Results Import">
-try:
-    from .bracketResults import bracketResults, calculateMetaboliteGroups, getDBSuffix
-except:
-    if __name__ in ["__main__", "src.MExtract"]:
-        logging.error("R is missing: Annotation is not available")
+from .bracketResults import bracketResults, calculateMetaboliteGroups
 from .annotateResultMatrix import addGroup as grpAdd
 from .annotateResultMatrix import addStatsColumnToResults
 from .annotateResultMatrix import performGroupOmit as grpOmit
@@ -1986,8 +1983,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             for pol in pols:
                                 polarities.add(pol)
 
-                            # if file has been processed successfully (FileName.pqts.meii DB exists) add it to the successfully processed list
-                            if os.path.exists(file + ".pqts.meii") and os.path.isfile(file + ".pqts.meii"):
+                            # if file has been processed successfully (FileName.meii DB exists) add it to the successfully processed list
+                            if os.path.exists(file + getDBSuffix()) and os.path.isfile(file + getDBSuffix()):
                                 fname = fname = file[(file.rfind("/") + 1) :]
                                 qpixmap = QtGui.QPixmap(10, 10)
                                 qpixmap.fill(QtGui.QColor(group.color))
@@ -2136,10 +2133,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             for file in natSort(group.files):
                 if file not in done:
                     done.append(file)
-                    if os.path.exists(file + ".pqts.meii") and os.path.isfile(file + ".pqts.meii"):
+                    if os.path.exists(file + getDBSuffix()) and os.path.isfile(file + getDBSuffix()):
                         db_con = None
                         try:
-                            db_con = self._load_parquet_db(file + ".pqts.meii")
+                            db_con = PolarsDB(file + getDBSuffix(), format=getDBFormat())
 
                             # fetch processing configuration (table config)
                             if "config" in db_con.tables:
@@ -2810,14 +2807,14 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.ui.resultsExperiment_TreeWidget.clear()
             self.ui.resultsExperiment_TreeWidget.setHeaderLabels(["OGroup", "MZ", "RT", "Xn", "Z", "IonMode"])
 
-            if os.path.exists(groupsResFile + ".pqts.meii") and os.path.isfile(groupsResFile + ".pqts.meii"):
+            if os.path.exists(groupsResFile + getDBSuffix()) and os.path.isfile(groupsResFile + getDBSuffix()):
                 widths = [160, 80, 60, 30, 30, 30]
                 for i in range(len(widths)):
                     self.ui.resultsExperiment_TreeWidget.setColumnWidth(i, widths[i])
 
                 self.experimentResults = Bunch(db_con=None, file=None)
 
-                self.experimentResults.db_con = self._load_parquet_db(groupsResFile + ".pqts.meii")
+                self.experimentResults.db_con = PolarsDB(groupsResFile + getDBSuffix(), format=getDBFormat())
 
                 metaboliteGroupTreeItems = {}
                 # Get distinct OGroup values from GroupResults, ordered by rt
@@ -3239,7 +3236,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             for groupID, groupName in groups.items():
                 for file in filesInGroups[groupID]:
                     if file.fileName in foundIn.keys():
-                        file_db_con = self._load_parquet_db(file.filePath + ".pqts.meii")
+                        file_db_con = PolarsDB(file.filePath + getDBSuffix(), format=getDBFormat())
 
                         groupID = filesToGroup[file.fileName]
 
@@ -4641,8 +4638,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             resFilePath + "/xxx_results__1_afterBracketing.tsv",
                         )
                         shutil.copyfile(
-                            resFileFull + ".pqts.meii",
-                            resFilePath + "/xxx_results__1_afterBracketing.tsv.pqts.meii",
+                            resFileFull + getDBSuffix(),
+                            resFilePath + "/xxx_results__1_afterBracketing.tsv" + getDBSuffix(),
                         )
 
                         # Arrange grouped results and add statistics columns
@@ -4686,16 +4683,16 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             resFilePath + "/xxx_results__2_afterAddingStatColumn.tsv",
                         )
                         shutil.copyfile(
-                            resFileFull + ".pqts.meii",
-                            resFilePath + "/xxx_results__2_afterAddingStatColumn.tsv.pqts.meii",
+                            resFileFull + getDBSuffix(),
+                            resFilePath + "/xxx_results__2_afterAddingStatColumn.tsv" + getDBSuffix(),
                         )
 
                         # remove feature pairs not found more than n times (according to user specified omit value)
                         grpOmit(resFileFull, grpStats, resFileFull)
                         shutil.copyfile(resFileFull, resFilePath + "/xxx_results__3_afterOmit.tsv")
                         shutil.copyfile(
-                            resFileFull + ".pqts.meii",
-                            resFilePath + "/xxx_results__3_afterOmit.tsv.pqts.meii",
+                            resFileFull + getDBSuffix(),
+                            resFilePath + "/xxx_results__3_afterOmit.tsv" + getDBSuffix(),
                         )
                         logging.info("Statistic columns added (and feature pairs omitted)..")
 
@@ -4726,8 +4723,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
                     shutil.copyfile(resFilePath + "/xxx_results__3_afterOmit.tsv", resFileFull)
                     shutil.copyfile(
-                        resFilePath + "/xxx_results__3_afterOmit.tsv.pqts.meii",
-                        resFileFull + ".pqts.meii",
+                        resFilePath + "/xxx_results__3_afterOmit.tsv" + getDBSuffix(),
+                        resFileFull + getDBSuffix(),
                     )
 
                     runIdentificationInstance = RunIdentification(
@@ -4856,8 +4853,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         resFilePath + "/xxx_results__4_afterFeaturePairConvolution.tsv",
                     )
                     shutil.copyfile(
-                        resFileFull + ".pqts.meii",
-                        resFilePath + "/xxx_results__4_afterFeaturePairConvolution.tsv.pqts.meii",
+                        resFileFull + getDBSuffix(),
+                        resFilePath + "/xxx_results__4_afterFeaturePairConvolution.tsv" + getDBSuffix(),
                     )
 
                 except Exception as ex:
@@ -4889,8 +4886,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     resFileFull,
                 )
                 shutil.copyfile(
-                    resFilePath + "/xxx_results__4_afterFeaturePairConvolution.tsv.pqts.meii",
-                    resFileFull + ".pqts.meii",
+                    resFilePath + "/xxx_results__4_afterFeaturePairConvolution.tsv" + getDBSuffix(),
+                    resFileFull + getDBSuffix(),
                 )
 
                 pw = ProgressWrapper(min(len(files), cpus) + 1, showLog=False, parent=self)
@@ -5576,8 +5573,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 for ionMode in ["+", "-"]:
                     indGroups[grName].append(str(file))
 
-                    if os.path.exists(file + ".pqts.meii"):
-                        file_db_con = self._load_parquet_db(file + ".pqts.meii")
+                    if os.path.exists(file + getDBSuffix()):
+                        file_db_con = PolarsDB(file + getDBSuffix(), format=getDBFormat())
 
                         # Count MZs for this ionMode
                         nMZs = len(file_db_con.tables["MZs"].filter(pl.col("ionMode") == ionMode))
@@ -5786,32 +5783,11 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if os.path.exists(db_path) and os.path.isfile(db_path):
             self.currentOpenResultsFile = Bunch()
             self.currentOpenResultsFile.file = file
-            # Load ParquetDB using ZIP archive format
-            self.currentOpenResultsFile.db_con = self._load_parquet_db(db_path)
+            # Load PolarsDB using ZIP archive format
+            self.currentOpenResultsFile.db_con = PolarsDB(db_path, format=getDBFormat())
             return True
         else:
             return False
-
-    def _load_parquet_db(self, filepath):
-        """Load tables from ZIP archive containing Parquet files."""
-        tables = {}
-        if os.path.exists(filepath):
-            try:
-                with zipfile.ZipFile(filepath, "r") as zf:
-                    for filename in zf.namelist():
-                        if filename.endswith(".parquet"):
-                            table_name = filename[:-8]  # Remove '.parquet'
-                            with zf.open(filename) as f:
-                                parquet_data = f.read()
-                                df = pl.read_parquet(io.BytesIO(parquet_data))
-                                tables[table_name] = df
-            except Exception as e:
-                print(f"Warning: Could not load tables from {filepath}: {e}")
-
-        db = Bunch()
-        db.tables = tables
-        db.close = lambda: None  # Dummy close method
-        return db
 
     def selectedResultChanged(self, ind):
         self.ui.res_ExtractedData.clear()

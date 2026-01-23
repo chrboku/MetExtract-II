@@ -116,115 +116,8 @@ from .chromPeakPicking.CommonChromPeak import getPeakStats
 import numpy as np
 import scipy
 
-
-class ParquetDB:
-    """Helper class to manage multiple tables in a single Parquet file."""
-
-    def __init__(self, filepath):
-        self.filepath = filepath
-        self.tables = {}
-        self.load_all_tables()
-
-    def load_all_tables(self):
-        """Load all tables from the ZIP archive if it exists."""
-        if os.path.exists(self.filepath):
-            try:
-                with zipfile.ZipFile(self.filepath, "r") as zf:
-                    # List all .parquet files in the archive
-                    for filename in zf.namelist():
-                        if filename.endswith(".parquet"):
-                            # Extract table name from filename (remove .parquet extension)
-                            table_name = filename[:-8]  # Remove '.parquet'
-                            # Read the Parquet file from the archive
-                            with zf.open(filename) as f:
-                                parquet_data = f.read()
-                                df = pl.read_parquet(io.BytesIO(parquet_data))
-                                self.tables[table_name] = df
-            except Exception as e:
-                # File read error or corrupted archive
-                print(f"Warning: Could not load tables from {self.filepath}: {e}")
-                self.tables = {}
-
-    def create_table(self, table_name, schema):
-        """Create a new empty table with given schema."""
-        self.tables[table_name] = pl.DataFrame(schema=schema)
-
-    def insert_row(self, table_name, row_dict):
-        """Insert a single row into a table."""
-        if table_name not in self.tables:
-            raise ValueError(f"Table '{table_name}' does not exist. Create it first with create_table().")
-
-        # Get the table's schema
-        table_schema = self.tables[table_name].schema
-
-        # Cast values to match the schema types
-        casted_dict = {}
-        for col_name, col_type in table_schema.items():
-            if col_name in row_dict:
-                value = row_dict[col_name]
-                # Convert value to appropriate type
-                if value is None:
-                    casted_dict[col_name] = None
-                elif col_type == pl.Int64:
-                    casted_dict[col_name] = int(value) if value is not None else None
-                elif col_type == pl.Float64:
-                    casted_dict[col_name] = float(value) if value is not None else None
-                elif col_type == pl.Utf8:
-                    casted_dict[col_name] = str(value) if value is not None else None
-                else:
-                    casted_dict[col_name] = value
-            else:
-                # Column not provided, use None
-                casted_dict[col_name] = None
-
-        # Create DataFrame with explicit schema casting
-        new_row = pl.DataFrame([casted_dict], schema=table_schema)
-        self.tables[table_name] = pl.concat([self.tables[table_name], new_row], how="vertical")
-
-    def get_table(self, table_name):
-        """Get a table as a Polars DataFrame."""
-        return self.tables.get(table_name, pl.DataFrame())
-
-    def delete_rows(self, table_name, condition):
-        """Delete rows from a table based on a condition (Polars expression)."""
-        if table_name in self.tables:
-            self.tables[table_name] = self.tables[table_name].filter(~condition)
-
-    def update_rows(self, table_name, condition, updates):
-        """Update rows in a table based on a condition."""
-        if table_name in self.tables:
-            df = self.tables[table_name]
-            for col, value in updates.items():
-                df = df.with_columns(pl.when(condition).then(pl.lit(value)).otherwise(pl.col(col)).alias(col))
-            self.tables[table_name] = df
-
-    def cursor(self):
-        """Return self for compatibility with SQLite interface."""
-        return self
-
-    def commit(self):
-        """Save all tables to a ZIP archive, each as a separate Parquet file."""
-        if not self.tables:
-            return
-
-        # Write each table as a separate Parquet file in a ZIP archive
-        with zipfile.ZipFile(self.filepath, "w", zipfile.ZIP_DEFLATED) as zf:
-            for table_name, df in self.tables.items():
-                # Write each table to a BytesIO buffer as Parquet
-                buffer = io.BytesIO()
-                df.write_parquet(buffer, compression="snappy")
-                buffer.seek(0)
-                # Add the Parquet file to the ZIP archive
-                zf.writestr(f"{table_name}.parquet", buffer.getvalue())
-
-    def close(self):
-        """Close the database (commit and cleanup)."""
-        self.commit()
-        self.tables = {}
-
-
-def getDBSuffix():
-    return ".pqts.meii"
+from .PolarsDB import PolarsDB
+from .utils import getDBSuffix, getDBFormat
 
 
 # returns the abbreviation for a given element
@@ -620,7 +513,7 @@ class RunIdentification:
 
     # store configuration used for processing the LC-HRMS file into the database
     def writeConfigurationToDB(self, db_con):
-        # db_con is a ParquetDB object
+        # db_con is a PolarsDB object
         # Create empty tables with appropriate schemas
         db_con.create_table("config", {"key": pl.Utf8, "value": pl.Utf8})
 
@@ -657,7 +550,7 @@ class RunIdentification:
                 "id": pl.Int64,
                 "avgmz": pl.Float64,
                 "xcount": pl.Int64,
-                "loading": pl.Utf8,
+                "loading": pl.Int64,
                 "polarity": pl.Utf8,
                 "xic": pl.Utf8,
                 "xic_smoothed": pl.Utf8,
@@ -679,7 +572,7 @@ class RunIdentification:
             },
         )
 
-        db_con.create_table("tics", {"id": pl.Int64, "loading": pl.Utf8, "scanevent": pl.Utf8, "times": pl.Utf8, "intensities": pl.Utf8})
+        db_con.create_table("tics", {"id": pl.Int64, "polarity": pl.Utf8, "scanevent": pl.Utf8, "times": pl.Utf8, "intensities": pl.Utf8})
 
         db_con.create_table(
             "chromPeaks",
@@ -704,7 +597,7 @@ class RunIdentification:
                 "LSNR": pl.Float64,
                 "LPeakArea": pl.Float64,
                 "LPeakAbundance": pl.Float64,
-                "Loading": pl.Utf8,
+                "Loading": pl.Int64,
                 "peaksCorr": pl.Float64,
                 "heteroAtoms": pl.Utf8,
                 "NBorderLeft": pl.Int64,
@@ -759,7 +652,7 @@ class RunIdentification:
                 "LSNR": pl.Float64,
                 "LPeakArea": pl.Float64,
                 "LPeakAbundance": pl.Float64,
-                "Loading": pl.Utf8,
+                "Loading": pl.Int64,
                 "peaksCorr": pl.Float64,
                 "heteroAtoms": pl.Utf8,
                 "NBorderLeft": pl.Int64,
@@ -1355,7 +1248,7 @@ class RunIdentification:
 
     # store detected signal pairs (1st data processing step) in the database
     def writeSignalPairsToDB(self, mzs, mzxml, tracerID):
-        db_con = ParquetDB(self.file + getDBSuffix())
+        db_con = PolarsDB(self.file + getDBSuffix(), format=getDBFormat())
 
         for mz in mzs:
             mz.id = self.curMZId
@@ -1473,7 +1366,7 @@ class RunIdentification:
 
     # store signal pair clusters (2nd data processing step) in the database
     def writeFeaturePairClustersToDB(self, mzbins):
-        db_con = ParquetDB(self.file + getDBSuffix())
+        db_con = PolarsDB(self.file + getDBSuffix(), format=getDBFormat())
 
         for ionMode in ["+", "-"]:
             for mzbin in mzbins[ionMode]:
@@ -1530,7 +1423,7 @@ class RunIdentification:
     # present in both EICs at approximately the same retention time and very their chromatographic peak shapes.
     # if all criteria are passed, write this detected feature pair to the database
     def findChromatographicPeaksAndWriteToDB(self, mzbins, mzxml, tracerID, reportFunction=None):
-        db_con = ParquetDB(self.file + getDBSuffix())
+        db_con = PolarsDB(self.file + getDBSuffix(), format=getDBFormat())
         chromPeaks = []
 
         totalBins = len(mzbins["+"]) + len(mzbins["-"])
@@ -2062,7 +1955,7 @@ class RunIdentification:
     # and increased mz value and/or a decreased number of labelled carbon atoms. Such identified
     # incorrect pairings are then removed from the database and thus the processing results
     def removeFalsePositiveFeaturePairsAndUpdateDB(self, chromPeaks, reportFunction=None):
-        db_con = ParquetDB(self.file + getDBSuffix())
+        db_con = PolarsDB(self.file + getDBSuffix(), format=getDBFormat())
 
         todel = {}
 
@@ -2155,6 +2048,7 @@ class RunIdentification:
         for dele in delet:
             cp = chromPeaks.pop(dele)
             # Delete from chromPeaks
+            print(f"Type of cp.id {type(cp.id)}")
             db_con.tables["chromPeaks"] = db_con.tables["chromPeaks"].filter(pl.col("id") != cp.id)
             # Update allChromPeaks comment
             db_con.tables["allChromPeaks"] = db_con.tables["allChromPeaks"].with_columns(pl.when(pl.col("id") == cp.id).then(pl.lit(",".join(todel[dele]))).otherwise(pl.col("comment")).alias("comment"))
@@ -2173,7 +2067,7 @@ class RunIdentification:
     # on a MS scan level and does not directly use the chromatographic information (no chromatographic
     # peak picking is performed)
     def annotateFeaturePairs(self, chromPeaks, mzxml, tracer, reportFunction=None):
-        db_con = ParquetDB(self.file + getDBSuffix())
+        db_con = PolarsDB(self.file + getDBSuffix(), format=getDBFormat())
 
         self.postMessageToProgressWrapper("text", "%s: Annotating feature pairs" % tracer.name)
         for i in range(0, len(chromPeaks)):
@@ -3386,7 +3280,7 @@ class RunIdentification:
     # profiles of different metabolite ions
     def groupFeaturePairsUntargetedAndWriteToDB(self, chromPeaks, mzxml, tracer, tracerID, reportFunction=None):
         try:
-            db_con = ParquetDB(self.file + getDBSuffix())
+            db_con = PolarsDB(self.file + getDBSuffix(), format=getDBFormat())
 
             nodes = {}
             correlations = {}
@@ -3743,7 +3637,7 @@ class RunIdentification:
 
     # store one MS scan for each detected feature pair in the database
     def writeMassSpectraToDB(self, chromPeaks, mzxml, reportFunction=None):
-        db_con = ParquetDB(self.file + getDBSuffix())
+        db_con = PolarsDB(self.file + getDBSuffix(), format=getDBFormat())
 
         massSpectraWrittenPos = {}
         massSpectraWrittenNeg = {}
@@ -3783,7 +3677,7 @@ class RunIdentification:
 
     ## write a new featureML file
     def writeResultsToFeatureML(self, forFile):
-        db_con = ParquetDB(forFile + getDBSuffix())
+        db_con = PolarsDB(forFile + getDBSuffix(), format=getDBFormat())
 
         features = []
 
@@ -3813,309 +3707,6 @@ class RunIdentification:
             features.append(b)
 
         exportAsFeatureML.writeFeatureListToFeatureML(features, forFile + ".featureML", ppmPM=self.ppm, rtPM=0.25 * 60)
-
-    # write feature pairs detected in this LC-HRMS data file into a new TSV file.
-    # Each row represent one feature pair
-    def writeResultsToTSVFile(self, forFile):
-        db_con = ParquetDB(forFile + getDBSuffix())
-
-        chromPeaks = []
-        configTracers = {}
-
-        # Join chromPeaks with featureGroupFeatures and tracerConfiguration
-        chrom_df = db_con.tables.get("chromPeaks", pl.DataFrame())
-        fg_df = db_con.tables.get("featureGroupFeatures", pl.DataFrame())
-        tracer_df = db_con.tables.get("tracerConfiguration", pl.DataFrame())
-
-        if len(chrom_df) > 0 and len(fg_df) > 0 and len(tracer_df) > 0:
-            # Perform joins
-            joined_df = chrom_df.join(fg_df, left_on="id", right_on="fID", how="inner")
-            joined_df = joined_df.join(tracer_df, left_on="tracer", right_on="id", how="inner", suffix="_tracer")
-
-            for row in joined_df.to_dicts():
-                chromPeak = ChromPeakPair()
-                chromPeak.id = row["id"]
-                chromPeak.fGroupID = row["fGroupID"]
-                chromPeak.mz = row["mz"]
-                chromPeak.lmz = row["lmz"]
-                chromPeak.tmz = row["tmz"]
-                chromPeak.xCount = row["xcount"]
-                chromPeak.loading = row["Loading"]
-                chromPeak.ionMode = row["ionMode"]
-                chromPeak.NPeakCenter = row["NPeakCenter"]
-                chromPeak.NPeakCenterMin = row["NPeakCenterMin"] / 60.0
-                chromPeak.NPeakScale = row["NPeakScale"]
-                chromPeak.NPeakArea = row["NPeakArea"]
-                chromPeak.NPeakAbundance = row["NPeakAbundance"]
-                chromPeak.LPeakCenter = row["LPeakCenter"]
-                chromPeak.LPeakCenterMin = row["LPeakCenterMin"] / 60.0
-                chromPeak.LPeakScale = row["LPeakScale"]
-                chromPeak.LPeakArea = row["LPeakArea"]
-                chromPeak.LPeakAbundance = row["LPeakAbundance"]
-                chromPeak.NBorderLeft = row["NBorderLeft"]
-                chromPeak.NBorderRight = row["NBorderRight"]
-                chromPeak.LBorderLeft = row["LBorderLeft"]
-                chromPeak.LBorderRight = row["LBorderRight"]
-                chromPeak.peaksCorr = row["peaksCorr"]
-                chromPeak.assignedMZs = row["assignedMZs"]
-                chromPeak.tracer = row["tracer"]
-                chromPeak.tracerName = row["name"]
-                chromPeak.peaksRatio = row["peaksRatio"]
-                chromPeak.peaksRatioMp1 = row["peaksRatioMp1"]
-                chromPeak.peaksRatioMPm1 = row["peaksRatioMPm1"]
-                chromPeak.artificialEICLShift = row["artificialEICLShift"]
-
-                setattr(chromPeak, "heteroIsotopologues", loads(base64.b64decode(row["heteroAtoms"])))
-                setattr(chromPeak, "adducts", loads(base64.b64decode(row["adducts"])))
-                setattr(chromPeak, "fDesc", loads(base64.b64decode(row["fDesc"])))
-                setattr(chromPeak, "isotopeRatios", loads(base64.b64decode(row["isotopesRatios"])))
-                setattr(chromPeak, "mzDiffErrors", loads(base64.b64decode(row["mzDiffErrors"])))
-                setattr(chromPeak, "comments", "; ".join(loads(base64.b64decode(row["comments"]))))
-                chromPeaks.append(chromPeak)
-
-        if self.metabolisationExperiment:
-            for row in tracer_df.to_dicts():
-                tracer = ConfiguredTracer()
-                tracer.id = row["id"]
-                tracer.name = row["name"]
-                tracer.elementCount = row["elementCount"]
-                tracer.isotopeA = row["natural"]
-                tracer.isotopeB = row["labelling"]
-                tracer.mzDelta = row["deltaMZ"]
-                tracer.enrichmentA = row["purityN"]
-                tracer.enrichmentB = row["purityL"]
-                tracer.amountA = row["amountN"]
-                tracer.amountB = row["amountL"]
-                tracer.monoisotopicRatio = row["monoisotopicRatio"]
-                tracer.maxRelNegBias = row["lowerError"]
-                tracer.maxRelPosBias = row["higherError"]
-                tracer.tracerType = row["tracertype"]
-                configTracers[tracer.id] = tracer
-
-        db_con.close()
-
-        csvFile = open(forFile + ".tsv", "w")
-        csvFile.write(
-            "\t".join(
-                [
-                    "Num",
-                    "MZ",
-                    "L_MZ",
-                    "D_MZ_Error_ppm",
-                    "FoundInScans",
-                    "D_MZ_Peak_Error_mean_ppm",
-                    "D_MZ_Peak_Error_sd_ppm",
-                    "D_MZ_Min_ppm",
-                    "D_MZ_Max_ppm",
-                    "Quant20_MZ_Diff_ppm",
-                    "Quant80_MZ_Diff_ppm",
-                    "RT",
-                    "Xn",
-                    "Charge",
-                    "ScanEvent",
-                    "Ionisation_Mode",
-                    "Tracer",
-                    "Area_N",
-                    "Area_L",
-                    "Abundance_N",
-                    "Abundance_L",
-                    "Fold",
-                    "PeakRatio",
-                    "LeftBorder_N",
-                    "RightBorder_N",
-                    "LeftBorder_L",
-                    "RightBorder_L",
-                    "Group_ID",
-                    "Corr",
-                    "ArtificialEICLShift",
-                    "Adducts",
-                    "FDesc",
-                    "Hetero_Elements",
-                    "Comments",
-                ]
-            )
-        )
-        if len(chromPeaks) > 1:
-            i = 1
-            for isoRatio in chromPeaks[0].isotopeRatios:
-                csvFile.write(
-                    "\tObservedIsoRatioMean_%s_%d\tObservedIsoRatioSD_%s_%d\tTheoreticalIsoRatio_%s_%d"
-                    % (
-                        isoRatio.type,
-                        abs(isoRatio.subs),
-                        isoRatio.type,
-                        abs(isoRatio.subs),
-                        isoRatio.type,
-                        abs(isoRatio.subs),
-                    )
-                )
-
-        csvFile.write("\n")
-
-        for chromPeak in sorted(chromPeaks, key=lambda x: x.LPeakCenter):
-            hetIso = []
-            for hetAtom in chromPeak.heteroIsotopologues:
-                pIso = chromPeak.heteroIsotopologues[hetAtom]
-                for hetAtomCount in pIso:
-                    hetIso.append(
-                        "%s%d (scans: %d, obs: %.1f%%, exp: %.1f%%)"
-                        % (
-                            hetAtom,
-                            hetAtomCount,
-                            len(pIso[hetAtomCount]),
-                            100.0 * mean([d[1] for d in pIso[hetAtomCount]]),
-                            100.0 * mean([d[2] for d in pIso[hetAtomCount]]),
-                        )
-                    )
-            if len(hetIso) == 0:
-                hetIso = ""
-            else:
-                hetIso = ", ".join(hetIso)
-
-            addsF = ",".join(chromPeak.adducts)
-            if len(addsF) == 0:
-                addsF = "-"
-
-            fDesc = ",".join(chromPeak.fDesc)
-
-            scanEvent = ""
-            if chromPeak.ionMode == "+":
-                scanEvent = self.positiveScanEvent
-            elif chromPeak.ionMode == "-":
-                scanEvent = self.negativeScanEvent
-
-            mzDelta = 0.0
-            if self.metabolisationExperiment:
-                mzDelta = configTracers[chromPeak.tracer].mzDelta
-            else:
-                mzDelta = self.xOffset
-
-            minMZDiffError = -1
-            maxMZDiffError = -1
-            quantLow20 = -1
-            quantHig20 = -1
-            try:
-                minMZDiffError = min(chromPeak.mzDiffErrors.vals)
-                maxMZDiffError = max(chromPeak.mzDiffErrors.vals)
-                quantLow20 = np.percentile(chromPeak.mzDiffErrors.vals, 20)
-                quantHig20 = np.percentile(chromPeak.mzDiffErrors.vals, 80)
-            except:
-                pass
-
-            csvFile.write(
-                "\t".join(
-                    [
-                        str(x)
-                        for x in [
-                            chromPeak.id,
-                            chromPeak.mz,
-                            chromPeak.lmz,
-                            (chromPeak.lmz - chromPeak.mz - chromPeak.tmz) * 1000000.0 / chromPeak.mz,
-                            chromPeak.assignedMZs,
-                            chromPeak.mzDiffErrors.mean,
-                            chromPeak.mzDiffErrors.sd,
-                            minMZDiffError,
-                            maxMZDiffError,
-                            quantLow20,
-                            quantHig20,
-                            chromPeak.NPeakCenterMin,
-                            chromPeak.xCount,
-                            chromPeak.loading,
-                            scanEvent,
-                            chromPeak.ionMode,
-                            chromPeak.tracerName,
-                            chromPeak.NPeakArea,
-                            chromPeak.LPeakArea,
-                            chromPeak.NPeakAbundance,
-                            chromPeak.LPeakAbundance,
-                            chromPeak.NPeakArea / chromPeak.LPeakArea,
-                            chromPeak.peaksRatio,
-                            chromPeak.NBorderLeft,
-                            chromPeak.NBorderRight,
-                            chromPeak.LBorderLeft,
-                            chromPeak.LBorderRight,
-                            chromPeak.fGroupID,
-                            chromPeak.peaksCorr,
-                            chromPeak.artificialEICLShift,
-                            addsF,
-                            fDesc,
-                            hetIso,
-                            chromPeak.comments,
-                        ]
-                    ]
-                )
-            )
-            for isoRatio in chromPeak.isotopeRatios:
-                observedMean = isoRatio.observedRatioMean
-                if observedMean is None:
-                    observedMean = -1.0
-                observedSD = isoRatio.observedRatioSD
-                if observedSD is None:
-                    observedSD = -1.0
-                theoreticalRatio = isoRatio.theoreticalRatio
-                if theoreticalRatio is None:
-                    theoreticalRatio = -1.0
-
-                csvFile.write("\t%.5f\t%.5f\t%.5f" % (observedMean, observedSD, theoreticalRatio))
-            csvFile.write("\n")
-
-        csvFile.write(
-            "## MetExtract II %s\n"
-            % (
-                Bunch(
-                    MetExtractVersion=self.meVersion,
-                    RVersion=self.rVersion,
-                    UUID_ext=self.processingUUID,
-                )
-                .dumpAsJSon()
-                .replace('"', "'")
-            )
-        )
-
-        processingParams = Bunch()
-        processingParams.experimentOperator = self.experimentOperator
-        processingParams.experimentID = self.experimentID
-        processingParams.experimentComments = self.experimentComments
-        processingParams.experimentName = self.experimentName
-        csvFile.write("## Experiment parameters %s\n" % (processingParams.dumpAsJSon().replace('"', "'")))
-
-        processingParams = Bunch()
-        processingParams.startTime = self.startTime
-        processingParams.stopTime = self.stopTime
-        processingParams.positiveScanEvent = self.positiveScanEvent
-        processingParams.negativeScanEvent = self.negativeScanEvent
-        processingParams.metabolisationExperiment = self.metabolisationExperiment
-        processingParams.intensityThreshold = self.intensityThreshold
-        processingParams.intensityCutoff = self.intensityCutoff
-        processingParams.maxLoading = self.maxLoading
-        processingParams.xCounts = self.xCountsString
-        processingParams.xoffset = self.xOffset
-        processingParams.ppm = self.ppm
-        processingParams.isotopicPatternCountLeft = self.isotopicPatternCountLeft
-        processingParams.isotopicPatternCountRight = self.isotopicPatternCountRight
-        processingParams.lowAbundanceIsotopeCutoff = self.lowAbundanceIsotopeCutoff
-        processingParams.intensityErrorN = self.intensityErrorN
-        processingParams.intensityErrorL = self.intensityErrorL
-        processingParams.purityN = self.purityN
-        processingParams.purityL = self.purityL
-
-        # 2. Results clustering
-        processingParams.minSpectraCount = self.minSpectraCount
-        processingParams.clustPPM = self.clustPPM
-
-        # 3. Peak detection
-        processingParams.chromPeakPPM = self.chromPeakPPM
-
-        processingParams.eicSmoothingWindow = self.eicSmoothingWindow
-        processingParams.eicSmoothingWindowSize = self.eicSmoothingWindowSize
-        processingParams.eicSmoothingPolynom = self.eicSmoothingPolynom
-        processingParams.scales = self.scales
-        processingParams.minCorr = self.minPeakCorr
-        processingParams.minCorrelationConvolution = self.minCorrelation
-        processingParams.minCorrelationConnections = self.minCorrelationConnections
-        csvFile.write("## Data processing parameters %s\n" % (processingParams.dumpAsJSon().replace('"', "'")))
-
-        csvFile.close()
 
     # plot all detected feature pairs as the first results page in the PDF
     def generateFeaturePairOverviewMap(self, chromPeaks, pdf):
@@ -4523,7 +4114,7 @@ class RunIdentification:
 
     # create a PDF file illustrating the detected feature pairs and convoluted feature groups
     def writeResultsToPDF(self, mzxml, reportFunction=None):
-        db_con = ParquetDB(self.file + getDBSuffix())
+        db_con = PolarsDB(self.file + getDBSuffix(), format=getDBFormat())
 
         allChromPeaks = []
         configTracers = {}
@@ -4950,7 +4541,7 @@ class RunIdentification:
 
     # stores the TICs of the LC-HRMS data in the database
     def writeTICsToDB(self, mzxml, scanEvents):
-        db_con = ParquetDB(self.file + getDBSuffix())
+        db_con = PolarsDB(self.file + getDBSuffix(), format=getDBFormat())
 
         ## save TICs
         ## save mean, sd scan time
@@ -4960,7 +4551,7 @@ class RunIdentification:
                 TIC, times, scanIds = mzxml.getTIC(filterLine=scanEvent)
 
                 # Insert into tics table
-                db_con.insert_row("tics", {"id": i, "loading": pol, "scanevent": scanEvent, "times": ";".join([str(t) for t in times]), "intensities": ";".join(["%.0f" % t for t in TIC])})
+                db_con.insert_row("tics", {"id": i, "polarity": pol, "scanevent": scanEvent, "times": ";".join([str(t) for t in times]), "intensities": ";".join(["%.0f" % t for t in TIC])})
                 i = i + 1
 
                 scanTimes = [times[i + 1] - times[i] for i in range(len(times) - 1)]
@@ -5045,7 +4636,7 @@ class RunIdentification:
 
             if os.path.exists(self.file + getDBSuffix()) and os.path.isfile(self.file + getDBSuffix()):
                 os.remove(self.file + getDBSuffix())
-            db_con = ParquetDB(self.file + getDBSuffix())
+            db_con = PolarsDB(self.file + getDBSuffix(), format=getDBFormat())
 
             self.writeConfigurationToDB(db_con)
 
@@ -5276,14 +4867,6 @@ class RunIdentification:
             # endregion
 
             self.postMessageToProgressWrapper("text", "Writing results to mzXML..")
-
-            # region W.2 Write results to TSV File
-            ##########################################################################################
-            if self.writeTSV:
-                self.postMessageToProgressWrapper("text", "Writing results to TSV..")
-
-                self.writeResultsToTSVFile(self.file)
-            # endregion
 
             # region W.2 Write results to TSV File
             ##########################################################################################

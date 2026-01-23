@@ -1474,3 +1474,13 @@ if __name__ == "__main__" and True:
 
     curs.close()
     conn.close()
+
+
+def getDBSuffix():
+    """Return the database suffix for MetExtract result files."""
+    return ".meii"
+
+
+def getDBFormat():
+    """Return the database format for MetExtract result files."""
+    return "parquet"

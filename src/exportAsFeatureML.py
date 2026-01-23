@@ -98,34 +98,58 @@ def convertMSMSoptFileToFeatureML(msmsFile, featureMLFile=None):
 
 def convertMEMatrixToFeatureML(meMatrixFile, featureMLFile=None):
     if featureMLFile is None:
-        featureMLFile = meMatrixFile.replace(".tsv", ".txt").replace(".txt", "") + ".featureML"
+        featureMLFile = meMatrixFile.replace(".xlsx", ".txt").replace(".tsv", ".txt").replace(".txt", "") + ".featureML"
 
-    with open(meMatrixFile, "r", encoding="utf-8") as fIn:
-        csvReader = csv.reader(fIn, delimiter="\t", quotechar='"')
+    features = []
 
-        headers = {}
-        features = []
-        for linei, row in enumerate(csvReader):
-            if len(row) == 0:  # Skip empty lines
-                continue
-            if linei == 0:
-                for colInd, header in enumerate(row):
-                    headers[header] = colInd
-            elif row[0].startswith("#"):
-                pass
-            else:
-                b = Bunch(
-                    id=row[headers["Num"]],
-                    ogroup=row[headers["OGroup"]],
-                    mz=float(row[headers["MZ"]]),
-                    rt=float(row[headers["RT"]]) * 60,
-                    Xn=int(row[headers["Xn"]]),
-                    lmz=float(row[headers["L_MZ"]]),
-                    charge=int(row[headers["Charge"]]),
-                    name=row[headers["Num"]],
-                    ionMode=row[headers["Ionisation_Mode"]],
-                )
-                features.append(b)
+    # Check if file is Excel or TSV/CSV
+    if meMatrixFile.endswith(".xlsx"):
+        # Use polars to read Excel file
+        import polars as pl
+
+        df = pl.read_excel(meMatrixFile, sheet_name="Sheet1")
+
+        # Convert dataframe to list of features
+        for row in df.iter_rows(named=True):
+            b = Bunch(
+                id=str(row["Num"]),
+                ogroup=str(row["OGroup"]),
+                mz=float(row["MZ"]),
+                rt=float(row["RT"]) * 60,
+                Xn=int(row["Xn"]),
+                lmz=float(row["L_MZ"]),
+                charge=int(row["Charge"]),
+                name=str(row["Num"]),
+                ionMode=str(row["Ionisation_Mode"]),
+            )
+            features.append(b)
+    else:
+        # Original CSV/TSV reading logic
+        with open(meMatrixFile, "r", encoding="utf-8") as fIn:
+            csvReader = csv.reader(fIn, delimiter="\t", quotechar='"')
+
+            headers = {}
+            for linei, row in enumerate(csvReader):
+                if len(row) == 0:  # Skip empty lines
+                    continue
+                if linei == 0:
+                    for colInd, header in enumerate(row):
+                        headers[header] = colInd
+                elif row[0].startswith("#"):
+                    pass
+                else:
+                    b = Bunch(
+                        id=row[headers["Num"]],
+                        ogroup=row[headers["OGroup"]],
+                        mz=float(row[headers["MZ"]]),
+                        rt=float(row[headers["RT"]]) * 60,
+                        Xn=int(row[headers["Xn"]]),
+                        lmz=float(row[headers["L_MZ"]]),
+                        charge=int(row[headers["Charge"]]),
+                        name=row[headers["Num"]],
+                        ionMode=row[headers["Ionisation_Mode"]],
+                    )
+                    features.append(b)
 
     writeFeatureListToFeatureML(features, featureMLFile, ppmPM=5.0, rtPM=0.25 * 60)
 
@@ -146,34 +170,58 @@ def convertMEMatrixToFeatureMLSepPolarities(
     delimiter="\t",
 ):
     if featureMLFile is None:
-        featureMLFile = meMatrixFile.replace(".tsv", ".txt").replace(".txt", "") + ".featureML"
+        featureMLFile = meMatrixFile.replace(".xlsx", ".txt").replace(".tsv", ".txt").replace(".txt", "") + ".featureML"
 
     features = {"+": [], "-": []}
-    with open(meMatrixFile, "r") as fIn:
-        csvReader = csv.reader(fIn, delimiter=delimiter, quotechar='"')
 
-        headers = {}
-        for linei, row in enumerate(csvReader):
-            if len(row) == 0:  # Skip empty lines
-                continue
-            if linei == 0:
-                for colInd, header in enumerate(row):
-                    headers[header] = colInd
-            elif row[0].startswith("#"):
-                pass
-            else:
-                b = Bunch(
-                    id=row[headers[numCol]],
-                    ogroup=row[headers[ogrpCol]],
-                    mz=float(row[headers[mzCol]]),
-                    rt=float(row[headers[rtCol]]) * 60,
-                    Xn=row[headers[xnCol]],
-                    lmz=float(row[headers[lmzCol]]),
-                    charge=int(row[headers[chargeCol]]),
-                    name=row[headers[nameCol]],
-                    ionMode=row[headers[ionModeCol]],
-                )
-                features[b.ionMode].append(b)
+    # Check if file is Excel or TSV/CSV
+    if meMatrixFile.endswith(".xlsx"):
+        # Use polars to read Excel file
+        import polars as pl
+
+        df = pl.read_excel(meMatrixFile, sheet_name="Sheet1")
+
+        # Convert dataframe to list of features
+        for row in df.iter_rows(named=True):
+            b = Bunch(
+                id=str(row[numCol]),
+                ogroup=str(row[ogrpCol]),
+                mz=float(row[mzCol]),
+                rt=float(row[rtCol]) * 60,
+                Xn=str(row[xnCol]),
+                lmz=float(row[lmzCol]),
+                charge=int(row[chargeCol]),
+                name=str(row[nameCol]),
+                ionMode=str(row[ionModeCol]),
+            )
+            features[b.ionMode].append(b)
+    else:
+        # Original CSV/TSV reading logic
+        with open(meMatrixFile, "r") as fIn:
+            csvReader = csv.reader(fIn, delimiter=delimiter, quotechar='"')
+
+            headers = {}
+            for linei, row in enumerate(csvReader):
+                if len(row) == 0:  # Skip empty lines
+                    continue
+                if linei == 0:
+                    for colInd, header in enumerate(row):
+                        headers[header] = colInd
+                elif row[0].startswith("#"):
+                    pass
+                else:
+                    b = Bunch(
+                        id=row[headers[numCol]],
+                        ogroup=row[headers[ogrpCol]],
+                        mz=float(row[headers[mzCol]]),
+                        rt=float(row[headers[rtCol]]) * 60,
+                        Xn=row[headers[xnCol]],
+                        lmz=float(row[headers[lmzCol]]),
+                        charge=int(row[headers[chargeCol]]),
+                        name=row[headers[nameCol]],
+                        ionMode=row[headers[ionModeCol]],
+                    )
+                    features[b.ionMode].append(b)
 
     if len(features["-"]) > 0:
         writeFeatureListToFeatureML(

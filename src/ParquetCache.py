@@ -66,15 +66,7 @@ class ParquetCache:
 
         if self.cache_df is None:
             # Create empty DataFrame with correct schema
-            self.cache_df = pl.DataFrame({
-                "key": [],
-                "val": [],
-                "exp": []
-            }, schema={
-                "key": pl.Utf8,
-                "val": pl.Utf8,
-                "exp": pl.Float64
-            })
+            self.cache_df = pl.DataFrame({"key": [], "val": [], "exp": []}, schema={"key": pl.Utf8, "val": pl.Utf8, "exp": pl.Float64})
             logger.debug("Created new cache DataFrame")
 
         return self.cache_df
@@ -141,11 +133,7 @@ class ParquetCache:
         cache_df = cache_df.filter(pl.col("key") != key)
 
         # Add new entry
-        new_row = pl.DataFrame({
-            "key": [key],
-            "val": [data],
-            "exp": [expire]
-        })
+        new_row = pl.DataFrame({"key": [key], "val": [data], "exp": [expire]})
 
         self.cache_df = pl.concat([cache_df, new_row])
 
@@ -176,11 +164,7 @@ class ParquetCache:
             self.update(key, value, timeout)
         else:
             # Add new entry
-            new_row = pl.DataFrame({
-                "key": [key],
-                "val": [data],
-                "exp": [expire]
-            })
+            new_row = pl.DataFrame({"key": [key], "val": [data], "exp": [expire]})
 
             self.cache_df = pl.concat([cache_df, new_row])
 
@@ -191,15 +175,7 @@ class ParquetCache:
         """Clear a cache"""
 
         # Create empty DataFrame
-        self.cache_df = pl.DataFrame({
-            "key": [],
-            "val": [],
-            "exp": []
-        }, schema={
-            "key": pl.Utf8,
-            "val": pl.Utf8,
-            "exp": pl.Float64
-        })
+        self.cache_df = pl.DataFrame({"key": [], "val": [], "exp": []}, schema={"key": pl.Utf8, "val": pl.Utf8, "exp": pl.Float64})
 
         # Save empty cache
         self._save_cache()

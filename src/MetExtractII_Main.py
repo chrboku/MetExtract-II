@@ -32,7 +32,9 @@ def get_version_from_toml(file_path):
 
 
 # Update MetExtractVersion from the TOML file
-MetExtractVersion = get_version_from_toml("pyproject.toml")
+import os
+
+MetExtractVersion = get_version_from_toml(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "pyproject.toml"))
 
 # Handle both relative imports (when used as module) and absolute imports (when run directly)
 try:
