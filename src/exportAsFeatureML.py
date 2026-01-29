@@ -98,7 +98,7 @@ def convertMSMSoptFileToFeatureML(msmsFile, featureMLFile=None):
 
 def convertMEMatrixToFeatureML(meMatrixFile, featureMLFile=None):
     if featureMLFile is None:
-        featureMLFile = meMatrixFile.replace(".xlsx", ".txt").replace(".tsv", ".txt").replace(".txt", "") + ".featureML"
+        featureMLFile = meMatrixFile.replace(".xlsx", ".tsv").replace(".tsv", ".txt").replace(".txt", "") + ".featureML"
 
     features = []
 
@@ -171,7 +171,7 @@ def convertMEMatrixToFeatureMLSepPolarities(
     delimiter="\t",
 ):
     if featureMLFile is None:
-        featureMLFile = meMatrixFile.replace(".xlsx", ".txt").replace(".tsv", ".txt").replace(".txt", "") + ".featureML"
+        featureMLFile = meMatrixFile.replace(".xlsx", ".tsv").replace(".tsv", ".txt").replace(".txt", "") + ".featureML"
 
     features = {"+": [], "-": []}
 

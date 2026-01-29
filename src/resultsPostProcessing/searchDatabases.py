@@ -290,7 +290,7 @@ class DBSearch:
                                 or (checkXN.startswith("PlusMinus_") and element in elems.keys() and abs(elems[element] - Xn) <= int(checkXN[10 : len(checkXN)]))
                             ):
                                 entry = deepcopy(entry)
-                                entry.hitType = "MZ with %s to DB-mass match" % (adduct[0])
+                                entry.hitType = "(MZ as %s) matched to (DB-mass)" % (adduct[0])
                                 entry.matchErrorPPM = (mass - entry.mass) * 1e6 / mass
                                 entry.matchErrorMass = mass - entry.mass
                                 possibleHits.append(entry)
@@ -320,7 +320,7 @@ class DBSearch:
                         or (checkXN.startswith("PlusMinus_") and element in elems.keys() and abs(elems[element] - Xn) <= int(checkXN[10 : len(checkXN)]))
                     ):
                         entry = deepcopy(entry)
-                        entry.hitType = "MZ to DB-MZ match"
+                        entry.hitType = "(MZ) matched to (DB-MZ) match"
                         entry.matchErrorPPM = (mz - entry.mz) * 1e6 / mz
                         entry.matchErrorMass = mz - entry.mz
                         possibleHits.append(entry)
@@ -380,7 +380,7 @@ class DBSearch:
                                 or (checkXN.startswith("PlusMinus_") and element in elems.keys() and abs(elems[element] - Xn) <= int(checkXN[10 : len(checkXN)]))
                             ):
                                 entry = deepcopy(entry)
-                                entry.hitType = "Mass to DB-MZ match with %s" % (adduct[0])
+                                entry.hitType = "(mass) matched to (DB-MZ) match with %s" % (adduct[0])
                                 entry.matchErrorPPM = (mz - entry.mz) * 1e6 / mz
                                 entry.matchErrorMass = mz - entry.mz
                                 possibleHits.append(entry)
@@ -408,7 +408,7 @@ class DBSearch:
                         or (checkXN.startswith("PlusMinus_") and element in elems.keys() and abs(elems[element] - Xn) <= int(checkXN[10 : len(checkXN)]))
                     ):
                         entry = deepcopy(entry)
-                        entry.hitType = "Mass to DB-Mass match"
+                        entry.hitType = "(Mass) matched to (DB-Mass) match"
                         entry.matchErrorPPM = (mass - entry.mass) * 1e6 / mass
                         entry.matchErrorMass = mass - entry.mass
                         possibleHits.append(entry)

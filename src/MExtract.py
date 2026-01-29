@@ -714,6 +714,8 @@ from .MSMS import optimizeMSMSTargets
 from .resultsPostProcessing import generateSumFormulas as sumFormulaGeneration
 from .resultsPostProcessing import searchDatabases as searchDatabases
 
+from . import annotateResultMatrix
+
 from . import pyperclip
 
 
@@ -3661,7 +3663,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         resFileFull = str(self.ui.groupsSave.text())
         resFilePath, resFileName = os.path.split(os.path.abspath(resFileFull))
-        excel_file = resFileFull.replace(".tsv", ".txt").replace(".txt", "") + ".xlsx"
+        excel_file = resFileFull.replace(".xlsx", ".tsv").replace(".tsv", ".txt").replace(".txt", "") + ".xlsx"
         # bracket/group from individual LC-HRMS data / re-integrate missed peaks
         if self.ui.processMultipleFiles.checkState() == QtCore.Qt.Checked:
             pw = ProgressWrapper(1, parent=self)
@@ -4032,7 +4034,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             fDict[f] = f[(f.rfind("/") + 1) : max(f.lower().rfind(".mzxml"), f.lower().rfind(".mzml"))]
 
                     reIntegrateResultsFile(
-                        resFileFull,
+                        excel_file,
                         "4_afterConvolution",
                         "5_afterReintegration",
                         fDict,
@@ -4109,206 +4111,57 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if self.ui.searchDB_checkBox.isChecked():
                 pw.getCallingFunction()("text")("Searching hits in databases..")
 
-                shutil.copyfile(resFilePath + "/xxx_results__5_afterReIntegration.tsv", resFileFull)
-
-                db = searchDatabases.DBSearch()
-                table = TableUtils.readFile(resFileFull)
-
-                dbEntries = []
+                # Collect database files
+                dbFiles = []
                 for entryInd in range(self.ui.dbList_listView.model().rowCount()):
                     dbFile = str(self.ui.dbList_listView.model().item(entryInd, 0).data())
-                    dbName = dbFile[dbFile.rfind("/") + 1 : dbFile.rfind(".")]
-                    try:
-                        imported, notImported = db.addEntriesFromFile(dbName, dbFile)
-                        if notImported > 0:
-                            QtWidgets.QMessageBox.warning(
-                                self,
-                                "MetExtract",
-                                "Warning: %d entries from the database (%s) have not been imported successfully. See Log for details" % (notImported, dbName),
-                                QtWidgets.QMessageBox.Ok,
-                            )
+                    dbFiles.append(dbFile)
 
-                        table.addColumn("DBs_" + dbName + "_count", "TEXT")
-                        table.addColumn("DBs_" + dbName, "TEXT")
-
-                        annotationColumns.append("DBs_" + dbName + "_count")
-                        annotationColumns.append("DBs_" + dbName)
-
-                        table.addColumn("DBs_RT_" + dbName + "_count", "TEXT")
-                        table.addColumn("DBs_RT_" + dbName, "TEXT")
-
-                        annotationColumns.append("DBs_RT_" + dbName + "_count")
-                        annotationColumns.append("DBs_RT_" + dbName)
-                    except IOError:
-                        QtWidgets.QMessageBox.warning(
-                            self,
-                            "MetExtract",
-                            "Cannot open the database file (%s at %s). It will be skipped" % (dbName, dbFile),
-                            QtWidgets.QMessageBox.Ok,
-                        )
-
-                db.optimizeDB()
-
-                class dbSearch:
-                    def __init__(
-                        self,
-                        dbs,
-                        ppm,
-                        correctppmPosMode,
-                        correctppmNegMode,
-                        rtError,
-                        useRt=True,
-                        checkXnInHits=True,
-                        processedElement="C",
-                    ):
-                        self.ppm = ppm
-                        self.correctppmPosMode = correctppmPosMode
-                        self.correctppmNegMode = correctppmNegMode
-                        self.rtError = rtError
-                        self.useRt = useRt
-                        self.checkXnInHits = checkXnInHits
-                        self.processedElement = processedElement
-                        self.dbs = dbs
-
-                        self.fT = formulaTools()
-
-                    def updateDBCols(self, x):
-                        mass = float(x["M"]) if x["M"] != "" and "," not in str(x["M"]) else None
-                        mz = float(x["MZ"])
-                        polarity = x["Ionisation_Mode"]
-
-                        massO = mass
-                        mzO = mz
-                        if mass is not None:
-                            mass = mass + mass * 1.0 * (self.correctppmPosMode if polarity == "+" else self.correctppmNegMode) / 1e6
-                        mz = mz + mz * 1.0 * (self.correctppmPosMode if polarity == "+" else self.correctppmNegMode) / 1e6
-
-                        rt_min = float(x["RT"])
-                        charges = int(x["Charge"])
-                        xn = 0
-                        try:
-                            xn = int(x["Xn"])
-                        except:
-                            pass
-
-                        hits = {}
-                        hitsRT = {}
-                        for hit in self.dbs.searchDB(
-                            mass=mass,
-                            mz=mz,
-                            polarity=polarity,
-                            charges=charges,
-                            rt_min=rt_min if self.useRt else None,
-                            ppm=self.ppm,
-                            rt_error=self.rtError,
-                            checkXN=self.checkXnInHits,
-                            element=self.processedElement,
-                            Xn=xn,
-                            adducts=useAdducts,
-                        ):
-                            if hit.dbName not in hits.keys():
-                                hits[hit.dbName] = []
-                                hitsRT[hit.dbName] = []
-
-                            hits[hit.dbName].append(
-                                "(Name: %s, Type: %s, Num: %s, Formula: %s, RT: %s, MassErrorPPM: %.5f, MassErrorMass: %.5f, Additional information: %s)"
-                                % (
-                                    hit.name,
-                                    hit.hitType,
-                                    hit.num,
-                                    hit.sumFormula,
-                                    hit.rt_min,
-                                    hit.matchErrorPPM,
-                                    hit.matchErrorMass,
-                                    hit.additionalInfo,
-                                )
-                            )
-                            if hit.rt_min != "":
-                                try:
-                                    rtDelta = -1
-                                    try:
-                                        rtDelta = abs(float(hit.rt_min) - rt_min)
-                                    except:
-                                        pass
-
-                                    hitsRT[hit.dbName].append(
-                                        (
-                                            rtDelta,
-                                            "RT delta: %.2f (Name: %s Type: %s, Num: %s, Formula: %s, RT: %s, MassErrorPPM: %.5f, MassErrorMass: %.5f, Additional information: %s)"
-                                            % (
-                                                rtDelta,
-                                                hit.name,
-                                                hit.hitType,
-                                                hit.num,
-                                                hit.sumFormula,
-                                                hit.rt_min,
-                                                hit.matchErrorPPM,
-                                                hit.matchErrorMass,
-                                                hit.additionalInfo,
-                                            ),
-                                        )
-                                    )
-                                except:
-                                    logging.error(
-                                        "   Error in database entry hit: %s"
-                                        % (
-                                            "(Name: %s, Type: %s, Num: %s, Formula: %s, RT: %s, MassErrorPPM: %.5f, MassErrorMass: %.5f, Additional information: %s)"
-                                            % (
-                                                hit.name,
-                                                hit.hitType,
-                                                hit.num,
-                                                hit.sumFormula,
-                                                hit.rt_min,
-                                                hit.matchErrorPPM,
-                                                hit.matchErrorMass,
-                                                hit.additionalInfo,
-                                            )
-                                        )
-                                    )
-
-                        for dbName in hits.keys():
-                            x["DBs_" + dbName] = '"%s"' % (";".join(hits[dbName]))
-                            x["DBs_" + dbName + "_count"] = len(hits[dbName])
-
-                            if len(hitsRT[dbName]) > 0:
-                                x["DBs_RT_" + dbName] = '"%s"' % (";".join([b[1] for b in sorted(hitsRT[dbName], key=lambda x: x[0])]))
-                                x["DBs_RT_" + dbName + "_count"] = len(hitsRT[dbName])
-                        return x
-
+                # Prepare parameters
                 useExactXn = str(self.ui.sumFormulasUseExactXn_ComboBox.currentText())
                 if useExactXn.lower() == "plusminus":
                     useExactXn = "PlusMinus_%d" % (self.ui.sumFormulasPlusMinus_spinBox.value())
 
-                x = dbSearch(
-                    db,
-                    ppm=self.ui.annotationMaxPPM_doubleSpinBox.value(),
-                    correctppmPosMode=self.ui.annotation_correctMassByPPMposMode.value(),
-                    correctppmNegMode=self.ui.annotation_correctMassByPPMnegMode.value(),
-                    rtError=self.ui.maxRTErrorInHits_spinnerBox.value(),
-                    useRt=self.ui.checkRTInHits_checkBox.isChecked(),
-                    checkXnInHits=useExactXn,
-                    processedElement=getElementOfIsotope(str(self.ui.isotopeAText.text())),
-                )
-                table.applyFunction(
-                    x.updateDBCols,
-                    showProgress=True,
-                    pwMaxSet=pw.getCallingFunction()("max"),
-                    pwValSet=pw.getCallingFunction()("value"),
-                )
-
-                table.addComment(
-                    "## Database search: checkXn %s, ppm: %.5f, correctppm: pos.mode: %.5f / neg.mode: %.5f, Adducts: %s"
-                    % (
-                        useExactXn,
-                        self.ui.annotationMaxPPM_doubleSpinBox.value(),
-                        self.ui.annotation_correctMassByPPMposMode.value(),
-                        self.ui.annotation_correctMassByPPMnegMode.value(),
-                        str(useAdducts),
+                try:
+                    addedColumns = annotateResultMatrix.annotateWithDatabases(
+                        file=excel_file,
+                        sheet_name="5_afterReintegration",
+                        new_sheet_name="6_afterDBSearch",
+                        dbFiles=dbFiles,
+                        useAdducts=useAdducts,
+                        ppm=self.ui.annotationMaxPPM_doubleSpinBox.value(),
+                        correctppmPosMode=self.ui.annotation_correctMassByPPMposMode.value(),
+                        correctppmNegMode=self.ui.annotation_correctMassByPPMnegMode.value(),
+                        rtError=self.ui.maxRTErrorInHits_spinnerBox.value(),
+                        useRt=self.ui.checkRTInHits_checkBox.isChecked(),
+                        checkXnInHits=useExactXn,
+                        processedElement=getElementOfIsotope(str(self.ui.isotopeAText.text())),
+                        pwMaxSet=pw.getCallingFunction()("max"),
+                        pwValSet=pw.getCallingFunction()("value"),
                     )
-                )
+                    annotationColumns.extend(addedColumns)
 
-                TableUtils.saveFile(table, resFileFull)
-                shutil.copyfile(resFileFull, resFilePath + "/xxx_results__6_afterDBSearch.tsv")
+                    logging.info(
+                        "## Database search: checkXn %s, ppm: %.5f, correctppm: pos.mode: %.5f / neg.mode: %.5f, Adducts: %s"
+                        % (
+                            useExactXn,
+                            self.ui.annotationMaxPPM_doubleSpinBox.value(),
+                            self.ui.annotation_correctMassByPPMposMode.value(),
+                            self.ui.annotation_correctMassByPPMnegMode.value(),
+                            str(useAdducts),
+                        )
+                    )
+
+                except Exception as e:
+                    traceback.print_exc()
+                    logging.error(f"Error during database search: {e}")
+                    QtWidgets.QMessageBox.warning(
+                        self,
+                        "MetExtract",
+                        f"Error during database search annotation: {str(e)}",
+                        QtWidgets.QMessageBox.Ok,
+                    )
+                    errorCount += 1
 
             if self.ui.generateSumFormulas_CheckBox.isChecked():
                 pw.getCallingFunction()("text")("Generating sum formulas..")
@@ -10476,7 +10329,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             pass
 
     def addDB(self, events):
-        dbFile = QtWidgets.QFileDialog.getOpenFileName(
+        dbFile, _filter = QtWidgets.QFileDialog.getOpenFileName(
             caption="Select database file",
             dir=self.lastOpenDir,
             filter="Database (*.tsv);;All files (*.*)",

@@ -431,8 +431,7 @@ def reIntegrateResultsFile(
         start: Start time for elapsed time calculation
     """
     logging.info("Starting re-integration of missed peaks using PolarsDB")
-
-    excel_file = file.replace(".tsv", ".txt").replace(".txt", "") + ".xlsx"
+    excel_file = file.replace(".xlsx", ".tsv").replace(".tsv", ".txt").replace(".txt", "") + ".xlsx"
 
     # Load the PolarsDB once
     try:
