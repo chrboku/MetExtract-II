@@ -1484,3 +1484,24 @@ def getDBSuffix():
 def getDBFormat():
     """Return the database format for MetExtract result files."""
     return "parquet"
+
+
+from . import PolarsDB
+
+
+def add_sheet_to_excel(file, polars_df, sheet_name):
+    """
+    Add a new sheet to an existing Excel file while preserving all other sheets.
+
+    Args:
+        file: Path to the Excel file
+        polars_df: Polars DataFrame to write to the new sheet
+        sheet_name: Name of the sheet to add/replace
+    """
+
+    db = PolarsDB.PolarsDB(file)
+    if not db.has_table(sheet_name):
+        # If the table does not exist, simply insert the DataFrame
+        db.insert_table(sheet_name, polars_df)
+
+    db.close()

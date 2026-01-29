@@ -18,6 +18,7 @@ def check_r_availability():
     global R_AVAILABLE, R_ERROR_MESSAGE
 
     try:
+        # get output and do not display it on the command line
         import rpy2.robjects as ro
 
         r = ro.r

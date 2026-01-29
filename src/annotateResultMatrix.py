@@ -1,5 +1,7 @@
 from __future__ import print_function, division, absolute_import
-import csv
+import polars as pl
+from .utils import add_sheet_to_excel
+
 
 import pprint
 
@@ -25,132 +27,94 @@ def matchRows(groups, rowNames):
 
 
 # re-arrange data and add statistic columns
-def addStatsColumnToResults(metaFile, groups, toFile, outputOrder, commentStartingCharacter="#"):
-    data = []
-    comments = []
+def addStatsColumnToResults(metaFile, groups, outputOrder, sheet_name="Sheet1", new_sheet_name="Sheet2", commentStartingCharacter="#"):
+    """
+    Add statistics columns to results matrix.
 
-    mzInd = -1
-    rtInd = -1
+    Args:
+        metaFile: Input Excel file path
+        groups: Dictionary of group definitions
+        toFile: Output Excel file path
+        outputOrder: List of group names in desired output order
+        sheet_name: Name of the sheet to read from and write to
+        commentStartingCharacter: Character that marks comment rows
+    """
+    # Read Excel file using polars
+    df = pl.read_excel(metaFile, sheet_name=sheet_name)
+    headers = df.columns
 
-    with open(metaFile, "r", encoding="utf-8") as x:
-        meta = csv.reader(x, delimiter="\t")
+    # Match columns to groups
+    matchRows(groups, headers)
 
-        rowNum = 0
-        for line in meta:
-            if len(line) == 0:  # Skip empty lines
-                continue
-            if line[0].startswith(commentStartingCharacter):
-                comments.append(line[0].strip())
-                continue
+    # Find MZ and RT column indices for sorting
+    mzInd = headers.index("MZ") if "MZ" in headers else -1
+    rtInd = headers.index("RT") if "RT" in headers else -1
 
-            if rowNum == 0:
-                headers = line
-                j = 0
-                for header in headers:
-                    if header == "MZ":
-                        mzInd = j
-                    if header == "RT":
-                        rtInd = j
-                    j += 1
-                matchRows(groups, line)
-            else:
-                data.append(line)
-            rowNum += 1
-
+    # Add group statistics columns
     for groupName in outputOrder:
-        headers.append(groupName)
+        # Count non-empty values in group columns
+        col_names = [headers[i] for i in groups[groupName]["cols"]]
 
-    for row in data:
-        for groupName in outputOrder:
-            found = 0
-            for pos in groups[groupName]["cols"]:
-                try:
-                    if row[pos].strip() != "":
-                        found += 1
-                except:
-                    pass
-            row.append(str(found))
+        # Create a new column that counts non-null, non-empty values
+        count_expr = pl.lit(0, pl.Int64)
+        for col_name in col_names:
+            # Check if column value is not null and not empty string
+            count_expr = count_expr + pl.when((pl.col(col_name).is_not_null()) & (pl.col(col_name).cast(pl.Utf8).str.strip_chars() != "")).then(1).otherwise(0)
 
-    data = sorted(data, key=lambda x: (float(x[rtInd]), float(x[mzInd])))  # sort results according to rt and mz
-    data.insert(0, headers)
+        df = df.with_columns(count_expr.alias(groupName))
 
-    with open(toFile, "w") as x:
-        metaWriter = csv.writer(x, delimiter="\t")
-        for row in data:
-            metaWriter.writerow(row)
-        for comment in comments:
-            metaWriter.writerow([comment])
+    # Sort by RT and MZ if both columns exist
+    if rtInd != -1 and mzInd != -1:
+        df = df.sort(["RT", "MZ"])
+
+    # Write the dataframe to Excel
+    add_sheet_to_excel(metaFile, df, new_sheet_name)
 
 
 # omit those columns that have less results than required by the user input
-def performGroupOmit(infile, groupStats, outfile, commentStartingCharacter="#"):
-    data = []
-    notUsed = []
-    falsePositives = []
-    headers = {}
-    hrow = []
-    comments = []
+def performGroupOmit(infile, groupStats, sheet_name="Sheet1", new_sheet_name="FilteredResults"):
+    """
+    Filter rows based on group statistics and create separate sheets for omitted and false positive features.
 
-    with open(infile, "r", encoding="utf-8") as x:
-        meta = csv.reader(x, delimiter="\t")
+    Args:
+        infile: Input Excel file path
+        groupStats: List of tuples (group_name, min_count, omit_flag, false_positive_flag)
+        outfile: Output Excel file path
+        sheet_name: Name of the sheet to read from
+    """
+    # Read Excel file using polars
+    df = pl.read_excel(infile, sheet_name=sheet_name)
+    headers = df.columns
 
-        rowNum = 0
-        for line in meta:
-            if len(line) == 0:  # Skip empty lines
-                continue
-            if line[0].startswith(commentStartingCharacter):
-                comments.append(line[0].strip())
-                continue
+    # Initialize filter expressions
+    use_filter = pl.lit(False)
+    all_gomit = True
+    false_positive_filter = pl.lit(False)
 
-            if rowNum == 0:
-                hrow = line
-                for i in range(len(line)):
-                    headers[line[i]] = i
+    for gname, gmin, gomit, gremoveAsFalsePositive in groupStats:
+        if gname in headers:
+            if gomit:
+                # Include rows where this group has >= min_count
+                use_filter = use_filter | (pl.col(gname).cast(pl.Int64) >= gmin)
+                all_gomit = False
+            if gremoveAsFalsePositive:
+                # Mark as false positive if any value > 0 in this group
+                false_positive_filter = false_positive_filter | (pl.col(gname).cast(pl.Int64) > 0)
 
-            else:
-                use = False
-                allGomit = True
-                isFalsePositive = False
-                for gname, gmin, gomit, gremoveAsFalsePositive in groupStats:
-                    if gomit:
-                        use = use or (int(line[headers[gname]]) >= gmin)
-                        allGomit = False
-                    if gremoveAsFalsePositive:
-                        isFalsePositive = isFalsePositive or int(line[headers[gname]]) > 0
+    # Create filtered dataframes
+    if all_gomit:
+        # No omit filters applied, keep all data
+        data_df = df
+        not_used_df = pl.DataFrame()
+    else:
+        data_df = df.filter(use_filter)
+        not_used_df = df.filter(~use_filter)
 
-                if isFalsePositive:
-                    falsePositives.append(line)
-                if use or allGomit:  ## either use it because it was found more than n times in a group or because no omit was used
-                    data.append(line)
-                else:
-                    notUsed.append(line)
-            rowNum += 1
+    false_positives_df = df.filter(false_positive_filter)
 
-    with open(outfile, "w") as x:
-        metaWriter = csv.writer(x, delimiter="\t")
-        metaWriter.writerow(hrow)
-        for row in data:
-            metaWriter.writerow(row)
-        for comment in comments:
-            metaWriter.writerow([comment])
-        metaWriter.writerow(["## most likely true positives"])
+    add_sheet_to_excel(infile, data_df, new_sheet_name)
+    if len(not_used_df) > 0:
+        add_sheet_to_excel(infile, not_used_df, new_sheet_name + "_Omitted")
 
-    if len(notUsed) > 0:
-        with open(outfile.replace(".tsv", ".omitteds.tsv"), "w") as x:
-            metaWriter = csv.writer(x, delimiter="\t")
-            metaWriter.writerow(hrow)
-            for row in notUsed:
-                metaWriter.writerow(row)
-            for comment in comments:
-                metaWriter.writerow([comment])
-            metaWriter.writerow(["## features that have not been detected in a sufficiently high number of samples (group parameters omit)"])
-
-    if len(notUsed) > 0:
-        with open(outfile.replace(".tsv", ".falsePositives.tsv"), "w") as x:
-            metaWriter = csv.writer(x, delimiter="\t")
-            metaWriter.writerow(hrow)
-            for row in falsePositives:
-                metaWriter.writerow(row)
-            for comment in comments:
-                metaWriter.writerow([comment])
-            metaWriter.writerow(["## features that have  been detected in at least one 'blank' sample"])
+    if len(false_positives_df) > 0:
+        add_sheet_to_excel(infile, false_positives_df, new_sheet_name + "_FalsePositives")

@@ -20,6 +20,8 @@ import io
 import os
 import zipfile
 import polars as pl
+import xlsxwriter
+from json import dumps, loads
 
 
 class PolarsDB:
@@ -51,16 +53,17 @@ class PolarsDB:
         db.close()   # Commit and cleanup
     """
 
-    def __init__(self, filepath, format=None):
+    def __init__(self, filepath, format=None, load_all_tables=True):
         self.filepath = filepath
         self.tables = {}
         self.format = self._determine_format(format)
-        self.load_all_tables()
+        if load_all_tables:
+            self.load_all_tables()
 
     def _determine_format(self, format):
         """Determine the format from parameter or file extension."""
         if format is not None:
-            if format.lower() not in ["parquet"]:  ## Warning: TODO: currently only parquet format is supported!
+            if format.lower() not in ["parquet", "xlsx"]:  ## Warning: TODO: currently only parquet format is fully supported (i.e., use of datatypes)!
                 raise ValueError(f"Unsupported format: {format}. Use 'parquet'")
             return format.lower()
 
@@ -68,10 +71,10 @@ class PolarsDB:
         lower_path = self.filepath.lower()
         if lower_path.endswith(".meii") or lower_path.endswith(".parquet.zip"):
             return "parquet"
-        # elif lower_path.endswith(".xlsx") or lower_path.endswith(".xls"):
-        #    return "xlsx"
+        elif lower_path.endswith(".xlsx") or lower_path.endswith(".xls"):
+            return "xlsx"
         # elif lower_path.endswith(".tsv.zip"):
-        #    return "tsv"
+        #     return "tsv"
         else:
             # Try to detect from zip contents if it's a zip file
             if os.path.exists(self.filepath) and zipfile.is_zipfile(self.filepath):
@@ -99,9 +102,10 @@ class PolarsDB:
                 self._load_xlsx_tables()
             elif self.format == "tsv":
                 self._load_tsv_tables()
+
         except Exception as e:
-            print(f"Warning: Could not load tables from {self.filepath}: {e}")
-            self.tables = {}
+            print(f"Error: Could not load tables from {self.filepath}: {e}")
+            raise ValueError(f"Could not load tables from {self.filepath}: {e}")
 
     def _load_parquet_tables(self):
         """Load tables from a ZIP archive containing Parquet files."""
@@ -120,10 +124,21 @@ class PolarsDB:
         import fastexcel as fe
 
         wb = fe.read_excel(self.filepath)
+        dTypes_df = None
+        if "__dTypes__" in wb.sheet_names:
+            dTypes_df = pl.read_excel(self.filepath, sheet_name="__dTypes__")
         for sheet_name in wb.sheet_names:
             # Read the sheet into polars
-            df = pl.read_excel(self.filepath, sheet_name=sheet_name)
-            self.tables[sheet_name] = df
+            if sheet_name != "__dTypes__":
+                # get schema for this table
+                schema = None
+                if dTypes_df is not None:
+                    dTypes_row = dTypes_df.filter(pl.col("table_name") == sheet_name)
+                    if dTypes_row.height > 0:
+                        schema_str = dTypes_row[0, "schema"]
+                        schema = self.__convert_json_to_polarsSchema(schema_str)  # Convert string back to dict
+                df = pl.read_excel(self.filepath, sheet_name=sheet_name, schema_overrides=schema)
+                self.tables[sheet_name] = df
 
     def _load_tsv_tables(self):
         """Load tables from a ZIP archive containing TSV files."""
@@ -131,24 +146,37 @@ class PolarsDB:
         with zipfile.ZipFile(self.filepath, "r") as zf:
             for filename in zf.namelist():
                 if filename.endswith(".tsv") or filename.endswith(".txt"):
-                    # Remove extension to get table name
-                    if filename.endswith(".tsv"):
-                        table_name = filename[:-4]
-                    else:
-                        table_name = filename[:-4]
+                    if filename.lower() != "__dTypes__.tsv" and filename.lower() != "__dTypes__.txt":
+                        # Remove extension to get table name
+                        if filename.endswith(".tsv"):
+                            table_name = filename[:-4]
+                        else:
+                            table_name = filename[:-4]
 
-                    with zf.open(filename) as f:
-                        tsv_data = f.read()
-                        df = pl.read_csv(io.BytesIO(tsv_data), separator="\t")
-                        self.tables[table_name] = df
+                        with zf.open(filename) as f:
+                            tsv_data = f.read()
+                            df = pl.read_csv(io.BytesIO(tsv_data), separator="\t")
+                            self.tables[table_name] = df
+                # TODO import dTypes if available
 
     def create_table(self, table_name, schema):
         """Create a new empty table with given schema."""
+        if self.has_table(table_name):
+            raise ValueError(f"Table '{table_name}' already exists.")
         self.tables[table_name] = pl.DataFrame(schema=schema)
+
+    def insert_table(self, table_name, df):
+        """Insert a whole DataFrame as a table."""
+        if self.has_table(table_name):
+            raise ValueError(f"Table '{table_name}' already exists. Use insert_row() to add rows.")
+        self.tables[table_name] = df
+
+    def set_table(self, table_name, df):
+        self.tables[table_name] = df
 
     def insert_row(self, table_name, row_dict):
         """Insert a single row into a table."""
-        if table_name not in self.tables:
+        if not self.has_table(table_name):
             raise ValueError(f"Table '{table_name}' does not exist. Create it first with create_table().")
 
         # Get the table's schema
@@ -180,20 +208,28 @@ class PolarsDB:
 
     def get_table(self, table_name):
         """Get a table as a Polars DataFrame."""
+        if not self.has_table(table_name):
+            raise ValueError(f"Table '{table_name}' does not exist.")
         return self.tables.get(table_name, pl.DataFrame())
+
+    def has_table(self, table_name):
+        """Check if a table exists."""
+        return table_name in self.tables
 
     def delete_rows(self, table_name, condition):
         """Delete rows from a table based on a condition (Polars expression)."""
-        if table_name in self.tables:
-            self.tables[table_name] = self.tables[table_name].filter(~condition)
+        if not self.has_table(table_name):
+            raise ValueError(f"Table '{table_name}' does not exist.")
+        self.tables[table_name] = self.tables[table_name].filter(~condition)
 
     def update_rows(self, table_name, condition, updates):
         """Update rows in a table based on a condition."""
-        if table_name in self.tables:
-            df = self.tables[table_name]
-            for col, value in updates.items():
-                df = df.with_columns(pl.when(condition).then(pl.lit(value)).otherwise(pl.col(col)).alias(col))
-            self.tables[table_name] = df
+        if not self.has_table(table_name):
+            raise ValueError(f"Table '{table_name}' does not exist.")
+        df = self.tables[table_name]
+        for col, value in updates.items():
+            df = df.with_columns(pl.when(condition).then(pl.lit(value)).otherwise(pl.col(col)).alias(col))
+        self.tables[table_name] = df
 
     def execute(self, query_desc, params=None):
         """
@@ -230,24 +266,67 @@ class PolarsDB:
 
     def _save_xlsx_tables(self):
         """Save all tables as sheets in an Excel file."""
-
-        import xlsxwriter
-
         with xlsxwriter.Workbook(self.filepath) as wb:
+            dTypes_table = {}
             for table_name, df in self.tables.items():
-                df.write_excel(workbook=wb, worksheet=table_name)
+                if table_name != "__dTypes__":
+                    # save dTypes of each row
+                    dTypes_table[table_name] = df.schema
+                    df.write_excel(workbook=wb, worksheet=table_name, autofit=True, float_precision=4)
+            # save dTypes table as json object
+            dTypes_df = pl.DataFrame([{"table_name": tname, "schema": self.__convert_polarsSchema_to_json(schema)} for tname, schema in dTypes_table.items()])
+            dTypes_df.write_excel(workbook=wb, worksheet="__dTypes__")
 
     def _save_tsv_tables(self):
         """Save all tables as TSV files in a ZIP archive."""
         with zipfile.ZipFile(self.filepath, "w", zipfile.ZIP_DEFLATED) as zf:
+            dTypes_table = {}
             for table_name, df in self.tables.items():
-                buffer = io.BytesIO()
-                # Write to buffer as TSV
-                df.write_csv(buffer, separator="\t")
-                buffer.seek(0)
-                zf.writestr(f"{table_name}.tsv", buffer.getvalue())
+                if table_name != "__dTypes__":
+                    # save dTypes of each row
+                    dTypes_table[table_name] = df.schema
+                    buffer = io.BytesIO()
+                    # Write to buffer as TSV
+                    df.write_csv(buffer, separator="\t", has_header=True, quote_char='"', escape_char="\\", null_value="", encoding="utf-8", line_terminator="\n", quote_style="necessary")
+                    buffer.seek(0)
+                    zf.writestr(f"{table_name}.tsv", buffer.getvalue())
+            # save dTypes table
+            dTypes_df = pl.DataFrame([{"table_name": tname, "schema": self.__convert_polarsSchema_to_json(schema)} for tname, schema in dTypes_table.items()])
+            buffer = io.BytesIO()
+            dTypes_df.write_csv(buffer, separator="\t", has_header=True, quote_char='"', escape_char="\\", null_value="", encoding="utf-8", line_terminator="\n", quote_style="necessary")
+            buffer.seek(0)
+            zf.writestr("__dTypes__.tsv", buffer.getvalue())
 
     def close(self):
         """Close the database (commit and cleanup)."""
         self.commit()
         self.tables = {}
+
+    def __convert_polarsSchema_to_json(self, schema):
+        """Convert Polars schema to JSON-serializable format."""
+        json_schema = {}
+        for col_name, col_type in schema.items():
+            if col_type == pl.Int64:
+                json_schema[col_name] = "Int64"
+            elif col_type == pl.Float64:
+                json_schema[col_name] = "Float64"
+            elif col_type == pl.Utf8:
+                # do not include, default
+                pass
+            else:
+                raise ValueError(f"Unsupported column type: {col_type}")
+        return dumps(json_schema)
+
+    def __convert_json_to_polarsSchema(self, json_schema):
+        """Convert JSON-serializable schema back to Polars schema."""
+        schema = loads(json_schema)
+        for col_name, col_type_str in schema.items():
+            if col_type_str == "Int64":
+                schema[col_name] = pl.Int64
+            elif col_type_str == "Float64":
+                schema[col_name] = pl.Float64
+            elif col_type_str == "Utf8":
+                schema[col_name] = pl.Utf8
+            else:
+                raise ValueError(f"Unsupported column type: {col_type_str}")
+        return schema

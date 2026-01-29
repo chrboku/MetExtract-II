@@ -156,6 +156,7 @@ def convertMEMatrixToFeatureML(meMatrixFile, featureMLFile=None):
 
 def convertMEMatrixToFeatureMLSepPolarities(
     meMatrixFile,
+    sheet_name,
     featureMLFile=None,
     postfix="",
     numCol="Num",
@@ -179,7 +180,7 @@ def convertMEMatrixToFeatureMLSepPolarities(
         # Use polars to read Excel file
         import polars as pl
 
-        df = pl.read_excel(meMatrixFile, sheet_name="Sheet1")
+        df = pl.read_excel(meMatrixFile, sheet_name=sheet_name)
 
         # Convert dataframe to list of features
         for row in df.iter_rows(named=True):

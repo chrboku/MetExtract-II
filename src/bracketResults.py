@@ -7,7 +7,11 @@ from operator import itemgetter
 import os
 from math import floor
 import ast
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
+import uuid
+import datetime
+from pprint import pprint
+from multiprocessing import Pool, Manager
 
 from reportlab.graphics.shapes import Drawing
 from reportlab.graphics.charts.lineplots import LinePlot
@@ -40,8 +44,7 @@ import time
 
 from . import HCA_general
 from .Chromatogram import Chromatogram
-from .utils import mean, sd, corr
-
+from .utils import mean, sd, corr, add_sheet_to_excel
 
 from . import exportAsFeatureML
 
@@ -110,9 +113,6 @@ def bracketResults(
     file="./results.tsv",
     align=True,
     nPolynom=1,
-    expPeakArea=True,
-    expApexIntensity=True,
-    expPeakSNR=False,
     pwMaxSet=None,
     pwValSet=None,
     pwTextSet=None,
@@ -161,30 +161,52 @@ def bracketResults(
                 )
 
                 results.append(b)
-
             i += 1
 
         # Initialize data collection for Excel output
-        excel_data = {
-            "Num": [],
-            "Comment": [],
-            "MZ": [],
-            "L_MZ": [],
-            "D_MZ": [],
-            "MZ_Range": [],
-            "RT": [],
-            "RT_Range": [],
-            "PeakScalesNL": [],
-            "Xn": [],
-            "Charge": [],
-            "ScanEvent": [],
-            "Ionisation_Mode": [],
-            "Tracer": [],
-            "OGroup": [],
-            "Ion": [],
-            "Loss": [],
-            "M": [],
-        }
+        excel_data = OrderedDict()
+        excel_data["Num"] = []
+        excel_data["OGroup"] = []
+        excel_data["Relative_intensity_in_group"] = []
+        excel_data["Identity"] = []
+        excel_data["Comment"] = []
+        excel_data["Ionisation_Mode"] = []
+        excel_data["RT"] = []
+        excel_data["MZ"] = []
+        excel_data["Charge"] = []
+        excel_data["Xn"] = []
+        excel_data["Ion"] = []
+        excel_data["Loss"] = []
+        excel_data["M"] = []
+        excel_data["L_MZ"] = []
+        excel_data["D_MZ"] = []
+        excel_data["RT_Range"] = []
+        excel_data["MZ_Range"] = []
+        excel_data["PeakScalesNL"] = []
+        excel_data["ScanEvent"] = []
+        excel_data["Tracer"] = []
+
+        excel_data_dTypes = OrderedDict()
+        excel_data_dTypes["Num"] = pl.Int64
+        excel_data_dTypes["OGroup"] = pl.Int64
+        excel_data_dTypes["Relative_intensity_in_group"] = pl.Float64
+        excel_data_dTypes["Comment"] = pl.Utf8
+        excel_data_dTypes["Identity"] = pl.Utf8
+        excel_data_dTypes["MZ"] = pl.Float64
+        excel_data_dTypes["L_MZ"] = pl.Float64
+        excel_data_dTypes["D_MZ"] = pl.Float64
+        excel_data_dTypes["MZ_Range"] = pl.Utf8
+        excel_data_dTypes["RT"] = pl.Float64
+        excel_data_dTypes["RT_Range"] = pl.Utf8
+        excel_data_dTypes["PeakScalesNL"] = pl.Utf8
+        excel_data_dTypes["Xn"] = pl.Utf8
+        excel_data_dTypes["Charge"] = pl.Int64
+        excel_data_dTypes["ScanEvent"] = pl.Utf8
+        excel_data_dTypes["Ionisation_Mode"] = pl.Utf8
+        excel_data_dTypes["Tracer"] = pl.Utf8
+        excel_data_dTypes["Ion"] = pl.Utf8
+        excel_data_dTypes["Loss"] = pl.Utf8
+        excel_data_dTypes["M"] = pl.Utf8
 
         # Add file-specific columns
         for res in results:
@@ -194,16 +216,42 @@ def bracketResults(
             if ".mzml" in fname.lower():
                 fname = fname[max(fname.rfind("/") + 1, fname.rfind("\\") + 1) : fname.lower().rfind(".mzml")]
 
+            excel_data[fname + "_Found"] = []
             excel_data[fname + "_Area_N"] = []
             excel_data[fname + "_Area_L"] = []
             excel_data[fname + "_Abundance_N"] = []
             excel_data[fname + "_Abundance_L"] = []
+            excel_data[fname + "_peaksCorr"] = []
             excel_data[fname + "_SNR_N"] = []
             excel_data[fname + "_SNR_L"] = []
+            excel_data[fname + "_NBorderLeft"] = []
+            excel_data[fname + "_NBorderRight"] = []
+            excel_data[fname + "_LBorderLeft"] = []
+            excel_data[fname + "_LBorderRight"] = []
+            excel_data[fname + "_peaksRatio"] = []
+            excel_data[fname + "_artificialEICLShift"] = []
             excel_data[fname + "_FID"] = []
             excel_data[fname + "_GroupID"] = []
 
+            excel_data_dTypes[fname + "_Found"] = pl.Utf8
+            excel_data_dTypes[fname + "_Area_N"] = pl.Utf8
+            excel_data_dTypes[fname + "_Area_L"] = pl.Utf8
+            excel_data_dTypes[fname + "_Abundance_N"] = pl.Utf8
+            excel_data_dTypes[fname + "_Abundance_L"] = pl.Utf8
+            excel_data_dTypes[fname + "_peaksCorr"] = pl.Utf8
+            excel_data_dTypes[fname + "_SNR_N"] = pl.Utf8
+            excel_data_dTypes[fname + "_SNR_L"] = pl.Utf8
+            excel_data_dTypes[fname + "_NBorderLeft"] = pl.Utf8
+            excel_data_dTypes[fname + "_NBorderRight"] = pl.Utf8
+            excel_data_dTypes[fname + "_LBorderLeft"] = pl.Utf8
+            excel_data_dTypes[fname + "_LBorderRight"] = pl.Utf8
+            excel_data_dTypes[fname + "_peaksRatio"] = pl.Utf8
+            excel_data_dTypes[fname + "_artificialEICLShift"] = pl.Utf8
+            excel_data_dTypes[fname + "_FID"] = pl.Utf8
+            excel_data_dTypes[fname + "_GroupID"] = pl.Utf8
+
         excel_data["doublePeak"] = []
+        excel_data_dTypes["doublePeak"] = pl.Int64
 
         # get ionisation modes scan events
         ionModes = {}
@@ -352,8 +400,6 @@ def bracketResults(
                                 else:
                                     filtered_peaks = filtered_peaks.with_columns(pl.lit(None).alias("tracerName"))
 
-                                print(f"File {res.fileName}: Found {len(filtered_peaks)} chromPeaks for IonMode {ionMode}, XCount {xCount}, Loading {cLoading}")
-
                                 for row in filtered_peaks.iter_rows(named=True):
                                     try:
                                         cp = ChromPeakPair(
@@ -383,6 +429,9 @@ def bracketResults(
                                             NBorderRight=float(row["NBorderRight"]),
                                             LBorderLeft=float(row["LBorderLeft"]),
                                             LBorderRight=float(row["LBorderRight"]),
+                                            artificialEICLShift=int(row["artificialEICLShift"]),
+                                            peaksRatio=float(row["peaksRatio"]),
+                                            peaksCorr=float(row["peaksCorr"]),
                                         )
 
                                         assert cp.ionMode in ionModes.keys()
@@ -752,6 +801,9 @@ def bracketResults(
 
                                                     # Append data to excel_data dictionary
                                                     excel_data["Num"].append(curNum)
+                                                    excel_data["OGroup"].append(None)
+                                                    excel_data["Relative_intensity_in_group"].append(None)
+                                                    excel_data["Identity"].append(None)
                                                     excel_data["Comment"].append("")
                                                     excel_data["MZ"].append(avgmz)
                                                     excel_data["L_MZ"].append(avglmz)
@@ -784,10 +836,9 @@ def bracketResults(
                                                     excel_data["Ionisation_Mode"].append(ionMode)
                                                     excel_data["Tracer"].append(str(tracer))
 
-                                                    excel_data["OGroup"].append("")
-                                                    excel_data["Ion"].append("")
-                                                    excel_data["Loss"].append("")
-                                                    excel_data["M"].append("")
+                                                    excel_data["Ion"].append(None)
+                                                    excel_data["Loss"].append(None)
+                                                    excel_data["M"].append(None)
 
                                                     doublePeak = 0
                                                     for j in range(len(results)):
@@ -801,24 +852,40 @@ def bracketResults(
                                                         if res in groupedChromPeaks[i] and len(groupedChromPeaks[i][res]) > 0:
                                                             doublePeak += 1 if len(groupedChromPeaks[i][res]) > 1 else 0
 
+                                                            excel_data[fname + "_Found"].append(";".join(["Direct" for peak in groupedChromPeaks[i][res]]))
                                                             excel_data[fname + "_Area_N"].append(";".join([str(peak[1].NPeakArea) for peak in groupedChromPeaks[i][res]]))
                                                             excel_data[fname + "_Area_L"].append(";".join([str(peak[1].LPeakArea) for peak in groupedChromPeaks[i][res]]))
                                                             excel_data[fname + "_Abundance_N"].append(";".join([str(peak[1].NPeakAbundance) for peak in groupedChromPeaks[i][res]]))
                                                             excel_data[fname + "_Abundance_L"].append(";".join([str(peak[1].LPeakAbundance) for peak in groupedChromPeaks[i][res]]))
+                                                            excel_data[fname + "_peaksCorr"].append(";".join([str(peak[1].peaksCorr) for peak in groupedChromPeaks[i][res]]))
                                                             excel_data[fname + "_SNR_N"].append(";".join([str(peak[1].NSNR) for peak in groupedChromPeaks[i][res]]))
                                                             excel_data[fname + "_SNR_L"].append(";".join([str(peak[1].LSNR) for peak in groupedChromPeaks[i][res]]))
+                                                            excel_data[fname + "_NBorderLeft"].append(";".join([str(peak[1].NBorderLeft) for peak in groupedChromPeaks[i][res]]))
+                                                            excel_data[fname + "_NBorderRight"].append(";".join([str(peak[1].NBorderRight) for peak in groupedChromPeaks[i][res]]))
+                                                            excel_data[fname + "_LBorderLeft"].append(";".join([str(peak[1].LBorderLeft) for peak in groupedChromPeaks[i][res]]))
+                                                            excel_data[fname + "_LBorderRight"].append(";".join([str(peak[1].LBorderRight) for peak in groupedChromPeaks[i][res]]))
+                                                            excel_data[fname + "_peaksRatio"].append(";".join([str(peak[1].peaksRatio) for peak in groupedChromPeaks[i][res]]))
+                                                            excel_data[fname + "_artificialEICLShift"].append(";".join([str(peak[1].artificialEICLShift) for peak in groupedChromPeaks[i][res]]))
                                                             excel_data[fname + "_FID"].append(";".join([str(peak[1].id) for peak in groupedChromPeaks[i][res]]))
                                                             excel_data[fname + "_GroupID"].append(";".join([str(peak[1].fGroupID) for peak in groupedChromPeaks[i][res]]))
 
                                                         else:
-                                                            excel_data[fname + "_Area_N"].append("")
-                                                            excel_data[fname + "_Area_L"].append("")
-                                                            excel_data[fname + "_Abundance_N"].append("")
-                                                            excel_data[fname + "_Abundance_L"].append("")
-                                                            excel_data[fname + "_SNR_N"].append("")
-                                                            excel_data[fname + "_SNR_L"].append("")
-                                                            excel_data[fname + "_FID"].append("")
-                                                            excel_data[fname + "_GroupID"].append("")
+                                                            excel_data[fname + "_Found"].append(None)
+                                                            excel_data[fname + "_Area_N"].append(None)
+                                                            excel_data[fname + "_Area_L"].append(None)
+                                                            excel_data[fname + "_Abundance_N"].append(None)
+                                                            excel_data[fname + "_Abundance_L"].append(None)
+                                                            excel_data[fname + "_peaksCorr"].append(None)
+                                                            excel_data[fname + "_SNR_N"].append(None)
+                                                            excel_data[fname + "_SNR_L"].append(None)
+                                                            excel_data[fname + "_NBorderLeft"].append(None)
+                                                            excel_data[fname + "_NBorderRight"].append(None)
+                                                            excel_data[fname + "_LBorderLeft"].append(None)
+                                                            excel_data[fname + "_LBorderRight"].append(None)
+                                                            excel_data[fname + "_peaksRatio"].append(None)
+                                                            excel_data[fname + "_artificialEICLShift"].append(None)
+                                                            excel_data[fname + "_FID"].append(None)
+                                                            excel_data[fname + "_GroupID"].append(None)
 
                                                     excel_data["doublePeak"].append(doublePeak)
 
@@ -869,75 +936,78 @@ def bracketResults(
                                                 )
                                             )
                                 curAllMZs = []
-            if writePDF:
-                pdf.save()
+        if writePDF:
+            pdf.save()
 
-            # Add metadata as a separate sheet to the Excel file
-            import uuid
-            import platform
-            import datetime
-            from openpyxl import load_workbook
+        # Prepare metadata strings
+        parameters_df = {"Parameter": [], "Value": []}
+        parameters_df["Parameter"].append("# MetExtract II")
+        parameters_df["Value"].append(f"")
+        parameters_df["Parameter"].append("version")
+        parameters_df["Value"].append(f"{meVersion}")
+        parameters_df["Parameter"].append("R version")
+        parameters_df["Value"].append(f"{rVersion}")
+        parameters_df["Parameter"].append("# Execution")
+        parameters_df["Value"].append(f"")
+        parameters_df["Parameter"].append("Date")
+        parameters_df["Value"].append(f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        parameters_df["Parameter"].append("UUID")
+        parameters_df["Value"].append(f"{uuid.uuid4()}")
 
-            identifier = "%s_%s_%s" % (
-                str(uuid.uuid1()),
-                str(platform.node()),
-                str(datetime.datetime.now()),
-            )
+        parameters_df["Parameter"].append("# Individual files processing parameters")
+        parameters_df["Value"].append(f"")
 
-            # Prepare metadata strings
-            metadata_lines = []
-            metadata_lines.append(
-                "## MetExtract II %s"
-                % (
-                    Bunch(
-                        MetExtractVersion=meVersion,
-                        RVersion=rVersion,
-                        UUID_ext=identifier,
-                    )
-                    .dumpAsJSon()
-                    .replace('"', "'")
-                )
-            )
-            metadata_lines.append("## Individual files processing parameters %s" % (generalProcessingParams.dumpAsJSon().replace('"', "'")))
+        for k, v in generalProcessingParams.__dict__.items():
+            parameters_df["Parameter"].append(str(k))
+            parameters_df["Value"].append(str(v))
 
-            processingParams = Bunch()
-            xCountsFmt = []
-            try:
-                for xn in sorted(xCounts):
-                    if xn - 1 in xCounts and xn + 1 in xCounts:
-                        xCountsFmt.append("-")
-                    else:
-                        if xn - 1 not in xCounts:
-                            xCountsFmt.append(", ")
-                        xCountsFmt.append(xn)
-                xCountsFmt.pop(0)
-                seen = set()
-                seen_add = seen.add
-                xCountsFmt = [x for x in xCountsFmt if not (x in seen or seen_add(x)) or x == ", "]
-            except Exception:
-                xCountsFmt = xCounts
+        xCountsFmt = []
+        try:
+            for xn in sorted(xCounts):
+                if xn - 1 in xCounts and xn + 1 in xCounts:
+                    xCountsFmt.append("-")
+                else:
+                    if xn - 1 not in xCounts:
+                        xCountsFmt.append(", ")
+                    xCountsFmt.append(xn)
+            xCountsFmt.pop(0)
+            seen = set()
+            seen_add = seen.add
+            xCountsFmt = [x for x in xCountsFmt if not (x in seen or seen_add(x)) or x == ", "]
+        except Exception:
+            xCountsFmt = xCounts
 
-            processingParams.FPBracketing_xCounts = "".join([str(t) for t in xCountsFmt])
-            processingParams.FPBracketing_groupSizePPM = groupSizePPM
-            processingParams.FPBracketing_positiveScanEvent = positiveScanEvent
-            processingParams.FPBracketing_negativeScanEvent = negativeScanEvent
-            processingParams.FPBracketing_maxTimeDeviation = maxTimeDeviation
-            processingParams.FPBracketing_maxLoading = maxLoading
-            processingParams.FPBracketing_resultsFile = file
-            processingParams.FPBracketing_align = align
-            if align:
-                processingParams.FPBracketing_nPolynom = nPolynom
-            metadata_lines.append("## Bracketing files processing parameters %s" % (processingParams.dumpAsJSon().replace('"', "'")))
+        parameters_df["Parameter"].append("# Bracketing data processing parameters")
+        parameters_df["Value"].append(f"")
+        parameters_df["Parameter"].append("xCounts")
+        parameters_df["Value"].append("".join([str(t) for t in xCountsFmt]))
+        parameters_df["Parameter"].append("Group size ppm")
+        parameters_df["Value"].append(f"{groupSizePPM}")
+        parameters_df["Parameter"].append("max. time deviation")
+        parameters_df["Value"].append(f"{maxTimeDeviation} min")
+        parameters_df["Parameter"].append("max. loading")
+        parameters_df["Value"].append(f"{maxLoading}")
+        parameters_df["Parameter"].append("PTW alignment")
+        parameters_df["Value"].append(f"{align}")
+        if align:
+            parameters_df["Parameter"].append("n polynom for alignment")
+            parameters_df["Value"].append(f"{nPolynom}")
+        parameters_df["Parameter"].append("")
+        parameters_df["Value"].append(f"")
+        parameters_df["Parameter"].append("")
+        parameters_df["Value"].append(f"")
 
-            params_df = pl.DataFrame({"Parameters": metadata_lines})
-            df = pl.DataFrame(excel_data).sort("RT")
+        params_df = pl.DataFrame(parameters_df)
+        df = pl.DataFrame(excel_data, schema=excel_data_dTypes).sort("RT")
 
-            excel_file = file.replace(".tsv", ".xlsx")
-            with xlsxwriter.Workbook(excel_file) as workbook:
-                params_df.write_excel(workbook=workbook, worksheet="Parameters")
-                df.write_excel(workbook=workbook, worksheet="1_afterBracketing")
+        excel_file = file.replace(".tsv", ".xlsx")
+        plDB = PolarsDB(excel_file, format="xlsx")
+        plDB.insert_table("Parameters", params_df)
+        plDB.insert_table("1_afterBracketing", df)
+        plDB.commit()
+        plDB.close()
 
-        exportAsFeatureML.convertMEMatrixToFeatureMLSepPolarities(excel_file, postfix="_ab")
+        exportAsFeatureML.convertMEMatrixToFeatureMLSepPolarities(excel_file, sheet_name="1_afterBracketing", postfix="_ab")
 
     except Exception as ex:
         import traceback
@@ -961,12 +1031,12 @@ def bracketResults(
 
 # store used configuration to DB file
 def writeMetaboliteGroupingConfigToDB(db, minConnectionsInFiles, minConnectionRate, groups):
-    db.insert_row("config", {"key": "MEGROUP_groups", "value": str(groups)})
+    db.insert_row("Parameters", {"Parameter": f"MEGroups", "Value": f"{groups}"})
     db.insert_row(
-        "config",
-        {"key": "MEGROUP_minConnectionsInFiles", "value": str(minConnectionsInFiles)},
+        "Parameters",
+        {"Parameter": f"MEGROUP_minConnectionsInFiles", "Value": f"{minConnectionsInFiles}"},
     )
-    db.insert_row("config", {"key": "MEGROUP_minConnectionRate", "value": str(minConnectionRate)})
+    db.insert_row("Parameters", {"Parameter": f"MEGROUP_minConnectionRate", "Value": f"{minConnectionRate}"})
 
 
 def getBordersFor(db, fID, file):
@@ -989,7 +1059,7 @@ def getPeak(times, rt, borderleft, borderright):
 
 
 def calculateMetaboliteGroups(
-    file="./results.tsv",
+    file="./results.xlsx",
     groups=[],
     eicPPM=10.0,
     maxAnnotationTimeWindow=0.05,
@@ -1003,6 +1073,8 @@ def calculateMetaboliteGroups(
     pwTextSet=None,
     cpus=1,
     toFile=None,
+    sheet_name="1_afterBracketing",
+    new_sheet_name="2_afterConvolution",
 ):
     if toFile is None:
         toFile = file
@@ -1010,7 +1082,7 @@ def calculateMetaboliteGroups(
     logging.info("Starting convoluting feature pairs..")
 
     resDB = Bunch(conn=None, curs=None)
-    resDB.conn = PolarsDB(file + getDBSuffix())
+    resDB.conn = PolarsDB(file, format="xlsx", load_all_tables=True)
     resDB.curs = resDB.conn.cursor()
 
     try:
@@ -1040,37 +1112,8 @@ def calculateMetaboliteGroups(
             str(useGroupsForConfig).replace("'", "").replace('"', ""),
         )
 
-        # read results table - determine file type from extension
-        comments = []
-        if file.lower().endswith(".tsv") or file.lower().endswith(".txt"):
-            # Read comments first
-            with open(file, "r", encoding="utf-8") as fi:
-                for line in fi:
-                    if line.startswith("#"):
-                        comments.append(line.strip())
-
-            # Read TSV file with polars
-            table_df = pl.read_csv(
-                file,
-                separator="\t",
-                comment_prefix="#",
-                infer_schema_length=10000,
-                ignore_errors=True,
-            )
-        elif file.lower().endswith(".csv"):
-            with open(file, "r", encoding="utf-8") as fi:
-                for line in fi:
-                    if line.startswith("#"):
-                        comments.append(line.strip())
-
-            table_df = pl.read_csv(
-                file,
-                comment_prefix="#",
-                infer_schema_length=10000,
-                ignore_errors=True,
-            )
-        else:
-            raise ValueError(f"Unsupported file extension for {file}")
+        # read results table from Excel file
+        table_df = resDB.conn.get_table(sheet_name)
 
         cols = table_df.columns
 
@@ -1087,13 +1130,9 @@ def calculateMetaboliteGroups(
 
         if doublePeaks > 0:
             logging.info("  found double peaks: %d" % doublePeaks)
-            # Save double peaks to separate file
+            # Save double peaks to separate sheet
             double_peaks_df = table_df.filter(pl.col("doublePeak") > 0)
-            double_peaks_file = toFile.replace(".tsv", ".doublePeaks.tsv")
-            if double_peaks_file.lower().endswith(".tsv") or double_peaks_file.lower().endswith(".txt"):
-                double_peaks_df.write_csv(double_peaks_file, separator="\t")
-            elif double_peaks_file.lower().endswith(".csv"):
-                double_peaks_df.write_csv(double_peaks_file)
+            resDB.conn.insert_table("4_foundDoublePeaks", double_peaks_df)
 
         # Delete rows where doublePeak > 0
         table_df = table_df.filter(pl.col("doublePeak") <= 0)
@@ -1110,18 +1149,7 @@ def calculateMetaboliteGroups(
 
         # fetch all feature pairs from the results file
         nodes = {}
-        for row in table_df.select(
-            [
-                "Num",
-                "MZ",
-                "L_MZ",
-                "RT",
-                "Xn",
-                "Charge",
-                "ScanEvent",
-                "Ionisation_Mode",
-            ]
-        ).iter_rows(named=True):
+        for row in table_df.iter_rows(named=True):
             nodes[row["Num"]] = Bunch(
                 fpNum=row["Num"],
                 mz=row["MZ"],
@@ -1138,37 +1166,27 @@ def calculateMetaboliteGroups(
         ## generate all correlations and sil ratios
         fileCorrelations = {}
         fileSILRatios = {}
-
         borders = {}
-        ffp_table = resDB.conn.get_table("foundfeaturepairs")
-        if not ffp_table.is_empty():
-            for row in ffp_table.iter_rows(named=True):
-                fil = str(row["file"])
-                resID = int(row["resID"])
-                if fil not in borders.keys():
-                    borders[fil] = {}
-                borders[fil][resID] = (
-                    float(row["NBorderLeft"]),
-                    float(row["NBorderRight"]),
-                    float(row["LBorderLeft"]),
-                    float(row["LBorderRight"]),
-                )
-
-        ## Iterate all files
-        processedFiles = 0
         procObjects = []
         for group in useGroups:
             for fi in group.files:
-                if fi not in fileCorrelations.keys():
-                    # if pwTextSet is not None: pwTextSet.put(Bunch(mes="text", val="Convoluting feature pairs in file %s" % (fi)))
-                    # if pwValSet is not None: pwValSet.put(Bunch(mes="value", val=processedFiles))
+                borders[fi] = {}
+                fil = os.path.basename(fi).replace(".mzXML", "").replace(".mzML", "")
 
+                for row in table_df.iter_rows(named=True):
+                    fpNum = row["Num"]
+                    fID = row[f"{fil}_FID"]
+
+                    if fID is not None:
+                        nBorderLeft = row[f"{fil}_NBorderLeft"]
+                        nBorderRight = row[f"{fil}_NBorderRight"]
+                        lBorderLeft = row[f"{fil}_LBorderLeft"]
+                        lBorderRight = row[f"{fil}_LBorderRight"]
+                        borders[fi][fpNum] = (float(nBorderLeft), float(nBorderRight), float(lBorderLeft), float(lBorderRight))
+
+                if fi not in fileCorrelations.keys():
                     s = ConvoluteFPsInFile(eicPPM, fi, maxAnnotationTimeWindow, nodes, borders)
                     procObjects.append(s)
-
-                    # processedFiles += 1
-
-        from multiprocessing import Pool, Manager
 
         p = Pool(processes=cpus, maxtasksperchild=1)  # only in python >=2.7; experimental
         manager = Manager()
@@ -1300,13 +1318,6 @@ def calculateMetaboliteGroups(
                     inds = hca.getIndsFor(tree)
 
                     aboveThreshold = sum([corr > corrThreshold for i, corr in enumerate(corrs) if i in inds])
-
-                    # hc.plotTree(tree)
-                    # print(corrs)
-                    # print([corrs[i] for i in inds])
-                    # print(aboveThreshold)
-                    # print(".....")
-                    # print("")
                     return not (aboveThreshold * 1.0 / len(inds)) >= cutOffMinRatio
 
                 else:
@@ -1339,131 +1350,54 @@ def calculateMetaboliteGroups(
             for i in range(len(tGroup)):
                 # Update in DataFrame
                 table_df = table_df.with_columns(pl.when(pl.col("Num") == tGroup[i]).then(pl.lit(curGroup)).otherwise(pl.col("OGroup")).alias("OGroup"))
-                # Update in ParquetDB
-                group_results = resDB.conn.get_table("GroupResults")
-                if not group_results.is_empty():
-                    resDB.conn.tables["GroupResults"] = group_results.with_columns(pl.when(pl.col("id") == tGroup[i]).then(pl.lit(curGroup)).otherwise(pl.col("OGroup")).alias("OGroup"))
 
             curGroup += 1
 
-        logging.info("Annotating ions in feature groups")
-        # Annotate groups with common adducts and in-source fragments
-        if runIdentificationInstance is not None:
-            groups = defaultdict(list)
-            for row in table_df.select(
-                [
-                    "Num",
-                    "OGroup",
-                    "MZ",
-                    "Ionisation_Mode",
-                    "Charge",
-                    "Ion",
-                    "Xn",
-                    "Loss",
-                    "M",
-                ]
-            ).iter_rows(named=True):
-                groups[row["OGroup"]].append(
-                    ChromPeakPair(
-                        id=row["Num"],
-                        fGroupID=row["OGroup"],
-                        mz=row["MZ"],
-                        ionMode=row["Ionisation_Mode"],
-                        loading=row["Charge"],
-                        adducts=[],
-                        heteroAtomsFeaturePairs=[],
-                        xCount=row["Xn"],
-                        fDesc=[],
-                    )
-                )
+        # Calculate colun Relative_intensity_in_group per group, use the average abundance from any column ending with Abundance_N for the sorting of the rows, ignore missing values
+        for g in table_df.select(pl.col("OGroup")).unique().to_series():
+            group_rows = table_df.filter(pl.col("OGroup") == g)
+            abundance_cols = [col for col in table_df.columns if col.endswith("_Abundance_N")]
+            avg_abundances = []
+            for row in group_rows.iter_rows(named=True):
+                abundances = []
+                for col in abundance_cols:
+                    val = row[col]
+                    if val is not None:
+                        try:
+                            abundances.append(float(val))
+                        except Exception:
+                            pass
+                if len(abundances) > 0:
+                    avg_abundance = sum(abundances) / len(abundances)
+                else:
+                    avg_abundance = 0
+                avg_abundances.append((row["Num"], avg_abundance))
 
-            for ogrp in groups.keys():
-                chromPeaks = {}
-                for fp in groups[ogrp]:
-                    chromPeaks[fp.id] = fp
+            # Sort by average abundance descending
+            avg_abundances.sort(key=lambda x: x[1], reverse=True)
+            total_abundance, max_abundance = sum([ab for _, ab in avg_abundances]), max([ab for _, ab in avg_abundances])
 
-                runIdentificationInstance.annotateChromPeaks(chromPeaks.keys(), chromPeaks)
+            # Assign Relative_intensity_in_group
+            for rank, (fpNum, avg_abundance) in enumerate(avg_abundances, start=1):
+                abundance_ratio = avg_abundance / total_abundance
+                table_df = table_df.with_columns(pl.when(pl.col("Num") == fpNum).then(pl.lit(abundance_ratio)).otherwise(pl.col("Relative_intensity_in_group")).alias("Relative_intensity_in_group"))
 
-            for ogrp in groups.keys():
-                for fp in groups[ogrp]:
-                    # Update in DataFrame
-                    table_df = table_df.with_columns(
-                        pl.when(pl.col("Num") == fp.id).then(pl.lit(",".join([str(a) for a in fp.adducts]))).otherwise(pl.col("Ion")).alias("Ion"),
-                        pl.when(pl.col("Num") == fp.id).then(pl.lit(",".join([str(a) for a in fp.fDesc]))).otherwise(pl.col("Loss")).alias("Loss"),
-                        pl.when(pl.col("Num") == fp.id).then(pl.lit(",".join([str(a) for a in fp.Ms]))).otherwise(pl.col("M")).alias("M"),
-                    )
-                    # Update in ParquetDB
-                    group_results = resDB.conn.get_table("GroupResults")
-                    if not group_results.is_empty():
-                        resDB.conn.tables["GroupResults"] = group_results.with_columns(
-                            pl.when(pl.col("id") == fp.id).then(pl.lit(",".join([str(a) for a in fp.adducts]))).otherwise(pl.col("Ion")).alias("Ion"),
-                            pl.when(pl.col("id") == fp.id).then(pl.lit(",".join([str(a) for a in fp.fDesc]))).otherwise(pl.col("LOSS")).alias("LOSS"),
-                            pl.when(pl.col("id") == fp.id).then(pl.lit(",".join([str(a) for a in fp.Ms]))).otherwise(pl.col("M")).alias("M"),
-                        )
+        # Convert columns OGroup and Relative_intensity_in_group to int and float
+        table_df = table_df.with_columns(pl.col("OGroup").cast(pl.Int64))
+        table_df = table_df.with_columns(pl.col("Relative_intensity_in_group").cast(pl.Float64))
 
-        # Delete from GroupResults where id not in table nums
-        valid_nums = table_df.select("Num").to_series().to_list()
-        group_results = resDB.conn.get_table("GroupResults")
-        if not group_results.is_empty():
-            resDB.conn.tables["GroupResults"] = group_results.filter(pl.col("id").is_in(valid_nums))
+        # Sort table_df by OGroup asc and Relative_intensity_in_group desc
+        table_df = table_df.sort(["OGroup", "Relative_intensity_in_group"], descending=[False, True])
 
-        ## reassign feature group ids
-        # Update OGroup column to prefix with 'X'
-        group_results = resDB.conn.get_table("GroupResults")
-        if not group_results.is_empty():
-            resDB.conn.tables["GroupResults"] = group_results.with_columns(pl.concat_str([pl.lit("X"), pl.col("OGroup").cast(pl.Utf8)]).alias("OGroup"))
-        # Ensure OGroup is string type before concatenation
-        table_df = table_df.with_columns(pl.col("OGroup").cast(pl.Utf8))
-        table_df = table_df.with_columns(pl.concat_str([pl.lit("X"), pl.col("OGroup")]).alias("OGroup"))
-        oGrps = []
-        curGrp = 1
-        curFP = 1
+        resDB.conn.insert_row("Parameters", {"Parameter": "# Grouping", "Value": ""})
+        resDB.conn.insert_row("Parameters", {"Parameter": "MEConvoluting_groups", "Value": f"{useGroupsForConfig}".replace("'", "").replace('"', "")})
+        resDB.conn.insert_row("Parameters", {"Parameter": "MEConvoluting_minConnectionsInFiles", "Value": f"{minConnectionsInFiles}"})
+        resDB.conn.insert_row("Parameters", {"Parameter": "MEConvoluting_minConnectionRate", "Value": f"{minConnectionRate}"})
+        resDB.conn.insert_row("Parameters", {"Parameter": "MEConvoluting_minPeakCorrelation", "Value": f"{minPeakCorrelation}"})
+        resDB.conn.set_table(new_sheet_name, table_df)
+        resDB.conn.commit()
 
-        # Get unique OGroups ordered by average rt
-        group_results = resDB.conn.get_table("GroupResults")
-        if not group_results.is_empty():
-            grouped = group_results.groupby("OGroup").agg(pl.col("rt").mean().alias("avg_rt")).sort("avg_rt")
-            for row in grouped.iter_rows(named=True):
-                oGrps.append(str(row["OGroup"]))
-
-        for tgrp in oGrps:
-            # Update in ParquetDB
-            group_results = resDB.conn.get_table("GroupResults")
-            if not group_results.is_empty():
-                resDB.conn.tables["GroupResults"] = group_results.with_columns(pl.when(pl.col("OGroup") == tgrp).then(pl.lit(curGrp)).otherwise(pl.col("OGroup")).alias("OGroup"))
-            # Update in DataFrame
-            table_df = table_df.with_columns(pl.when(pl.col("OGroup") == tgrp).then(pl.lit(curGrp)).otherwise(pl.col("OGroup")).alias("OGroup"))
-            curGrp = curGrp + 1
-
-        processingParams = Bunch()
-        processingParams.MEConvoluting_groups = str(useGroupsForConfig).replace("'", "").replace('"', "")
-        processingParams.MEConvoluting_connThreshold = minConnectionRate
-        processingParams.MEConvoluting_minPeakCorrelation = minPeakCorrelation
-        comments.append("## Convolution FPs processing parameters %s" % (processingParams.dumpAsJSon().replace('"', "'")))
-
-        # Filter out _CorrelatesTo columns
-        writeCols = [col for col in table_df.columns if not col.endswith("_CorrelatesTo")]
-
-        # Sort by OGroup, MZ, Xn
-        table_df = table_df.sort(["OGroup", "MZ", "Xn"])
-
-        # Write to file based on extension
-        if toFile.lower().endswith(".tsv") or toFile.lower().endswith(".txt"):
-            table_df.select(writeCols).write_csv(toFile, separator="\t")
-        elif toFile.lower().endswith(".csv"):
-            table_df.select(writeCols).write_csv(toFile)
-        else:
-            # Default to TSV
-            table_df.select(writeCols).write_csv(toFile, separator="\t")
-
-        # Append comments
-        if len(comments) > 0:
-            with open(toFile, "a", encoding="utf-8") as fo:
-                for comment in comments:
-                    fo.write(str(comment))
-                    fo.write("\n")
-
-        exportAsFeatureML.convertMEMatrixToFeatureMLSepPolarities(file, postfix="_ac")
+        exportAsFeatureML.convertMEMatrixToFeatureMLSepPolarities(toFile, sheet_name=new_sheet_name, postfix="_ac")
 
     except Exception as ex:
         import traceback
@@ -1504,13 +1438,6 @@ class ConvoluteFPsInFile:
         fileCorrelations = {}
         fileSILRatios = {}
 
-        logging.info("  Convoluting feature pairs in file %s" % (fi))
-        b = fi.replace("\\", "/")
-        fiName = ""
-        if ".mzXML" in b:
-            fiName = b[(b.rfind("/") + 1) : b.rfind(".mzXML")]
-        if ".mzML" in b:
-            fiName = b[(b.rfind("/") + 1) : b.rfind(".mzML")]
         mzXML = Chromatogram()
         mzXML.parse_file(fi)
 
@@ -1533,11 +1460,11 @@ class ConvoluteFPsInFile:
 
                 if nodeA.fpNum != nodeB.fpNum and nodeA.fpNum < nodeB.fpNum and abs(nodeB.rt - nodeA.rt) <= maxAnnotationTimeWindow:
                     ra = None
-                    if fiName in borders.keys() and nodeA.fpNum in borders[fiName].keys():
-                        ra = borders[fiName][nodeA.fpNum]
+                    if fi in borders.keys() and nodeA.fpNum in borders[fi].keys():
+                        ra = borders[fi][nodeA.fpNum]
                     rb = None
-                    if fiName in borders.keys() and nodeB.fpNum in borders[fiName].keys():
-                        rb = borders[fiName][nodeB.fpNum]
+                    if fi in borders.keys() and nodeB.fpNum in borders[fi].keys():
+                        rb = borders[fi][nodeB.fpNum]
 
                     if ra != None and rb != None:
                         nanbl, nanbr, nalbl, nalbr = ra

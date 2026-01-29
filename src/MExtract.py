@@ -4026,7 +4026,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if len(grpFile) > 0:
             self.ui.groupsSave.setText(grpFile)
         else:
-            self.ui.groupsSave.setText("./results.tsv")
+            self.ui.groupsSave.setText("./results.xlsx")
 
     def selectMSMSTargetFile(self):
         msmsTargetFile = QtWidgets.QFileDialog.getSaveFileName(
@@ -4488,6 +4488,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         resFileFull = str(self.ui.groupsSave.text())
         resFilePath, resFileName = os.path.split(os.path.abspath(resFileFull))
+        excel_file = resFileFull.replace(".tsv", ".txt").replace(".txt", "") + ".xlsx"
         # bracket/group from individual LC-HRMS data / re-integrate missed peaks
         if self.ui.processMultipleFiles.checkState() == QtCore.Qt.Checked:
             pw = ProgressWrapper(1, parent=self)
@@ -4581,9 +4582,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             positiveScanEvent=str(self.ui.positiveScanEvent.currentText()),
                             negativeScanEvent=str(self.ui.negativeScanEvent.currentText()),
                             file=resFileFull,
-                            expApexIntensity=bool(self.ui.checkBox_expPeakApexIntensity.checkState() == QtCore.Qt.Checked),
-                            expPeakArea=bool(self.ui.checkBox_expPeakArea.checkState() == QtCore.Qt.Checked),
-                            expPeakSNR=bool(self.ui.checkBox_expPeakSNR.checkState() == QtCore.Qt.Checked),
                             align=(self.ui.alignChromatograms.checkState() == QtCore.Qt.Checked),
                             nPolynom=self.ui.polynomValue.value(),
                             rVersion=getRVersion(),
@@ -4633,15 +4631,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         else:
                             logging.info("Bracketing finished (%s%s).." % (hours, mins))
 
-                        shutil.copyfile(
-                            resFileFull,
-                            resFilePath + "/xxx_results__1_afterBracketing.tsv",
-                        )
-                        shutil.copyfile(
-                            resFileFull + getDBSuffix(),
-                            resFilePath + "/xxx_results__1_afterBracketing.tsv" + getDBSuffix(),
-                        )
-
                         # Arrange grouped results and add statistics columns
                         groups = {}
                         outputOrder = []
@@ -4676,24 +4665,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                                 )
                             )
 
-                        addStatsColumnToResults(resFileFull, groups, resFileFull, outputOrder)
-
-                        shutil.copyfile(
-                            resFileFull,
-                            resFilePath + "/xxx_results__2_afterAddingStatColumn.tsv",
-                        )
-                        shutil.copyfile(
-                            resFileFull + getDBSuffix(),
-                            resFilePath + "/xxx_results__2_afterAddingStatColumn.tsv" + getDBSuffix(),
-                        )
-
+                        print("Processing Table " + excel_file)
+                        addStatsColumnToResults(excel_file, groups, outputOrder, sheet_name="1_afterBracketing", new_sheet_name="2_afterAddingStatColumn")
                         # remove feature pairs not found more than n times (according to user specified omit value)
-                        grpOmit(resFileFull, grpStats, resFileFull)
-                        shutil.copyfile(resFileFull, resFilePath + "/xxx_results__3_afterOmit.tsv")
-                        shutil.copyfile(
-                            resFileFull + getDBSuffix(),
-                            resFilePath + "/xxx_results__3_afterOmit.tsv" + getDBSuffix(),
-                        )
+                        grpOmit(excel_file, grpStats, sheet_name="2_afterAddingStatColumn", new_sheet_name="3_afterOmit")
                         logging.info("Statistic columns added (and feature pairs omitted)..")
 
                 except Exception as ex:
@@ -4720,12 +4695,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     pw = ProgressWrapper(1, parent=self)
                     pw.show()
                     pw.getCallingFunction()("text")("Convoluting feature pairs")
-
-                    shutil.copyfile(resFilePath + "/xxx_results__3_afterOmit.tsv", resFileFull)
-                    shutil.copyfile(
-                        resFilePath + "/xxx_results__3_afterOmit.tsv" + getDBSuffix(),
-                        resFileFull + getDBSuffix(),
-                    )
 
                     runIdentificationInstance = RunIdentification(
                         files[0],
@@ -4795,8 +4764,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
                     procProc = FuncProcess(
                         _target=calculateMetaboliteGroups,
-                        file=resFileFull,
-                        toFile=resFileFull,
+                        file=excel_file,
+                        toFile=excel_file,
+                        sheet_name="3_afterOmit",
+                        new_sheet_name="4_afterConvolution",
                         groups=definedGroups,
                         eicPPM=self.ui.wavelet_EICppm.value(),
                         maxAnnotationTimeWindow=self.ui.maxAnnotationTimeWindow.value(),
@@ -4848,14 +4819,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         return
                     else:
                         logging.info("Convoluting feature pairs finished (%s%s).." % (hours, mins))
-                    shutil.copyfile(
-                        resFileFull,
-                        resFilePath + "/xxx_results__4_afterFeaturePairConvolution.tsv",
-                    )
-                    shutil.copyfile(
-                        resFileFull + getDBSuffix(),
-                        resFilePath + "/xxx_results__4_afterFeaturePairConvolution.tsv" + getDBSuffix(),
-                    )
 
                 except Exception as ex:
                     traceback.print_exc()
@@ -4880,15 +4843,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             # re-integrate missed peaks
             if self.ui.integratedMissedPeaks.isChecked():
                 logging.info("Re-integrating of individual LC-HRMS results..")
-
-                shutil.copyfile(
-                    resFilePath + "/xxx_results__4_afterFeaturePairConvolution.tsv",
-                    resFileFull,
-                )
-                shutil.copyfile(
-                    resFilePath + "/xxx_results__4_afterFeaturePairConvolution.tsv" + getDBSuffix(),
-                    resFileFull + getDBSuffix(),
-                )
 
                 pw = ProgressWrapper(min(len(files), cpus) + 1, showLog=False, parent=self)
                 pw.show()
@@ -4943,15 +4897,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         hours = "%d hours " % (elapsed // 60)
                     mins = "%.2f mins" % (elapsed % 60.0)
                     logging.info("Re-integrating finished (%s%s).." % (hours, mins))
-
-                    shutil.copyfile(
-                        resFileFull,
-                        resFilePath + "/xxx_results__5_afterReIntegration.tsv",
-                    )
-                    shutil.copyfile(
-                        resFileFull + ".identified.sqlite",
-                        resFilePath + "/xxx_results__5_afterReIntegration.tsv.identified.sqlite",
-                    )
 
                 except Exception as e:
                     traceback.print_exc()
@@ -5641,7 +5586,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         )
                         showFileName = False
                     else:
-                        texts.append(("%%%ds   File not processed successfully\n" % (maxFileNameLength)) % file)
+                        texts.append(("%%%ds   File not processed\n" % (maxFileNameLength)) % file)
 
             texts.append("\n\n\n")
 
@@ -11408,36 +11353,52 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def generateDBTemplate(self, events):
         dbTemplateFile = QtWidgets.QFileDialog.getSaveFileName(
             caption="Select database template",
-            dir=self.lastOpenDir + "/DBTemplate.tsv",
-            filter="Database (*.tsv);;All files (*.*)",
+            dir=self.lastOpenDir + "/DBTemplate.xlsx",
+            filter="Database (*.xlsx);;All files (*.*)",
         )
         dbTemplateFile = str(dbTemplateFile)
 
         if len(dbTemplateFile) > 0:
-            with open(dbTemplateFile, "w") as dbt:
-                dbt.write("Num\tName\tSumFormula\tRt_min\tMZ\tIonisationMode\tAdditionalColumn1\tAdditionalColumn2")
-                dbt.write("\n")
-                dbt.write("1\tPhenylalanine\tC9H11NO2\t\t\t")
-                dbt.write("\n")
-                dbt.write("2\tPhenylalanine\tC9H11NO2\t5.5\t\t")
-                dbt.write("\n")
-                dbt.write("3\tPhenylalanine\t\t5.5\t166.085706\t+")
-                dbt.write("\n")
-                dbt.write("4\tPhenylalanine\tC9H11NO2\t5.5\t166.085706\t+")
-                dbt.write("\n")
-                dbt.write("## Any line starting with the hash-symbol (#) is a comment and will be skipped")
-                dbt.write("\n")
-                dbt.write("## The fileds Num and Name are mandatory")
-                dbt.write("\n")
-                dbt.write("## Additionally, either the sum formula or the m/z value (and a polarity mode) have to be provided")
-                dbt.write("\n")
-                dbt.write("## If the sum formula is provided, the accurate mass will be calculated automatically")
-                dbt.write("\n")
-                dbt.write("## The retention time is optional and must be specified in minutes. If several retention times are possible, use different rows. Use the dot (.) as the decimal separator")
-                dbt.write("\n")
-                dbt.write("## Additional columns may be provided. These will be transfered to the results but not checked in any way. Do not include tab-stops in there.")
-                dbt.write("\n")
-                dbt.write("## Do not use any tab-characters inside of cells. Save the file as a .tsv file or rename the file after saving it as a tab-delimited file in Excel")
+            import polars as pl
+
+            # Create template data DataFrame
+            template_data = pl.DataFrame(
+                {
+                    "Num": [1, 2, 3, 4],
+                    "Name": ["Phenylalanine", "Phenylalanine", "Phenylalanine", "Phenylalanine"],
+                    "SumFormula": ["C9H11NO2", "C9H11NO2", "", "C9H11NO2"],
+                    "Rt_min": [None, 5.5, 5.5, 5.5],
+                    "MZ": [None, None, 166.085706, 166.085706],
+                    "IonisationMode": ["", "", "+", "+"],
+                    "AdditionalColumn1": ["", "", "", ""],
+                    "AdditionalColumn2": ["", "", "", ""],
+                }
+            )
+
+            # Create instructions DataFrame
+            instructions_data = pl.DataFrame(
+                {
+                    "Instructions": [
+                        "Any line starting with the hash-symbol (#) is a comment and will be skipped",
+                        "The fields Num and Name are mandatory",
+                        "Additionally, either the sum formula or the m/z value (and a polarity mode) have to be provided",
+                        "If the sum formula is provided, the accurate mass will be calculated automatically",
+                        "The retention time is optional and must be specified in minutes. If several retention times are possible, use different rows. Use the dot (.) as the decimal separator",
+                        "Additional columns may be provided. These will be transferred to the results but not checked in any way. Do not include tab-stops in there.",
+                        "Each column must have a unique name.",
+                        "The first 6 columns are mandatory. The remaining columns can have any name and will not be considered for the annotation itself.",
+                        "Each row must have a unique number.",
+                        "The name and either a sum formula or a m/z value and ionisation mode are required.",
+                        "If retention times are available, they must be a single number in minutes. If a compound has two or more retention times, generate a separate row for each retention time.",
+                    ]
+                }
+            )
+
+            # Write to Excel with multiple sheets using xlsxwriter
+            with pl.Config(tbl_width_chars=1000):
+                with pl.ExcelWriter(dbTemplateFile) as writer:
+                    template_data.write_excel(workbook=writer, worksheet="Template")
+                    instructions_data.write_excel(workbook=writer, worksheet="Instructions")
 
         QtWidgets.QMessageBox.information(
             self,
@@ -12163,6 +12124,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.pushButton_exportAllAsPDF.clicked.connect(self.exportAsPDF)
 
         self.ui.showCustomFeature_pushButton.clicked.connect(self.showCustomFeature)
+
+        self.ui.checkBox_expPeakArea.setVisible(False)
+        self.ui.checkBox_expPeakApexIntensity.setVisible(False)
+        self.ui.checkBox_expPeakSNR.setVisible(False)
 
         # Connect Statistics tab signals
         if hasattr(self.ui, "statisticsWidget"):
