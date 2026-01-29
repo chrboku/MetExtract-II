@@ -640,12 +640,10 @@ def reIntegrateResultsFile(
 
     for row_idx, row in enumerate(results_df.iter_rows()):
         num = int(results_df[row_idx, "Num"])
-        print(f" - processing row Num={num} in idx {row_idx}")
         if num not in all_results.keys():
             pass
 
         for key, value in all_results[num].items():
-            print(f"   - result is {key}: {value}")
             if key not in ["Num", "fileName", "areaN", "areaL", "found"] and value is not None:
                 results_df[row_idx, key] = value
 
