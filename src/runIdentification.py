@@ -172,38 +172,11 @@ def getCorrelationShifted(xic1, xic2, peakStartMin, peakEndMin, rtShiftsMin=None
 
 def interpolateToNewRTs(xic, newRTs):
     newRTs = np.unique(newRTs)
-
     nxic = np.zeros((len(newRTs), 2), dtype=xic.dtype)
-    for curPosN, rt in enumerate(newRTs):
-        nxic[curPosN, 0] = rt
-
-        if rt <= xic[0, 0]:
-            nxic[curPosN, 1] = xic[0, 1]
-
-        elif rt >= xic[xic.shape[0] - 1, 0]:
-            nxic[curPosN, 1] = xic[xic.shape[0] - 1, 1]
-        else:
-            bestNextRtInd = np.argmin(np.abs(rt - xic[:, 0]))
-
-            if xic[bestNextRtInd, 0] == rt:
-                nxic[curPosN, :] = xic[bestNextRtInd, :]
-
-            else:
-                leftInd = None
-                rightInd = None
-
-                if xic[bestNextRtInd, 0] < rt:
-                    leftInd = bestNextRtInd
-                    rightInd = bestNextRtInd + 1
-
-                elif xic[bestNextRtInd, 0] > rt:
-                    leftInd = bestNextRtInd - 1
-                    rightInd = bestNextRtInd
-
-                assert leftInd is not None, "Branch should not exists..."
-
-                nxic[curPosN, 1] = xic[leftInd, 1] + (xic[rightInd, 1] - xic[leftInd, 1]) / (xic[rightInd, 0] - xic[leftInd, 0]) * (rt - xic[leftInd, 0])
-
+    nxic[:, 0] = newRTs
+    # np.interp handles boundary clamping identically to the original loop:
+    # values outside [xic[0,0], xic[-1,0]] are clamped to the edge intensities.
+    nxic[:, 1] = np.interp(newRTs, xic[:, 0], xic[:, 1])
     return np.copy(nxic)
 
 
@@ -250,6 +223,43 @@ def correlationFor(xic1, xic2, peakStartMin, peakEndMin):
 
 peakAbundanceUseSignals = 5
 peakAbundanceUseSignalsSides = int((peakAbundanceUseSignals - 1) / 2)
+
+
+def _findBestArtificialShift(eicN, eicL, lb, rb, shiftFrom=0, shiftTo=0):
+    """Find the artificial M' EIC shift that maximises peak-shape correlation.
+
+    Extracted to module level so the function object is created once, not
+    once per detected chromatographic peak pair.
+    """
+    correlations = []
+    quarter_start = int(len(eicN[lb:rb]) * 0.25)
+    quarter_end = int(len(eicN[lb:rb]) * 0.75) + 1
+    for artShift in range(shiftFrom, shiftTo + 1):
+        peakN = eicN[lb:rb]
+        peakL = eicL[(lb + artShift) : (rb + artShift)]
+        silRatios = [
+            peakN[i] / peakL[i]
+            for i in range(quarter_start, quarter_end)
+            if peakL[i] > 0 and peakN[i] > 0
+        ]
+        correlations.append(
+            Bunch(
+                correlation=corr(peakN, peakL),
+                artificialShift=artShift,
+                silRatios=silRatios,
+                peakNInts=[
+                    peakN[i]
+                    for i in range(quarter_start, quarter_end)
+                    if peakL[i] > 0 and peakN[i] > 0
+                ],
+                peakLInts=[
+                    peakL[i]
+                    for i in range(quarter_start, quarter_end)
+                    if peakL[i] > 0 and peakN[i] > 0
+                ],
+            )
+        )
+    return max(correlations, key=lambda x: x.correlation)
 
 
 # This class is used as a Command for each LC-HRMS file and is called by the multiprocessing module in MExtract.py
@@ -1221,6 +1231,7 @@ class RunIdentification:
             elif mz.ionMode == "-":
                 scanEvent = self.negativeScanEvent
 
+            _scan = mzxml.getIthMS1Scan(mz.scanIndex, scanEvent)
             SQLInsert(
                 curs,
                 "MZs",
@@ -1230,8 +1241,8 @@ class RunIdentification:
                 lmz=mz.lmz,
                 tmz=mz.tmz,
                 xcount=mz.xCount,
-                scanid=mzxml.getIthMS1Scan(mz.scanIndex, scanEvent).id,
-                scanTime=mzxml.getIthMS1Scan(mz.scanIndex, scanEvent).retention_time,
+                scanid=_scan.id,
+                scanTime=_scan.retention_time,
                 loading=mz.loading,
                 intensity=mz.nIntensity,
                 intensityL=mz.lIntensity,
@@ -1615,48 +1626,7 @@ class RunIdentification:
                             peakN = eicSmoothed[lb:rb]
                             peakL = eicLSmoothed[lb:rb]
 
-                            def findBestArtificialShift(eicN, eicL, lb, rb, shiftFrom=0, shiftTo=0):
-                                correlations = []
-
-                                for artShift in range(shiftFrom, shiftTo + 1):
-                                    peakN = eicN[lb:rb]
-                                    peakL = eicL[(lb + artShift) : (rb + artShift)]
-                                    silRatios = [
-                                        peakN[i] / peakL[i]
-                                        for i in range(
-                                            int(len(peakN) * 0.25),
-                                            int(len(peakN) * 0.75) + 1,
-                                        )
-                                        if peakL[i] > 0 and peakN[i] > 0
-                                    ]
-                                    correlations.append(
-                                        Bunch(
-                                            correlation=corr(peakN, peakL),
-                                            artificialShift=artShift,
-                                            silRatios=silRatios,
-                                            peakNInts=[
-                                                peakN[i]
-                                                for i in range(
-                                                    int(len(peakN) * 0.25),
-                                                    int(len(peakN) * 0.75) + 1,
-                                                )
-                                                if peakL[i] > 0 and peakN[i] > 0
-                                            ],
-                                            peakLInts=[
-                                                peakL[i]
-                                                for i in range(
-                                                    int(len(peakN) * 0.25),
-                                                    int(len(peakN) * 0.75) + 1,
-                                                )
-                                                if peakL[i] > 0 and peakN[i] > 0
-                                            ],
-                                        )
-                                    )
-                                bestFit = max(correlations, key=lambda x: x.correlation)
-
-                                return bestFit
-
-                            co = findBestArtificialShift(
+                            co = _findBestArtificialShift(
                                 eicSmoothed,
                                 eicLSmoothed,
                                 lb,
@@ -2058,6 +2028,10 @@ class RunIdentification:
 
             peak = chromPeaks[i]
 
+            # Pre-compute the shared scan-index boundaries for this peak (used repeatedly below).
+            peak_scan_start = int(max(peak.NPeakCenter - peak.NBorderLeft, peak.LPeakCenter - peak.LBorderLeft))
+            peak_scan_end = int(min(peak.NPeakCenter + peak.NBorderRight, peak.LPeakCenter + peak.LBorderRight)) + 1
+
             ## Annotate hetero atoms
             for pIso in self.heteroAtoms:
                 pIsotope = self.heteroAtoms[pIso]
@@ -2084,21 +2058,7 @@ class RunIdentification:
                     if haCount == 0:
                         continue
 
-                    for curScanNum in range(
-                        int(
-                            max(
-                                peak.NPeakCenter - peak.NBorderLeft,
-                                peak.LPeakCenter - peak.LBorderLeft,
-                            )
-                        ),
-                        int(
-                            min(
-                                peak.NPeakCenter + peak.NBorderRight,
-                                peak.LPeakCenter + peak.LBorderRight,
-                            )
-                        )
-                        + 1,
-                    ):
+                    for curScanNum in range(peak_scan_start, peak_scan_end):
                         scan = mzxml.getIthMS1Scan(curScanNum, scanEvent)
                         if scan is not None:
                             mzBounds = scan.findMZ(refMz, self.ppm)
@@ -2174,19 +2134,8 @@ class RunIdentification:
                 isoRatios = findRatiosForMZs(
                     peak.mz + 1.00335484 * i / peak.loading,
                     peak.mz,
-                    int(
-                        max(
-                            peak.NPeakCenter - peak.NBorderLeft,
-                            peak.LPeakCenter - peak.LBorderLeft,
-                        )
-                    ),
-                    int(
-                        min(
-                            peak.NPeakCenter + peak.NBorderRight,
-                            peak.LPeakCenter + peak.LBorderRight,
-                        )
-                    )
-                    + 1,
+                    peak_scan_start,
+                    peak_scan_end,
                     mzxml,
                     scanEvent,
                     self.ppm,
@@ -2211,19 +2160,8 @@ class RunIdentification:
                 isoRatios = findRatiosForMZs(
                     peak.lmz + 1.00335484 * i / peak.loading,
                     peak.lmz,
-                    int(
-                        max(
-                            peak.NPeakCenter - peak.NBorderLeft,
-                            peak.LPeakCenter - peak.LBorderLeft,
-                        )
-                    ),
-                    int(
-                        min(
-                            peak.NPeakCenter + peak.NBorderRight,
-                            peak.LPeakCenter + peak.LBorderRight,
-                        )
-                    )
-                    + 1,
+                    peak_scan_start,
+                    peak_scan_end,
                     mzxml,
                     scanEvent,
                     self.ppm,
@@ -2248,19 +2186,8 @@ class RunIdentification:
                     isoRatios = findRatiosForMZs(
                         peak.lmz + i * 1.00335484 / peak.loading,
                         peak.lmz,
-                        int(
-                            max(
-                                peak.NPeakCenter - peak.NBorderLeft,
-                                peak.LPeakCenter - peak.LBorderLeft,
-                            )
-                        ),
-                        int(
-                            min(
-                                peak.NPeakCenter + peak.NBorderRight,
-                                peak.LPeakCenter + peak.LBorderRight,
-                            )
-                        )
-                        + 1,
+                        peak_scan_start,
+                        peak_scan_end,
                         mzxml,
                         scanEvent,
                         self.ppm,
@@ -2301,19 +2228,8 @@ class RunIdentification:
                 peak.mz,
                 peak.lmz,
                 peak.lmz - peak.mz,
-                int(
-                    max(
-                        peak.NPeakCenter - peak.NBorderLeft,
-                        peak.LPeakCenter - peak.LBorderLeft,
-                    )
-                ),
-                int(
-                    min(
-                        peak.NPeakCenter + peak.NBorderRight,
-                        peak.LPeakCenter + peak.LBorderRight,
-                    )
-                )
-                + 1,
+                peak_scan_start,
+                peak_scan_end,
                 mzxml,
                 scanEvent,
                 self.ppm,

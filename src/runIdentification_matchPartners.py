@@ -205,538 +205,541 @@ def matchPartners(
         for comb in combs:
             print(comb)
 
+    # Pre-filter MS1 scans to only those matching the filter line and time range.
+    # This avoids re-checking the same conditions on every iteration of the inner loop
+    # and allows enumerate() to provide the correct scan index directly.
+    filtered_scans = [
+        scan
+        for scan in mzXMLData.MS1_list
+        if scan.filter_line == filterLine and startTime <= (scan.retention_time / 60.0) <= stopTime
+    ]
+
     # iterate over all MS scans (lvl. 1)
-    curScanIndex = 0
-    for j in range(0, len(mzXMLData.MS1_list)):
+    for curScanIndex, curScan in enumerate(filtered_scans):
         try:
-            curScan = mzXMLData.MS1_list[j]
             curScanDetectedIonPairs = []
 
-            # check for correct filterline and scan time
-            if curScan.filter_line == filterLine:
-                if startTime <= (curScan.retention_time / 60.0) <= stopTime:
-                    if reportFunction is not None:
-                        reportFunction(
-                            (curScan.retention_time / 60.0 - startTime) / scanRTRange,
-                            "RT %.2f" % (curScan.retention_time / 60.0),
-                        )
+            if reportFunction is not None:
+                reportFunction(
+                    (curScan.retention_time / 60.0 - startTime) / scanRTRange,
+                    "RT %.2f" % (curScan.retention_time / 60.0),
+                )
 
-                    dontUsePeakIndices = []
+            dontUsePeakIndices = []
 
-                    # assume each peak to be a valid M (monoisotopic, native metabolite ion)
-                    # and verify this assumption (search for (partially) labelled pendant)
-                    for currentPeakIndex in range(0, len(curScan.mz_list)):
-                        if not (currentPeakIndex in dontUsePeakIndices):
-                            curPeakmz = curScan.mz_list[currentPeakIndex]
-                            curPeakIntensity = curScan.intensity_list[currentPeakIndex]
+            # assume each peak to be a valid M (monoisotopic, native metabolite ion)
+            # and verify this assumption (search for (partially) labelled pendant)
+            for currentPeakIndex in range(0, len(curScan.mz_list)):
+                if not (currentPeakIndex in dontUsePeakIndices):
+                    curPeakmz = curScan.mz_list[currentPeakIndex]
+                    curPeakIntensity = curScan.intensity_list[currentPeakIndex]
 
-                            curPeakDetectedIonPairs = []
+                    curPeakDetectedIonPairs = []
 
-                            # only consider peaks above the threshold
-                            if curPeakIntensity >= intensityThres:
-                                skipOtherLoadings = False
+                    # only consider peaks above the threshold
+                    if curPeakIntensity >= intensityThres:
+                        skipOtherLoadings = False
 
-                                ## do not process peaks that are likely isotopologs
-                                backIsos = []
-                                for l in range(maxLoading, 0, -1):
-                                    iso = curScan.findMZ(curPeakmz - oriCValidationOffset / l, ppm)
-                                    iso = curScan.getMostIntensePeak(iso[0], iso[1])
+                        ## do not process peaks that are likely isotopologs
+                        backIsos = []
+                        for l in range(maxLoading, 0, -1):
+                            iso = curScan.findMZ(curPeakmz - oriCValidationOffset / l, ppm)
+                            iso = curScan.getMostIntensePeak(iso[0], iso[1])
 
-                                    if iso != -1 and curScan.intensity_list[iso] > curPeakIntensity:
-                                        backIsos.append(l)
-                                if len(backIsos) > 0:
-                                    continue
+                            if iso != -1 and curScan.intensity_list[iso] > curPeakIntensity:
+                                backIsos.append(l)
+                        if len(backIsos) > 0:
+                            continue
 
-                                possibleLoadings = []
-                                ## figure out possible loadings
-                                for l in range(maxLoading, 0, -1):
-                                    iso = curScan.findMZ(
-                                        curPeakmz + oriCValidationOffset / l,
+                        possibleLoadings = []
+                        ## figure out possible loadings
+                        for l in range(maxLoading, 0, -1):
+                            iso = curScan.findMZ(
+                                curPeakmz + oriCValidationOffset / l,
+                                ppm,
+                                start=currentPeakIndex,
+                            )
+                            iso = curScan.getMostIntensePeak(iso[0], iso[1])
+
+                            if iso != -1:
+                                possibleLoadings.append(l)
+                                break  ## skip other loadings
+
+                        if len(possibleLoadings) == 0:
+                            possibleLoadings = [1]
+
+                        for curLoading in possibleLoadings:
+                            if not skipOtherLoadings:
+                                xOffset = oriXOffset / float(curLoading)
+                                cValidationOffset = oriCValidationOffset / float(curLoading)
+
+                                # C-isotope distribution validation for labelling with N, S, ... (useCValidation == 2)
+                                # The carbon distribution of both isotopologs is checked for equality
+                                # checks if the isotope patterns of M, M+1.. and M', M'+1.. are approximately the same
+                                # E.g. 15N-labelling
+                                # |    <--   Nn   -->    |
+                                # ||                     ||
+                                # |||                   .|||
+                                # Required for some labelling applications (e.g. S, N, Cl)
+                                # Requires: - a high resolution and separation of different isotoplogs (especially carbon)
+                                # EXPERIMENTAL: has not been tested with real data (not N or S labelled sample material
+                                #               was available)
+                                if not useDoubleLabelingCombinations and useCIsotopePatternValidation != 0:
+                                    isoM_m1 = curScan.findMZ(curPeakmz - cValidationOffset, ppm * 2)
+                                    isoM_m1 = curScan.getMostIntensePeak(isoM_m1[0], isoM_m1[1])
+                                    if isoM_m1 != -1:
+                                        obRatio = curScan.intensity_list[isoM_m1] / curPeakIntensity
+                                        if obRatio >= 0.5:
+                                            continue
+
+                                    # find M+1 peak
+                                    isoM_p1 = curScan.findMZ(
+                                        curPeakmz + cValidationOffset,
                                         ppm,
                                         start=currentPeakIndex,
                                     )
-                                    iso = curScan.getMostIntensePeak(iso[0], iso[1])
+                                    isoM_p1 = curScan.getMostIntensePeak(isoM_p1[0], isoM_p1[1])
+                                    if isoM_p1 != -1 or peakCountLeft == 1 or lowAbundanceIsotopeCutoff:
+                                        # test certain number of labelled carbon atoms
 
-                                    if iso != -1:
-                                        possibleLoadings.append(l)
-                                        break  ## skip other loadings
-
-                                if len(possibleLoadings) == 0:
-                                    possibleLoadings = [1]
-
-                                for curLoading in possibleLoadings:
-                                    if not skipOtherLoadings:
-                                        xOffset = oriXOffset / float(curLoading)
-                                        cValidationOffset = oriCValidationOffset / float(curLoading)
-
-                                        # C-isotope distribution validation for labelling with N, S, ... (useCValidation == 2)
-                                        # The carbon distribution of both isotopologs is checked for equality
-                                        # checks if the isotope patterns of M, M+1.. and M', M'+1.. are approximately the same
-                                        # E.g. 15N-labelling
-                                        # |    <--   Nn   -->    |
-                                        # ||                     ||
-                                        # |||                   .|||
-                                        # Required for some labelling applications (e.g. S, N, Cl)
-                                        # Requires: - a high resolution and separation of different isotoplogs (especially carbon)
-                                        # EXPERIMENTAL: has not been tested with real data (not N or S labelled sample material
-                                        #               was available)
-                                        if not useDoubleLabelingCombinations and useCIsotopePatternValidation != 0:
-                                            isoM_m1 = curScan.findMZ(curPeakmz - cValidationOffset, ppm * 2)
-                                            isoM_m1 = curScan.getMostIntensePeak(isoM_m1[0], isoM_m1[1])
-                                            if isoM_m1 != -1:
-                                                obRatio = curScan.intensity_list[isoM_m1] / curPeakIntensity
-                                                if obRatio >= 0.5:
-                                                    continue
-
-                                            # find M+1 peak
-                                            isoM_p1 = curScan.findMZ(
-                                                curPeakmz + cValidationOffset,
+                                        for xCount in sorted(xCounts, reverse=True):
+                                            # find corresponding M' peak
+                                            isoM_pX = curScan.findMZ(
+                                                curPeakmz + xCount * xOffset,
                                                 ppm,
                                                 start=currentPeakIndex,
                                             )
-                                            isoM_p1 = curScan.getMostIntensePeak(isoM_p1[0], isoM_p1[1])
-                                            if isoM_p1 != -1 or peakCountLeft == 1 or lowAbundanceIsotopeCutoff:
-                                                # test certain number of labelled carbon atoms
-
-                                                for xCount in sorted(xCounts, reverse=True):
-                                                    # find corresponding M' peak
-                                                    isoM_pX = curScan.findMZ(
-                                                        curPeakmz + xCount * xOffset,
-                                                        ppm,
-                                                        start=currentPeakIndex,
-                                                    )
-                                                    isoM_pX = curScan.getMostIntensePeak(
-                                                        isoM_pX[0],
-                                                        isoM_pX[1],
-                                                        intensityThres,
-                                                    )
-                                                    if isoM_pX != -1:
-                                                        labPeakmz = curScan.mz_list[isoM_pX]
-                                                        labPeakIntensity = curScan.intensity_list[isoM_pX]
-
-                                                        # find M'-1 peak
-                                                        isoM_pXm1 = curScan.findMZ(
-                                                            curPeakmz + xCount * xOffset - cValidationOffset,
-                                                            ppm * 2,
-                                                            start=currentPeakIndex,
-                                                        )
-                                                        isoM_pXm1 = curScan.getMostIntensePeak(
-                                                            isoM_pXm1[0],
-                                                            isoM_pXm1[1],
-                                                        )
-                                                        if isoM_pXm1 != -1:
-                                                            obRatio = curScan.intensity_list[isoM_pXm1] / curScan.intensity_list[isoM_pX]
-                                                            if obRatio >= 0.5:
-                                                                continue
-
-                                                        # (1.) check if M' and M ratio are as expected
-                                                        if checkRatio:
-                                                            rat = curPeakIntensity / labPeakIntensity
-                                                            if minRatio <= rat <= maxRatio:
-                                                                pass  ## ratio check passed
-                                                            else:
-                                                                continue  ## ratio check not passed
-
-                                                        ## no isotopolog verification needs to be performed
-                                                        if peakCountLeft == 1 and peakCountRight == 1:
-                                                            curPeakDetectedIonPairs.append(
-                                                                mzFeature(
-                                                                    mz=curPeakmz,
-                                                                    lmz=labPeakmz,
-                                                                    tmz=xCount * xOffset,
-                                                                    xCount=xCount,
-                                                                    scanIndex=curScanIndex,
-                                                                    loading=curLoading,
-                                                                    nIntensity=curPeakIntensity,
-                                                                    lIntensity=labPeakIntensity,
-                                                                    ionMode=ionMode,
-                                                                )
-                                                            )
-
-                                                            skipOtherLoadings = True
-                                                            continue
-
-                                                        # find M'+1 peak
-                                                        isoM_pXp1 = curScan.findMZ(
-                                                            curPeakmz + xCount * xOffset + cValidationOffset,
-                                                            ppm,
-                                                            start=currentPeakIndex,
-                                                        )
-                                                        isoM_pXp1 = curScan.getMostIntensePeak(
-                                                            isoM_pXp1[0],
-                                                            isoM_pXp1[1],
-                                                        )
-
-                                                        # calculate the ratio of M+1/M
-                                                        isoPeakIntensity = curScan.intensity_list[isoM_p1]
-                                                        if peakCountLeft == 1:
-                                                            ratioN = None
-                                                        elif peakCountLeft > 1 and lowAbundanceIsotopeCutoff and isoPeakIntensity <= isotopologIntensityThres:
-                                                            ratioN = None
-                                                        else:
-                                                            ratioN = isoPeakIntensity / curPeakIntensity
-
-                                                        # calculate the ratio of M'+1/M'
-                                                        isoLabPeakIntensity = curScan.intensity_list[isoM_pXp1]
-                                                        if peakCountRight == 1:
-                                                            ratioL = None
-                                                        elif peakCountRight > 1 and lowAbundanceIsotopeCutoff and isoLabPeakIntensity <= isotopologIntensityThres:
-                                                            ratioL = None
-                                                        else:
-                                                            ratioL = isoLabPeakIntensity / labPeakIntensity
-                                                        # 2. check if the observed M'+1/M' ratio and the M+1/M ratio are approximately equal
-                                                        if (ratioN != None and ratioL != None) and abs(ratioN - ratioL) <= intensityErrorL:
-                                                            curPeakDetectedIonPairs.append(
-                                                                mzFeature(
-                                                                    mz=curPeakmz,
-                                                                    lmz=labPeakmz,
-                                                                    tmz=xCount * xOffset,
-                                                                    xCount=xCount,
-                                                                    scanIndex=curScanIndex,
-                                                                    loading=curLoading,
-                                                                    nIntensity=curPeakIntensity,
-                                                                    lIntensity=labPeakIntensity,
-                                                                    ionMode=ionMode,
-                                                                )
-                                                            )
-
-                                                            skipOtherLoadings = True
-                                                            continue
-                                                        elif lowAbundanceIsotopeCutoff and (ratioN == None or ratioL == None):
-                                                            curPeakDetectedIonPairs.append(
-                                                                mzFeature(
-                                                                    mz=curPeakmz,
-                                                                    lmz=labPeakmz,
-                                                                    tmz=xCount * xOffset,
-                                                                    xCount=xCount,
-                                                                    scanIndex=curScanIndex,
-                                                                    loading=curLoading,
-                                                                    nIntensity=curPeakIntensity,
-                                                                    lIntensity=labPeakIntensity,
-                                                                    ionMode=ionMode,
-                                                                )
-                                                            )
-
-                                                            skipOtherLoadings = True
-                                                            continue
-                                            # endregion
-
-                                        # Isotope pattern validation (useCValidation == 0)
-                                        # It is tested, if the expected isotope patterns
-                                        # separate for the native and labelled metabolite follow a theoretical pattern
-                                        # E.g. native 12C and uniformly / partially 13C-labelled metabolites
-                                        # |    <--   Cn   -->    |
-                                        # ||                    ||
-                                        # |||                  |||
-                                        # Necessary mainly for 13C-labelling with mirror-symmetric isotope patterns
-                                        # NOTE: - Approach is mainly used for 13C-labelling
-                                        if not useDoubleLabelingCombinations and useCIsotopePatternValidation == 0:
-                                            # region
-                                            # (0.) verify that peak is M and not something else (e.g. M+1, M+1...)
-                                            ## TODO improve me. Use seven golden rules or the number of carbon atoms
-                                            isoM_m1 = curScan.findMZ(curPeakmz - cValidationOffset, ppm)
-                                            isoM_m1 = curScan.getMostIntensePeak(isoM_m1[0], isoM_m1[1])
-                                            if isoM_m1 != -1:
-                                                obRatio = curScan.intensity_list[isoM_m1] / curPeakIntensity
-                                                if obRatio >= 0.5:
-                                                    continue
-
-                                            # find M+1 peak
-                                            isoM_p1 = curScan.findMZ(
-                                                curPeakmz + cValidationOffset,
-                                                ppm,
-                                                start=currentPeakIndex,
+                                            isoM_pX = curScan.getMostIntensePeak(
+                                                isoM_pX[0],
+                                                isoM_pX[1],
+                                                intensityThres,
                                             )
-                                            isoM_p1 = curScan.getMostIntensePeak(isoM_p1[0], isoM_p1[1])
-                                            if isoM_p1 != -1 or peakCountLeft == 1 or lowAbundanceIsotopeCutoff:
-                                                # test certain number of labelled carbon atoms
+                                            if isoM_pX != -1:
+                                                labPeakmz = curScan.mz_list[isoM_pX]
+                                                labPeakIntensity = curScan.intensity_list[isoM_pX]
 
-                                                for xCount in sorted(xCounts, reverse=True):
-                                                    # stop for impossible carbon atom number
-                                                    if xCount > curPeakmz * curLoading / 12:
+                                                # find M'-1 peak
+                                                isoM_pXm1 = curScan.findMZ(
+                                                    curPeakmz + xCount * xOffset - cValidationOffset,
+                                                    ppm * 2,
+                                                    start=currentPeakIndex,
+                                                )
+                                                isoM_pXm1 = curScan.getMostIntensePeak(
+                                                    isoM_pXm1[0],
+                                                    isoM_pXm1[1],
+                                                )
+                                                if isoM_pXm1 != -1:
+                                                    obRatio = curScan.intensity_list[isoM_pXm1] / curScan.intensity_list[isoM_pX]
+                                                    if obRatio >= 0.5:
                                                         continue
 
-                                                    # find corresponding M' peak
-                                                    isoM_pX = curScan.findMZ(
-                                                        curPeakmz + xCount * cValidationOffset,
-                                                        ppm,
-                                                        start=currentPeakIndex,
+                                                # (1.) check if M' and M ratio are as expected
+                                                if checkRatio:
+                                                    rat = curPeakIntensity / labPeakIntensity
+                                                    if minRatio <= rat <= maxRatio:
+                                                        pass  ## ratio check passed
+                                                    else:
+                                                        continue  ## ratio check not passed
+
+                                                ## no isotopolog verification needs to be performed
+                                                if peakCountLeft == 1 and peakCountRight == 1:
+                                                    curPeakDetectedIonPairs.append(
+                                                        mzFeature(
+                                                            mz=curPeakmz,
+                                                            lmz=labPeakmz,
+                                                            tmz=xCount * xOffset,
+                                                            xCount=xCount,
+                                                            scanIndex=curScanIndex,
+                                                            loading=curLoading,
+                                                            nIntensity=curPeakIntensity,
+                                                            lIntensity=labPeakIntensity,
+                                                            ionMode=ionMode,
+                                                        )
                                                     )
-                                                    isoM_pX = curScan.getMostIntensePeak(
-                                                        isoM_pX[0],
-                                                        isoM_pX[1],
-                                                        intensityThres,
+
+                                                    skipOtherLoadings = True
+                                                    continue
+
+                                                # find M'+1 peak
+                                                isoM_pXp1 = curScan.findMZ(
+                                                    curPeakmz + xCount * xOffset + cValidationOffset,
+                                                    ppm,
+                                                    start=currentPeakIndex,
+                                                )
+                                                isoM_pXp1 = curScan.getMostIntensePeak(
+                                                    isoM_pXp1[0],
+                                                    isoM_pXp1[1],
+                                                )
+
+                                                # calculate the ratio of M+1/M
+                                                isoPeakIntensity = curScan.intensity_list[isoM_p1]
+                                                if peakCountLeft == 1:
+                                                    ratioN = None
+                                                elif peakCountLeft > 1 and lowAbundanceIsotopeCutoff and isoPeakIntensity <= isotopologIntensityThres:
+                                                    ratioN = None
+                                                else:
+                                                    ratioN = isoPeakIntensity / curPeakIntensity
+
+                                                # calculate the ratio of M'+1/M'
+                                                isoLabPeakIntensity = curScan.intensity_list[isoM_pXp1]
+                                                if peakCountRight == 1:
+                                                    ratioL = None
+                                                elif peakCountRight > 1 and lowAbundanceIsotopeCutoff and isoLabPeakIntensity <= isotopologIntensityThres:
+                                                    ratioL = None
+                                                else:
+                                                    ratioL = isoLabPeakIntensity / labPeakIntensity
+                                                # 2. check if the observed M'+1/M' ratio and the M+1/M ratio are approximately equal
+                                                if (ratioN != None and ratioL != None) and abs(ratioN - ratioL) <= intensityErrorL:
+                                                    curPeakDetectedIonPairs.append(
+                                                        mzFeature(
+                                                            mz=curPeakmz,
+                                                            lmz=labPeakmz,
+                                                            tmz=xCount * xOffset,
+                                                            xCount=xCount,
+                                                            scanIndex=curScanIndex,
+                                                            loading=curLoading,
+                                                            nIntensity=curPeakIntensity,
+                                                            lIntensity=labPeakIntensity,
+                                                            ionMode=ionMode,
+                                                        )
                                                     )
-                                                    if isoM_pX != -1:
-                                                        labPeakmz = curScan.mz_list[isoM_pX]
-                                                        labPeakIntensity = curScan.intensity_list[isoM_pX]
 
-                                                        # (0.) verify that peak is M' and not something else (e.g. M'-1, M'-2)
-                                                        # only for AllExtract experiments
-                                                        adjRatio = 0
-                                                        isoM_pXp1 = curScan.findMZ(
-                                                            curPeakmz + (xCount + 1) * cValidationOffset,
-                                                            ppm,
-                                                            start=currentPeakIndex,
+                                                    skipOtherLoadings = True
+                                                    continue
+                                                elif lowAbundanceIsotopeCutoff and (ratioN == None or ratioL == None):
+                                                    curPeakDetectedIonPairs.append(
+                                                        mzFeature(
+                                                            mz=curPeakmz,
+                                                            lmz=labPeakmz,
+                                                            tmz=xCount * xOffset,
+                                                            xCount=xCount,
+                                                            scanIndex=curScanIndex,
+                                                            loading=curLoading,
+                                                            nIntensity=curPeakIntensity,
+                                                            lIntensity=labPeakIntensity,
+                                                            ionMode=ionMode,
                                                         )
-                                                        isoM_pXp1 = curScan.getMostIntensePeak(
-                                                            isoM_pXp1[0],
-                                                            isoM_pXp1[1],
-                                                        )
-                                                        if isoM_pXp1 != -1:
-                                                            adjRatio = curScan.intensity_list[isoM_pXp1] / labPeakIntensity
+                                                    )
 
-                                                        if not metabolisationExperiment:
-                                                            if adjRatio >= 0.5:
-                                                                continue
+                                                    skipOtherLoadings = True
+                                                    continue
+                                    # endregion
 
-                                                        # (1.) check if M' and M ratio are as expected
-                                                        if checkRatio:
-                                                            rat = curPeakIntensity / labPeakIntensity
-                                                            if minRatio <= rat <= maxRatio:
-                                                                pass  ## ratio check passed
-                                                            else:
-                                                                continue  ## ratio check not passed
+                                # Isotope pattern validation (useCValidation == 0)
+                                # It is tested, if the expected isotope patterns
+                                # separate for the native and labelled metabolite follow a theoretical pattern
+                                # E.g. native 12C and uniformly / partially 13C-labelled metabolites
+                                # |    <--   Cn   -->    |
+                                # ||                    ||
+                                # |||                  |||
+                                # Necessary mainly for 13C-labelling with mirror-symmetric isotope patterns
+                                # NOTE: - Approach is mainly used for 13C-labelling
+                                if not useDoubleLabelingCombinations and useCIsotopePatternValidation == 0:
+                                    # region
+                                    # (0.) verify that peak is M and not something else (e.g. M+1, M+1...)
+                                    ## TODO improve me. Use seven golden rules or the number of carbon atoms
+                                    isoM_m1 = curScan.findMZ(curPeakmz - cValidationOffset, ppm)
+                                    isoM_m1 = curScan.getMostIntensePeak(isoM_m1[0], isoM_m1[1])
+                                    if isoM_m1 != -1:
+                                        obRatio = curScan.intensity_list[isoM_m1] / curPeakIntensity
+                                        if obRatio >= 0.5:
+                                            continue
 
-                                                        ## no isotopolog verification needs to be performed
-                                                        if peakCountLeft == 1 and peakCountRight == 1:
-                                                            curPeakDetectedIonPairs.append(
-                                                                mzFeature(
-                                                                    mz=curPeakmz,
-                                                                    lmz=labPeakmz,
-                                                                    tmz=xCount * cValidationOffset,
-                                                                    xCount=xCount,
-                                                                    scanIndex=curScanIndex,
-                                                                    loading=curLoading,
-                                                                    nIntensity=curPeakIntensity,
-                                                                    lIntensity=labPeakIntensity,
-                                                                    ionMode=ionMode,
-                                                                )
-                                                            )
+                                    # find M+1 peak
+                                    isoM_p1 = curScan.findMZ(
+                                        curPeakmz + cValidationOffset,
+                                        ppm,
+                                        start=currentPeakIndex,
+                                    )
+                                    isoM_p1 = curScan.getMostIntensePeak(isoM_p1[0], isoM_p1[1])
+                                    if isoM_p1 != -1 or peakCountLeft == 1 or lowAbundanceIsotopeCutoff:
+                                        # test certain number of labelled carbon atoms
 
-                                                            skipOtherLoadings = True
-                                                            continue
+                                        for xCount in sorted(xCounts, reverse=True):
+                                            # stop for impossible carbon atom number
+                                            if xCount > curPeakmz * curLoading / 12:
+                                                continue
 
-                                                        # find M'-1 peak
-                                                        isoM_pXm1 = curScan.findMZ(
-                                                            curPeakmz + (xCount - 1) * cValidationOffset,
-                                                            ppm,
-                                                            start=currentPeakIndex,
-                                                        )
-                                                        isoM_pXm1 = curScan.getMostIntensePeak(
-                                                            isoM_pXm1[0],
-                                                            isoM_pXm1[1],
-                                                        )
-                                                        normRatioL = purityLArray[xCount][1]
-                                                        normRatioN = purityNArray[xCount][1]
-
-                                                        # 2. check if the observed M'-1/M' ratio fits the theoretical one
-                                                        if peakCountRight == 1:
-                                                            pass
-                                                        elif isoM_pXm1 == -1:
-                                                            if lowAbundanceIsotopeCutoff and labPeakIntensity * normRatioL <= isotopologIntensityThres:
-                                                                pass
-                                                            else:
-                                                                continue
-                                                        elif isoM_pXm1 != -1:
-                                                            isoM_pXm1_Intensity = curScan.intensity_list[isoM_pXm1]
-                                                            observedRatioMp = isoM_pXm1_Intensity / labPeakIntensity
-                                                            if abs(normRatioL - observedRatioMp) <= intensityErrorL:
-                                                                pass
-                                                            elif lowAbundanceIsotopeCutoff and isoM_pXm1_Intensity <= isotopologIntensityThres:
-                                                                pass
-                                                            else:
-                                                                continue
-                                                        else:
-                                                            continue
-
-                                                        # 3. check if the observed M+1/M ratio fits the theoretical one
-                                                        if peakCountLeft == 1:
-                                                            pass
-                                                        elif isoM_p1 == -1:
-                                                            if lowAbundanceIsotopeCutoff and curPeakIntensity * (normRatioN + adjRatio) <= isotopologIntensityThres:
-                                                                pass
-                                                            else:
-                                                                continue
-                                                        elif isoM_p1 != -1:
-                                                            isoM_p1_Intensity = curScan.intensity_list[isoM_p1]
-                                                            observedRatioM = isoM_p1_Intensity / curPeakIntensity
-                                                            if abs((normRatioN + adjRatio) - observedRatioM) <= intensityErrorN:
-                                                                pass
-                                                            elif lowAbundanceIsotopeCutoff and isoM_p1_Intensity <= isotopologIntensityThres:
-                                                                pass
-                                                            else:
-                                                                continue
-                                                        else:
-                                                            continue
-
-                                                        # All verification criteria are passed, store the ion signal pair
-                                                        # for further processing
-                                                        curPeakDetectedIonPairs.append(
-                                                            mzFeature(
-                                                                mz=curPeakmz,
-                                                                lmz=labPeakmz,
-                                                                tmz=xCount * cValidationOffset,
-                                                                xCount=xCount,
-                                                                scanIndex=curScanIndex,
-                                                                loading=curLoading,
-                                                                nIntensity=curPeakIntensity,
-                                                                lIntensity=labPeakIntensity,
-                                                                ionMode=ionMode,
-                                                            )
-                                                        )
-                                                        skipOtherLoadings = True
-                                            # endregion
-
-                                        # labeling patterns derived from one or more labeling-elements (e.g. 13C and D)
-                                        # Currently, onle the m/z delta is checked but no isotopolog distribution
-                                        # E.g. 13CD3
-                                        # |  <-- 13CD3 -->  |
-                                        # ||                ||
-                                        # |||              ||||
-                                        # NOTE: currently, the labeling elements must be defined in the code
-                                        # NOTE: The option must be activated and the other two options must be deactivated
-                                        if useDoubleLabelingCombinations:
-                                            # find M+1 peak
-                                            isoM_p1 = curScan.findMZ(
-                                                curPeakmz + cValidationOffset / curLoading,
+                                            # find corresponding M' peak
+                                            isoM_pX = curScan.findMZ(
+                                                curPeakmz + xCount * cValidationOffset,
                                                 ppm,
                                                 start=currentPeakIndex,
                                             )
-                                            isoM_p1 = curScan.getMostIntensePeak(isoM_p1[0], isoM_p1[1])
-                                            intIsoM_p1 = 0
-                                            if isoM_p1 != -1:
-                                                intIsoM_p1 = curScan.intensity_list[isoM_p1]
+                                            isoM_pX = curScan.getMostIntensePeak(
+                                                isoM_pX[0],
+                                                isoM_pX[1],
+                                                intensityThres,
+                                            )
+                                            if isoM_pX != -1:
+                                                labPeakmz = curScan.mz_list[isoM_pX]
+                                                labPeakIntensity = curScan.intensity_list[isoM_pX]
 
-                                            isoM_m1 = curScan.findMZ(
-                                                curPeakmz - cValidationOffset / curLoading,
+                                                # (0.) verify that peak is M' and not something else (e.g. M'-1, M'-2)
+                                                # only for AllExtract experiments
+                                                adjRatio = 0
+                                                isoM_pXp1 = curScan.findMZ(
+                                                    curPeakmz + (xCount + 1) * cValidationOffset,
+                                                    ppm,
+                                                    start=currentPeakIndex,
+                                                )
+                                                isoM_pXp1 = curScan.getMostIntensePeak(
+                                                    isoM_pXp1[0],
+                                                    isoM_pXp1[1],
+                                                )
+                                                if isoM_pXp1 != -1:
+                                                    adjRatio = curScan.intensity_list[isoM_pXp1] / labPeakIntensity
+
+                                                if not metabolisationExperiment:
+                                                    if adjRatio >= 0.5:
+                                                        continue
+
+                                                # (1.) check if M' and M ratio are as expected
+                                                if checkRatio:
+                                                    rat = curPeakIntensity / labPeakIntensity
+                                                    if minRatio <= rat <= maxRatio:
+                                                        pass  ## ratio check passed
+                                                    else:
+                                                        continue  ## ratio check not passed
+
+                                                ## no isotopolog verification needs to be performed
+                                                if peakCountLeft == 1 and peakCountRight == 1:
+                                                    curPeakDetectedIonPairs.append(
+                                                        mzFeature(
+                                                            mz=curPeakmz,
+                                                            lmz=labPeakmz,
+                                                            tmz=xCount * cValidationOffset,
+                                                            xCount=xCount,
+                                                            scanIndex=curScanIndex,
+                                                            loading=curLoading,
+                                                            nIntensity=curPeakIntensity,
+                                                            lIntensity=labPeakIntensity,
+                                                            ionMode=ionMode,
+                                                        )
+                                                    )
+
+                                                    skipOtherLoadings = True
+                                                    continue
+
+                                                # find M'-1 peak
+                                                isoM_pXm1 = curScan.findMZ(
+                                                    curPeakmz + (xCount - 1) * cValidationOffset,
+                                                    ppm,
+                                                    start=currentPeakIndex,
+                                                )
+                                                isoM_pXm1 = curScan.getMostIntensePeak(
+                                                    isoM_pXm1[0],
+                                                    isoM_pXm1[1],
+                                                )
+                                                normRatioL = purityLArray[xCount][1]
+                                                normRatioN = purityNArray[xCount][1]
+
+                                                # 2. check if the observed M'-1/M' ratio fits the theoretical one
+                                                if peakCountRight == 1:
+                                                    pass
+                                                elif isoM_pXm1 == -1:
+                                                    if lowAbundanceIsotopeCutoff and labPeakIntensity * normRatioL <= isotopologIntensityThres:
+                                                        pass
+                                                    else:
+                                                        continue
+                                                elif isoM_pXm1 != -1:
+                                                    isoM_pXm1_Intensity = curScan.intensity_list[isoM_pXm1]
+                                                    observedRatioMp = isoM_pXm1_Intensity / labPeakIntensity
+                                                    if abs(normRatioL - observedRatioMp) <= intensityErrorL:
+                                                        pass
+                                                    elif lowAbundanceIsotopeCutoff and isoM_pXm1_Intensity <= isotopologIntensityThres:
+                                                        pass
+                                                    else:
+                                                        continue
+                                                else:
+                                                    continue
+
+                                                # 3. check if the observed M+1/M ratio fits the theoretical one
+                                                if peakCountLeft == 1:
+                                                    pass
+                                                elif isoM_p1 == -1:
+                                                    if lowAbundanceIsotopeCutoff and curPeakIntensity * (normRatioN + adjRatio) <= isotopologIntensityThres:
+                                                        pass
+                                                    else:
+                                                        continue
+                                                elif isoM_p1 != -1:
+                                                    isoM_p1_Intensity = curScan.intensity_list[isoM_p1]
+                                                    observedRatioM = isoM_p1_Intensity / curPeakIntensity
+                                                    if abs((normRatioN + adjRatio) - observedRatioM) <= intensityErrorN:
+                                                        pass
+                                                    elif lowAbundanceIsotopeCutoff and isoM_p1_Intensity <= isotopologIntensityThres:
+                                                        pass
+                                                    else:
+                                                        continue
+                                                else:
+                                                    continue
+
+                                                # All verification criteria are passed, store the ion signal pair
+                                                # for further processing
+                                                curPeakDetectedIonPairs.append(
+                                                    mzFeature(
+                                                        mz=curPeakmz,
+                                                        lmz=labPeakmz,
+                                                        tmz=xCount * cValidationOffset,
+                                                        xCount=xCount,
+                                                        scanIndex=curScanIndex,
+                                                        loading=curLoading,
+                                                        nIntensity=curPeakIntensity,
+                                                        lIntensity=labPeakIntensity,
+                                                        ionMode=ionMode,
+                                                    )
+                                                )
+                                                skipOtherLoadings = True
+                                    # endregion
+
+                                # labeling patterns derived from one or more labeling-elements (e.g. 13C and D)
+                                # Currently, onle the m/z delta is checked but no isotopolog distribution
+                                # E.g. 13CD3
+                                # |  <-- 13CD3 -->  |
+                                # ||                ||
+                                # |||              ||||
+                                # NOTE: currently, the labeling elements must be defined in the code
+                                # NOTE: The option must be activated and the other two options must be deactivated
+                                if useDoubleLabelingCombinations:
+                                    # find M+1 peak
+                                    isoM_p1 = curScan.findMZ(
+                                        curPeakmz + cValidationOffset / curLoading,
+                                        ppm,
+                                        start=currentPeakIndex,
+                                    )
+                                    isoM_p1 = curScan.getMostIntensePeak(isoM_p1[0], isoM_p1[1])
+                                    intIsoM_p1 = 0
+                                    if isoM_p1 != -1:
+                                        intIsoM_p1 = curScan.intensity_list[isoM_p1]
+
+                                    isoM_m1 = curScan.findMZ(
+                                        curPeakmz - cValidationOffset / curLoading,
+                                        ppm,
+                                        start=currentPeakIndex,
+                                    )
+                                    isoM_m1 = curScan.getMostIntensePeak(isoM_m1[0], isoM_m1[1])
+                                    intIsoM_m1 = 0
+                                    if isoM_m1 != -1:
+                                        intIsoM_m1 = curScan.intensity_list[isoM_m1]
+
+                                    if intIsoM_p1 < curPeakIntensity and intIsoM_m1 < curPeakIntensity and (isoM_p1 != -1 or peakCountLeft == 1 or lowAbundanceIsotopeCutoff):
+                                        # test certain number of labelled carbon atoms
+
+                                        for comb in combs:
+                                            # find corresponding M' peak
+                                            isoM_pX = curScan.findMZ(
+                                                curPeakmz + comb.mzdelta / curLoading,
                                                 ppm,
                                                 start=currentPeakIndex,
                                             )
-                                            isoM_m1 = curScan.getMostIntensePeak(isoM_m1[0], isoM_m1[1])
-                                            intIsoM_m1 = 0
-                                            if isoM_m1 != -1:
-                                                intIsoM_m1 = curScan.intensity_list[isoM_m1]
+                                            isoM_pX = curScan.getMostIntensePeak(
+                                                isoM_pX[0],
+                                                isoM_pX[1],
+                                                intensityThres,
+                                            )
+                                            if isoM_pX != -1:
+                                                labPeakmz = curScan.mz_list[isoM_pX]
+                                                labPeakIntensity = curScan.intensity_list[isoM_pX]
 
-                                            if intIsoM_p1 < curPeakIntensity and intIsoM_m1 < curPeakIntensity and (isoM_p1 != -1 or peakCountLeft == 1 or lowAbundanceIsotopeCutoff):
-                                                # test certain number of labelled carbon atoms
+                                                # (1.) check if M' and M ratio are as expected
+                                                if False:
+                                                    rat = curPeakIntensity / labPeakIntensity
+                                                    if minRatio <= rat <= maxRatio:
+                                                        pass  ## ratio check passed
+                                                    else:
+                                                        continue  ## ratio check not passed
 
-                                                for comb in combs:
-                                                    # find corresponding M' peak
-                                                    isoM_pX = curScan.findMZ(
-                                                        curPeakmz + comb.mzdelta / curLoading,
-                                                        ppm,
-                                                        start=currentPeakIndex,
+                                                # find M'-1 peak
+                                                isoM_pXm1 = curScan._findMZGeneric(
+                                                    curPeakmz + (comb.mzdelta - 1.00628 * (1.0 + curPeakmz * ppm / 1000000)) / curLoading,
+                                                    curPeakmz + (comb.mzdelta - 1.00335 * (1.0 - curPeakmz * ppm / 1000000)) / curLoading,
+                                                )
+                                                isoM_pXm1 = curScan.getMostIntensePeak(
+                                                    isoM_pXm1[0],
+                                                    isoM_pXm1[1],
+                                                )
+
+                                                if isoM_pXm1 != -1:
+                                                    isoPeakIntensity = curScan.intensity_list[isoM_pXm1]
+                                                    rat = isoPeakIntensity / labPeakIntensity
+
+                                                    if rat <= 0.75:
+                                                        pass
+                                                    else:
+                                                        continue
+
+                                                # find M'+1 peak
+                                                isoM_pXp1 = curScan._findMZGeneric(
+                                                    curPeakmz + (comb.mzdelta + 1.00335 * (1.0 - curPeakmz * ppm / 1000000)) / curLoading,
+                                                    curPeakmz + (comb.mzdelta + 1.00628 * (1.0 + curPeakmz * ppm / 1000000)) / curLoading,
+                                                )
+                                                isoM_pXp1 = curScan.getMostIntensePeak(
+                                                    isoM_pXp1[0],
+                                                    isoM_pXp1[1],
+                                                )
+
+                                                if isoM_pXp1 != -1:
+                                                    isoPeakIntensity = curScan.intensity_list[isoM_pXp1]
+                                                    rat = isoPeakIntensity / labPeakIntensity
+
+                                                    if rat <= 0.9:
+                                                        pass
+                                                    else:
+                                                        continue
+
+                                                # All verification criteria are passed, store the ion signal pair
+                                                # for further processing
+                                                curPeakDetectedIonPairs.append(
+                                                    mzFeature(
+                                                        mz=curPeakmz,
+                                                        lmz=curScan.mz_list[isoM_pX],
+                                                        tmz=comb.mzdelta / curLoading,
+                                                        xCount=fT.flatToString(comb.atoms),
+                                                        scanIndex=curScanIndex,
+                                                        loading=curLoading,
+                                                        nIntensity=curPeakIntensity,
+                                                        lIntensity=labPeakIntensity,
+                                                        ionMode=ionMode,
                                                     )
-                                                    isoM_pX = curScan.getMostIntensePeak(
-                                                        isoM_pX[0],
-                                                        isoM_pX[1],
-                                                        intensityThres,
-                                                    )
-                                                    if isoM_pX != -1:
-                                                        labPeakmz = curScan.mz_list[isoM_pX]
-                                                        labPeakIntensity = curScan.intensity_list[isoM_pX]
+                                                )
 
-                                                        # (1.) check if M' and M ratio are as expected
-                                                        if False:
-                                                            rat = curPeakIntensity / labPeakIntensity
-                                                            if minRatio <= rat <= maxRatio:
-                                                                pass  ## ratio check passed
-                                                            else:
-                                                                continue  ## ratio check not passed
+                                                skipOtherLoadings = True
+                                                # endregion
 
-                                                        # find M'-1 peak
-                                                        isoM_pXm1 = curScan._findMZGeneric(
-                                                            curPeakmz + (comb.mzdelta - 1.00628 * (1.0 + curPeakmz * ppm / 1000000)) / curLoading,
-                                                            curPeakmz + (comb.mzdelta - 1.00335 * (1.0 - curPeakmz * ppm / 1000000)) / curLoading,
-                                                        )
-                                                        isoM_pXm1 = curScan.getMostIntensePeak(
-                                                            isoM_pXm1[0],
-                                                            isoM_pXm1[1],
-                                                        )
+                    if False:  ## select best fit
+                        if len(curPeakDetectedIonPairs) > 0:
+                            bestFit = None
+                            bestFitPPMDiff = 1000000000
 
-                                                        if isoM_pXm1 != -1:
-                                                            isoPeakIntensity = curScan.intensity_list[isoM_pXm1]
-                                                            rat = isoPeakIntensity / labPeakIntensity
+                            ## TODO select best fit based on isotopic pattern (e.g. intensity)
 
-                                                            if rat <= 0.75:
-                                                                pass
-                                                            else:
-                                                                continue
+                            for mt in curPeakDetectedIonPairs:
+                                if abs(mt.lmz - mt.mz - mt.xCount * 1.00335) * 1000000.0 / mt.mz < bestFitPPMDiff:
+                                    bestFit = mt
+                                    bestFitPPMDiff = abs(mt.lmz - mt.mz - mt.xCount * 1.00335) * 1000000.0 / mt.mz
 
-                                                        # find M'+1 peak
-                                                        isoM_pXp1 = curScan._findMZGeneric(
-                                                            curPeakmz + (comb.mzdelta + 1.00335 * (1.0 - curPeakmz * ppm / 1000000)) / curLoading,
-                                                            curPeakmz + (comb.mzdelta + 1.00628 * (1.0 + curPeakmz * ppm / 1000000)) / curLoading,
-                                                        )
-                                                        isoM_pXp1 = curScan.getMostIntensePeak(
-                                                            isoM_pXp1[0],
-                                                            isoM_pXp1[1],
-                                                        )
+                            curScanDetectedIonPairs.append(bestFit)
+                    else:  ## use all peak pairs
+                        curScanDetectedIonPairs.extend(curPeakDetectedIonPairs)
 
-                                                        if isoM_pXp1 != -1:
-                                                            isoPeakIntensity = curScan.intensity_list[isoM_pXp1]
-                                                            rat = isoPeakIntensity / labPeakIntensity
+            if len(curScanDetectedIonPairs) > 0 and False:
+                from .utils import printObjectsAsTable
 
-                                                            if rat <= 0.9:
-                                                                pass
-                                                            else:
-                                                                continue
+                print("\n")
+                print(curScan.retention_time / 60.0)
+                printObjectsAsTable(
+                    curScanDetectedIonPairs,
+                    attrs=[
+                        "mz",
+                        "xCount",
+                        "loading",
+                        "nIntensity",
+                        "lIntensity",
+                        "ionMode",
+                    ],
+                )
 
-                                                        # All verification criteria are passed, store the ion signal pair
-                                                        # for further processing
-                                                        curPeakDetectedIonPairs.append(
-                                                            mzFeature(
-                                                                mz=curPeakmz,
-                                                                lmz=curScan.mz_list[isoM_pX],
-                                                                tmz=comb.mzdelta / curLoading,
-                                                                xCount=fT.flatToString(comb.atoms),
-                                                                scanIndex=curScanIndex,
-                                                                loading=curLoading,
-                                                                nIntensity=curPeakIntensity,
-                                                                lIntensity=labPeakIntensity,
-                                                                ionMode=ionMode,
-                                                            )
-                                                        )
-
-                                                        skipOtherLoadings = True
-                                                        # endregion
-
-                            if False:  ## select best fit
-                                if len(curPeakDetectedIonPairs) > 0:
-                                    bestFit = None
-                                    bestFitPPMDiff = 1000000000
-
-                                    ## TODO select best fit based on isotopic pattern (e.g. intensity)
-
-                                    for mt in curPeakDetectedIonPairs:
-                                        if abs(mt.lmz - mt.mz - mt.xCount * 1.00335) * 1000000.0 / mt.mz < bestFitPPMDiff:
-                                            bestFit = mt
-                                            bestFitPPMDiff = abs(mt.lmz - mt.mz - mt.xCount * 1.00335) * 1000000.0 / mt.mz
-
-                                    curScanDetectedIonPairs.append(bestFit)
-                            else:  ## use all peak pairs
-                                curScanDetectedIonPairs.extend(curPeakDetectedIonPairs)
-
-                if len(curScanDetectedIonPairs) > 0 and False:
-                    from .utils import printObjectsAsTable
-
-                    print("\n")
-                    print(curScan.retention_time / 60.0)
-                    printObjectsAsTable(
-                        curScanDetectedIonPairs,
-                        attrs=[
-                            "mz",
-                            "xCount",
-                            "loading",
-                            "nIntensity",
-                            "lIntensity",
-                            "ionMode",
-                        ],
-                    )
-
-                detectedIonPairs.extend(curScanDetectedIonPairs)
-                curScanIndex += 1
+            detectedIonPairs.extend(curScanDetectedIonPairs)
 
         except Exception as e:
             import traceback
