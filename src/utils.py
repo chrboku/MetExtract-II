@@ -158,14 +158,16 @@ def _smoothTriangle(data, degree, dropVals=False):
     """note that if dropVals is False, output length will be identical
     to input length, but with copies of data at the flanking regions"""
     data = np.asarray(data, dtype=np.float64)
-    triangle = np.concatenate([np.arange(degree), [degree], np.arange(degree)[::-1]]) + 1
-    smoothed = []
-    triangle_sum = np.sum(triangle)
-    for i in range(degree, len(data) - degree * 2):
-        point = data[i : i + len(triangle)] * triangle
-        smoothed.append(np.sum(point) / triangle_sum)
+    triangle = np.concatenate([np.arange(degree), [degree], np.arange(degree)[::-1]]) + 1.0
+    triangle_sum = float(np.sum(triangle))
+    kernel = triangle / triangle_sum
+    # Vectorized convolution replaces the element-wise Python loop.
+    # np.convolve 'valid' output[k] = sum_j(data[k+j]*kernel[j]),
+    # which matches the original loop starting at index `degree`.
+    smoothed_valid = np.convolve(data, kernel, mode="valid")  # length: len(data) - 2*degree
+    smoothed = smoothed_valid[degree:]  # length: len(data) - 3*degree
     if dropVals:
-        return np.array(smoothed)
+        return smoothed
     # Pad with edge values
     pad_len = degree + degree // 2
     smoothed = np.pad(smoothed, (pad_len, 0), mode="edge")

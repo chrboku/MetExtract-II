@@ -499,9 +499,22 @@ class formulaTools:
         return self.calcDifferenceBetweenElemDicts(self.parseFormula(sfFragment), self.parseFormula(sfParent))
 
 
+# Module-level cache for the default (no custom elements) formulaTools instance.
+# Building the element table is expensive; reuse it across all callers that
+# don't pass a custom elemDetails dict.
+_default_formula_tools = None
+
+
+def _get_default_formula_tools():
+    global _default_formula_tools
+    if _default_formula_tools is None:
+        _default_formula_tools = formulaTools()
+    return _default_formula_tools
+
+
 # helper method that returns the mass of a given isotope. Used in the main interface of MetExtract II
 def getIsotopeMass(isotope):
-    fT = formulaTools()
+    fT = _get_default_formula_tools()
     mass = -1
     element = ""
     for i in fT.elemDetails:
@@ -518,7 +531,7 @@ def getIsotopeMass(isotope):
 
 
 def getElementOfIsotope(isotope):
-    fT = formulaTools()
+    fT = _get_default_formula_tools()
     return fT.elemDetails[isotope][1]
 
 

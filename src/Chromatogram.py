@@ -3,6 +3,7 @@ import sys
 import base64
 import zlib
 import struct
+import itertools
 import xml.parsers.expat
 from xml.dom.minidom import parse
 import numpy as np
@@ -39,13 +40,33 @@ class Chromatogram:
             h.append(scan.intensity_list)
         return np.concatenate(h) if h else np.array([])
 
+    def _build_filter_line_index(self):
+        """Build (lazily) a dict mapping filter_line -> ordered list of MS1 scans."""
+        if not hasattr(self, "_filter_line_index"):
+            index = {}
+            for scan in self.MS1_list:
+                fl = scan.filter_line
+                if fl not in index:
+                    index[fl] = []
+                index[fl].append(scan)
+            self._filter_line_index = index
+        return self._filter_line_index
+
+    def _build_id_index(self):
+        """Build (lazily) a dict mapping scan id -> scan object."""
+        if not hasattr(self, "_id_index"):
+            index = {}
+            for scan in self.MS1_list:
+                index[scan.id] = scan
+            for scan in self.MS2_list:
+                index[scan.id] = scan
+            self._id_index = index
+        return self._id_index
+
     def getIthMS1Scan(self, index, filterLine):
-        i = 0
-        for scan in self.MS1_list:
-            if scan.filter_line == filterLine:
-                if i == index:
-                    return scan
-                i += 1
+        scans = self._build_filter_line_index().get(filterLine, [])
+        if 0 <= index < len(scans):
+            return scans[index]
         return None
 
     def getMS1ScanByNum(self, scanNum):
@@ -59,12 +80,7 @@ class Chromatogram:
         return fscan
 
     def getScanByID(self, id):
-        for scan in self.MS1_list:
-            if scan.id == id:
-                return scan
-        for scan in self.MS2_list:
-            if scan.id == id:
-                return scan
+        return self._build_id_index().get(id)
 
     def getFilterLines(
         self,
@@ -306,7 +322,7 @@ class Chromatogram:
         endTime=1000000,
     ):
         totSignals = 0
-        for scan in self.MS1_list + self.MS2_list:
+        for scan in itertools.chain(self.MS1_list, self.MS2_list):
             if (scan.filter_line == filterLine or filterLine == "") and startTime <= scan.retention_time <= endTime:
                 totSignals += np.sum(scan.intensity_list >= intThreshold)
 
@@ -326,7 +342,7 @@ class Chromatogram:
         maxInt = 0
         avgsum = 0
         avgcount = 0
-        for scan in self.MS1_list + self.MS2_list:
+        for scan in itertools.chain(self.MS1_list, self.MS2_list):
             if (scan.filter_line == filterLine or filterLine == "") and startTime <= scan.retention_time <= endTime:
                 mask = scan.intensity_list >= intThreshold
                 uVals = scan.intensity_list[mask]
@@ -670,8 +686,9 @@ class Chromatogram:
             tmp_ms.total_ion_current = spectrum["total ion current"]
             tmp_ms.list_size = 0
             # Keep as numpy arrays directly from pymzml
-            tmp_ms.mz_list = spectrum.peaks(peak_type="centroided")[:, 0].copy()
-            tmp_ms.intensity_list = spectrum.peaks(peak_type="centroided")[:, 1].copy()
+            _peaks = spectrum.peaks(peak_type="centroided")
+            tmp_ms.mz_list = _peaks[:, 0].copy()
+            tmp_ms.intensity_list = _peaks[:, 1].copy()
             tmp_ms.msInstrumentID = ""
 
             if msLevel == 1:
