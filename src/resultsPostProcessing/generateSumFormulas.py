@@ -8,11 +8,13 @@ from ..utils import Bunch
 
 from ..formulaTools import formulaTools
 
-from .. import TableUtils
+import polars as pl
 
 from copy import deepcopy
 
 import multiprocessing
+
+import json
 
 
 exID = "Num"
@@ -24,8 +26,87 @@ exIonMode = "Ionisation_Mode"
 exCharge = "Charge"
 
 
-def processFile(
-    file,
+from ..SGR import SGRGenerator
+from ..ParquetCache import ParquetCache
+
+
+from ..utils import get_app_folder
+
+local_folder = get_app_folder()
+sfCache = ParquetCache(local_folder + "/sfcache.pqts")
+
+
+def getCallStr(m, ppm, useAtoms, atomsRange, fixed, useSGR):
+    return "sfg.findFormulas(%.5f, useAtoms=%s, atomsRange=%s, fixed='%s', useSevenGoldenRules=%s, useSecondRule=True, ppm=%.2f))" % (m, str(useAtoms), str(atomsRange), fixed, useSGR, ppm)
+
+
+def genSFs(m, ppm, useAtoms, atomsRange, fixed, useSGR):
+    sfg = SGRGenerator()
+    sfs = sfg.findFormulas(
+        m,
+        useAtoms=useAtoms,
+        atomsRange=atomsRange,
+        useSevenGoldenRules=useSGR,
+        useSecondRule=True,
+        ppm=ppm,
+    )
+    return sfs
+
+
+def _compute_formula(args):
+    """
+    Module-level pool worker: compute sum formulas and return the list directly.
+    Must be at module level so it can be pickled by multiprocessing on Windows (spawn).
+    Does not access the cache or any shared state.
+    """
+    return genSFs(args.m, args.ppm, args.useAtoms, args.atomsRange, args.fixed, args.useSGR)
+
+
+_counter = None
+
+
+def calcSumFormulas(args):
+    global _counter
+    m = args.m
+    ppm = args.ppm
+    useAtoms = args.useAtoms
+    atomsRange = args.atomsRange
+    fixed = args.fixed
+    useSGR = args.useSGR
+    lock = args.lock
+    _counter = args.counter
+
+    callStr = getCallStr(m, ppm, useAtoms, atomsRange, fixed, useSGR)
+
+    if lock is not None:
+        lock.acquire()
+    sfs = sfCache.get(callStr)
+    if lock is not None:
+        lock.release()
+
+    if sfs is None:
+        sfs = genSFs(m, ppm, useAtoms, atomsRange, fixed, useSGR)
+
+        if lock is not None:
+            lock.acquire()
+        sfCache.set(callStr, sfs)
+        # print("\rNew SF calculated          ", counter.value, "done..", callStr,)
+        _counter.value = _counter.value + 1
+        if lock is not None:
+            lock.release()
+    else:
+        if lock is not None:
+            lock.acquire()
+        # print("\rFetched result from cache  ", counter.value, "done..", callStr,)
+        _counter.value = _counter.value + 1
+        if lock is not None:
+            lock.release()
+
+    return sfs
+
+
+def processPolarsTable(
+    df,
     columns,
     adducts,
     ppm=5.0,
@@ -34,16 +115,34 @@ def processFile(
     useAtoms=[],
     atomsRange=[],
     smCol="sumFormula_",
-    toFile=None,
     useSevenGoldenRules=True,
     useCn=True,
     pwMaxSet=None,
     pwValSet=None,
     nCores=1,
 ):
-    if toFile is None:
-        toFile = file.replace(".tsv", ".SFs.tsv").replace(".txt", ".SFs.txt")
+    """
+    Process a Polars dataframe and add sum formula annotations.
 
+    Args:
+        df: Polars DataFrame with metabolite data
+        columns: Dict mapping expected column names to actual column names
+        adducts: List of adduct definitions
+        ppm: Mass accuracy in ppm
+        ppmCorrectionPosMode: PPM correction for positive mode
+        ppmCorrectionNegMode: PPM correction for negative mode
+        useAtoms: List of atoms to use
+        atomsRange: List of [min, max] ranges for each atom
+        smCol: Prefix for sum formula columns
+        useSevenGoldenRules: Whether to use seven golden rules
+        useCn: How to use carbon count constraint
+        pwMaxSet: Progress callback for max value
+        pwValSet: Progress callback for current value
+        nCores: Number of CPU cores to use
+
+    Returns:
+        Polars DataFrame with sum formula columns added
+    """
     if len(useAtoms) == 0:
         useAtoms = ["C", "H", "O", "N", "P"]
         atomsRange = [[-1, -1]]  # C
@@ -52,417 +151,234 @@ def processFile(
         atomsRange.append([0, 10])  # N
         atomsRange.append([0, 10])  # P
 
-    table = TableUtils.TableUtils.readFile(file)
+    # Add sum formula columns if they don't exist
+    existing_cols = df.columns
+    new_cols = {}
 
-    if not smCol + "_CHO_count" in [col.name for col in table.getColumns()]:
-        table.addColumn(smCol + "_CHO_count", "INTEGER")
-    if not smCol + "_CHON" + "_count" in [col.name for col in table.getColumns()]:
-        table.addColumn(smCol + "_CHON" + "_count", "INTEGER")
-    if not smCol + "_CHOP" + "_count" in [col.name for col in table.getColumns()]:
-        table.addColumn(smCol + "_CHOP" + "_count", "INTEGER")
-    if not smCol + "_CHOS" + "_count" in [col.name for col in table.getColumns()]:
-        table.addColumn(smCol + "_CHOS" + "_count", "INTEGER")
-    if not smCol + "_CHONP" + "_count" in [col.name for col in table.getColumns()]:
-        table.addColumn(smCol + "_CHONP" + "_count", "INTEGER")
-    if not smCol + "_CHONS" + "_count" in [col.name for col in table.getColumns()]:
-        table.addColumn(smCol + "_CHONS" + "_count", "INTEGER")
-    if not smCol + "_CHOPS" + "_count" in [col.name for col in table.getColumns()]:
-        table.addColumn(smCol + "_CHOPS" + "_count", "INTEGER")
-    if not smCol + "_CHONPS" + "_count" in [col.name for col in table.getColumns()]:
-        table.addColumn(smCol + "_CHONPS" + "_count", "INTEGER")
+    for col_name in [
+        smCol + "_CHO_count",
+        smCol + "_CHON_count",
+        smCol + "_CHOP_count",
+        smCol + "_CHOS_count",
+        smCol + "_CHONP_count",
+        smCol + "_CHONS_count",
+        smCol + "_CHOPS_count",
+        smCol + "_CHONPS_count",
+        smCol + "_all_count",
+    ]:
+        if col_name not in existing_cols:
+            new_cols[col_name] = pl.lit(None, dtype=pl.Int64)
 
-    if not smCol + "_all_count" in [col.name for col in table.getColumns()]:
-        table.addColumn(smCol + "_all_count", "INTEGER")
+    for col_name in [
+        smCol + "_CHO",
+        smCol + "_CHON",
+        smCol + "_CHOP",
+        smCol + "_CHOS",
+        smCol + "_CHONP",
+        smCol + "_CHONS",
+        smCol + "_CHOPS",
+        smCol + "_CHONPS",
+        smCol + "_all",
+    ]:
+        if col_name not in existing_cols:
+            new_cols[col_name] = pl.lit("", dtype=pl.Utf8)
 
-    if not smCol + "_CHO" in [col.name for col in table.getColumns()]:
-        table.addColumn(smCol + "_CHO", "TEXT")
-    if not smCol + "_CHON" in [col.name for col in table.getColumns()]:
-        table.addColumn(smCol + "_CHON", "TEXT")
-    if not smCol + "_CHOP" in [col.name for col in table.getColumns()]:
-        table.addColumn(smCol + "_CHOP", "TEXT")
-    if not smCol + "_CHOS" in [col.name for col in table.getColumns()]:
-        table.addColumn(smCol + "_CHOS", "TEXT")
-    if not smCol + "_CHONP" in [col.name for col in table.getColumns()]:
-        table.addColumn(smCol + "_CHONP", "TEXT")
-    if not smCol + "_CHONS" in [col.name for col in table.getColumns()]:
-        table.addColumn(smCol + "_CHONS", "TEXT")
-    if not smCol + "_CHOPS" in [col.name for col in table.getColumns()]:
-        table.addColumn(smCol + "_CHOPS", "TEXT")
-    if not smCol + "_CHONPS" in [col.name for col in table.getColumns()]:
-        table.addColumn(smCol + "_CHONPS", "TEXT")
-    if not smCol + "_all" in [col.name for col in table.getColumns()]:
-        table.addColumn(smCol + "_all", "TEXT")
+    if new_cols:
+        df = df.with_columns(**new_cols)
 
-    class formulaSearch:
-        def __init__(
-            self,
-            columns,
-            adducts,
-            ppm,
-            ppmCorrectionPosMode,
-            ppmCorrectionNegMode,
-            useAtoms,
-            atomsRange,
-            useSevenGoldenRules,
-            useCn,
-            lock=None,
-            counter=None,
-        ):
-            self.columns = columns
-            self.adducts = adducts
-            self.ppm = ppm
-            self.ppmCorrectionPosMode = ppmCorrectionPosMode
-            self.ppmCorrectionNegMode = ppmCorrectionNegMode
-            self.useAtoms = useAtoms
-            self.atomsRange = atomsRange
-            self.useSevenGoldenRules = useSevenGoldenRules
-            self.useCn = useCn
+    fT = formulaTools()
+    useCn_lower = useCn.lower()
+    rows_list = df.to_dicts()
 
-            self.lock = lock
-            self.counter = counter
+    # --- Step 1: collect unique formula jobs keyed by callStr ---
+    # row_jobs[i] = list of (callStr, ion_label, neutral_mass_m) for row i
+    row_jobs = []
+    unique_jobs = {}  # callStr -> Bunch of compute args (no lock, no counter needed)
 
-            self.calcObjects = []
+    for row_dict in rows_list:
+        ionMode = row_dict[columns[exIonMode]]
+        mz = float(row_dict[columns[exMZ]])
+        ppm_corr = ppmCorrectionPosMode if ionMode == "+" else ppmCorrectionNegMode
+        mz = mz + mz * ppm_corr / 1e6
 
-            self.fT = formulaTools()
+        accMass = row_dict[columns[exAccMass]] if columns[exAccMass] in row_dict else ""
+        if accMass is None:
+            accMass = ""
 
-        def generateSumFormulaCalcObjects(self, x):
-            ionMode = x[self.columns[exIonMode]]
-            mz = x[self.columns[exMZ]]
-            mz = mz + mz * 1.0 * (self.ppmCorrectionPosMode if ionMode == "+" else self.ppmCorrectionNegMode) / 1e6
-            if self.columns[exAccMass] in x.keys():
-                accMass = x[self.columns[exAccMass]]
-            else:
-                accMass = ""
+        xCount = int(row_dict[columns[exXCount]])
+        charge = row_dict[columns[exCharge]]
 
-            xCount = int(x[self.columns[exXCount]])
-            atomsRange = deepcopy(self.atomsRange)
-            charge = x[self.columns[exCharge]]
+        row_atomsRange = deepcopy(atomsRange)
+        if useCn_lower == "exact":
+            row_atomsRange[0] = xCount
+        elif useCn_lower == "don't use":
+            pass
+        elif useCn_lower in ("min", "minimum"):
+            row_atomsRange[0] = (xCount, row_atomsRange[0][1])
+        elif useCn_lower.startswith("plusminus"):
+            g = 2
+            if len("plusminus_") < len(useCn):
+                g = int(useCn[len("plusminus_") :])
+            row_atomsRange[0] = (xCount - g, xCount + g)
 
-            if self.useCn.lower() == "exact":
-                atomsRange[0] = xCount
-            elif self.useCn.lower() == "don't use":
-                pass
-            elif self.useCn.lower() == "min" or self.useCn.lower() == "minimum":
-                atomsRange[0] = (xCount, atomsRange[0][1])
-            elif self.useCn.lower().startswith("plusminus"):
-                g = 2
-                if len("plusminus_") < len(self.useCn):
-                    g = int(self.useCn[len("plusminus_") :])
-
-                atomsRange[0] = (xCount - g, xCount + g)
-
-            # print("--------")
-            dbe = {}
-            dbe[smCol + "_CHO"] = []
-            dbe[smCol + "_CHOS"] = []
-            dbe[smCol + "_CHOP"] = []
-            dbe[smCol + "_CHON"] = []
-            dbe[smCol + "_CHONP"] = []
-            dbe[smCol + "_CHOPS"] = []
-            dbe[smCol + "_CHONS"] = []
-            dbe[smCol + "_CHONPS"] = []
-
-            if accMass == "":
-                for adduct in self.adducts:
-                    if ionMode == adduct[2] and charge == adduct[3]:
-                        calcObj = Bunch(
-                            m=(mz - adduct[1]) * adduct[3] / adduct[4],
-                            ppm=self.ppm,
-                            useAtoms=useAtoms,
-                            atomsRange=atomsRange,
-                            fixed="C",
-                            useSGR=self.useSevenGoldenRules,
-                            lock=self.lock,
-                            counter=self.counter,
-                        )
-                        self.calcObjects.append(calcObj)
-
-            else:
-                for m in str(accMass).split(","):
-                    m = m.replace('"', "")
-                    m = m.strip()
-                    m = float(m)
-                    m = m + m * 1.0 * (self.ppmCorrectionPosMode if ionMode == "+" else self.ppmCorrectionNegMode) / 1e6
-
-                    calcObj = Bunch(
-                        m=m,
-                        ppm=self.ppm,
-                        useAtoms=useAtoms,
-                        atomsRange=atomsRange,
-                        fixed="C",
-                        useSGR=self.useSevenGoldenRules,
-                        lock=self.lock,
-                        counter=self.counter,
-                    )
-                    self.calcObjects.append(calcObj)
-
-            return {}
-
-        def updateSumFormulaCol(self, x):
-            ionMode = x[self.columns[exIonMode]]
-            mz = x[self.columns[exMZ]]
-            mz = mz + mz * 1.0 * (self.ppmCorrectionPosMode if ionMode == "+" else self.ppmCorrectionNegMode) / 1e6
-            if self.columns[exAccMass] in x.keys():
-                accMass = x[self.columns[exAccMass]]
-            else:
-                accMass = ""
-
-            xCount = int(x[self.columns[exXCount]])
-            atomsRange = deepcopy(self.atomsRange)
-            charge = x[self.columns[exCharge]]
-
-            if self.useCn.lower() == "exact":
-                atomsRange[0] = xCount
-            elif self.useCn.lower() == "don't use":
-                pass
-            elif self.useCn.lower() == "min" or self.useCn.lower() == "minimum":
-                atomsRange[0] = (xCount, atomsRange[0][1])
-            elif self.useCn.lower().startswith("plusminus"):
-                g = 2
-                if len("plusminus_") < len(self.useCn):
-                    g = int(self.useCn[len("plusminus_") :])
-
-                atomsRange[0] = (xCount - g, xCount + g)
-
-            # print("--------")
-            dbe = {}
-            dbe[smCol + "_CHO"] = []
-            dbe[smCol + "_CHOS"] = []
-            dbe[smCol + "_CHOP"] = []
-            dbe[smCol + "_CHON"] = []
-            dbe[smCol + "_CHONP"] = []
-            dbe[smCol + "_CHOPS"] = []
-            dbe[smCol + "_CHONS"] = []
-            dbe[smCol + "_CHONPS"] = []
-            dbe[smCol + "_all"] = []
-
-            if accMass == "":
-                for adduct in self.adducts:
-                    if ionMode == adduct[2] and charge == adduct[3]:
-                        # ret = sfg.findFormulas((mz - adduct[1])*adduct[3]/adduct[4], self.ppm, useAtoms=useAtoms, atomsRange=atomsRange,
-                        #                       fixed="C", useSevenGoldenRules=self.useSevenGoldenRules)
-
-                        m = (mz - adduct[1]) * adduct[3] / adduct[4]
-                        ret = calcSumFormulas(
-                            Bunch(
-                                m=m,
-                                ppm=self.ppm,
-                                useAtoms=useAtoms,
-                                atomsRange=atomsRange,
-                                fixed="C",
-                                useSGR=self.useSevenGoldenRules,
-                                lock=self.lock,
-                                counter=self.counter,
-                            )
-                        )
-
-                        for e in ret:
-                            mT = self.fT.calcMolWeight(self.fT.parseFormula(e))
-                            ent = "%s (Ion: %s, MassErrorPPM: %.5f, MassErrorMass: %.5f)" % (
-                                e,
-                                "[M" + adduct[0] + "]",
-                                (m - mT) * 1e6 / m,
-                                m - mT,
-                            )
-                            if "P" in e and "N" in e and "S" in e:
-                                dbe[smCol + "_CHONPS"].append(ent)
-                            elif "P" in e and "S" in e:
-                                dbe[smCol + "_CHOPS"].append(ent)
-                            elif "S" in e and "N" in e:
-                                dbe[smCol + "_CHONS"].append(ent)
-                            elif "N" in e and "P" in e:
-                                dbe[smCol + "_CHONP"].append(ent)
-                            elif "P" in e:
-                                dbe[smCol + "_CHOP"].append(ent)
-                            elif "N" in e:
-                                dbe[smCol + "_CHON"].append(ent)
-                            elif "S" in e:
-                                dbe[smCol + "_CHOS"].append(ent)
-                            else:
-                                dbe[smCol + "_CHO"].append(ent)
-                            dbe[smCol + "_all"].append(ent)
-            else:
-                for m in str(accMass).split(","):
-                    m = m.replace('"', "")
-                    m = m.strip()
-                    m = float(m)
-                    m = m + m * 1.0 * (self.ppmCorrectionPosMode if ionMode == "+" else self.ppmCorrectionNegMode) / 1e6
-
-                    ret = calcSumFormulas(
-                        Bunch(
+        this_row_jobs = []
+        if accMass == "":
+            for adduct in adducts:
+                if ionMode == adduct[2] and charge == adduct[3]:
+                    m = (mz - adduct[1]) * adduct[3] / adduct[4]
+                    callStr = getCallStr(m, ppm, useAtoms, row_atomsRange, "C", useSevenGoldenRules)
+                    this_row_jobs.append((callStr, "[M" + adduct[0] + "]", m))
+                    if callStr not in unique_jobs:
+                        unique_jobs[callStr] = Bunch(
                             m=m,
-                            ppm=self.ppm,
+                            ppm=ppm,
                             useAtoms=useAtoms,
-                            atomsRange=atomsRange,
+                            atomsRange=deepcopy(row_atomsRange),
                             fixed="C",
-                            useSGR=self.useSevenGoldenRules,
-                            lock=self.lock,
-                            counter=self.counter,
+                            useSGR=useSevenGoldenRules,
                         )
+        else:
+            for m_str in str(accMass).split(","):
+                m_val = float(m_str.replace('"', "").strip())
+                m_val = m_val + m_val * ppm_corr / 1e6
+                callStr = getCallStr(m_val, ppm, useAtoms, row_atomsRange, "C", useSevenGoldenRules)
+                this_row_jobs.append((callStr, "[M]", m_val))
+                if callStr not in unique_jobs:
+                    unique_jobs[callStr] = Bunch(
+                        m=m_val,
+                        ppm=ppm,
+                        useAtoms=useAtoms,
+                        atomsRange=deepcopy(row_atomsRange),
+                        fixed="C",
+                        useSGR=useSevenGoldenRules,
                     )
+        row_jobs.append(this_row_jobs)
 
-                    for e in ret:
-                        mT = self.fT.calcMolWeight(self.fT.parseFormula(e))
-                        ent = "%s (Ion: %s, MassErrorPPM: %.5f, MassErrorMass: %.5f)" % (e, "[M]", (m - mT) * 1e6 / m, m - mT)
-                        if "P" in e and "N" in e and "S" in e:
-                            dbe[smCol + "_CHONPS"].append(ent)
-                        elif "P" in e and "S" in e:
-                            dbe[smCol + "_CHOPS"].append(ent)
-                        elif "S" in e and "N" in e:
-                            dbe[smCol + "_CHONS"].append(ent)
-                        elif "N" in e and "P" in e:
-                            dbe[smCol + "_CHONP"].append(ent)
-                        elif "P" in e:
-                            dbe[smCol + "_CHOP"].append(ent)
-                        elif "N" in e:
-                            dbe[smCol + "_CHON"].append(ent)
-                        elif "S" in e:
-                            dbe[smCol + "_CHOS"].append(ent)
-                        else:
-                            dbe[smCol + "_CHO"].append(ent)
-                        dbe[smCol + "_all"].append(ent)
+    # --- Step 2: bulk-load the cache once and split into hits/misses ---
+    # sfCache.get_all() reads the parquet file a single time and returns a plain
+    # dict, avoiding the O(n) DataFrame scan that sfCache.get() does per key.
+    all_cached = sfCache.get_all()
+    formula_dict = {}  # callStr -> list[str]
+    missing_strs = []
+    missing_jobs = []
+    for callStr, job in unique_jobs.items():
+        if callStr in all_cached:
+            formula_dict[callStr] = all_cached[callStr]
+        else:
+            missing_strs.append(callStr)
+            missing_jobs.append(job)
 
-            if len(dbe[smCol + "_CHO"]) > 0:
-                if len(dbe[smCol + "_CHO"]) > 250:
-                    x[smCol + "_CHO"] = "Too many hits %d" % (len(dbe[smCol + "_CHO"]))
+    # --- Step 3: compute missing formulas (parallel when nCores > 1) ---
+    # _compute_formula is a module-level function so it can be pickled on Windows.
+    # Only unique masses are computed once; no lock or Manager needed.
+    if missing_jobs:
+        if pwMaxSet:
+            pwMaxSet(len(missing_jobs))
+        if nCores > 1 and len(missing_jobs) > 1:
+            chunksize = max(1, len(missing_jobs) // (nCores * 4))
+            with multiprocessing.Pool(processes=nCores) as pool:
+                computed = list(pool.imap(_compute_formula, missing_jobs, chunksize=chunksize))
+        else:
+            computed = []
+            for i, job in enumerate(missing_jobs):
+                if pwValSet and i % 10 == 0:
+                    pwValSet(i)
+                computed.append(genSFs(job.m, job.ppm, job.useAtoms, job.atomsRange, job.fixed, job.useSGR))
+
+        new_entries = {}
+        for callStr, sfs in zip(missing_strs, computed):
+            formula_dict[callStr] = sfs
+            new_entries[callStr] = sfs
+        # Write all new results to the parquet cache in a single file write.
+        if new_entries:
+            sfCache.set_many(new_entries)
+
+    # --- Step 4: classify formulas per row and collect column values ---
+    if pwMaxSet:
+        pwMaxSet(len(rows_list))
+
+    suffix_keys = ["_CHO", "_CHOS", "_CHOP", "_CHON", "_CHONP", "_CHONS", "_CHOPS", "_CHONPS", "_all"]
+    col_data = {smCol + k: [] for k in suffix_keys}
+    col_data.update({smCol + k + "_count": [] for k in suffix_keys})
+    compound_hits = []
+
+    for idx, (row_dict, this_row_jobs) in enumerate(zip(rows_list, row_jobs)):
+        if pwValSet and idx % 10 == 0:
+            pwValSet(idx)
+
+        dbe = {smCol + k: [] for k in suffix_keys}
+        for callStr, ion_label, m in this_row_jobs:
+            for e in formula_dict.get(callStr, []):
+                mT = fT.calcMolWeight(fT.parseFormula(e))
+                ent = {
+                    "formula": e,
+                    "ion": ion_label,
+                    "mass_error_ppm": (m - mT) * 1e6 / m,
+                    "mass_error_mass": m - mT,
+                }
+
+                has_n = "N" in ent["formula"]
+                has_p = "P" in ent["formula"]
+                has_s = "S" in ent["formula"]
+                if has_p and has_n and has_s:
+                    dbe[smCol + "_CHONPS"].append(ent)
+                    element_class = "CHONPS"
+                elif has_p and has_s:
+                    dbe[smCol + "_CHOPS"].append(ent)
+                    element_class = "CHOPS"
+                elif has_s and has_n:
+                    dbe[smCol + "_CHONS"].append(ent)
+                    element_class = "CHONS"
+                elif has_n and has_p:
+                    dbe[smCol + "_CHONP"].append(ent)
+                    element_class = "CHONP"
+                elif has_p:
+                    dbe[smCol + "_CHOP"].append(ent)
+                    element_class = "CHOP"
+                elif has_n:
+                    dbe[smCol + "_CHON"].append(ent)
+                    element_class = "CHON"
+                elif has_s:
+                    dbe[smCol + "_CHOS"].append(ent)
+                    element_class = "CHOS"
                 else:
-                    x[smCol + "_CHO"] = "; ".join(dbe[smCol + "_CHO"])
-                x[smCol + "_CHO_count"] = len(dbe[smCol + "_CHO"])
+                    dbe[smCol + "_CHO"].append(ent)
+                    element_class = "CHO"
+                dbe[smCol + "_all"].append(ent)
+                compound_hits.append(
+                    {
+                        "SumFormula": e,
+                        "Element_Class": element_class,
+                        "Ion_Adduct": ion_label,
+                        "MassErrorPPM": ent["mass_error_ppm"],
+                        "MassErrorMass": ent["mass_error_mass"],
+                        "Feature_Num": row_dict.get(columns[exID]),
+                        "Feature_RT": row_dict.get(columns[exRT]),
+                        "Feature_MZ": row_dict.get(columns[exMZ]),
+                        "Feature_Xn": row_dict.get(columns[exXCount]),
+                        "Feature_Ionisation_Mode": row_dict.get(columns[exIonMode]),
+                        "Feature_Charge": row_dict.get(columns[exCharge]),
+                        "Feature_M": row_dict.get(columns[exAccMass]),
+                        "Feature_OGroup": row_dict.get("OGroup"),
+                        "Feature_Ion": row_dict.get("Ion"),
+                        "Feature_Loss": row_dict.get("Loss"),
+                        "Feature_Relative_peakarea_in_group": row_dict.get("Relative_peakarea_in_group"),
+                        "Feature_Average_peakarea": row_dict.get("Average_peakarea"),
+                    }
+                )
+
+        for k in suffix_keys:
+            hits = dbe[smCol + k]
+            if hits:
+                col_data[smCol + k].append("Too many hits %d" % len(hits) if len(hits) > 250 else json.dumps(hits, ensure_ascii=True))
+                col_data[smCol + k + "_count"].append(len(hits))
             else:
-                x[smCol + "_CHO"] = ""
-                x[smCol + "_CHO_count"] = ""
+                col_data[smCol + k].append("")
+                col_data[smCol + k + "_count"].append(None)
 
-            if len(dbe[smCol + "_CHOS"]) > 0:
-                if len(dbe[smCol + "_CHOS"]) > 250:
-                    x[smCol + "_CHOS"] = "Too many hits %d" % (len(dbe[smCol + "_CHOS"]))
-                else:
-                    x[smCol + "_CHOS"] = "; ".join(dbe[smCol + "_CHOS"])
-                x[smCol + "_CHOS" + "_count"] = len(dbe[smCol + "_CHOS"])
-            else:
-                x[smCol + "_CHOS"] = ""
-                x[smCol + "_CHOS" + "_count"] = ""
-
-            if len(dbe[smCol + "_CHOP"]) > 0:
-                if len(dbe[smCol + "_CHOP"]) > 250:
-                    x[smCol + "_CHOP"] = "Too many hits %d" % (len(dbe[smCol + "_CHOP"]))
-                else:
-                    x[smCol + "_CHOP"] = "; ".join(dbe[smCol + "_CHOP"])
-                x[smCol + "_CHOP" + "_count"] = len(dbe[smCol + "_CHOP"])
-            else:
-                x[smCol + "_CHOP"] = ""
-                x[smCol + "_CHOP" + "_count"] = ""
-
-            if len(dbe[smCol + "_CHON"]) > 0:
-                if len(dbe[smCol + "_CHON"]) > 250:
-                    x[smCol + "_CHON"] = "Too many hits %d" % (len(dbe[smCol + "_CHON"]))
-                else:
-                    x[smCol + "_CHON"] = "; ".join(dbe[smCol + "_CHON"])
-                x[smCol + "_CHON" + "_count"] = len(dbe[smCol + "_CHON"])
-            else:
-                x[smCol + "_CHON"] = ""
-                x[smCol + "_CHON" + "_count"] = ""
-
-            if len(dbe[smCol + "_CHONP"]) > 0:
-                if len(dbe[smCol + "_CHONP"]) > 250:
-                    x[smCol + "_CHONP"] = "Too many hits %d" % (len(dbe[smCol + "_CHONP"]))
-                else:
-                    x[smCol + "_CHONP"] = "; ".join(dbe[smCol + "_CHONP"])
-                x[smCol + "_CHONP" + "_count"] = len(dbe[smCol + "_CHONP"])
-            else:
-                x[smCol + "_CHONP"] = ""
-                x[smCol + "_CHONP" + "_count"] = ""
-
-            if len(dbe[smCol + "_CHONS"]) > 0:
-                if len(dbe[smCol + "_CHONS"]) > 250:
-                    x[smCol + "_CHONS"] = "Too many hits %d" % (len(dbe[smCol + "_CHONS"]))
-                else:
-                    x[smCol + "_CHONS"] = "; ".join(dbe[smCol + "_CHONS"])
-                x[smCol + "_CHONS" + "_count"] = len(dbe[smCol + "_CHONS"])
-            else:
-                x[smCol + "_CHONS"] = ""
-                x[smCol + "_CHONS" + "_count"] = ""
-
-            if len(dbe[smCol + "_CHOPS"]) > 0:
-                if len(dbe[smCol + "_CHOPS"]) > 250:
-                    x[smCol + "_CHOPS"] = "Too many hits %d" % (len(dbe[smCol + "_CHOPS"]))
-                else:
-                    x[smCol + "_CHOPS"] = "; ".join(dbe[smCol + "_CHOPS"])
-                x[smCol + "_CHOPS" + "_count"] = len(dbe[smCol + "_CHOPS"])
-            else:
-                x[smCol + "_CHOPS"] = ""
-                x[smCol + "_CHOPS" + "_count"] = ""
-
-            if len(dbe[smCol + "_CHONPS"]) > 0:
-                if len(dbe[smCol + "_CHONPS"]) > 250:
-                    x[smCol + "_CHONPS"] = "Too many hits %d" % (len(dbe[smCol + "_CHONPS"]))
-                else:
-                    x[smCol + "_CHONPS"] = "; ".join(dbe[smCol + "_CHONPS"])
-                x[smCol + "_CHONPS" + "_count"] = len(dbe[smCol + "_CHONPS"])
-            else:
-                x[smCol + "_CHONPS"] = ""
-                x[smCol + "_CHONPS" + "_count"] = ""
-
-            if len(dbe[smCol + "_all"]) > 0:
-                if len(dbe[smCol + "_all"]) > 250:
-                    x[smCol + "_all"] = "Too many hits %d" % (len(dbe[smCol + "_all"]))
-                else:
-                    x[smCol + "_all"] = "; ".join(dbe[smCol + "_all"])
-                x[smCol + "_all" + "_count"] = len(dbe[smCol + "_all"])
-            else:
-                x[smCol + "_all"] = ""
-                x[smCol + "_all" + "_count"] = ""
-
-            return x
-
-    m = multiprocessing.Manager()
-    lock = m.Lock()
-    counter = m.Value("i", 0)
-
-    x = formulaSearch(
-        columns,
-        adducts,
-        ppm,
-        ppmCorrectionPosMode,
-        ppmCorrectionNegMode,
-        useAtoms,
-        atomsRange,
-        useSevenGoldenRules=useSevenGoldenRules,
-        useCn=useCn,
-        lock=lock,
-        counter=counter,
-    )
-
-    table.applyFunction(
-        x.generateSumFormulaCalcObjects,
-        showProgress=False,
-        pwMaxSet=None,
-        pwValSet=None,
-    )
-
-    calcSFs = x.calcObjects
-
-    from .MExtract import getCallStr, genSFs, calcSumFormulas
-
-    pool = multiprocessing.Pool(processes=nCores, maxtasksperchild=1)
-    pool.map(calcSumFormulas, calcSFs)
-    pool.close()
-    pool.join()
-
-    table.applyFunction(x.updateSumFormulaCol, showProgress=True, pwMaxSet=pwMaxSet, pwValSet=pwValSet)
-
-    table.addComment(
-        "## Sum formula generation. Adducts %s, ppm %.1f, atoms %s, atomsRange %s, seven golden rules %s, useXn %s"
-        % (
-            str(adducts),
-            ppm,
-            str(useAtoms),
-            str(atomsRange),
-            str(useSevenGoldenRules),
-            str(useCn),
-        )
-    )
-
-    TableUtils.TableUtils.saveFile(table, toFile)
+    # Update DataFrame in a single batched with_columns call instead of 18 separate ones.
+    df = df.with_columns([pl.Series(col_name, values) for col_name, values in col_data.items()])
+    return df, compound_hits
 
 
 ## adduct definition (name, m/z increment, polarity, charges, number of M
@@ -496,8 +412,8 @@ def natSort(l, key=lambda ent: ent):
     return l
 
 
-def annotateResultsWithSumFormulas(
-    resultsFile,
+def annotatePolarsTableWithSumFormulas(
+    results_df,
     useAtoms,
     atomsRange,
     Xn,
@@ -509,14 +425,29 @@ def annotateResultsWithSumFormulas(
     pwMaxSet=None,
     pwValSet=None,
     nCores=1,
-    toFile=None,
 ):
-    if toFile is None:
-        toFile = resultsFile
+    """
+    Annotate a Polars dataframe with generated sum formulas.
 
-    processFile(
-        resultsFile,
-        toFile=toFile,
+    Args:
+        results_df: Polars DataFrame with metabolite data
+        useAtoms: List of atoms to use
+        atomsRange: List of [min, max] ranges for each atom
+        Xn: Element to check (e.g., "C")
+        useExactXn: How to check Xn
+        ppm: Mass accuracy in ppm
+        ppmCorrectionPosMode: PPM correction for positive mode
+        ppmCorrectionNegMode: PPM correction for negative mode
+        adducts: List of adduct definitions
+        pwMaxSet: Progress callback for max value
+        pwValSet: Progress callback for current value
+        nCores: Number of CPU cores to use
+
+    Returns:
+        Polars DataFrame with sum formula columns added
+    """
+    return processPolarsTable(
+        results_df,
         columns={
             exID: exID,
             exMZ: exMZ,
@@ -539,3 +470,49 @@ def annotateResultsWithSumFormulas(
         pwValSet=pwValSet,
         nCores=nCores,
     )
+
+
+# Legacy function for backward compatibility (TSV file-based)
+def annotateResultsWithSumFormulas(
+    resultsFile,
+    useAtoms,
+    atomsRange,
+    Xn,
+    useExactXn,
+    ppm=5.0,
+    ppmCorrectionPosMode=0,
+    ppmCorrectionNegMode=0,
+    adducts=adductsN + adductsP,
+    pwMaxSet=None,
+    pwValSet=None,
+    nCores=1,
+    toFile=None,
+):
+    """
+    Legacy function that reads from TSV file and writes results.
+    For new code, use annotatePolarsTableWithSumFormulas instead.
+    """
+    if toFile is None:
+        toFile = resultsFile
+
+    # Read TSV file
+    df = pl.read_csv(resultsFile, separator="\t")
+
+    # Process with Polars
+    df, _ = annotatePolarsTableWithSumFormulas(
+        df,
+        useAtoms=useAtoms,
+        atomsRange=atomsRange,
+        Xn=Xn,
+        useExactXn=useExactXn,
+        ppm=ppm,
+        ppmCorrectionPosMode=ppmCorrectionPosMode,
+        ppmCorrectionNegMode=ppmCorrectionNegMode,
+        adducts=adducts,
+        pwMaxSet=pwMaxSet,
+        pwValSet=pwValSet,
+        nCores=nCores,
+    )
+
+    # Write TSV file
+    df.write_csv(toFile, separator="\t")

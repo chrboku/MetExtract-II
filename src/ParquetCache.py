@@ -180,6 +180,43 @@ class ParquetCache:
         # Save empty cache
         self._save_cache()
 
+    def get_all(self):
+        """
+        Return all non-expired entries as a plain dict {key: value}.
+        Loads the parquet file once; O(n) total rather than O(n) per individual get() call.
+        """
+        cache_df = self._load_cache()
+        result = {}
+        now = time()
+        for row in cache_df.to_dicts():
+            if row["exp"] == 0 or row["exp"] > now:
+                try:
+                    result[row["key"]] = loads(base64.b64decode(row["val"].encode("utf-8")))
+                except Exception as e:
+                    logger.warning(f"Could not decode cache entry for key {row['key']}: {e}")
+        return result
+
+    def set_many(self, entries, timeout=None):
+        """
+        Set multiple entries at once, writing the parquet file only once instead of
+        once per entry.  Existing keys are updated in-place.
+        """
+        if not entries:
+            return
+        expire = 0.0 if not timeout else time() + timeout
+        cache_df = self._load_cache()
+        # Remove any pre-existing keys in one filter pass
+        keys_to_set = list(entries.keys())
+        cache_df = cache_df.filter(~pl.col("key").is_in(keys_to_set))
+        # Encode all new values
+        new_rows = []
+        for key, value in entries.items():
+            data = base64.b64encode(dumps(value, 2)).decode("utf-8")
+            new_rows.append({"key": key, "val": data, "exp": expire})
+        new_df = pl.DataFrame(new_rows, schema={"key": pl.Utf8, "val": pl.Utf8, "exp": pl.Float64})
+        self.cache_df = pl.concat([cache_df, new_df])
+        self._save_cache()
+
     def __del__(self):
         """Cleans up the object"""
         # No connection to close with Parquet files

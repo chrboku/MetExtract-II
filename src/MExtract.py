@@ -33,18 +33,9 @@ import shutil
 app = None
 
 # Set local folder for MetExtract II
-local_folder = "."
-# get the operating system
-os_name = platform.system()
-if os_name == "Windows":
-    local_folder = os.environ["LOCALAPPDATA"]
-elif os_name == "Linux":
-    local_folder = os.environ["HOME"]
-elif os_name == "Darwin":
-    local_folder = os.environ["HOME"]
-local_folder = os.path.join(local_folder, "MetExtractII")
-if not os.path.exists(local_folder):
-    os.makedirs(local_folder)
+from .utils import get_app_folder
+
+local_folder = get_app_folder()
 print(f"Using local folder '{local_folder}'")
 
 
@@ -538,6 +529,9 @@ from copy import copy, deepcopy
 from xml.parsers.expat import ExpatError
 from optparse import OptionParser
 
+# capture stdout and stderr
+
+
 # from hashlib import sha256
 import csv
 
@@ -719,70 +713,7 @@ from . import annotateResultMatrix
 from . import pyperclip
 
 
-from .SGR import SGRGenerator
 from .ParquetCache import ParquetCache
-
-sfCache = ParquetCache(local_folder + "/sfcache.pqts")
-
-
-def getCallStr(m, ppm, useAtoms, atomsRange, fixed, useSGR):
-    return "sfg.findFormulas(%.5f, useAtoms=%s, atomsRange=%s, fixed='%s', useSevenGoldenRules=%s, useSecondRule=True, ppm=%.2f))" % (m, str(useAtoms), str(atomsRange), fixed, useSGR, ppm)
-
-
-def genSFs(m, ppm, useAtoms, atomsRange, fixed, useSGR):
-    sfg = SGRGenerator()
-    sfs = sfg.findFormulas(
-        m,
-        useAtoms=useAtoms,
-        atomsRange=atomsRange,
-        useSevenGoldenRules=useSGR,
-        useSecondRule=True,
-        ppm=ppm,
-    )
-    return sfs
-
-
-counter = None
-
-
-def calcSumFormulas(args):
-    global counter
-    m = args.m
-    ppm = args.ppm
-    useAtoms = args.useAtoms
-    atomsRange = args.atomsRange
-    fixed = args.fixed
-    useSGR = args.useSGR
-    lock = args.lock
-    counter = args.counter
-
-    callStr = getCallStr(m, ppm, useAtoms, atomsRange, fixed, useSGR)
-
-    if lock is not None:
-        lock.acquire()
-    sfs = sfCache.get(callStr)
-    if lock is not None:
-        lock.release()
-
-    if sfs is None:
-        sfs = genSFs(m, ppm, useAtoms, atomsRange, fixed, useSGR)
-
-        if lock is not None:
-            lock.acquire()
-        sfCache.set(callStr, sfs)
-        # print("\rNew SF calculated          ", counter.value, "done..", callStr,)
-        counter.value = counter.value + 1
-        if lock is not None:
-            lock.release()
-    else:
-        if lock is not None:
-            lock.acquire()
-        # print("\rFetched result from cache  ", counter.value, "done..", callStr,)
-        counter.value = counter.value + 1
-        if lock is not None:
-            lock.release()
-
-    return sfs
 
 
 def memory_usage_psutil():
@@ -3841,9 +3772,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             )
 
                         print("Processing Table " + excel_file)
-                        addStatsColumnToResults(excel_file, groups, outputOrder, sheet_name="1_afterBracketing", new_sheet_name="2_afterAddingStatColumn")
+                        addStatsColumnToResults(excel_file, groups, outputOrder, sheet_name="1_Bracketed", new_sheet_name="2_StatColumns")
                         # remove feature pairs not found more than n times (according to user specified omit value)
-                        grpOmit(excel_file, grpStats, sheet_name="2_afterAddingStatColumn", new_sheet_name="3_afterOmit")
+                        grpOmit(excel_file, grpStats, sheet_name="2_StatColumns", new_sheet_name="2_StatColumns")
                         logging.info("Statistic columns added (and feature pairs omitted)..")
 
                 except Exception as ex:
@@ -3941,8 +3872,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         _target=calculateMetaboliteGroups,
                         file=excel_file,
                         toFile=excel_file,
-                        sheet_name="3_afterOmit",
-                        new_sheet_name="4_afterConvolution",
+                        sheet_name="2_StatColumns",
+                        new_sheet_name="3_Convoluted",
                         groups=definedGroups,
                         eicPPM=self.ui.wavelet_EICppm.value(),
                         maxAnnotationTimeWindow=self.ui.maxAnnotationTimeWindow.value(),
@@ -4035,8 +3966,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
                     reIntegrateResultsFile(
                         excel_file,
-                        "4_afterConvolution",
-                        "5_afterReintegration",
+                        "3_Convoluted",
+                        "4_Reintegrated",
                         fDict,
                         addPeakArea=bool(self.ui.checkBox_expPeakArea.checkState() == QtCore.Qt.Checked),
                         addPeakAbundance=bool(self.ui.checkBox_expPeakApexIntensity.checkState() == QtCore.Qt.Checked),
@@ -4125,8 +4056,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 try:
                     addedColumns = annotateResultMatrix.annotateWithDatabases(
                         file=excel_file,
-                        sheet_name="5_afterReintegration",
-                        new_sheet_name="6_afterDBSearch",
+                        sheet_name="4_Reintegrated",
+                        new_sheet_name="5_Annotated",
                         dbFiles=dbFiles,
                         useAdducts=useAdducts,
                         ppm=self.ui.annotationMaxPPM_doubleSpinBox.value(),
@@ -4141,16 +4072,17 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     )
                     annotationColumns.extend(addedColumns)
 
-                    logging.info(
-                        "## Database search: checkXn %s, ppm: %.5f, correctppm: pos.mode: %.5f / neg.mode: %.5f, Adducts: %s"
-                        % (
-                            useExactXn,
-                            self.ui.annotationMaxPPM_doubleSpinBox.value(),
-                            self.ui.annotation_correctMassByPPMposMode.value(),
-                            self.ui.annotation_correctMassByPPMnegMode.value(),
-                            str(useAdducts),
+                    if False:
+                        logging.info(
+                            "## Database search: checkXn %s, ppm: %.5f, correctppm: pos.mode: %.5f / neg.mode: %.5f, Adducts: %s"
+                            % (
+                                useExactXn,
+                                self.ui.annotationMaxPPM_doubleSpinBox.value(),
+                                self.ui.annotation_correctMassByPPMposMode.value(),
+                                self.ui.annotation_correctMassByPPMnegMode.value(),
+                                str(useAdducts),
+                            )
                         )
-                    )
 
                 except Exception as e:
                     traceback.print_exc()
@@ -4167,34 +4099,12 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 pw.getCallingFunction()("text")("Generating sum formulas..")
                 pw.getCallingFunction()("value")(0)
 
-                smCol = "SFs"
-                annotationColumns.append(smCol + "_CHO")
-                annotationColumns.append(smCol + "_CHOS")
-                annotationColumns.append(smCol + "_CHOP")
-                annotationColumns.append(smCol + "_CHON")
-                annotationColumns.append(smCol + "_CHONP")
-                annotationColumns.append(smCol + "_CHOPS")
-                annotationColumns.append(smCol + "_CHONS")
-                annotationColumns.append(smCol + "_CHONPS")
-                annotationColumns.append(smCol + "_all")
-                annotationColumns.append(smCol + "_CHO_count")
-                annotationColumns.append(smCol + "_CHOS_count")
-                annotationColumns.append(smCol + "_CHOP_count")
-                annotationColumns.append(smCol + "_CHON_count")
-                annotationColumns.append(smCol + "_CHONP_count")
-                annotationColumns.append(smCol + "_CHOPS_count")
-                annotationColumns.append(smCol + "_CHONS_count")
-                annotationColumns.append(smCol + "_CHONPS_count")
-                annotationColumns.append(smCol + "_all_count")
-
                 try:
                     fT = formulaTools()
-
                     elemsMin = fT.parseFormula(str(self.ui.sumFormulasMinimumElements_lineEdit.text()))
                     elemsMax = fT.parseFormula(str(self.ui.sumFormulasMaximumElements_lineEdit.text()))
 
                     useAtoms = []
-
                     if getElementOfIsotope(str(self.ui.isotopeAText.text())) in elemsMax.keys():
                         useAtoms.append(getElementOfIsotope(str(self.ui.isotopeAText.text())))
 
@@ -4214,51 +4124,44 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             useAtoms.append(atom)
 
                     atomsRange = []
-
                     for atom in useAtoms:
                         minE = 0
                         if atom in elemsMin.keys():
                             minE = elemsMin[atom]
-
                         maxE = elemsMax[atom]
-
                         atomsRange.append([minE, maxE])
 
                     useExactXn = str(self.ui.sumFormulasUseExactXn_ComboBox.currentText())
                     if useExactXn.lower() == "plusminus":
                         useExactXn = "PlusMinus_%d" % (self.ui.sumFormulasPlusMinus_spinBox.value())
-                    sumFormulaGeneration.annotateResultsWithSumFormulas(
-                        resFileFull,
-                        useAtoms,
-                        atomsRange,
-                        getElementOfIsotope(str(self.ui.isotopeAText.text())),
-                        useExactXn,
+
+                    addedColumns = annotateResultMatrix.annotateWithSumFormulas(
+                        file=excel_file,
+                        sheet_name="5_Annotated",
+                        useAtoms=useAtoms,
+                        atomsRange=atomsRange,
+                        processedElement=getElementOfIsotope(str(self.ui.isotopeAText.text())),
+                        useExactXn=useExactXn,
                         ppm=self.ui.annotationMaxPPM_doubleSpinBox.value(),
                         ppmCorrectionPosMode=self.ui.annotation_correctMassByPPMposMode.value(),
                         ppmCorrectionNegMode=self.ui.annotation_correctMassByPPMnegMode.value(),
-                        adducts=useAdducts,
+                        useAdducts=useAdducts,
                         pwMaxSet=pw.getCallingFunction()("max"),
                         pwValSet=pw.getCallingFunction()("value"),
                         nCores=min(len(files), cpus),
-                        toFile=resFileFull,
                     )
-                    shutil.copyfile(
-                        resFileFull,
-                        resFilePath + "/xxx_results__7_afterSFgeneration.tsv",
-                    )
+                    annotationColumns.extend(addedColumns)
+
                 except Exception as e:
                     traceback.print_exc()
-                    logging.error(str(traceback))
-
+                    logging.error(f"Error during sum formula generation: {e}")
                     QtWidgets.QMessageBox.warning(
                         self,
                         "MetExtract",
-                        "Error during metabolite annotation",
+                        f"Error during sum formula generation: {str(e)}",
                         QtWidgets.QMessageBox.Ok,
                     )
                     errorCount += 1
-                finally:
-                    pass
 
             pw.hide()
 
@@ -4378,8 +4281,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             )
 
             TableUtils.saveFile(table, resFileFull, cols=order)
-
-            shutil.copyfile(resFileFull, resFilePath + "/xxx_results__8_afterAnnotation.tsv")
 
         ## Process MSMS info
         if self.ui.generateMSMSInfo_CheckBox.isChecked():
@@ -10332,7 +10233,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         dbFile, _filter = QtWidgets.QFileDialog.getOpenFileName(
             caption="Select database file",
             dir=self.lastOpenDir,
-            filter="Database (*.tsv);;All files (*.*)",
+            filter="Database (*.xlsx *.tsv);;Excel files (*.xlsx);;TSV files (*.tsv);;All files (*.*)",
         )
         dbFile = str(dbFile)
 
@@ -10371,12 +10272,11 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.dbList_listView.model().removeRows(ind, 1)
 
     def generateDBTemplate(self, events):
-        dbTemplateFile = QtWidgets.QFileDialog.getSaveFileName(
+        dbTemplateFile, _ = QtWidgets.QFileDialog.getSaveFileName(
             caption="Select database template",
             dir=self.lastOpenDir + "/DBTemplate.xlsx",
             filter="Database (*.xlsx);;All files (*.*)",
         )
-        dbTemplateFile = str(dbTemplateFile)
 
         if len(dbTemplateFile) > 0:
             import polars as pl
@@ -10415,10 +10315,12 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             )
 
             # Write to Excel with multiple sheets using xlsxwriter
+            from xlsxwriter import Workbook
+
             with pl.Config(tbl_width_chars=1000):
-                with pl.ExcelWriter(dbTemplateFile) as writer:
-                    template_data.write_excel(workbook=writer, worksheet="Template")
-                    instructions_data.write_excel(workbook=writer, worksheet="Instructions")
+                with Workbook(dbTemplateFile) as wb:
+                    template_data.write_excel(workbook=wb, worksheet="Template")
+                    instructions_data.write_excel(workbook=wb, worksheet="Instructions")
 
         QtWidgets.QMessageBox.information(
             self,

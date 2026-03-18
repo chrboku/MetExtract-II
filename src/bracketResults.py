@@ -167,7 +167,8 @@ def bracketResults(
         excel_data = OrderedDict()
         excel_data["Num"] = []
         excel_data["OGroup"] = []
-        excel_data["Relative_intensity_in_group"] = []
+        excel_data["Relative_peakarea_in_group"] = []
+        excel_data["Average_peakarea"] = []
         excel_data["Identity"] = []
         excel_data["Comment"] = []
         excel_data["Ionisation_Mode"] = []
@@ -189,7 +190,8 @@ def bracketResults(
         excel_data_dTypes = OrderedDict()
         excel_data_dTypes["Num"] = pl.Int64
         excel_data_dTypes["OGroup"] = pl.Int64
-        excel_data_dTypes["Relative_intensity_in_group"] = pl.Float64
+        excel_data_dTypes["Relative_peakarea_in_group"] = pl.Float64
+        excel_data_dTypes["Average_peakarea"] = pl.Float64
         excel_data_dTypes["Comment"] = pl.Utf8
         excel_data_dTypes["Identity"] = pl.Utf8
         excel_data_dTypes["MZ"] = pl.Float64
@@ -802,7 +804,8 @@ def bracketResults(
                                                     # Append data to excel_data dictionary
                                                     excel_data["Num"].append(curNum)
                                                     excel_data["OGroup"].append(None)
-                                                    excel_data["Relative_intensity_in_group"].append(None)
+                                                    excel_data["Relative_peakarea_in_group"].append(None)
+                                                    excel_data["Average_peakarea"].append(None)
                                                     excel_data["Identity"].append(None)
                                                     excel_data["Comment"].append("")
                                                     excel_data["MZ"].append(avgmz)
@@ -887,7 +890,10 @@ def bracketResults(
                                                             excel_data[fname + "_FID"].append(None)
                                                             excel_data[fname + "_GroupID"].append(None)
 
-                                                    excel_data["doublePeak"].append(doublePeak)
+                                                    if doublePeak > 0:
+                                                        excel_data["doublePeak"].append(doublePeak)
+                                                    else:
+                                                        excel_data["doublePeak"].append(None)
 
                                                     curNum = curNum + 1
 
@@ -1003,11 +1009,11 @@ def bracketResults(
         excel_file = file.replace(".tsv", ".xlsx")
         plDB = PolarsDB(excel_file, format="xlsx")
         plDB.insert_table("Parameters", params_df)
-        plDB.insert_table("1_afterBracketing", df)
+        plDB.insert_table("1_Bracketed", df)
         plDB.commit()
         plDB.close()
 
-        exportAsFeatureML.convertMEMatrixToFeatureMLSepPolarities(excel_file, sheet_name="1_afterBracketing", postfix="_ab")
+        exportAsFeatureML.convertMEMatrixToFeatureMLSepPolarities(excel_file, sheet_name="1_Bracketed", postfix="_ab")
 
     except Exception as ex:
         import traceback
@@ -1073,8 +1079,8 @@ def calculateMetaboliteGroups(
     pwTextSet=None,
     cpus=1,
     toFile=None,
-    sheet_name="1_afterBracketing",
-    new_sheet_name="2_afterConvolution",
+    sheet_name="1_Bracketed",
+    new_sheet_name="2_StatColumns",
 ):
     if toFile is None:
         toFile = file
@@ -1126,26 +1132,33 @@ def calculateMetaboliteGroups(
         assert "M" in cols
         assert "doublePeak" in cols
 
-        doublePeaks = len(table_df.filter(pl.col("doublePeak") > 0))
+        doublePeaks = 0
+        try:
+            doublePeaks = len(table_df.filter(pl.col("doublePeak") > 0))
 
-        if doublePeaks > 0:
-            logging.info("  found double peaks: %d" % doublePeaks)
-            # Save double peaks to separate sheet
-            double_peaks_df = table_df.filter(pl.col("doublePeak") > 0)
-            resDB.conn.insert_table("4_foundDoublePeaks", double_peaks_df)
+            if doublePeaks > 0:
+                logging.info("  found double peaks: %d" % doublePeaks)
 
-        # Delete rows where doublePeak > 0
-        table_df = table_df.filter(pl.col("doublePeak") <= 0)
-        ## file specific columns
+                # Save double peaks to separate sheet
+                double_peaks_df = table_df.filter(pl.col("doublePeak") > 0)
 
+                # Delete rows where doublePeak > 0
+                table_df = table_df.filter(pl.col("doublePeak") <= 0)
+        except:
+            logging.info("  no double peaks found")
+
+        required_columns_not_found = []
         for group in useGroups:
             for f in group.files:
                 fShort = f[f.rfind("/") + 1 : f.rfind(".")]
-                if fShort[0].isdigit():
-                    fShort = "_" + fShort
 
-                assert "%s_FID" % fShort in cols
-                assert "%s_GroupID" % fShort in cols
+                if f"{fShort}_FID" not in cols:
+                    required_columns_not_found.append(f"{fShort}_FID")
+                if f"{fShort}_GroupID" not in cols:
+                    required_columns_not_found.append(f"{fShort}_GroupID")
+        if len(required_columns_not_found) > 0:
+            print(f"ERROR: the following required columns were not found: {', '.join(required_columns_not_found)}")
+            assert False
 
         # fetch all feature pairs from the results file
         nodes = {}
@@ -1353,7 +1366,31 @@ def calculateMetaboliteGroups(
 
             curGroup += 1
 
-        # Calculate colun Relative_intensity_in_group per group, use the average abundance from any column ending with Abundance_N for the sorting of the rows, ignore missing values
+        logging.info("Annotating ions in feature groups")
+        # Annotate groups with common adducts and in-source fragments
+        if runIdentificationInstance is not None:
+            groups = defaultdict(list)
+
+            for row in table_df.iter_rows(named=True):
+                groups[row["OGroup"]].append(ChromPeakPair(id=row["Num"], fGroupID=row["OGroup"], mz=row["MZ"], ionMode=row["Ionisation_Mode"], loading=row["Charge"], adducts=[], heteroAtomsFeaturePairs=[], xCount=int(row["Xn"]), fDesc=[]))
+
+            for ogrp in groups.keys():
+                chromPeaks = {}
+                for fp in groups[ogrp]:
+                    chromPeaks[fp.id] = fp
+
+                runIdentificationInstance.annotateChromPeaks(chromPeaks.keys(), chromPeaks)
+
+            for ogrp in groups.keys():
+                for fp in groups[ogrp]:
+                    table_df = table_df.with_columns(pl.when(pl.col("Num") == fp.id).then(pl.lit(",".join([str(a) for a in fp.adducts]))).otherwise(pl.col("Ion")).alias("Ion"))
+                    table_df = table_df.with_columns(pl.when(pl.col("Num") == fp.id).then(pl.lit(",".join([str(a) for a in fp.fDesc]))).otherwise(pl.col("Loss")).alias("Loss"))
+                    table_df = table_df.with_columns(pl.when(pl.col("Num") == fp.id).then(pl.lit(",".join([str(a) for a in fp.Ms]))).otherwise(pl.col("M")).alias("M"))
+
+        # Calculate column Relative_peakarea_in_group and Average_peakarea per group
+        # use the average abundance from any column ending with _Abundance_N, ignore missing values
+        if "Average_peakarea" not in table_df.columns:
+            table_df = table_df.with_columns(pl.lit(None, dtype=pl.Float64).alias("Average_peakarea"))
         for g in table_df.select(pl.col("OGroup")).unique().to_series():
             group_rows = table_df.filter(pl.col("OGroup") == g)
             abundance_cols = [col for col in table_df.columns if col.endswith("_Abundance_N")]
@@ -1377,17 +1414,19 @@ def calculateMetaboliteGroups(
             avg_abundances.sort(key=lambda x: x[1], reverse=True)
             total_abundance, max_abundance = sum([ab for _, ab in avg_abundances]), max([ab for _, ab in avg_abundances])
 
-            # Assign Relative_intensity_in_group
+            # Assign Relative_peakarea_in_group and Average_peakarea
             for rank, (fpNum, avg_abundance) in enumerate(avg_abundances, start=1):
-                abundance_ratio = avg_abundance / total_abundance
-                table_df = table_df.with_columns(pl.when(pl.col("Num") == fpNum).then(pl.lit(abundance_ratio)).otherwise(pl.col("Relative_intensity_in_group")).alias("Relative_intensity_in_group"))
+                abundance_ratio = avg_abundance / total_abundance if total_abundance > 0 else 0.0
+                table_df = table_df.with_columns(pl.when(pl.col("Num") == fpNum).then(pl.lit(abundance_ratio)).otherwise(pl.col("Relative_peakarea_in_group")).alias("Relative_peakarea_in_group"))
+                table_df = table_df.with_columns(pl.when(pl.col("Num") == fpNum).then(pl.lit(avg_abundance)).otherwise(pl.col("Average_peakarea")).alias("Average_peakarea"))
 
-        # Convert columns OGroup and Relative_intensity_in_group to int and float
+        # Convert columns OGroup, Relative_peakarea_in_group and Average_peakarea to the correct types
         table_df = table_df.with_columns(pl.col("OGroup").cast(pl.Int64))
-        table_df = table_df.with_columns(pl.col("Relative_intensity_in_group").cast(pl.Float64))
+        table_df = table_df.with_columns(pl.col("Relative_peakarea_in_group").cast(pl.Float64))
+        table_df = table_df.with_columns(pl.col("Average_peakarea").cast(pl.Float64))
 
-        # Sort table_df by OGroup asc and Relative_intensity_in_group desc
-        table_df = table_df.sort(["OGroup", "Relative_intensity_in_group"], descending=[False, True])
+        # Sort table_df by OGroup asc and Relative_peakarea_in_group desc
+        table_df = table_df.sort(["OGroup", "Relative_peakarea_in_group"], descending=[False, True])
 
         resDB.conn.insert_row("Parameters", {"Parameter": "# Grouping", "Value": ""})
         resDB.conn.insert_row("Parameters", {"Parameter": "MEConvoluting_groups", "Value": f"{useGroupsForConfig}".replace("'", "").replace('"', "")})
@@ -1395,6 +1434,8 @@ def calculateMetaboliteGroups(
         resDB.conn.insert_row("Parameters", {"Parameter": "MEConvoluting_minConnectionRate", "Value": f"{minConnectionRate}"})
         resDB.conn.insert_row("Parameters", {"Parameter": "MEConvoluting_minPeakCorrelation", "Value": f"{minPeakCorrelation}"})
         resDB.conn.set_table(new_sheet_name, table_df)
+        if doublePeaks > 0:
+            resDB.conn.insert_table(new_sheet_name + "_doublePeaks", double_peaks_df)
         resDB.conn.commit()
 
         exportAsFeatureML.convertMEMatrixToFeatureMLSepPolarities(toFile, sheet_name=new_sheet_name, postfix="_ac")

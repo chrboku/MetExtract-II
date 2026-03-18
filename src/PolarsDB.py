@@ -310,11 +310,11 @@ class PolarsDB:
                 json_schema[col_name] = "Int64"
             elif col_type == pl.Float64:
                 json_schema[col_name] = "Float64"
-            elif col_type == pl.Utf8:
+            elif col_type == pl.Utf8 or col_type is None or col_type == pl.Null:
                 # do not include, default
                 pass
             else:
-                raise ValueError(f"Unsupported column type: {col_type}")
+                raise ValueError(f"Unsupported column type: {col_type} for column '{col_name}'")
         return dumps(json_schema)
 
     def __convert_json_to_polarsSchema(self, json_schema):

@@ -4,8 +4,10 @@ import logging
 from .utils import add_sheet_to_excel, getDBSuffix, getDBFormat
 from .PolarsDB import PolarsDB
 from .resultsPostProcessing import searchDatabases
+from .resultsPostProcessing import generateSumFormulas as sumFormulaGeneration
 from .formulaTools import formulaTools
 
+import json
 
 import pprint
 
@@ -153,8 +155,8 @@ def annotateWithDatabases(
 
     Args:
         file: Path to the results file (PolarsDB format)
-        sheet_name: Name of the sheet to read from (e.g., "5_afterReintegration")
-        new_sheet_name: Name of the sheet to write to (e.g., "6_afterDBSearch")
+        sheet_name: Name of the sheet to read from (e.g., "4_Reintegrated")
+        new_sheet_name: Name of the sheet to write to (e.g., "6_Annotated")
         dbFiles: List of database file paths
         useAdducts: List of adduct definitions [[name, mzoffset, polarity, charge, mCount], ...]
         ppm: Mass accuracy in ppm
@@ -211,9 +213,9 @@ def annotateWithDatabases(
     annotationColumns = []
     for dbName in dbNames:
         cols_to_add = [
-            (f"DBs_{dbName}_count", 0),
+            (f"DBs_{dbName}_count", ""),
             (f"DBs_{dbName}", ""),
-            (f"DBs_RT_{dbName}_count", 0),
+            (f"DBs_RT_{dbName}_count", ""),
             (f"DBs_RT_{dbName}", ""),
         ]
 
@@ -302,13 +304,13 @@ def annotateWithDatabases(
                 if hit.dbName not in hits_per_db:
                     hits_per_db[hit.dbName] = {"hits": [], "hitsRT": []}
 
-                hit_str = f"(Name: {hit.name}, Type: {hit.hitType}, Num: {hit.num}, Formula: {hit.sumFormula}, RT: {hit.rt_min}, MassErrorPPM: {hit.matchErrorPPM:.5f}, MassErrorMass: {hit.matchErrorMass:.5f}, RTError: {float(hit.rt_min) - rt_min if hit.rt_min != '' else ''}, Additional information: {hit.additionalInfo})"
+                hit_str = f"(Name: {hit.name}, Type: {hit.hitType}, Num: {hit.num}, Formula: {hit.sumFormula}, RT: {hit.rt_min}, MassErrorPPM: {hit.matchErrorPPM:.5f}, MassErrorMass: {hit.matchErrorMass:.5f}, Additional information: {hit.additionalInfo})"
                 hits_per_db[hit.dbName]["hits"].append(hit_str)
 
-                if hit.rt_min != "":
+                if hit.rt_min != None and hit.rt_min != "":
                     try:
                         rtDelta = abs(float(hit.rt_min) - rt_min)
-                        rt_hit_str = f"RT delta: {rtDelta:.2f} (Name: {hit.name} Type: {hit.hitType}, Num: {hit.num}, Formula: {hit.sumFormula}, RT: {hit.rt_min}, MassErrorPPM: {hit.matchErrorPPM:.5f}, MassErrorMass: {hit.matchErrorMass:.5f}, RTError: {float(hit.rt_min) - rt_min if hit.rt_min != '' else ''}, Additional information: {hit.additionalInfo})"
+                        rt_hit_str = f"RT delta: {rtDelta:.2f} (Name: {hit.name} Type: {hit.hitType}, Num: {hit.num}, Formula: {hit.sumFormula}, RT: {hit.rt_min}, MassErrorPPM: {hit.matchErrorPPM:.5f}, MassErrorMass: {hit.matchErrorMass:.5f}, RTError: {float(hit.rt_min) - rt_min if hit.rt_min != None and hit.rt_min != '' else ''}, Additional information: {hit.additionalInfo})"
                         hits_per_db[hit.dbName]["hitsRT"].append((rtDelta, rt_hit_str))
                     except Exception as e:
                         logging.error(f"Error processing RT for database hit: {e}")
@@ -322,6 +324,11 @@ def annotateWithDatabases(
                     "Feature_Ionisation_Mode": row.get("Ionisation_Mode"),
                     "Feature_Charge": row.get("Charge"),
                     "Feature_M": row.get("M"),
+                    "Feature_OGroup": row.get("OGroup"),
+                    "Feature_Ion": row.get("Ion"),
+                    "Feature_Loss": row.get("Loss"),
+                    "Feature_Relative_peakarea_in_group": row.get("Relative_peakarea_in_group"),
+                    "Feature_Average_peakarea": row.get("Average_peakarea"),
                 }
                 hit_objects.append((hit, row_info))
 
@@ -363,14 +370,16 @@ def annotateWithDatabases(
         if hits_per_db:
             for dbName, hit_data in hits_per_db.items():
                 # Update count and hits columns
-                results_df[row_idx, f"DBs_{dbName}_count"] = len(hit_data["hits"])
-                results_df[row_idx, f"DBs_{dbName}"] = '"%s"' % (";".join(hit_data["hits"]))
+                results_df[row_idx, f"DBs_{dbName}_count"] = len(hit_data["hits"]) if hit_data["hits"] else ""
+                # results_df[row_idx, f"DBs_{dbName}"] = '"%s"' % (";\n".join(hit_data["hits"])) if hit_data["hits"] else ""
+                results_df[row_idx, f"DBs_{dbName}"] = json.dumps(hit_data["hits"], ensure_ascii=True) if hit_data["hits"] else ""
 
                 # Update RT hits if available
                 if len(hit_data["hitsRT"]) > 0:
                     sorted_hits = sorted(hit_data["hitsRT"], key=lambda x: x[0])
-                    results_df[row_idx, f"DBs_RT_{dbName}_count"] = len(hit_data["hitsRT"])
-                    results_df[row_idx, f"DBs_RT_{dbName}"] = '"%s"' % (";".join([b[1] for b in sorted_hits]))
+                    results_df[row_idx, f"DBs_RT_{dbName}_count"] = len(hit_data["hitsRT"]) if hit_data["hitsRT"] else ""
+                    # results_df[row_idx, f"DBs_RT_{dbName}"] = '"%s"' % (";\n".join([b[1] for b in sorted_hits])) if hit_data["hitsRT"] else ""
+                    results_df[row_idx, f"DBs_RT_{dbName}"] = json.dumps([b[1] for b in sorted_hits], ensure_ascii=True) if hit_data["hitsRT"] else ""
 
         # Collect hit objects for compound sheet
         all_compound_hits.extend(hit_objects)
@@ -382,61 +391,71 @@ def annotateWithDatabases(
     # Create compound-focused sheet
     if all_compound_hits:
         logging.info(f"Creating compound-focused sheet with {len(all_compound_hits)} database hits")
-        compound_rows = []
 
+        # Collect all unique additionalInfo keys across all hits so every row gets a column
+        all_additional_keys = []
+        seen_keys = set()
+        for hit, _row_info in all_compound_hits:
+            for k in hit.additionalInfo.keys():
+                if k not in seen_keys:
+                    all_additional_keys.append(k)
+                    seen_keys.add(k)
+
+        compound_rows = []
         for hit, row_info in all_compound_hits:
             compound_row = {
                 # Database entry information
-                "DB_Name": hit.dbName,
-                "DB_Num": hit.num,
-                "DB_CompoundName": hit.name,
-                "DB_SumFormula": hit.sumFormula,
-                "DB_Mass": hit.mass,
-                "DB_RT_min": hit.rt_min if hit.rt_min else None,
-                "DB_MZ": hit.mz if hit.mz else None,
-                "DB_Polarity": hit.polarity,
-                "DB_AdditionalInfo": str(hit.additionalInfo),
-                "HitType": hit.hitType,
-                "MatchErrorPPM": hit.matchErrorPPM,
-                "MatchErrorMass": hit.matchErrorMass,
+                "DB_Name": str(hit.dbName) if hit.dbName is not None else "",
+                "DB_Num": str(hit.num) if hit.num is not None else "",
+                "DB_CompoundName": str(hit.name) if hit.name is not None else "",
+                "DB_SumFormula": str(hit.sumFormula) if hit.sumFormula is not None else "",
+                "DB_Mass": float(hit.mass) if hit.mass is not None and hit.mass != "" else None,
+                "DB_RT_min": float(hit.rt_min) if hit.rt_min is not None and hit.rt_min != "" else None,
+                "DB_MZ": float(hit.mz) if hit.mz is not None and hit.mz != "" else None,
+                "DB_Polarity": str(hit.polarity) if hit.polarity is not None else "",
+                "HitType": str(hit.hitType) if hit.hitType is not None else "",
+                "MatchErrorPPM": float(hit.matchErrorPPM) if hit.matchErrorPPM is not None else None,
+                "MatchErrorMass": float(hit.matchErrorMass) if hit.matchErrorMass is not None else None,
                 # Feature information where the hit was found
                 "Feature_Num": row_info["Feature_Num"],
+                "Feature_OGroup": row_info["Feature_OGroup"],
                 "Feature_RT": row_info["Feature_RT"],
                 "Feature_MZ": row_info["Feature_MZ"],
                 "Feature_Xn": row_info["Feature_Xn"],
                 "Feature_Ionisation_Mode": row_info["Feature_Ionisation_Mode"],
                 "Feature_Charge": row_info["Feature_Charge"],
                 "Feature_M": row_info["Feature_M"],
+                "Feature_Ion": row_info["Feature_Ion"],
+                "Feature_Loss": row_info["Feature_Loss"],
+                "Feature_Relative_peakarea_in_group": row_info["Feature_Relative_peakarea_in_group"],
+                "Feature_Average_peakarea": row_info["Feature_Average_peakarea"],
             }
+            # Expand additionalInfo into individual columns with a DB_Info_ prefix
+            for k in all_additional_keys:
+                compound_row[f"DB_Info_{k}"] = str(hit.additionalInfo.get(k, ""))
             compound_rows.append(compound_row)
 
-        compound_datatypes = {
-            "DB_Name": pl.Utf8,
-            "DB_Num": pl.Utf8,
-            "DB_CompoundName": pl.Utf8,
-            "DB_SumFormula": pl.Utf8,
+        # Build schema overrides only for the known numeric columns; let polars infer the rest
+        schema_overrides = {
             "DB_Mass": pl.Float64,
             "DB_RT_min": pl.Float64,
             "DB_MZ": pl.Float64,
-            "DB_Polarity": pl.Utf8,
-            "DB_AdditionalInfo": pl.Utf8,
-            "HitType": pl.Utf8,
             "MatchErrorPPM": pl.Float64,
             "MatchErrorMass": pl.Float64,
-            "Feature_Num": pl.Int64,
             "Feature_RT": pl.Float64,
             "Feature_MZ": pl.Float64,
-            "Feature_Xn": pl.Int64,
-            "Feature_Ionisation_Mode": pl.Utf8,
-            "Feature_Charge": pl.Int64,
             "Feature_M": pl.Float64,
+            "Feature_Relative_peakarea_in_group": pl.Float64,
+            "Feature_Average_peakarea": pl.Float64,
         }
 
         # Create dataframe for compound-focused sheet
-        compound_df = pl.DataFrame(compound_rows, schema=compound_datatypes)
+        compound_df = pl.DataFrame(compound_rows, schema_overrides=schema_overrides, infer_schema_length=len(compound_rows))
 
-        # Sort by database name and compound name
-        compound_df = compound_df.sort(["DB_Name", "DB_CompoundName", "Feature_Num"])
+        # Sort by database name, compound name, then feature id
+        sort_cols = [c for c in ["DB_Name", "DB_CompoundName", "Feature_Num"] if c in compound_df.columns]
+        if sort_cols:
+            compound_df = compound_df.sort(sort_cols)
 
         # Save to compound-focused sheet
         compound_sheet_name = f"{new_sheet_name}_Compounds"
@@ -449,4 +468,138 @@ def annotateWithDatabases(
     plDB.close()
 
     logging.info(f"Database search annotation completed. Added {len(annotationColumns)} columns")
+    return annotationColumns
+
+
+def annotateWithSumFormulas(
+    file,
+    sheet_name,
+    useAtoms,
+    atomsRange,
+    processedElement,
+    useExactXn,
+    ppm,
+    ppmCorrectionPosMode,
+    ppmCorrectionNegMode,
+    useAdducts,
+    pwMaxSet=None,
+    pwValSet=None,
+    nCores=1,
+):
+    """
+    Annotate metabolites with generated sum formulas using PolarsDB.
+
+    This function:
+    1. Loads the results table from the specified sheet using PolarsDB
+    2. Generates sum formulas for each metabolite based on element ranges
+    3. Adds sum formula columns with different element combinations
+    4. Overwrites the input sheet with annotated results
+
+    Args:
+        file: Path to the results file (PolarsDB format)
+        sheet_name: Name of the sheet to read from and write to (e.g., "6_Annotated")
+        useAtoms: List of atoms to use in sum formulas (e.g., ["C", "H", "O", "N", "S"])
+        atomsRange: List of [min, max] ranges for each atom
+        processedElement: Element to check in formulas (e.g., "C")
+        useExactXn: How to check Xn ("Exact", "Minimum", "Don't use", or "PlusMinus_X")
+        ppm: Mass accuracy in ppm
+        ppmCorrectionPosMode: PPM correction for positive mode
+        ppmCorrectionNegMode: PPM correction for negative mode
+        useAdducts: List of adduct definitions [[name, mzoffset, polarity, charge, mCount], ...]
+        pwMaxSet: Progress callback for max value
+        pwValSet: Progress callback for current value
+        nCores: Number of CPU cores to use
+
+    Returns:
+        List of sum formula column names added
+    """
+    logging.info(f"Starting sum formula generation using PolarsDB")
+    logging.info(f"Reading file {file}")
+
+    # Load the PolarsDB
+    plDB = PolarsDB(file, format="xlsx", load_all_tables=True)
+
+    # Load the results dataframe from the specified sheet
+    try:
+        results_df = plDB.get_table(sheet_name)
+    except Exception as e:
+        logging.error(f"Failed to load sheet '{sheet_name}': {e}")
+        plDB.close()
+        raise
+
+    # Use the new Polars-based sum formula generation directly
+    logging.info(f"Generating sum formulas with atoms: {useAtoms}")
+    results_df, sf_compound_hits = sumFormulaGeneration.annotatePolarsTableWithSumFormulas(
+        results_df,
+        useAtoms,
+        atomsRange,
+        processedElement,
+        useExactXn,
+        ppm=ppm,
+        ppmCorrectionPosMode=ppmCorrectionPosMode,
+        ppmCorrectionNegMode=ppmCorrectionNegMode,
+        adducts=useAdducts,
+        pwMaxSet=pwMaxSet,
+        pwValSet=pwValSet,
+        nCores=nCores,
+    )
+
+    # Get list of added columns
+    smCol = "SFs"
+    annotationColumns = [
+        f"{smCol}_CHO",
+        f"{smCol}_CHOS",
+        f"{smCol}_CHOP",
+        f"{smCol}_CHON",
+        f"{smCol}_CHONP",
+        f"{smCol}_CHOPS",
+        f"{smCol}_CHONS",
+        f"{smCol}_CHONPS",
+        f"{smCol}_all",
+        f"{smCol}_CHO_count",
+        f"{smCol}_CHOS_count",
+        f"{smCol}_CHOP_count",
+        f"{smCol}_CHON_count",
+        f"{smCol}_CHONP_count",
+        f"{smCol}_CHOPS_count",
+        f"{smCol}_CHONS_count",
+        f"{smCol}_CHONPS_count",
+        f"{smCol}_all_count",
+    ]
+
+    # Overwrite the input sheet with annotated results
+    logging.info(f"Overwriting sheet '{sheet_name}' with sum formula annotations")
+    plDB.set_table(sheet_name, results_df)
+
+    # Create formula-focused transposed sheet (one row per formula hit, mirroring the _Compounds sheet)
+    sf_sheet_name = f"{sheet_name}_SumFormulas"
+    if sf_compound_hits:
+        logging.info(f"Creating sum formula compound sheet with {len(sf_compound_hits)} hits")
+        schema_overrides = {
+            "MassErrorPPM": pl.Float64,
+            "MassErrorMass": pl.Float64,
+            "Feature_RT": pl.Float64,
+            "Feature_MZ": pl.Float64,
+            # Feature_M can hold comma-separated neutral masses so keep it as a string
+            "Feature_M": pl.Utf8,
+            "Feature_Relative_peakarea_in_group": pl.Float64,
+            "Feature_Average_peakarea": pl.Float64,
+        }
+        sf_hits_df = pl.DataFrame(
+            sf_compound_hits,
+            schema_overrides=schema_overrides,
+            infer_schema_length=len(sf_compound_hits),
+        )
+        sort_cols = [c for c in ["Element_Class", "SumFormula", "Feature_Num"] if c in sf_hits_df.columns]
+        if sort_cols:
+            sf_hits_df = sf_hits_df.sort(sort_cols)
+        logging.info(f"Saving sum formula compound sheet to: {sf_sheet_name}")
+        plDB.set_table(sf_sheet_name, sf_hits_df)
+    else:
+        logging.info("No sum formula hits found, skipping compound-focused sheet")
+
+    plDB.commit()
+    plDB.close()
+
+    logging.info(f"Sum formula generation completed. Added {len(annotationColumns)} columns")
     return annotationColumns

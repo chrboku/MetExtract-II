@@ -441,7 +441,7 @@ def reIntegrateResultsFile(
         return
 
     # Load the dataframe
-    results_df = plDB.get_table(sheet_name)
+    results_df = plDB.get_table(sheet_name).clone()
 
     # Check required columns
     required_cols = ["Num", "MZ", "RT", "L_MZ", "Ionisation_Mode", "Xn", "Charge"]
@@ -454,10 +454,6 @@ def reIntegrateResultsFile(
     # Create re-integration processors for each file
     processors = []
     for fileIdx, (filePath, fileName) in enumerate(fDict.items()):
-        # Normalize file name for column names
-        if fileName[0].isdigit():
-            fileName = "_" + fileName
-
         processor = ReIntegrationProcessor(filePath)
 
         # Prepare feature data for processing
@@ -609,9 +605,6 @@ def reIntegrateResultsFile(
 
     # Initialize new columns
     for filePath, fileName in fDict.items():
-        if fileName[0].isdigit():
-            fileName = "_" + fileName
-
         if addPeakArea:
             if f"{fileName}_Area_N" not in results_df.columns:
                 new_columns[f"{fileName}_Area_N"] = [None] * len(results_df)
@@ -641,10 +634,10 @@ def reIntegrateResultsFile(
         num = int(results_df[row_idx, "Num"])
         if num not in all_results.keys():
             pass
-
-        for key, value in all_results[num].items():
-            if key not in ["Num", "fileName", "areaN", "areaL", "found"] and value is not None:
-                results_df[row_idx, key] = value
+        else:
+            for key, value in all_results[num].items():
+                if key not in ["Num", "fileName", "areaN", "areaL", "found"] and value is not None:
+                    results_df[row_idx, key] = value
 
     # Save the updated dataframe back to PolarsDB
     logging.info(f"Saving re-integrated results to sheet: {new_sheet_name}")

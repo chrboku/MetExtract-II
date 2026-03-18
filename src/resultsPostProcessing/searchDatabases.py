@@ -96,74 +96,90 @@ class DBSearch:
 
         fT = formulaTools()
 
-        with open(dbFile) as fIn:
-            tsvin = csv.reader(fIn, delimiter="\t")
+        if dbFile.lower().endswith(".xlsx"):
+            import polars as pl
 
-            headers = {}
-            for rowi, row in enumerate(tsvin):
-                if len(row) == 0:  # Skip empty lines
-                    continue
-                if row[0].startswith("#"):
-                    continue
-                if rowi == 0:
-                    for j in range(len(row)):
-                        headers[row[j]] = j
+            df = pl.read_excel(dbFile, sheet_name="Template")
+            # Build a list-of-lists interface compatible with the TSV path
+            header_row = list(df.columns)
+            data_rows = [[str(v) if v is not None else "" for v in row] for row in df.iter_rows()]
+            all_rows = [header_row] + data_rows
+            row_source = all_rows
+        else:
+            row_source = None  # will use file-based iteration below
 
-                else:
-                    try:
-                        num = row[headers["Num"]].strip().replace('"', "DOURBLEPRIME").replace("'", "PRIME").replace("\t", "TAB").replace("\n", "RETURN").replace("\r", "CarrRETURN").replace("#", "HASH")
-                        name = row[headers["Name"]].strip().replace('"', "DOURBLEPRIME").replace("'", "PRIME").replace("\t", "TAB").replace("\n", "RETURN").replace("\r", "CarrRETURN").replace("#", "HASH")
-                        sumFormula = row[headers["SumFormula"]].strip().replace('"', "DOURBLEPRIME").replace("'", "PRIME").replace("\t", "TAB").replace("\n", "RETURN").replace("\r", "CarrRETURN").replace("#", "HASH")
-                        rt_min = float(row[headers["Rt_min"]]) if row[headers["Rt_min"]] != "" else None
-                        mz = float(row[headers["MZ"]]) if row[headers["MZ"]] != "" else None
-                        polarity = row[headers["IonisationMode"]].strip().replace('"', "DOURBLEPRIME").replace("'", "PRIME").replace("\t", "TAB").replace("\n", "RETURN").replace("\r", "CarrRETURN").replace("#", "HASH")
-                        additionalInfo = {}
-                        for header in headers.keys():
-                            if header not in [
-                                "Num",
-                                "Name",
-                                "SumFormula",
-                                "Rt_min",
-                                "MZ",
-                                "IonisationMode",
-                            ]:
-                                additionalInfo[header] = row[headers[header]].replace('"', "DOURBLEPRIME").replace("'", "PRIME").replace("\t", "TAB").replace("\n", "RETURN").replace("\r", "CarrRETURN").replace("#", "HASH")
+        def _iter_rows():
+            if row_source is not None:
+                yield from row_source
+            else:
+                with open(dbFile) as fIn:
+                    yield from csv.reader(fIn, delimiter="\t")
 
-                        mass = 0
-                        if sumFormula != "":
-                            try:
-                                elems = fT.parseFormula(sumFormula)
-                                mass = fT.calcMolWeight(elems)
-                            except Exception as ex:
-                                logging.error("DB import error (%s, row: %d): The sumformula (%s) of the entry %s '%s' could not be parsed" % (dbName, rowi, sumFormula, num, name))
-                                notImported += 1
+        headers = {}
+        for rowi, row in enumerate(_iter_rows()):
+            if len(row) == 0:  # Skip empty lines
+                continue
+            if row[0].startswith("#"):
+                continue
+            if rowi == 0:
+                for j in range(len(row)):
+                    headers[row[j]] = j
 
-                        dbEntry = DBEntry(
-                            dbName,
-                            num,
-                            name,
-                            sumFormula,
-                            mass,
-                            rt_min,
-                            mz,
-                            polarity,
-                            additionalInfo,
-                        )
+            else:
+                try:
+                    num = row[headers["Num"]].strip().replace('"', "DOURBLEPRIME").replace("'", "PRIME").replace("\t", "TAB").replace("\n", "RETURN").replace("\r", "CarrRETURN").replace("#", "HASH")
+                    name = row[headers["Name"]].strip().replace('"', "DOURBLEPRIME").replace("'", "PRIME").replace("\t", "TAB").replace("\n", "RETURN").replace("\r", "CarrRETURN").replace("#", "HASH")
+                    sumFormula = row[headers["SumFormula"]].strip().replace('"', "DOURBLEPRIME").replace("'", "PRIME").replace("\t", "TAB").replace("\n", "RETURN").replace("\r", "CarrRETURN").replace("#", "HASH")
+                    rt_min = float(row[headers["Rt_min"]]) if row[headers["Rt_min"]] != "" else None
+                    mz = float(row[headers["MZ"]]) if row[headers["MZ"]] != "" else None
+                    polarity = row[headers["IonisationMode"]].strip().replace('"', "DOURBLEPRIME").replace("'", "PRIME").replace("\t", "TAB").replace("\n", "RETURN").replace("\r", "CarrRETURN").replace("#", "HASH")
+                    additionalInfo = {}
+                    for header in headers.keys():
+                        if header not in [
+                            "Num",
+                            "Name",
+                            "SumFormula",
+                            "Rt_min",
+                            "MZ",
+                            "IonisationMode",
+                        ]:
+                            additionalInfo[header] = row[headers[header]].replace('"', "DOURBLEPRIME").replace("'", "PRIME").replace("\t", "TAB").replace("\n", "RETURN").replace("\r", "CarrRETURN").replace("#", "HASH")
 
-                        use = True
-                        if callBackCheckFunction != None:
-                            use = callBackCheckFunction(dbEntry)
+                    mass = 0
+                    if sumFormula != "":
+                        try:
+                            elems = fT.parseFormula(sumFormula)
+                            mass = fT.calcMolWeight(elems)
+                        except Exception as ex:
+                            logging.error("DB import error (%s, row: %d): The sumformula (%s) of the entry %s '%s' could not be parsed" % (dbName, rowi, sumFormula, num, name))
+                            notImported += 1
 
-                        if use:
-                            if mass > 0:
-                                self.dbEntriesNeutral.append(dbEntry)
-                            else:
-                                self.dbEntriesMZ.append(dbEntry)
-                            imported += 1
+                    dbEntry = DBEntry(
+                        dbName,
+                        num,
+                        name,
+                        sumFormula,
+                        mass,
+                        rt_min,
+                        mz,
+                        polarity,
+                        additionalInfo,
+                    )
 
-                    except Exception as ex:
-                        logging.error("DB import error: Could not import row %d (%s)" % (rowi, ex.message))
-                        notImported += 1
+                    use = True
+                    if callBackCheckFunction != None:
+                        use = callBackCheckFunction(dbEntry)
+
+                    if use:
+                        if mass > 0:
+                            self.dbEntriesNeutral.append(dbEntry)
+                        else:
+                            self.dbEntriesMZ.append(dbEntry)
+                        imported += 1
+
+                except Exception as ex:
+                    logging.error("DB import error: Could not import row %d (%s)" % (rowi, ex.message))
+                    notImported += 1
 
         logging.info(
             "Imported DB %s with %d entries (Current number of entries: %d)"

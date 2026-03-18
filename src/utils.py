@@ -2,19 +2,30 @@ USEGRADIENTDESCENDPEAKPICKING = False
 
 from math import pow, sqrt
 from copy import copy as copycopy
-
-
 import numpy
 import numpy as np
 from numpy import array, concatenate, vstack, hstack, zeros, ones, argmax, argmin
-
 from scipy.ndimage import gaussian_filter1d
-
-
 from operator import itemgetter
-
-
 from math import factorial
+import platform
+import os
+
+
+# get the operating system
+def get_app_folder():
+    local_folder = "."
+    os_name = platform.system()
+    if os_name == "Windows":
+        local_folder = os.environ["LOCALAPPDATA"]
+    elif os_name == "Linux":
+        local_folder = os.environ["HOME"]
+    elif os_name == "Darwin":
+        local_folder = os.environ["HOME"]
+    local_folder = os.path.join(local_folder, "MetExtractII")
+    if not os.path.exists(local_folder):
+        os.makedirs(local_folder)
+    return local_folder
 
 
 def savitzky_golay(y, window_size, order, deriv=0, rate=1):

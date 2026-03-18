@@ -3197,7 +3197,7 @@ class RunIdentification:
                             else:
                                 useAtoms = list(self.elements.keys())
 
-                            if not (isinstance(peakA.xCount, str)):
+                            try:
                                 atomsRange = []
                                 if self.labellingElement in useAtoms:
                                     if self.metabolisationExperiment:
@@ -3219,6 +3219,7 @@ class RunIdentification:
                                 corrFact = abs(peakB.mz - peakA.mz)
                                 if corrFact <= 1:
                                     corrFact = 1.0
+
                                 pFs = t.findFormulas(
                                     mzDif,
                                     ppm=self.ppm * 2.0 * peakA.mz / corrFact,
@@ -3239,6 +3240,9 @@ class RunIdentification:
                                     dif = abs(abs(peakB.mz - peakA.mz) - mw)
                                     sf = fT.flatToString(c, prettyPrintWithHTMLTags=False)
                                     inSourceFragments[pa][pb].append("%.4f-%s" % (peakB.mz, sf))
+
+                            except Exception as ex:
+                                print(f"ERROR: generating in-source fragments failed: {ex}")
 
             if self.simplifyInSourceFragments:
                 for pa in group:
