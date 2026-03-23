@@ -5631,7 +5631,7 @@ font: 7pt;</string>
               </property>
               <widget class="QWidget" name="tab_5">
                <attribute name="title">
-                <string>XICs</string>
+                <string>Separated peaks</string>
                </attribute>
                <layout class="QGridLayout" name="gridLayout_42">
                 <item row="1" column="0">
@@ -5657,7 +5657,7 @@ font: 7pt;</string>
               </widget>
               <widget class="QWidget" name="tab_6">
                <attribute name="title">
-                <string>Separated peaks</string>
+                <string>Raw XICs</string>
                </attribute>
                <layout class="QGridLayout" name="gridLayout_43">
                 <item row="1" column="0" colspan="2">

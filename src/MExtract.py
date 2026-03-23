@@ -63,7 +63,7 @@ from .mePyGuis.RegExTestDialog import RegExTestDialog
 from .mePyGuis.ProgressWrapper import ProgressWrapper
 from .mePyGuis.calcIsoEnrichmentDialog import calcIsoEnrichmentDialog
 
-from .utils import USEGRADIENTDESCENDPEAKPICKING, get_main_dir, getDBSuffix, getDBFormat
+from .utils import USEGRADIENTDESCENDPEAKPICKING, get_main_dir, getDBSuffix, getDBFormat, suppress_logs
 
 from .MetExtractII_Main import MetExtractVersion
 
@@ -74,12 +74,21 @@ METABOLOME = object()
 
 # <editor-fold desc="### check if R is installed and accessible">
 def checkR():
-    from .r_compatibility import is_r_available, get_r_error_message
+    is_available = False
+    print("\nTesting R availability")
 
-    if not is_r_available():
-        print(f"R is not available: {get_r_error_message()}")
-        return False
-    return True
+    # deactivate logging temporarily to avoid cluttering the console
+    with suppress_logs():
+        from .r_compatibility import is_r_available, get_r_error_message
+
+        is_available = is_r_available()
+
+    if is_available:
+        print(f"   - R is available!")
+    else:
+        print(f"   - R is not available: {get_r_error_message()}")
+
+    return is_available
 
 
 def loadRConfFile(path):
@@ -402,18 +411,15 @@ def checkRDependencies():
 
     r = ro.r  # make R globally accessible
 
+    print("\nChecking R dependencies...")
     r("is.installed <- function(mypkg) is.element(mypkg, installed.packages()[,1])")
-
     # Dialog showing if the necessary R packages are installed / could be installed successfully
     dependenciesR = ["waveslim", "signal", "ptw", "MASS", "baseline", "BiocManager"]
-
     dependenciesBioConductor = [
         "MassSpecWavelet",
     ]
-
-    print("\nChecking R dependencies...")
     rlibPath = r("paste0(.libPaths(), collapse = ', ')")
-    print("R-libraries at %s" % (rlibPath))
+    print(f"R-libraries path at '{rlibPath}'")
 
     for dep in dependenciesR:
         if str(r('is.installed("%s")' % dep)[0]).lower() != "true":
@@ -1199,10 +1205,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.pickingTab.setEnabled(len(filterLines) > 0)
         self.ui.resultsTab.setEnabled(self.ui.processedFilesComboBox.count() > 0)
 
-        self.checkIndFilesSettings()
-
-        self.loadGroupsResultsFile(str(self.ui.groupsSave.text()))
-
         return True
 
     def smoothingWindowChanged(self):
@@ -1657,7 +1659,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
                     ## rename settings
                     groupFile = str(groupFile[: groupFile.rfind("/")] + "/" + text + groupFile[groupFile.rfind("/") :])
-                    self.ui.groupsSave.setText(str(groupFile[: groupFile.rfind("/")] + "/results.tsv"))
+                    self.ui.groupsSave.setText(str(groupFile[: groupFile.rfind("/")] + "/results.xlsx"))
                     self.ui.msms_fileLocation.setText(str(groupFile[: groupFile.rfind("/")] + "/MSMStargets.tsv"))
 
                     doAsk = False
@@ -1913,19 +1915,35 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.ui.resultsExperiment_TreeWidget.clear()
             self.ui.resultsExperiment_TreeWidget.setHeaderLabels(["OGroup", "MZ", "RT", "Xn", "Z", "IonMode"])
 
-            if os.path.exists(groupsResFile + getDBSuffix()) and os.path.isfile(groupsResFile + getDBSuffix()):
+            if os.path.exists(groupsResFile) and os.path.isfile(groupsResFile):
                 widths = [160, 80, 60, 30, 30, 30]
                 for i in range(len(widths)):
                     self.ui.resultsExperiment_TreeWidget.setColumnWidth(i, widths[i])
 
                 self.experimentResults = Bunch(db_con=None, file=None)
 
-                self.experimentResults.db_con = PolarsDB(groupsResFile + getDBSuffix(), format=getDBFormat())
+                self.experimentResults.db_con = PolarsDB(groupsResFile, format="xlsx")
+
+                # show a dialog with a drop-down list asking the user to specify the table to load
+                options = self.experimentResults.db_con.list_tables()
+                options = [opt for opt in options if opt not in ["Parameters", "__dTypes__", "2_StatColumns_Omitted", "5_Annotated_Compounds", "5_Annotated_SumFormulas"]][::-1]
+
+                mgsBox = QtWidgets.QMessageBox(self)
+                mgsBox.setWindowTitle("Select results to load")
+                mgsBox.setText("Multiple result tables found in the selected file. Please select the table to load:")
+                combo = QtWidgets.QComboBox(mgsBox)
+                combo.addItems(options)
+                mgsBox.layout().addWidget(combo)
+                mgsBox.setStandardButtons(QtWidgets.QMessageBox.Ok | QtWidgets.QMessageBox.Cancel)
+                if mgsBox.exec() == QtWidgets.QMessageBox.Ok:
+                    selected_table = combo.currentText()
+                else:
+                    return
 
                 metaboliteGroupTreeItems = {}
                 # Get distinct OGroup values from GroupResults, ordered by rt
-                group_results_df = self.experimentResults.db_con.tables["GroupResults"]
-                distinct_groups = group_results_df.select(["OGroup", "rt"]).unique(subset=["OGroup"]).sort("rt")
+                group_results_df = self.experimentResults.db_con.tables[selected_table]
+                distinct_groups = group_results_df.group_by("OGroup").agg(RT=pl.col("RT").mean()).sort("RT")
 
                 for row_dict in distinct_groups.to_dicts():
                     metaboliteGroup = Bunch(type="metaboliteGroup", metaboliteGroupID=row_dict["OGroup"])
@@ -1933,43 +1951,63 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     metaboliteGroupTreeItem.bunchData = metaboliteGroup
                     self.ui.resultsExperiment_TreeWidget.addTopLevelItem(metaboliteGroupTreeItem)
                     metaboliteGroupTreeItems[metaboliteGroup.metaboliteGroupID] = metaboliteGroupTreeItem
-
-                fileMappingData = {}
-                # Get file results from FoundFeaturePairs, ordered by areaN DESC
-                found_fps_df = self.experimentResults.db_con.tables["FoundFeaturePairs"].sort("areaN", descending=True)
-
-                for row_dict in found_fps_df.to_dicts():
-                    fileRes = Bunch(type="fileResult", resID=row_dict["resID"], file=row_dict["file"], areaN=row_dict["areaN"], areaL=row_dict["areaL"])
-                    if fileRes.resID not in fileMappingData.keys():
-                        fileMappingData[fileRes.resID] = []
-
-                    fileMappingData[fileRes.resID].append(fileRes)
-
                 kids = []
-                # Get feature pairs with count of found files
-                found_counts = self.experimentResults.db_con.tables["FoundFeaturePairs"].group_by("resID").agg(pl.count("resID").alias("FOUNDINCOUNT"))
-                fp_with_counts = group_results_df.join(found_counts, left_on="id", right_on="resID", how="left")
-                fp_with_counts = fp_with_counts.sort("mz")
 
-                for row_dict in fp_with_counts.to_dicts():
+                if False:
+                    fileMappingData = {}
+                    # Get file results from FoundFeaturePairs, ordered by areaN DESC
+                    found_fps_df = self.experimentResults.db_con.tables["FoundFeaturePairs"].sort("areaN", descending=True)
+
+                    for row_dict in found_fps_df.to_dicts():
+                        fileRes = Bunch(type="fileResult", resID=row_dict["resID"], file=row_dict["file"], areaN=row_dict["areaN"], areaL=row_dict["areaL"])
+                        if fileRes.resID not in fileMappingData.keys():
+                            fileMappingData[fileRes.resID] = []
+
+                        fileMappingData[fileRes.resID].append(fileRes)
+
+                    # Get feature pairs with count of found files
+                    found_counts = self.experimentResults.db_con.tables["FoundFeaturePairs"].group_by("resID").agg(pl.count("resID").alias("FOUNDINCOUNT"))
+                    fp_with_counts = group_results_df.join(found_counts, left_on="id", right_on="resID", how="left")
+                    fp_with_counts = fp_with_counts.sort("mz")
+
+                for row_dict in group_results_df.to_dicts():
                     fp = Bunch(
                         type="featurePair",
-                        id=row_dict["id"],
+                        id=row_dict["Num"],
                         metaboliteGroupID=row_dict["OGroup"],
-                        mz=row_dict["mz"],
-                        lmz=row_dict.get("lmz"),
-                        dmz=row_dict.get("dmz"),
-                        rt=row_dict["rt"],
-                        xn=row_dict["xn"],
-                        charge=row_dict["charge"],
-                        scanEvent=row_dict.get("scanEvent"),
-                        ionisationMode=row_dict.get("ionisationMode"),
-                        tracer=row_dict.get("tracer"),
-                        FOUNDINCOUNT=row_dict.get("FOUNDINCOUNT", 0),
+                        mz=row_dict["MZ"],
+                        lmz=row_dict.get("L_MZ"),
+                        dmz=row_dict.get("D_MZ"),
+                        rt=row_dict["RT"] * 60.0,
+                        xn=row_dict["Xn"],
+                        charge=row_dict["Charge"],
+                        scanEvent=row_dict.get("ScanEvent"),
+                        ionisationMode=row_dict.get("Ionisation_Mode"),
+                        tracer=row_dict.get("Tracer"),
+                        FOUNDINCOUNT=row_dict.get("FOUNDINCOUNT", -1),
                     )
+
+                    title = "%s" % (str(fp.id))
+                    try:
+                        title = "%s / %d" % (title, int(fp.FOUNDINCOUNT))
+                    except:
+                        pass
+                    try:
+                        title = "%s / %.1f%%" % (title, row_dict.get("Relative_peakarea_in_group", -1) * 100.0)
+                    except:
+                        pass
+                    try:
+                        title = "%s / %.4g" % (title, row_dict.get("Average_peakarea", -1))
+                    except:
+                        pass
+                    try:
+                        title = "%s / %s" % (title, row_dict.get("Ion", ""))
+                    except:
+                        pass
+
                     featurePair = QtWidgets.QTreeWidgetItem(
                         [
-                            "%s (/%d" % (str(fp.id), int(fp.FOUNDINCOUNT)),
+                            title,
                             "%.4f" % fp.mz,
                             "%.2f" % (fp.rt / 60.0),
                             str(fp.xn),
@@ -1979,31 +2017,33 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     )
                     featurePair.bunchData = fp
 
-                    abundances = []
-                    for fileRes in fileMappingData[fp.id]:
-                        fileResNode = QtWidgets.QTreeWidgetItem(
-                            [
-                                str(fileRes.file),
-                                "%.2g" % (fileRes.areaN),
-                                "%.2g" % (fileRes.areaL),
-                            ]
-                        )
-                        fileResNode.bunchData = fileRes
+                    ## TODO
+                    if False:
+                        abundances = []
+                        for fileRes in fileMappingData[fp.id]:
+                            fileResNode = QtWidgets.QTreeWidgetItem(
+                                [
+                                    str(fileRes.file),
+                                    "%.2g" % (fileRes.areaN),
+                                    "%.2g" % (fileRes.areaL),
+                                ]
+                            )
+                            fileResNode.bunchData = fileRes
 
-                        color = None
-                        for sampleGroup in experimentalGroups:
-                            for file in sampleGroup.files:
-                                if str(fileRes.file) in file:
-                                    color = sampleGroup.color
+                            color = None
+                            for sampleGroup in experimentalGroups:
+                                for file in sampleGroup.files:
+                                    if str(fileRes.file) in file:
+                                        color = sampleGroup.color
 
-                        if color is not None:
-                            fileResNode.setBackground(0, QColor(color))
+                            if color is not None:
+                                fileResNode.setBackground(0, QColor(color))
 
-                        featurePair.addChild(fileResNode)
+                            featurePair.addChild(fileResNode)
 
-                        abundances.append(fileRes.areaN)
+                            abundances.append(fileRes.areaN)
 
-                    kids.append((featurePair, mean(abundances), fp.metaboliteGroupID))
+                    kids.append((featurePair, -1, fp.metaboliteGroupID))
 
                 for fg in set([k[2] for k in kids]):
                     ckids = sorted(
@@ -2011,18 +2051,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         key=lambda x: x[1],
                         reverse=True,
                     )
-                    totalInt = max([k[1] for k in ckids])
                     for kid in ckids:
                         metaboliteGroupTreeItems[kid[2]].addChild(kid[0])
-                        relInt = kid[1] / totalInt * 100
-                        if relInt >= 10:
-                            kid[0].setText(0, kid[0].text(0) + ", %.0f%%)" % (relInt))
-                        elif relInt >= 1:
-                            kid[0].setText(0, kid[0].text(0) + ", %.1f%%)" % (relInt))
-                        elif relInt >= 0.1:
-                            kid[0].setText(0, kid[0].text(0) + ", %.2f%%)" % (relInt))
-                        else:
-                            kid[0].setText(0, kid[0].text(0) + ", %.3f%%)" % (relInt))
 
                 for grpID in metaboliteGroupTreeItems.keys():
                     kids = []
@@ -2032,80 +2062,15 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     metaboliteGroupTreeItems[grpID].setText(1, "%d" % len(kids))
                     metaboliteGroupTreeItems[grpID].setText(2, "%.2f" % meanRT)
 
-            if os.path.exists(groupsResFile.replace(".tsv", ".doubleFPs.tsv")) and os.path.isfile(groupsResFile.replace(".tsv", ".doubleFPs.tsv")):
-                with open(
-                    groupsResFile.replace(".tsv", ".doubleFPs.tsv"),
-                    "r",
-                    encoding="utf-8",
-                ) as fin:
-                    csvReader = csv.reader(fin, delimiter="\t")
+                # Load data into Statistics tab
+                self._loadStatisticsData(from_sheet=selected_table)
 
-                    headers = {}
-                    for rowi, row in enumerate(csvReader):
-                        if len(row) == 0:  # Skip empty lines
-                            continue
-
-                        if rowi == 0:
-                            for celli, cell in enumerate(row):
-                                headers[cell] = celli
-
-                        elif not row[0].startswith("#"):
-                            try:
-                                num = row[headers["Num"]]
-                                mz = float(row[headers["MZ"]])
-                                lmz = float(row[headers["L_MZ"]])
-                                dmz = float(row[headers["D_MZ"]])
-                                rt = float(row[headers["RT"]])
-                                rtrange = row[headers["RT_Range"]]
-                                xn = row[headers["Xn"]]
-                                charge = int(row[headers["Charge"]])
-                                scanEvent = row[headers["ScanEvent"]]
-                                ionMode = row[headers["Ionisation_Mode"]]
-                                tracer = row[headers["Tracer"]]
-
-                                fp = Bunch(
-                                    id=num,
-                                    type="featurePair",
-                                    OGroup="DFP_%s" % num,
-                                    mz=mz,
-                                    lmz=lmz,
-                                    dmz=dmz,
-                                    rt=rt * 60.0,
-                                    xn=xn,
-                                    charge=charge,
-                                    scanEvent=scanEvent,
-                                    ionisationMode=ionMode,
-                                    tracer=tracer,
-                                    FOUNDINCOUNT=0,
-                                )
-                                featurePair = QtWidgets.QTreeWidgetItem(
-                                    [
-                                        "DFP_%s" % str(fp.id),
-                                        "%.4f" % fp.mz,
-                                        rtrange,
-                                        str(fp.xn),
-                                        str(fp.charge),
-                                        str(fp.ionisationMode),
-                                    ]
-                                )
-                                featurePair.bunchData = fp
-
-                                self.ui.resultsExperiment_TreeWidget.addTopLevelItem(featurePair)
-                                # metaboliteGroupTreeItems[fp.metaboliteGroupID].addChild(featurePair)
-
-                            except Exception as ex:
-                                print(str(ex))
-
-                ##TODO finish that
         except Exception as e:
             traceback.print_exc()
             logging.error(str(traceback))
 
             logging.error("Multiple file results could not be fetched correctly: " + str(e))
             pass
-
-        # Load data into Statistics tab
-        self._loadStatisticsData()
 
     def closeLoadedGroupsResultsFile(self):
         if hasattr(self, "experimentResults"):
@@ -2146,7 +2111,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             self.ui.resultsExperiment_TreeWidget.expandItem(item)
                             return
 
-    def _loadStatisticsData(self):
+    def _loadStatisticsData(self, from_sheet="GroupResults"):
         """Load experiment data into the Statistics tab."""
         if not hasattr(self.ui, "statisticsWidget"):
             return
@@ -2158,108 +2123,69 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             # Collect feature data and group info
             experiment_data = {"features": {}, "groups": {}, "metadata": {}}
 
-            # Get group info - store both full paths and basenames for matching
-            file_path_to_basename = {}
+            # Get group info
             for i in range(self.ui.groupsList.count()):
                 item = self.ui.groupsList.item(i)
                 group_data = item.data(QListWidgetItem.UserType)
                 if group_data:
                     group_name = str(group_data.name)
-                    # Store basenames without file extension for the statistics module
-                    basenames = []
-                    for f in group_data.files:
-                        basename = os.path.basename(str(f))
-                        # Remove file extension (.mzML, .mzXML, etc.)
-                        basename_no_ext = os.path.splitext(basename)[0]
-                        basenames.append(basename_no_ext)
-                        file_path_to_basename[str(f)] = basename_no_ext
+                    basenames = [os.path.splitext(os.path.basename(str(f)))[0] for f in group_data.files]
                     experiment_data["groups"][group_name] = basenames
 
-            # Load feature data from database if available
+            # Load feature data from the single results table
             if hasattr(self, "experimentResults") and self.experimentResults.db_con is not None:
-                # Get feature pairs data for statistics
-                # Create separate dictionaries for N and L abundances
+                table_df = self.experimentResults.db_con.tables[from_sheet]
+                columns = table_df.columns
+
+                # Discover sample names from columns ending with _Area_N or _Area_L
+                suffix_n = "_Area_N"
+                suffix_l = "_Area_L"
+                samples_n = {col[: -len(suffix_n)] for col in columns if col.endswith(suffix_n)}
+                samples_l = {col[: -len(suffix_l)] for col in columns if col.endswith(suffix_l)}
+                all_samples = samples_n | samples_l
+
                 features_N = {}
                 features_L = {}
                 features_total = {}
                 metadata = {"mz": {}, "rt": {}, "num": {}, "ogroup": {}, "featurePairID": {}, "featureGroupID": {}}
 
-                # First, get all features and their metadata (including OGroup and Num)
-                group_results_df = self.experimentResults.db_con.tables["GroupResults"]
-                for row_dict in group_results_df.to_dicts():
-                    row = Bunch(**row_dict)
-                    idx = row[0]
-                    metadata["mz"][idx] = row[1]
-                    metadata["rt"][idx] = row[2]
-                    metadata["num"][idx] = idx  # Use id as Num
-                    metadata["ogroup"][idx] = row[5] if row[5] is not None else idx  # OGroup
-                    # Initialize empty dict for this feature's intensity values
-                    features_N[idx] = {}
-                    features_L[idx] = {}
-                    features_total[idx] = {}
+                for row in table_df.to_dicts():
+                    idx = row["Num"]
+                    metadata["mz"][idx] = row["MZ"]
+                    metadata["rt"][idx] = row["RT"]
+                    metadata["num"][idx] = idx
+                    metadata["ogroup"][idx] = row["OGroup"]
+                    metadata["featurePairID"][idx] = row.get("featurePairID", 0) or 0
+                    metadata["featureGroupID"][idx] = row.get("featureGroupID", 0) or 0
 
-                # Get featurePairID and featureGroupID from FoundFeaturePairs table
-                # Note: One resID can have multiple entries (one per file), so we take the first non-zero value
-                feature_pair_map = {}
-                feature_group_map = {}
-                found_fps_df = self.experimentResults.db_con.tables["FoundFeaturePairs"]
-                for row_dict in found_fps_df.to_dicts():
-                    row = Bunch(**row_dict)
-                    res_id = row[0]
-                    feature_pair_id = row[1]
-                    feature_group_id = row[2]
+                    row_n = {}
+                    row_l = {}
+                    row_total = {}
+                    for sample in all_samples:
+                        area_n = row.get(sample + suffix_n) or 0.0
+                        area_l = row.get(sample + suffix_l) or 0.0
+                        if area_n is None or area_n == "":
+                            area_n = 0.0
+                        if area_l is None or area_l == "":
+                            area_l = 0.0
+                        if type(area_n) == str:
+                            area_n = float(area_n)
+                        if type(area_l) == str:
+                            area_l = float(area_l)
+                        row_n[sample] = area_n
+                        row_l[sample] = area_l
+                        row_total[sample] = area_n + area_l
 
-                    # Store first non-zero occurrence
-                    if res_id not in feature_pair_map and feature_pair_id is not None and feature_pair_id != 0:
-                        feature_pair_map[res_id] = feature_pair_id
-                    if res_id not in feature_group_map and feature_group_id is not None and feature_group_id != 0:
-                        feature_group_map[res_id] = feature_group_id
+                    features_N[idx] = row_n
+                    features_L[idx] = row_l
+                    features_total[idx] = row_total
 
-                # Add to metadata
-                for idx in metadata["mz"].keys():
-                    metadata["featurePairID"][idx] = feature_pair_map.get(idx, 0)
-                    metadata["featureGroupID"][idx] = feature_group_map.get(idx, 0)
-
-                # Debug logging for first few features
-                logging.info(f"Feature pair map has {len(feature_pair_map)} entries")
-                logging.info(f"Feature group map has {len(feature_group_map)} entries")
-                sample_ids = list(metadata["mz"].keys())[:3]
-                for idx in sample_ids:
-                    logging.info(f"Feature {idx}: featurePairID={metadata['featurePairID'][idx]}, featureGroupID={metadata['featureGroupID'][idx]}")
-
-                # Now get the intensity data for each feature in each file
-                # Get feature ID, file name, and area values from FoundFeaturePairs
-                found_fps_df = self.experimentResults.db_con.tables["FoundFeaturePairs"]
-
-                for row_dict in found_fps_df.to_dicts():
-                    feature_id = row_dict["resID"]
-                    file_path = row_dict["file"]
-                    area_n = row_dict["areaN"] if row_dict["areaN"] is not None else 0.0
-                    area_l = row_dict["areaL"] if row_dict["areaL"] is not None else 0.0
-
-                    # Get the sample name without extension
-                    if file_path in file_path_to_basename:
-                        file_key = file_path_to_basename[file_path]
-                    else:
-                        basename = os.path.basename(file_path)
-                        file_key = os.path.splitext(basename)[0]
-
-                    # Store N, L, and total areas separately
-                    if feature_id in features_N:
-                        features_N[feature_id][file_key] = area_n
-                        features_L[feature_id][file_key] = area_l
-                        features_total[feature_id][file_key] = area_n + area_l
-
-                # Store all three versions for the statistics module to choose from
                 experiment_data["features"] = features_total  # Default to total
                 experiment_data["features_N"] = features_N
                 experiment_data["features_L"] = features_L
                 experiment_data["metadata"] = metadata
 
-                # Debug: Show what sample names we're using
-                if features_total:
-                    first_feature = list(features_total.values())[0]
-                    logging.info(f"Statistics: Sample names in features (first 3): {list(first_feature.keys())[:3]}")
+                logging.info(f"Statistics: {len(all_samples)} samples detected from columns")
                 logging.info(f"Statistics: Group names: {list(experiment_data.get('groups', {}).keys())}")
                 for group_name, samples in experiment_data.get("groups", {}).items():
                     logging.info(f"Statistics: Group '{group_name}' samples (first 3): {samples[:3]}")
@@ -4368,6 +4294,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             "Processing finished %sin %s%s" % ("(%d errors) " % errorCount if errorCount > 0 else "", hours, mins),
             QtWidgets.QMessageBox.Ok,
         )
+
+        self.loadGroupsResultsFile(str(self.ui.groupsSave.text()))
 
     def showResultsSummary(self):
         from .utils import SQLgetSingleFieldFromOneRow

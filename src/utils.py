@@ -1500,7 +1500,7 @@ def getDBFormat():
 from . import PolarsDB
 
 
-def add_sheet_to_excel(file, polars_df, sheet_name):
+def add_sheet_to_excel(file, polars_df, sheet_name, overwrite=False):
     """
     Add a new sheet to an existing Excel file while preserving all other sheets.
 
@@ -1514,5 +1514,29 @@ def add_sheet_to_excel(file, polars_df, sheet_name):
     if not db.has_table(sheet_name):
         # If the table does not exist, simply insert the DataFrame
         db.insert_table(sheet_name, polars_df)
+    elif overwrite:
+        db.set_table(sheet_name, polars_df)
+    else:
+        raise RuntimeError(f"Sheet '{sheet_name}' already exists in the Excel file. Use overwrite=True to replace it.")
 
     db.close()
+
+
+import contextlib
+import logging
+
+
+@contextlib.contextmanager
+def suppress_logs():
+    # Store the current log handlers to restore them later
+    original_log_handlers = logging.getLogger().handlers[:]
+
+    # Remove all existing log handlers
+    for handler in original_log_handlers:
+        logging.getLogger().removeHandler(handler)
+
+    yield
+
+    # Restore the original log handlers after the tests
+    for handler in original_log_handlers:
+        logging.getLogger().addHandler(handler)

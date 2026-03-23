@@ -67,6 +67,8 @@ def addStatsColumnToResults(metaFile, groups, outputOrder, sheet_name="Sheet1", 
             # Check if column value is not null and not empty string
             count_expr = count_expr + pl.when((pl.col(col_name).is_not_null()) & (pl.col(col_name).cast(pl.Utf8).str.strip_chars() != "")).then(1).otherwise(0)
 
+        # make couint_exp only posiitive values and remove 0 with None
+        count_expr = pl.when(count_expr > 0).then(count_expr).otherwise(None)
         df = df.with_columns(count_expr.alias(groupName))
 
     # Sort by RT and MZ if both columns exist
@@ -93,19 +95,17 @@ def performGroupOmit(infile, groupStats, sheet_name="Sheet1", new_sheet_name="Fi
     headers = df.columns
 
     # Initialize filter expressions
-    use_filter = pl.lit(False)
     all_gomit = True
-    false_positive_filter = pl.lit(False)
+    use_filter = pl.select(pl.repeat(False, df.height)).to_series()
 
     for gname, gmin, gomit, gremoveAsFalsePositive in groupStats:
+        print("Processing group:", gname, "with min count:", gmin, "omit:", gomit, "remove as false positive:", gremoveAsFalsePositive)
         if gname in headers:
             if gomit:
                 # Include rows where this group has >= min_count
-                use_filter = use_filter | (pl.col(gname).cast(pl.Int64) >= gmin)
+                use_filter = use_filter | ((df[gname].is_not_null()) & (df[gname].cast(pl.Int64) >= gmin))
+                print("   - Applying omit filter: keeping rows where", gname, ">=", gmin, "(", use_filter.sum(), "rows will be kept after this filter)")
                 all_gomit = False
-            if gremoveAsFalsePositive:
-                # Mark as false positive if any value > 0 in this group
-                false_positive_filter = false_positive_filter | (pl.col(gname).cast(pl.Int64) > 0)
 
     # Create filtered dataframes
     if all_gomit:
@@ -116,12 +116,26 @@ def performGroupOmit(infile, groupStats, sheet_name="Sheet1", new_sheet_name="Fi
         data_df = df.filter(use_filter)
         not_used_df = df.filter(~use_filter)
 
-    false_positives_df = df.filter(false_positive_filter)
+    false_positive_filter = pl.select(pl.repeat(False, data_df.height)).to_series()
+    for gname, gmin, gomit, gremoveAsFalsePositive in groupStats:
+        print("Processing group:", gname, "with min count:", gmin, "omit:", gomit, "remove as false positive:", gremoveAsFalsePositive)
+        if gname in headers:
+            if gremoveAsFalsePositive:
+                # Mark as false positive if any value > 0 in this group
+                false_positive_filter = false_positive_filter | ((data_df[gname].is_not_null()) & (data_df[gname].cast(pl.Int64) > 0))
+                print("   - Applying false positive filter: marking rows where", gname, "> 0 as false positives (", false_positive_filter.sum(), "rows will be marked as false positives after this filter)")
 
-    add_sheet_to_excel(infile, data_df, new_sheet_name)
+    if false_positive_filter.sum() > 0:
+        false_positives_df = data_df.filter(false_positive_filter)
+        data_df = data_df.filter(~false_positive_filter)
+    else:
+        false_positives_df = pl.DataFrame()
+
+    print("Final counts after filtering: kept", len(data_df), "rows, omitted", len(not_used_df), "rows, false positives marked:", len(false_positives_df) if "false_positives_df" in locals() else 0)
+
+    add_sheet_to_excel(infile, data_df, new_sheet_name, overwrite=True)
     if len(not_used_df) > 0:
         add_sheet_to_excel(infile, not_used_df, new_sheet_name + "_Omitted")
-
     if len(false_positives_df) > 0:
         add_sheet_to_excel(infile, false_positives_df, new_sheet_name + "_FalsePositives")
 
@@ -444,7 +458,7 @@ def annotateWithDatabases(
             "MatchErrorMass": pl.Float64,
             "Feature_RT": pl.Float64,
             "Feature_MZ": pl.Float64,
-            "Feature_M": pl.Float64,
+            "Feature_M": pl.Utf8,
             "Feature_Relative_peakarea_in_group": pl.Float64,
             "Feature_Average_peakarea": pl.Float64,
         }

@@ -24,6 +24,17 @@ import xlsxwriter
 from json import dumps, loads
 
 
+# Disable polars dtype warnings
+# copied from https://github.com/ToucanToco/fastexcel/issues/326#issuecomment-2615748271
+import logging
+
+# This will disable all messages with a level <= WARNING
+logging.getLogger("fastexcel.types.dtype").setLevel(logging.ERROR)
+
+# This will completely disable the logger
+logging.getLogger("fastexcel.types.dtype").disabled = True
+
+
 class PolarsDB:
     """
     Helper class to manage multiple tables in various formats.
@@ -158,6 +169,9 @@ class PolarsDB:
                             df = pl.read_csv(io.BytesIO(tsv_data), separator="\t")
                             self.tables[table_name] = df
                 # TODO import dTypes if available
+
+    def list_tables(self):
+        return self.tables.keys()
 
     def create_table(self, table_name, schema):
         """Create a new empty table with given schema."""

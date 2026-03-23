@@ -1132,20 +1132,21 @@ def calculateMetaboliteGroups(
         assert "M" in cols
         assert "doublePeak" in cols
 
-        doublePeaks = 0
-        try:
-            doublePeaks = len(table_df.filter(pl.col("doublePeak") > 0))
+        # find double peaks as non nan and greater than 0
+        res = table_df.with_columns(_z=pl.when(pl.col("doublePeak").is_not_null() & (pl.col("doublePeak") > 0)).then(pl.lit("b__doublePeak")).otherwise(pl.lit("a__normal"))).sort("_z").partition_by("_z", maintain_order=True, include_key=False, as_dict=True)
 
-            if doublePeaks > 0:
-                logging.info("  found double peaks: %d" % doublePeaks)
+        table_df = None
+        double_peaks_df = None
 
-                # Save double peaks to separate sheet
-                double_peaks_df = table_df.filter(pl.col("doublePeak") > 0)
+        print(f"found keys: {res.keys()}")
 
-                # Delete rows where doublePeak > 0
-                table_df = table_df.filter(pl.col("doublePeak") <= 0)
-        except:
-            logging.info("  no double peaks found")
+        if ("b__doublePeak",) in res:
+            double_peaks_df = res[("b__doublePeak",)]
+        if ("a__normal",) in res:
+            table_df = res[("a__normal",)]
+
+        if double_peaks_df is not None and len(double_peaks_df) > 0:
+            logging.info(f"  found double peaks: {len(double_peaks_df)} of {len(table_df)} feature pairs ({(len(double_peaks_df) / len(table_df)) * 100:.2f}%)")
 
         required_columns_not_found = []
         for group in useGroups:
@@ -1434,7 +1435,7 @@ def calculateMetaboliteGroups(
         resDB.conn.insert_row("Parameters", {"Parameter": "MEConvoluting_minConnectionRate", "Value": f"{minConnectionRate}"})
         resDB.conn.insert_row("Parameters", {"Parameter": "MEConvoluting_minPeakCorrelation", "Value": f"{minPeakCorrelation}"})
         resDB.conn.set_table(new_sheet_name, table_df)
-        if doublePeaks > 0:
+        if double_peaks_df is not None and len(double_peaks_df) > 0:
             resDB.conn.insert_table(new_sheet_name + "_doublePeaks", double_peaks_df)
         resDB.conn.commit()
 

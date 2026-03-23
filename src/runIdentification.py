@@ -2419,7 +2419,7 @@ class RunIdentification:
             if not hasattr(peak, "Ms"):
                 setattr(peak, "Ms", [])
 
-        if len(group) <= 40:
+        if len(group) <= 40 or True:
             self.annotateFeaturePairsWithHeteroAtoms(group, peaksInGroup)
             for pa in group:
                 peakA = peaksInGroup[pa]

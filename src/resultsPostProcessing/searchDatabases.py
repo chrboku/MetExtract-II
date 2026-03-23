@@ -194,8 +194,8 @@ class DBSearch:
         return imported, notImported
 
     def optimizeDB(self):
-        self.dbEntriesNeutral = sorted(self.dbEntriesNeutral, key=lambda x: x.mass)
-        self.dbEntriesMZ = sorted(self.dbEntriesMZ, key=lambda x: x.mz)
+        self.dbEntriesNeutral = sorted([e for e in self.dbEntriesNeutral if e.mass is not None], key=lambda x: x.mass)
+        self.dbEntriesMZ = sorted([e for e in self.dbEntriesMZ if e.mz is not None], key=lambda x: x.mz)
 
     def _findGeneric(self, list, getValue, valueLeft, valueRight):
         if len(list) == 0:

@@ -160,9 +160,12 @@ class InteractiveVolcanoCanvas(FigureCanvas):
         self.scatter = None
         self.highlighted_indices = []
         self.rect_selector = None
+        self._press_pos = None
 
         # Set up matplotlib event handling
         self.fig.canvas.mpl_connect("key_press_event", self._on_key_press)
+        self.fig.canvas.mpl_connect("button_press_event", self._on_mouse_press)
+        self.fig.canvas.mpl_connect("button_release_event", self._on_mouse_release)
 
         # Initialize rectangle selector
         self._setup_rect_selector()
@@ -209,6 +212,36 @@ class InteractiveVolcanoCanvas(FigureCanvas):
 
         self.selectionChanged.emit(selected_indices, additive)
 
+    def _on_mouse_press(self, event):
+        """Record mouse-press position for drag detection."""
+        if event.button == 1:
+            self._press_pos = (event.x, event.y)
+
+    def _on_mouse_release(self, event):
+        """Emit selectionChanged for a single-point click (no drag)."""
+        if event.button != 1 or event.inaxes != self.axes or self.volcano_data is None:
+            return
+        if self._press_pos is None:
+            return
+        dx = abs(event.x - self._press_pos[0])
+        dy = abs(event.y - self._press_pos[1])
+        self._press_pos = None
+        if dx > 5 or dy > 5:
+            return  # Was a drag; handled by RectangleSelector
+        log2_fc = self.volcano_data["log2_fc"]
+        neg_log10_pval = self.volcano_data["neg_log10_pval"]
+        try:
+            pts_display = self.axes.transData.transform(np.column_stack([log2_fc, neg_log10_pval]))
+            click_display = np.array([event.x, event.y])
+            dists = np.sqrt(np.sum((pts_display - click_display) ** 2, axis=1))
+            closest = int(np.argmin(dists))
+            if dists[closest] <= 10:
+                modifiers = QtWidgets.QApplication.keyboardModifiers()
+                additive = modifiers == Qt.ControlModifier
+                self.selectionChanged.emit([closest], additive)
+        except Exception:
+            pass
+
     def _on_key_press(self, event):
         """Handle key press events."""
         if event.key == "escape":
@@ -249,11 +282,12 @@ class InteractiveVolcanoCanvas(FigureCanvas):
             self.draw()
             return
 
-        # Color points based on significance
+        # Color points based on significance (highlighted points drawn separately on top)
+        highlighted_set = set(self.highlighted_indices)
         colors = []
         for i, sig in enumerate(significant):
-            if i in self.highlighted_indices:
-                colors.append("orange")
+            if i in highlighted_set:
+                colors.append("gray")  # placeholder; will be hidden by top layer
             elif sig:
                 if log2_fc[i] > 0:
                     colors.append("red")
@@ -263,6 +297,22 @@ class InteractiveVolcanoCanvas(FigureCanvas):
                 colors.append("gray")
 
         self.scatter = self.axes.scatter(log2_fc, neg_log10_pval, c=colors, alpha=0.7, s=30, edgecolors="none")
+
+        # Draw highlighted points on top: green, 2× size
+        if highlighted_set:
+            h_idx = np.array(sorted(highlighted_set))
+            valid = h_idx[h_idx < len(log2_fc)]
+            if len(valid):
+                self.axes.scatter(
+                    log2_fc[valid],
+                    neg_log10_pval[valid],
+                    c="green",
+                    alpha=1.0,
+                    s=60,
+                    edgecolors="darkgreen",
+                    linewidths=0.8,
+                    zorder=5,
+                )
 
         # Add threshold lines
         self.axes.axhline(y=-np.log10(pvalue_threshold), color="gray", linestyle="--", alpha=0.5)
@@ -398,12 +448,14 @@ class SelectedFeaturesTable(QTableWidget):
         self.setHorizontalHeaderLabels(["Feature ID", "Group ID", "m/z", "RT", "Log2 FC", "p-value", "G1 Mean", "G1 Median", "G1 SD", "G2 Mean", "G2 Median", "G2 SD", "Index"])
         self.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.customContextMenuRequested.connect(self._show_context_menu)
+        self.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        self.setStyleSheet(
+            "QTableWidget::item:selected { background-color: rgba(80, 200, 80, 120); color: black; }"
+        )
         self.setSortingEnabled(True)
         self.feature_data = []
 
-    def update_features(self, indices: List[int], feature_metadata: Optional[Dict[str, Any]] = None, group_stats: Optional[Dict[str, Any]] = None):
+    def update_features(self, indices: List[int], feature_metadata: Optional[Dict[str, Any]] = None, group_stats: Optional[Dict[str, Any]] = None, row_colors: Optional[Dict[int, Any]] = None):
         """Update table with selected features."""
         # Disable sorting during update to prevent issues
         self.setSortingEnabled(False)
@@ -539,20 +591,16 @@ class SelectedFeaturesTable(QTableWidget):
 
             self.feature_data.append({"index": idx, "mz": mz, "rt": rt})
 
+            # Apply row background color
+            if row_colors and idx in row_colors:
+                brush = QtGui.QBrush(row_colors[idx])
+                for c in range(self.columnCount()):
+                    cell = self.item(row, c)
+                    if cell is not None:
+                        cell.setBackground(brush)
+
         # Re-enable sorting after data is loaded
         self.setSortingEnabled(True)
-
-    def _show_context_menu(self, position):
-        """Show context menu for feature actions."""
-        menu = QtWidgets.QMenu(self)
-        view_action = menu.addAction("View in Experiment Results")
-        action = menu.exec_(self.mapToGlobal(position))
-
-        if action == view_action:
-            current_row = self.currentRow()
-            if current_row >= 0 and current_row < len(self.feature_data):
-                feature = self.feature_data[current_row]
-                self.viewFeatureRequested.emit(feature["index"], "experiment_results")
 
 
 class StatisticsCanvas(FigureCanvas):
@@ -577,6 +625,7 @@ class StatisticsTabWidget(QWidget):
         super().__init__(parent)
         self.stats_data = StatisticsData()
         self.selection_manager = SelectionManager()
+        self._updating_from_volcano = False  # Guard against circular table↔volcano sync
 
         self._setup_ui()
         self._connect_signals()
@@ -691,6 +740,7 @@ class StatisticsTabWidget(QWidget):
         self.add_comparison_btn.clicked.connect(self._add_volcano_comparison)
         self.remove_comparison_btn.clicked.connect(self._remove_volcano_comparison)
         self.features_table.viewFeatureRequested.connect(self._on_view_feature_requested)
+        self.features_table.itemSelectionChanged.connect(self._on_table_row_selected)
         self.selection_manager.register_callback(self._on_selection_changed)
 
     def _get_group_colors(self, groups: List[str] = None) -> Dict[str, Any]:
@@ -834,7 +884,7 @@ class StatisticsTabWidget(QWidget):
             ax = axes[row, col]
 
             max_count = max(counts) if len(counts) > 0 else 1
-            ax.hist(counts, bins=np.arange(0, max_count + 2) - 0.5, alpha=0.7, color=group_colors[group_name])
+            ax.hist(counts, bins=np.arange(1, max_count + 2) - 0.5, alpha=0.7, color=group_colors[group_name])
             ax.set_xlabel("Number of replicates with detection", fontsize=8)
             ax.set_ylabel("Number of features", fontsize=8)
             ax.set_title(f"{group_name}", fontsize=9)
@@ -1217,6 +1267,9 @@ class StatisticsTabWidget(QWidget):
             if group1 in self.stats_data.group_info and group2 in self.stats_data.group_info:
                 self.current_volcano_data = UnivariateAnalysis.calculate_volcano_data(active_data, self.stats_data.group_info[group1], self.stats_data.group_info[group2], metadata=self.stats_data.feature_metadata)
 
+                # Populate the features table with all features
+                self._populate_features_table()
+
     def _show_single_volcano_plot(self, item: QTreeWidgetItem):
         """Show a single volcano plot for the selected comparison."""
         self._clear_visualization()
@@ -1250,6 +1303,9 @@ class StatisticsTabWidget(QWidget):
         self.viz_layout.addWidget(canvas)
         self.current_canvas = canvas
         self.current_toolbar = toolbar
+
+        # Populate the features table with all features
+        self._populate_features_table()
 
     def _show_no_data_message(self, message: str = "No experiment data loaded"):
         """Show a message when no data is available."""
@@ -1298,65 +1354,144 @@ class StatisticsTabWidget(QWidget):
         """Handle feature selection from volcano plots."""
         self.selection_manager.add_selection(indices, False)
 
+    def _populate_features_table(self):
+        """Populate the features table with all features from the current volcano data."""
+        if self.current_volcano_data is None or not self.current_volcano_data.get("success", False):
+            return
+        vd = self.current_volcano_data
+
+        def _to_list(v):
+            return v.tolist() if hasattr(v, "tolist") else list(v)
+
+        feature_names    = _to_list(vd.get("feature_names", []))
+        log2_fc_array    = _to_list(vd.get("log2_fc", []))
+        pvalues_array    = _to_list(vd.get("pvalues", []))
+        significant      = _to_list(vd.get("significant", []))
+        feature_pair_ids = _to_list(vd.get("featurePairIDs", []))
+        feature_group_ids= _to_list(vd.get("featureGroupIDs", []))
+        g1_means         = _to_list(vd.get("g1_means", []))
+        g1_medians       = _to_list(vd.get("g1_medians", []))
+        g1_sds           = _to_list(vd.get("g1_sds", []))
+        g2_means         = _to_list(vd.get("g2_means", []))
+        g2_medians       = _to_list(vd.get("g2_medians", []))
+        g2_sds           = _to_list(vd.get("g2_sds", []))
+
+        metadata = {}
+        if self.stats_data.feature_metadata is not None:
+            metadata = self.stats_data.feature_metadata.to_dict()
+        metadata["log2_fc"] = {}
+        metadata["pvalue"] = {}
+        metadata["featurePairID"] = {}
+        metadata["featureGroupID"] = {}
+        group_stats = {"g1_mean": {}, "g1_median": {}, "g1_sd": {}, "g2_mean": {}, "g2_median": {}, "g2_sd": {}}
+
+        COLOR_GRAY = QtGui.QColor(190, 190, 190, 60)
+        COLOR_RED  = QtGui.QColor(220, 80,  80,  70)
+        COLOR_BLUE = QtGui.QColor(80,  80,  220, 70)
+        row_colors = {}
+
+        for pos_idx, feature_id in enumerate(feature_names):
+            fc   = log2_fc_array[pos_idx]  if pos_idx < len(log2_fc_array)   else 0.0
+            pval = pvalues_array[pos_idx]  if pos_idx < len(pvalues_array)   else 1.0
+            sig  = significant[pos_idx]    if pos_idx < len(significant)      else False
+            metadata["log2_fc"][feature_id]     = fc
+            metadata["pvalue"][feature_id]      = pval
+            metadata["featurePairID"][feature_id]  = feature_pair_ids[pos_idx]  if pos_idx < len(feature_pair_ids)  else 0
+            metadata["featureGroupID"][feature_id] = feature_group_ids[pos_idx] if pos_idx < len(feature_group_ids) else 0
+            group_stats["g1_mean"][feature_id]   = g1_means[pos_idx]   if pos_idx < len(g1_means)   else np.nan
+            group_stats["g1_median"][feature_id] = g1_medians[pos_idx] if pos_idx < len(g1_medians) else np.nan
+            group_stats["g1_sd"][feature_id]     = g1_sds[pos_idx]     if pos_idx < len(g1_sds)     else np.nan
+            group_stats["g2_mean"][feature_id]   = g2_means[pos_idx]   if pos_idx < len(g2_means)   else np.nan
+            group_stats["g2_median"][feature_id] = g2_medians[pos_idx] if pos_idx < len(g2_medians) else np.nan
+            group_stats["g2_sd"][feature_id]     = g2_sds[pos_idx]     if pos_idx < len(g2_sds)     else np.nan
+            if sig:
+                row_colors[feature_id] = COLOR_RED if fc > 0 else COLOR_BLUE
+            else:
+                row_colors[feature_id] = COLOR_GRAY
+
+        self._updating_from_volcano = True
+        try:
+            self.features_table.update_features(feature_names, metadata, group_stats, row_colors=row_colors)
+        finally:
+            self._updating_from_volcano = False
+
+    def _select_table_rows(self, feature_ids: List[int]):
+        """Select the table rows whose feature index matches one of feature_ids."""
+        self._updating_from_volcano = True
+        try:
+            feature_id_set = set(feature_ids)
+            sel_model = self.features_table.selectionModel()
+            sel_model.clearSelection()
+            first_row = None
+            for row in range(self.features_table.rowCount()):
+                idx_item = self.features_table.item(row, 12)
+                if idx_item is None:
+                    continue
+                try:
+                    row_fid = int(float(idx_item.text()))
+                except (ValueError, TypeError):
+                    continue
+                if row_fid in feature_id_set:
+                    sel_model.select(
+                        self.features_table.model().index(row, 0),
+                        QtCore.QItemSelectionModel.Select | QtCore.QItemSelectionModel.Rows,
+                    )
+                    if first_row is None:
+                        first_row = row
+            if first_row is not None:
+                self.features_table.scrollTo(self.features_table.model().index(first_row, 0))
+        finally:
+            self._updating_from_volcano = False
+
     def _on_selection_changed(self, indices: List[int]):
-        """Handle selection manager updates."""
-        # Convert positional indices to actual feature IDs
+        """Handle selection manager updates: select matching table rows and highlight volcano dots."""
         feature_ids = indices
         if self.current_volcano_data and self.current_volcano_data.get("success", False):
             feature_names = self.current_volcano_data.get("feature_names", [])
             if feature_names:
-                # Map positional indices to actual feature IDs
-                feature_ids = [feature_names[i] if i < len(feature_names) else i for i in indices]
+                feature_ids = [feature_names[i] for i in indices if i < len(feature_names)]
 
-        # Update features table with metadata and volcano data
-        metadata = None
-        if self.stats_data.feature_metadata is not None:
-            metadata = self.stats_data.feature_metadata.to_dict()
+        self._select_table_rows(feature_ids)
 
-        # Add volcano data and statistics if available
-        group_stats = None
-        if self.current_volcano_data and self.current_volcano_data.get("success", False):
-            if metadata is None:
-                metadata = {}
+        # Highlight dots in the volcano plot
+        if self.current_canvas is not None:
+            self.current_canvas.update_highlighting(indices)
 
-            # Get arrays from volcano data
-            log2_fc_array = self.current_volcano_data.get("log2_fc", [])
-            pvalues_array = self.current_volcano_data.get("pvalues", [])
-            feature_names = self.current_volcano_data.get("feature_names", [])
-            feature_pair_ids = self.current_volcano_data.get("featurePairIDs", [])
-            feature_group_ids = self.current_volcano_data.get("featureGroupIDs", [])
-            g1_means = self.current_volcano_data.get("g1_means", [])
-            g1_medians = self.current_volcano_data.get("g1_medians", [])
-            g1_sds = self.current_volcano_data.get("g1_sds", [])
-            g2_means = self.current_volcano_data.get("g2_means", [])
-            g2_medians = self.current_volcano_data.get("g2_medians", [])
-            g2_sds = self.current_volcano_data.get("g2_sds", [])
-
-            # Create dictionaries indexed by actual feature ID (not positional index)
-            metadata["log2_fc"] = {}
-            metadata["pvalue"] = {}
-            metadata["featurePairID"] = {}
-            metadata["featureGroupID"] = {}
-
-            group_stats = {"g1_mean": {}, "g1_median": {}, "g1_sd": {}, "g2_mean": {}, "g2_median": {}, "g2_sd": {}}
-
-            for pos_idx in range(len(log2_fc_array)):
-                if pos_idx < len(feature_names):
-                    feature_id = feature_names[pos_idx]
-                    metadata["log2_fc"][feature_id] = log2_fc_array[pos_idx]
-                    metadata["pvalue"][feature_id] = pvalues_array[pos_idx]
-                    metadata["featurePairID"][feature_id] = feature_pair_ids[pos_idx] if pos_idx < len(feature_pair_ids) else 0
-                    metadata["featureGroupID"][feature_id] = feature_group_ids[pos_idx] if pos_idx < len(feature_group_ids) else 0
-
-                    # Add group statistics
-                    group_stats["g1_mean"][feature_id] = g1_means[pos_idx] if pos_idx < len(g1_means) else np.nan
-                    group_stats["g1_median"][feature_id] = g1_medians[pos_idx] if pos_idx < len(g1_medians) else np.nan
-                    group_stats["g1_sd"][feature_id] = g1_sds[pos_idx] if pos_idx < len(g1_sds) else np.nan
-                    group_stats["g2_mean"][feature_id] = g2_means[pos_idx] if pos_idx < len(g2_means) else np.nan
-                    group_stats["g2_median"][feature_id] = g2_medians[pos_idx] if pos_idx < len(g2_medians) else np.nan
-                    group_stats["g2_sd"][feature_id] = g2_sds[pos_idx] if pos_idx < len(g2_sds) else np.nan
-
-        self.features_table.update_features(feature_ids, metadata, group_stats)
+    def _on_table_row_selected(self):
+        """Highlight volcano dots corresponding to table rows selected by the user."""
+        if self._updating_from_volcano:
+            return
+        if self.current_volcano_data is None or not self.current_volcano_data.get("success", False):
+            return
+        feature_names = self.current_volcano_data.get("feature_names", [])
+        if not feature_names:
+            return
+        # Build a reverse map: feature_id -> positional index
+        feature_id_to_pos = {fid: pos for pos, fid in enumerate(feature_names)}
+        selected_rows = self.features_table.selectedItems()
+        seen_rows = set()
+        pos_indices = []
+        for item in selected_rows:
+            r = item.row()
+            if r in seen_rows:
+                continue
+            seen_rows.add(r)
+            idx_item = self.features_table.item(r, 12)  # Column 12 = Index (feature_id)
+            if idx_item is None:
+                continue
+            try:
+                feature_id = int(float(idx_item.text()))
+            except (ValueError, TypeError):
+                continue
+            pos = feature_id_to_pos.get(feature_id)
+            if pos is not None:
+                pos_indices.append(pos)
+        canvas = self.current_canvas
+        if canvas is not None:
+            canvas.update_highlighting(pos_indices)
+        if hasattr(self, "multi_volcano_widget") and self.multi_volcano_widget is not None:
+            for vc in self.multi_volcano_widget.volcano_canvases:
+                vc.update_highlighting(pos_indices)
 
     def _on_view_feature_requested(self, feature_index: int, target: str):
         """Handle request to view feature in experiment results."""

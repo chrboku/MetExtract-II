@@ -3129,13 +3129,13 @@ class Ui_MainWindow(object):
         self.resultsExperiment_TreeWidget.headerItem().setText(3, _translate("MainWindow", "4", None))
         self.resultsExperiment_TreeWidget.headerItem().setText(4, _translate("MainWindow", "5", None))
         self.resultsExperiment_TreeWidget.headerItem().setText(5, _translate("MainWindow", "6", None))
-        self.tabWidget_3.setTabText(self.tabWidget_3.indexOf(self.tab_5), _translate("MainWindow", "XICs", None))
+        self.tabWidget_3.setTabText(self.tabWidget_3.indexOf(self.tab_5), _translate("MainWindow", "Separated peaks", None))
         self.label_5.setText(_translate("MainWindow", "Separate according to", None))
         self.comboBox_separatePeaks.setItemText(0, _translate("MainWindow", "Group", None))
         self.comboBox_separatePeaks.setItemText(1, _translate("MainWindow", "Sample", None))
         self.tabWidget_3.setTabText(
             self.tabWidget_3.indexOf(self.tab_6),
-            _translate("MainWindow", "Separated peaks", None),
+            _translate("MainWindow", "Raw XICs", None),
         )
         self.label_msms_exp.setText(_translate("MainWindow", "MS/MS Spectra in feature", None))
         self.tabWidget_3.setTabText(
