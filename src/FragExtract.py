@@ -2427,6 +2427,9 @@ def main():
     import sys
 
     app = QtWidgets.QApplication(sys.argv)
+    _style_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "style.css")
+    with open(_style_path, "r") as _f:
+        app.setStyleSheet(_f.read())
     Dialog = FEMainWindow()
 
     Dialog.show()
