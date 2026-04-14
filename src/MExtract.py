@@ -412,7 +412,7 @@ def checkRDependencies():
     r = ro.r  # make R globally accessible
 
     print("\nChecking R dependencies...")
-    r("is.installed <- function(mypkg) {is.element(mypkg, installed.packages()[,1]); library(mypkg, character.only=TRUE, quietly=TRUE)}")
+    r("is.installed <- function(mypkg) {ret = is.element(mypkg, installed.packages()[,1]); library(mypkg, character.only=TRUE, quietly=TRUE); return(ret);}")
     # Dialog showing if the necessary R packages are installed / could be installed successfully
     dependenciesR = ["waveslim", "signal", "ptw", "MASS", "baseline", "BiocManager"]
     dependenciesBioConductor = [
