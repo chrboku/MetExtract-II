@@ -412,7 +412,7 @@ def checkRDependencies():
     r = ro.r  # make R globally accessible
 
     print("\nChecking R dependencies...")
-    r("is.installed <- function(mypkg) is.element(mypkg, installed.packages()[,1])")
+    r("is.installed <- function(mypkg) {is.element(mypkg, installed.packages()[,1]); library(mypkg, character.only=TRUE, quietly=TRUE)}")
     # Dialog showing if the necessary R packages are installed / could be installed successfully
     dependenciesR = ["waveslim", "signal", "ptw", "MASS", "baseline", "BiocManager"]
     dependenciesBioConductor = [
@@ -433,7 +433,7 @@ def checkRDependencies():
             print("\nInstalling dependency '%s'" % (dep))
             r("BiocManager::install('%s', update=TRUE, ask=FALSE, type='binary')" % (dep))
         else:
-            print("Dependency '%s' is available." % (dep))
+            print("Biocyc-Dependency '%s' is available." % (dep))
 
 
 if __name__ in ["__main__", "src.MExtract"]:
@@ -570,7 +570,7 @@ def safe_pickle_loads(data, default_value=None, operation_name="loading data"):
 # <editor-fold desc="### PyQT 4 Imports">
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtGui import QColor
-from PySide6.QtWidgets import QListWidgetItem
+from PySide6.QtWidgets import QListWidgetItem, QTableWidgetItem, QCheckBox, QComboBox, QWidget, QHBoxLayout
 
 # </editor-fold>
 # <editor-fold desc="### MatPlotLib imports and setup">
@@ -973,13 +973,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         indGroups = {}
         filesDict = {}
 
-        for group in [
-            t.data(QListWidgetItem.UserType)
-            for t in natSort(
-                self.ui.groupsList.findItems("*", QtCore.Qt.MatchWildcard),
-                key=lambda x: str(x.data(QListWidgetItem.UserType).name),
-            )
-        ]:
+        for group in self.getAllSampleGroups():
             indGroups[group.name] = natSort(group.files)
             for file in natSort(group.files):
                 if file not in done:
@@ -1022,13 +1016,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         # try to import each LC-HRMS file and get its polarities and filter lines (MS only)
         # draw the TICs of the individual filter lines
-        for group in [
-            t.data(QListWidgetItem.UserType)
-            for t in natSort(
-                self.ui.groupsList.findItems("*", QtCore.Qt.MatchWildcard),
-                key=lambda x: str(x.data(QListWidgetItem.UserType).name),
-            )
-        ]:
+        for group in self.getAllSampleGroups():
             self.ui.processedFilesComboBox.addItem("%s" % group.name, userData=Bunch(file=None))
 
             for file in natSort(group.files):
@@ -1231,13 +1219,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         settings = {}
 
         # check each imported LC-HRMS file individually
-        for group in [
-            t.data(QListWidgetItem.UserType)
-            for t in natSort(
-                self.ui.groupsList.findItems("*", QtCore.Qt.MatchWildcard),
-                key=lambda x: str(x.data(QListWidgetItem.UserType).name),
-            )
-        ]:
+        for group in self.getAllSampleGroups():
             for file in natSort(group.files):
                 if file not in done:
                     done.append(file)
@@ -1319,6 +1301,186 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     # </editor-fold>
 
     # <editor-fold desc="### add/modify/remove group functions">
+
+    def getAllSampleGroups(self):
+        """Return a natSort-sorted list of all SampleGroup objects from the groups table."""
+        groups = []
+        for row in range(self.ui.groupsList.rowCount()):
+            grp = self._getGroupFromRow(row)
+            if grp is not None:
+                groups.append(grp)
+        return natSort(groups, key=lambda x: str(x.name))
+
+    def _getGroupFromRow(self, row):
+        """Extract a SampleGroup from a table row."""
+        tbl = self.ui.groupsList
+        nameItem = tbl.item(row, 0)
+        if nameItem is None:
+            return None
+        name = nameItem.text()
+        filesItem = tbl.item(row, 1)
+        files = filesItem.data(QtCore.Qt.UserRole) if filesItem else []
+
+        colorWidget = tbl.cellWidget(row, 2)
+        color = colorWidget.currentText() if colorWidget else predefinedColors[0]
+
+        minFound = 1
+        minFoundItem = tbl.item(row, 3)
+        if minFoundItem:
+            try:
+                minFound = int(minFoundItem.text())
+            except ValueError:
+                minFound = 1
+
+        omitWidget = tbl.cellWidget(row, 4)
+        omitFeatures = omitWidget.findChild(QCheckBox).isChecked() if omitWidget else True
+
+        metGrpWidget = tbl.cellWidget(row, 5)
+        useForMetaboliteGrouping = metGrpWidget.findChild(QCheckBox).isChecked() if metGrpWidget else True
+
+        fpWidget = tbl.cellWidget(row, 6)
+        removeAsFalsePositive = fpWidget.findChild(QCheckBox).isChecked() if fpWidget else False
+
+        msmsWidget = tbl.cellWidget(row, 7)
+        useAsMSMSTarget = msmsWidget.findChild(QCheckBox).isChecked() if msmsWidget else False
+
+        return SampleGroup(name, files, minFound, omitFeatures, useForMetaboliteGrouping, removeAsFalsePositive, color, useAsMSMSTarget)
+
+    def _makeCenteredCheckbox(self, checked=False):
+        """Return a centred checkbox widget for insertion in the table."""
+        container = QWidget()
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setAlignment(QtCore.Qt.AlignCenter)
+        cb = QCheckBox()
+        cb.setChecked(checked)
+        layout.addWidget(cb)
+        return container, cb
+
+    def _propagateCheckboxChange(self, sourceCb, col):
+        """When a checkbox changes, apply the same value to all other selected rows in the same column."""
+        tbl = self.ui.groupsList
+        sourceRow = -1
+        for row in range(tbl.rowCount()):
+            w = tbl.cellWidget(row, col)
+            if w is not None:
+                cb = w.findChild(QCheckBox)
+                if cb is sourceCb:
+                    sourceRow = row
+                    break
+        if sourceRow == -1:
+            return
+        selectedRows = {idx.row() for idx in tbl.selectedIndexes()}
+        if sourceRow not in selectedRows or len(selectedRows) <= 1:
+            return
+        for row in selectedRows:
+            if row == sourceRow:
+                continue
+            w = tbl.cellWidget(row, col)
+            if w is not None:
+                cb = w.findChild(QCheckBox)
+                if cb is not None:
+                    cb.blockSignals(True)
+                    cb.setChecked(sourceCb.isChecked())
+                    cb.blockSignals(False)
+        self.grpFileEdited = True
+
+    def _propagateComboChange(self, sourceCombo, col):
+        """When a combobox changes, apply the same value to all other selected rows in the same column."""
+        tbl = self.ui.groupsList
+        sourceRow = -1
+        for row in range(tbl.rowCount()):
+            w = tbl.cellWidget(row, col)
+            if w is sourceCombo:
+                sourceRow = row
+                break
+        if sourceRow == -1:
+            return
+        selectedRows = {idx.row() for idx in tbl.selectedIndexes()}
+        if sourceRow not in selectedRows or len(selectedRows) <= 1:
+            return
+        for row in selectedRows:
+            if row == sourceRow:
+                continue
+            w = tbl.cellWidget(row, col)
+            if w is not None and isinstance(w, QComboBox):
+                w.blockSignals(True)
+                idx = w.findText(sourceCombo.currentText())
+                if idx >= 0:
+                    w.setCurrentIndex(idx)
+                w.blockSignals(False)
+        self.grpFileEdited = True
+
+    def _addGroupRow(self, row, name, files, minGrpFound, omitFeatures, useForMetaboliteGrouping, removeAsFalsePositive, color, useAsMSMSTarget):
+        """Populate a single row in the groups table."""
+        tbl = self.ui.groupsList
+        tbl.blockSignals(True)
+
+        # Col 0 – name (editable)
+        nameItem = QTableWidgetItem(str(name))
+        nameItem.setFlags(nameItem.flags() | QtCore.Qt.ItemIsEditable)
+        tbl.setItem(row, 0, nameItem)
+
+        # Col 1 – files  (non-editable display + UserRole data)
+        filesItem = QTableWidgetItem("%d file(s)" % len(files))
+        filesItem.setFlags(filesItem.flags() & ~QtCore.Qt.ItemIsEditable)
+        filesItem.setData(QtCore.Qt.UserRole, list(files))
+        filesItem.setToolTip("\n".join(files))
+        tbl.setItem(row, 1, filesItem)
+
+        # Col 2 – color combobox
+        colorCombo = QComboBox()
+        colorCombo.addItems(predefinedColors)
+        idx = colorCombo.findText(color)
+        if idx < 0:
+            colorCombo.addItem(color)
+            idx = colorCombo.count() - 1
+        colorCombo.setCurrentIndex(idx)
+        # colour the combo
+        colorCombo.currentIndexChanged.connect(lambda _i, cb=colorCombo: self._onColorComboChanged(cb))
+        colorCombo.currentIndexChanged.connect(lambda _i, cb=colorCombo, c=2: self._propagateComboChange(cb, c))
+        tbl.setCellWidget(row, 2, colorCombo)
+        self._styleColorCombo(colorCombo)
+
+        # Col 3 – minFound (editable int)
+        minFoundItem = QTableWidgetItem(str(minGrpFound))
+        minFoundItem.setFlags(minFoundItem.flags() | QtCore.Qt.ItemIsEditable)
+        tbl.setItem(row, 3, minFoundItem)
+
+        # Col 4 – omitFeatures checkbox
+        container4, cb4 = self._makeCenteredCheckbox(omitFeatures)
+        cb4.stateChanged.connect(lambda state, cb=cb4: self._propagateCheckboxChange(cb, 4))
+        tbl.setCellWidget(row, 4, container4)
+
+        # Col 5 – useForMetaboliteGrouping
+        container5, cb5 = self._makeCenteredCheckbox(useForMetaboliteGrouping)
+        cb5.stateChanged.connect(lambda state, cb=cb5: self._propagateCheckboxChange(cb, 5))
+        tbl.setCellWidget(row, 5, container5)
+
+        # Col 6 – removeAsFalsePositive
+        container6, cb6 = self._makeCenteredCheckbox(removeAsFalsePositive)
+        cb6.stateChanged.connect(lambda state, cb=cb6: self._propagateCheckboxChange(cb, 6))
+        tbl.setCellWidget(row, 6, container6)
+
+        # Col 7 – useAsMSMSTarget
+        container7, cb7 = self._makeCenteredCheckbox(useAsMSMSTarget)
+        cb7.stateChanged.connect(lambda state, cb=cb7: self._propagateCheckboxChange(cb, 7))
+        tbl.setCellWidget(row, 7, container7)
+
+        tbl.blockSignals(False)
+
+    def _styleColorCombo(self, combo):
+        col = combo.currentText()
+        qc = QtGui.QColor(col)
+        # pick black or white text depending on luminance
+        luminance = 0.299 * qc.red() + 0.587 * qc.green() + 0.114 * qc.blue()
+        fg = "black" if luminance > 128 else "white"
+        combo.setStyleSheet("background-color: %s; color: %s;" % (col, fg))
+
+    def _onColorComboChanged(self, combo):
+        self._styleColorCombo(combo)
+        self.grpFileEdited = True
+
     def addGroup(
         self,
         name,
@@ -1349,49 +1511,18 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 pw.getCallingFunction()("statustext")(f, text="File: %s\nStatus: %s" % (f, "imported"))
             else:
                 failed[x].append(f)
-                pw.getCallingFunction()("statuscolor")(f, "Firebrick")
+                pw.getCallingFunction()( "statuscolor")(f, "Firebrick")
                 pw.getCallingFunction()("statustext")(f, text="File: %s\nStatus: %s" % (f, x))
             i += 1
             pw.getCallingFunction()("value")(i)
         pw.hide()
 
         if len(failed) == 0:
+            tbl = self.ui.groupsList
             if atPos is None:
-                atPos = self.ui.groupsList.count()
-
-            qpixmap = QtGui.QPixmap(12, 12)
-            qpixmap.fill(QtGui.QColor(color))
-
-            icon = QtGui.QIcon(qpixmap)
-
-            qlwi = QListWidgetItem(
-                icon,
-                "%s (%d%s%s%s%s)"
-                % (
-                    str(name),
-                    len(files),
-                    ", Convolute" if useForMetaboliteGrouping else "",
-                    ", Omit/%d" % minGrpFound if omitFeatures else "",
-                    ", FalsePositives" if removeAsFalsePositive else "",
-                    ", MSMS" if useAsMSMSTarget else "",
-                ),
-            )
-            # qlwi.setBackground(QColor(color))
-            qlwi.setData(
-                QListWidgetItem.UserType,
-                SampleGroup(
-                    name,
-                    files,
-                    minGrpFound,
-                    omitFeatures,
-                    useForMetaboliteGrouping,
-                    removeAsFalsePositive,
-                    color,
-                    useAsMSMSTarget,
-                ),
-            )
-
-            self.ui.groupsList.insertItem(atPos, qlwi)
+                atPos = tbl.rowCount()
+            tbl.insertRow(atPos)
+            self._addGroupRow(atPos, name, files, minGrpFound, omitFeatures, useForMetaboliteGrouping, removeAsFalsePositive, color, useAsMSMSTarget)
         else:
             t = []
             for q in failed.keys():
@@ -1419,7 +1550,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             tdiag.executeDialog(
                 groupName=initWithGroupName,
                 groupfiles=initWithFiles,
-                activeColor=predefinedColors[self.ui.groupsList.count() % len(predefinedColors)],
+                activeColor=predefinedColors[self.ui.groupsList.rowCount() % len(predefinedColors)],
             )
             == QtWidgets.QDialog.Accepted
         ):
@@ -1488,30 +1619,26 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if self.updateLCMSSampleSettings():
                 self.grpFileEdited = True
 
-    # remove one group from the input
+    # remove selected groups from the input
     def remGrp(self):
         self.loadedMZXMLs = None
 
-        todel = []
-        for selectedIndex in self.ui.groupsList.selectedIndexes():
-            todel.append(selectedIndex.row())
-
-        todel.sort()
-        todel.reverse()
-
-        for ind in todel:
-            self.ui.groupsList.takeItem(ind)
+        selectedRows = sorted({idx.row() for idx in self.ui.groupsList.selectedIndexes()}, reverse=True)
+        for row in selectedRows:
+            self.ui.groupsList.removeRow(row)
 
         self.updateLCMSSampleSettings()
         self.grpFileEdited = True
 
-    # show group edit dialog to the user
-    def editGroup(self):
+    # Double-click on name column opens file-edit dialog; other columns are inline-editable
+    def editGroup(self, index):
+        if index.column() != 0:
+            return
         self.loadedMZXMLs = None
-
-        selRow = self.ui.groupsList.selectedIndexes()[0].row()
-
-        grp = self.ui.groupsList.item(selRow).data(QListWidgetItem.UserType)
+        row = index.row()
+        grp = self._getGroupFromRow(row)
+        if grp is None:
+            return
         t = groupEdit(colors=predefinedColors)
         if (
             t.executeDialog(
@@ -1526,6 +1653,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             )
             == QtWidgets.QDialog.Accepted
         ):
+            self.ui.groupsList.removeRow(row)
+            self.ui.groupsList.insertRow(row)
             self.addGroup(
                 name=t.getGroupName(),
                 files=t.getGroupFiles(),
@@ -1535,13 +1664,31 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 removeAsFalsePositive=t.getRemoveAsFalsePositive(),
                 color=str(t.getGroupColor()),
                 useAsMSMSTarget=t.getUseAsMSMSTarget(),
-                atPos=selRow,
+                atPos=row,
             )
-
-            self.ui.groupsList.takeItem(selRow + 1)
-
             self.updateLCMSSampleSettings()
             self.grpFileEdited = True
+
+    def _onGroupTableItemChanged(self, item):
+        """Propagate text-cell edits (name, minFound) to all other selected rows in the same column."""
+        col = item.column()
+        if col not in (0, 3):
+            return
+        tbl = self.ui.groupsList
+        row = item.row()
+        selectedRows = {idx.row() for idx in tbl.selectedIndexes()}
+        if row not in selectedRows or len(selectedRows) <= 1:
+            self.grpFileEdited = True
+            return
+        tbl.blockSignals(True)
+        for r in selectedRows:
+            if r == row:
+                continue
+            existingItem = tbl.item(r, col)
+            if existingItem is not None:
+                existingItem.setText(item.text())
+        tbl.blockSignals(False)
+        self.grpFileEdited = True
 
     # </editor-fold>
 
@@ -1583,13 +1730,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     # groupFile=groupFile[:groupFile.rfind("/")]+"/"+text+groupFile[groupFile.rfind("/"):]
                     ## copy files
                     totalCopyFiles = 0
-                    for group in [
-                        t.data(QListWidgetItem.UserType)
-                        for t in natSort(
-                            self.ui.groupsList.findItems("*", QtCore.Qt.MatchWildcard),
-                            key=lambda x: str(x.data(QListWidgetItem.UserType).name),
-                        )
-                    ]:
+                    for group in self.getAllSampleGroups():
                         for i in range(len(group.files)):
                             totalCopyFiles += 1
 
@@ -1599,13 +1740,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     pw.show()
 
                     done = 0
-                    for group in [
-                        t.data(QListWidgetItem.UserType)
-                        for t in natSort(
-                            self.ui.groupsList.findItems("*", QtCore.Qt.MatchWildcard),
-                            key=lambda x: str(x.data(QListWidgetItem.UserType).name),
-                        )
-                    ]:
+                    for group in self.getAllSampleGroups():
                         os.mkdir(str(groupFile[: groupFile.rfind("/")] + "/" + text + "/data/" + group.name))
                         for i in range(len(group.files)):
                             pw.setTextu("Copying " + group.files[i][group.files[i].rfind("/") :])
@@ -1687,13 +1822,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             grps.setValue("ExperimentComments", self.ui.exComments_TextEdit.toPlainText())
             grps.endGroup()
 
-            for group in [
-                t.data(QListWidgetItem.UserType)
-                for t in natSort(
-                    self.ui.groupsList.findItems("*", QtCore.Qt.MatchWildcard),
-                    key=lambda x: str(x.data(QListWidgetItem.UserType).name),
-                )
-            ]:
+            for group in self.getAllSampleGroups():
                 grps.beginGroup(group.name)
                 for i in range(len(group.files)):
                     try:
@@ -1903,13 +2032,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     # <editor-fold desc="### group results visualisation functions">
     # EXPERIMENTAL
     def loadGroupsResultsFile(self, groupsResFile):
-        experimentalGroups = [
-            t.data(QListWidgetItem.UserType)
-            for t in natSort(
-                self.ui.groupsList.findItems("*", QtCore.Qt.MatchWildcard),
-                key=lambda x: str(x.data(QListWidgetItem.UserType).name),
-            )
-        ]
+        experimentalGroups = self.getAllSampleGroups()
 
         try:
             self.ui.resultsExperiment_TreeWidget.clear()
@@ -2124,13 +2247,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             experiment_data = {"features": {}, "groups": {}, "metadata": {}}
 
             # Get group info
-            for i in range(self.ui.groupsList.count()):
-                item = self.ui.groupsList.item(i)
-                group_data = item.data(QListWidgetItem.UserType)
-                if group_data:
-                    group_name = str(group_data.name)
-                    basenames = [os.path.splitext(os.path.basename(str(f)))[0] for f in group_data.files]
-                    experiment_data["groups"][group_name] = basenames
+            for grp in self.getAllSampleGroups():
+                group_name = str(grp.name)
+                basenames = [os.path.splitext(os.path.basename(str(f)))[0] for f in grp.files]
+                experiment_data["groups"][group_name] = basenames
 
             # Load feature data from the single results table
             if hasattr(self, "experimentResults") and self.experimentResults.db_con is not None:
@@ -2217,18 +2337,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         axlimMin = 100000
         axlimMax = 0
 
-        definedGroups = dict(
-            [
-                (
-                    str(t.data(QListWidgetItem.UserType).name),
-                    t.data(QListWidgetItem.UserType),
-                )
-                for t in natSort(
-                    self.ui.groupsList.findItems("*", QtCore.Qt.MatchWildcard),
-                    key=lambda x: str(x.data(QListWidgetItem.UserType).name),
-                )
-            ]
-        )
+        definedGroups = {g.name: g for g in self.getAllSampleGroups()}
 
         itemNum = 0
         for item in plotItems:
@@ -3229,13 +3338,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if z == QtWidgets.QMessageBox.No:
                 return 1
 
-        definedGroups = [
-            t.data(QListWidgetItem.UserType)
-            for t in natSort(
-                self.ui.groupsList.findItems("*", QtCore.Qt.MatchWildcard),
-                key=lambda x: str(x.data(QListWidgetItem.UserType).name),
-            )
-        ]
+        definedGroups = self.getAllSampleGroups()
         for group in definedGroups:
             for i in range(len(group.files)):
                 group.files[i] = str(group.files[i]).replace("\\", "/")
@@ -4217,13 +4320,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             inFile = resFileFull
             outFile = resFileFull.replace(".tsv", "_withMSMS.tsv")
 
-            definedGroups = [
-                t.data(QListWidgetItem.UserType)
-                for t in natSort(
-                    self.ui.groupsList.findItems("*", QtCore.Qt.MatchWildcard),
-                    key=lambda x: str(x.data(QListWidgetItem.UserType).name),
-                )
-            ]
+            definedGroups = self.getAllSampleGroups()
             samplesForMSMS = []
             for group in definedGroups:
                 if group.useAsMSMSTarget:
@@ -4302,13 +4399,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         texts = []
 
-        definedGroups = [
-            t.data(QListWidgetItem.UserType)
-            for t in natSort(
-                self.ui.groupsList.findItems("*", QtCore.Qt.MatchWildcard),
-                key=lambda x: str(x.data(QListWidgetItem.UserType).name),
-            )
-        ]
+        definedGroups = self.getAllSampleGroups()
         for group in definedGroups:
             for i in range(len(group.files)):
                 group.files[i] = str(group.files[i]).replace("\\", "/")
@@ -9327,13 +9418,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             )[0]
         )
 
-        definedGroups = [
-            t.data(QListWidgetItem.UserType)
-            for t in natSort(
-                self.ui.groupsList.findItems("*", QtCore.Qt.MatchWildcard),
-                key=lambda x: str(x.data(QListWidgetItem.UserType).name),
-            )
-        ]
+        definedGroups = self.getAllSampleGroups()
         self.loadedMZXMLs = {}
 
         filesToLoad = []
@@ -9426,13 +9511,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
             self.loadAllSamples(selectedMZs=selectedMZs, ppm=25.0)
 
-        definedGroups = [
-            t.data(QListWidgetItem.UserType)
-            for t in natSort(
-                self.ui.groupsList.findItems("*", QtCore.Qt.MatchWildcard),
-                key=lambda x: str(x.data(QListWidgetItem.UserType).name),
-            )
-        ]
+        definedGroups = self.getAllSampleGroups()
 
         self.clearPlot(self.ui.resultsExperiment_plot)
         self.clearPlot(self.ui.resultsExperimentSeparatedPeaks_plot)
@@ -9860,13 +9939,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.updateMSMSList_exp(selectedItems)
 
     def exportAsPDF(self, pdfFile=None):
-        experimentalGroups = [
-            t.data(QListWidgetItem.UserType)
-            for t in natSort(
-                self.ui.groupsList.findItems("*", QtCore.Qt.MatchWildcard),
-                key=lambda x: str(x.data(QListWidgetItem.UserType).name),
-            )
-        ]
+        experimentalGroups = self.getAllSampleGroups()
 
         metabolitesToPlot = []
         for i in range(self.ui.resultsExperiment_TreeWidget.topLevelItemCount()):
@@ -10117,18 +10190,23 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
                         groups = {}
                         for link in links:
-                            res = re.match(regEx, link)
-                            gName = regExRes.format(*res.groups())
-
-                            if gName not in groups.keys():
+                            try:
+                                res = re.match(regEx, link)
+                                gName = regExRes.format(*res.groups())
+                            except Exception:
+                                continue
+                            if gName not in groups:
                                 groups[gName] = []
                             groups[gName].append(link)
 
+                        if not groups:
+                            return
+
                         gNames = {}
                         for gName, files in groups.items():
-                            gName = gName.replace("\\", "/")
-                            gName = gName[(gName.rfind("/") + 1) :]
-                            gNames[gName] = len(files)
+                            cleaned = gName.replace("\\", "/")
+                            cleaned = cleaned[(cleaned.rfind("/") + 1):]
+                            gNames[cleaned] = len(files)
 
                         if (
                             QtWidgets.QMessageBox.question(
@@ -10140,12 +10218,24 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             )
                             == QtWidgets.QMessageBox.Yes
                         ):
-                            groupNames = natSort([gName for gName in groups.keys()])
+                            groupNames = natSort(list(groups.keys()))
                             for gName in groupNames:
                                 files = groups[gName]
-                                gName = gName.replace("\\", "/")
-                                gName = gName[(gName.rfind("/") + 1) :]
-                                self.showAddGroupDialog(initWithGroupName=gName, initWithFiles=files)
+                                cleanedName = gName.replace("\\", "/")
+                                cleanedName = cleanedName[(cleanedName.rfind("/") + 1):]
+                                color = predefinedColors[self.ui.groupsList.rowCount() % len(predefinedColors)]
+                                self.addGroup(
+                                    name=cleanedName,
+                                    files=files,
+                                    minGrpFound=1,
+                                    omitFeatures=True,
+                                    useForMetaboliteGrouping=True,
+                                    removeAsFalsePositive=False,
+                                    color=color,
+                                    useAsMSMSTarget=False,
+                                )
+                            self.updateLCMSSampleSettings()
+                            self.grpFileEdited = True
                     else:
                         self.showAddGroupDialog(initWithFiles=links)
         else:
@@ -10684,6 +10774,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.removeGroup.clicked.connect(self.remGrp)
 
         self.ui.groupsList.doubleClicked.connect(self.editGroup)
+        self.ui.groupsList.itemChanged.connect(self._onGroupTableItemChanged)
 
         self.ui.startIdentification.clicked.connect(self.runProcess)
 

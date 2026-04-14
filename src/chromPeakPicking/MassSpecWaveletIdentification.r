@@ -5,9 +5,13 @@ if(FALSE){
 
 cat(paste0("\n\nLoading packages from", paste0(.libPaths(), collapse = ", "), "\n\n"))
 
+cat("Loading waveslim package\n")
 suppressWarnings(suppressMessages(library(waveslim)))
+cat("Loading MassSpecWavelet package\n")
 suppressWarnings(suppressMessages(library(MassSpecWavelet)))
+cat("Loading signal package\n")
 suppressWarnings(suppressMessages(library(signal)))
+cat("Loading baseline package\n")
 suppressWarnings(suppressMessages(library(baseline)))
 #suppressWarnings(suppressMessages(library(rgl)))
 
