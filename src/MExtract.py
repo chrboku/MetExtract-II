@@ -182,208 +182,37 @@ def setupR_linux(version="4.5.1", subdir_name=".R-4.5.1"):
         subdir_name (str): The name of the subfolder for installation.
     """
     if platform.system() != "Linux":
-        print("Error: This script is intended to run only on a Linux operating system.")
+        print("Error: This function is intended to run only on a Linux operating system.")
         return
 
-    # --- Configuration ---
-    R_TAR_GZ = f"R-{version}.tar.gz"
-    DOWNLOAD_URL = f"https://cran.r-project.org/src/base/R-4/{R_TAR_GZ}"
-    SOURCE_DIR = f"R-{version}"
-    INSTALL_DIR = os.path.join(get_main_dir(), subdir_name)
-    R_EXECUTABLE = os.path.join(INSTALL_DIR, "bin", "R")
+    print("")
+    print("--------------------------------------------------------------------------")
+    print("  Please make sure that R (version 4.5.2) is installed properly. ")
+    print("  If so, please create the file RPATH.conf in the main directory of MetExtract II and include the path to the base of R")
+    print("  e.g., /usr/lib/R")
+    print("  Also make sure that the necessary packages are installed, which are:")
+    print('  "waveslim", "signal", "ptw", "MASS", "baseline", "BiocManager", "MassSpecWavelet"')
+    print("  Apologies that there is no automated installation method available at this time")
+    print("--------------------------------------------------------------------------")
+    print("")
 
-    # Check for build dependencies and provide instructions
-    distro = get_linux_distro()
-
-    print(f"Starting local installation of R {version}...")
-    print(f"Target installation directory: {INSTALL_DIR}")
-
-    # --- Dependency Check and Warning ---
-    print("\n--- ATTENTION: System Dependencies Check ---")
-    print("Local R installation requires system dependencies (compilers, libraries).")
-    print("Since this script cannot use 'sudo', you must ensure these are installed manually.")
-
-    if distro == "Debian_or_Ubuntu":
-        print(f"Your system (detected as {distro}) requires the following **pre-installation** command:")
-        print("  sudo apt update && sudo apt install build-essential gfortran libreadline-dev libcurl4-openssl-dev libssl-dev libxml2-dev")
-    elif distro == "Fedora_RHEL_or_CentOS":
-        print(f"Your system (detected as {distro}) requires the following **pre-installation** command:")
-        print("  sudo dnf install make gcc gcc-gfortran readline-devel libcurl-devel openssl-devel libxml2-devel")
-    else:
-        print(f"Your Linux distribution ({distro}) is unknown. Please manually install 'gcc', 'gfortran', and development headers for 'readline', 'curl', 'ssl', and 'xml'.")
-
-    print("--- ATTENTION: Proceeding assuming dependencies are met. ---")
-
-    try:
-        # --- 1. Download the Source Code ---
-        print("\n1. Downloading R source code...")
-        urllib.request.urlretrieve(DOWNLOAD_URL, R_TAR_GZ)
-
-        # --- 2. Extract the Source Code ---
-        print("\n2. Extracting source archive...")
-        with tarfile.open(R_TAR_GZ, "r:gz") as tar:
-            tar.extractall()
-
-        # --- 3. Configure, Compile, and Install ---
-        print("\n3. Configuring, compiling, and installing R (DO NOT INTERRUPT)...")
-
-        # Create the target installation directory
-        os.makedirs(INSTALL_DIR, exist_ok=True)
-
-        # Change to the source directory for building
-        os.chdir(SOURCE_DIR)
-
-        # Execute the configure script, specifying the local installation path
-        # --prefix ensures non-admin installation
-        configure_cmd = ["./configure", f"--prefix={INSTALL_DIR}", "--enable-R-shlib"]
-
-        # Note: We capture output but don't print it unless an error occurs to keep the console clean
-        print("   -> Running ./configure...")
-        subprocess.run(configure_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-
-        print("   -> Running make (This will take a significant amount of time)...")
-        # Compile the code
-        subprocess.run(["make"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-
-        # Install to the specified prefix
-        print("   -> Running make install...")
-        subprocess.run(["make", "install"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-
-        # Change back to the initial directory
-        os.chdir("..")
-
-        # --- 4. Cleanup ---
-        print("\n4. Cleaning up source files...")
-        os.remove(R_TAR_GZ)
-        shutil.rmtree(SOURCE_DIR)
-
-        # --- 5. Verification ---
-        print("\nInstallation complete!")
-        print(f"The R executable is located at: {R_EXECUTABLE}")
-
-        # Verify R version
-        result = subprocess.run([R_EXECUTABLE, "--version"], capture_output=True, text=True, check=True)
-        print("Verification successful. Installed R version:")
-        print(result.stdout.split("\n")[0])
-
-        print("\nTo run this local version of R, use the command:")
-        print(f"**{R_EXECUTABLE}**")
-
-    except subprocess.CalledProcessError as e:
-        print(f"\nFATAL ERROR: A command failed during the build process.")
-        print(f"Reason: {e.cmd[0]} returned non-zero exit code {e.returncode}.")
-        print("\n**POSSIBLE CAUSE:** Missing system dependencies (gcc, gfortran, or dev libraries).")
-        print("Please check the system dependency instructions provided above.")
-
-        # Print stdout/stderr if error occurred
-        print("\n--- Configuration/Build Output (STDOUT) ---")
-        print(e.stdout)
-        print("\n--- Configuration/Build Output (STDERR) ---")
-        print(e.stderr)
-
-    except Exception as e:
-        print(f"\nFATAL ERROR: An unexpected error occurred: {e}")
-    finally:
-        # Final cleanup attempt in case of partial failure
-        if os.path.exists(R_TAR_GZ):
-            os.remove(R_TAR_GZ)
-        if os.path.isdir(SOURCE_DIR):
-            shutil.rmtree(SOURCE_DIR)
+    import sys
+    exit(1)
 
 
 def setupR_mac():
-    import subprocess
-    import os
-    import urllib.request
-    from PySide6 import QtWidgets
+    print("")
+    print("--------------------------------------------------------------------------")
+    print("  Please make sure that R (version 4.5.2) is installed properly. ")
+    print("  If so, please create the file RPATH.conf in the main directory of MetExtract II and include the path to the base of R")
+    print("  e.g., /usr/lib/R")
+    print("  Also make sure that the necessary packages are installed, which are:")
+    print('  "waveslim", "signal", "ptw", "MASS", "baseline", "BiocManager", "MassSpecWavelet"')
+    print("  Apologies that there is no automated installation method available at this time")
+    print("--------------------------------------------------------------------------")
+    print("")
 
-    # Define the URL and the target path for the R installer for macOS
-    r_installer_url = "https://cran.r-project.org/bin/macosx/big-sur-arm64/base/R-4.5.1-arm64.pkg"
-    r_installer_path = os.path.join(get_main_dir(), "R-4.5.1-arm64.pkg")
-
-    try:
-        # Step 1: Ask if the user wants to download the package
-        response = QtWidgets.QMessageBox.question(
-            None,
-            "MetExtract - R Setup for macOS",
-            "Would you like to download the R installer package for macOS?\n\nNote: Due to macOS security restrictions, you will need to install it manually with administrator privileges.",
-            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
-        )
-        if response == QtWidgets.QMessageBox.Yes:
-            # Download the R installer
-            print("Downloading R installer for macOS...")
-
-            # Show progress dialog during download
-            waitDialog = QtWidgets.QProgressDialog(
-                "Downloading R installer for macOS. Please wait...",
-                None,
-                0,
-                0,
-                None,
-            )
-            waitDialog.setWindowTitle("MetExtract - Downloading R")
-            waitDialog.setWindowModality(QtCore.Qt.ApplicationModal)
-            waitDialog.setCancelButton(None)
-            waitDialog.show()
-            QtCore.QCoreApplication.processEvents()
-
-            urllib.request.urlretrieve(r_installer_url, r_installer_path)
-
-            waitDialog.close()
-            print("R installer downloaded successfully.")
-
-            # Step 2: Tell them where the R package is found and how to install it
-            # Step 3: Tell them to configure the R installation in the RPATH.conf file
-            # Step 4: Tell them to restart
-            installation_instructions = (
-                f"R installer has been downloaded successfully!\n\n"
-                f"Location: {r_installer_path}\n\n"
-                f"Please follow these steps to complete the installation:\n\n"
-                f"1️. INSTALL R:\n"
-                f"   - Locate the downloaded package at:\n"
-                f"     {r_installer_path}\n"
-                f"   - Double-click the .pkg file to start the installer\n"
-                f"   - Follow the installation wizard (requires administrator privileges)\n"
-                f"   - R will typically be installed to: /Library/Frameworks/R.framework/Resources\n\n"
-                f"2️. CONFIGURE RPATH.conf:\n"
-                f"   - After installation, open the file:\n"
-                f"     {os.path.join(get_main_dir(), 'RPATH.conf')}\n"
-                f"   - Add a single line with your R installation path, default installation path is:\n"
-                f"     /Library/Frameworks/R.framework/Resources\n"
-                f"   - Save the file\n\n"
-                f"3️. RESTART MetExtract II:\n"
-                f"   - Close this application completely\n"
-                f"   - Restart MetExtract II to apply the changes\n\n"
-                f"Note: If R is installed in a different location, use that path in RPATH.conf instead."
-            )
-            msgBox = QtWidgets.QMessageBox(None)
-            msgBox.setWindowTitle("MetExtract - R Installation Instructions")
-            msgBox.setText("R Installer Downloaded - Manual Installation Required")
-            msgBox.setInformativeText(installation_instructions)
-            msgBox.setIcon(QtWidgets.QMessageBox.Information)
-            msgBox.setStandardButtons(QtWidgets.QMessageBox.Ok)
-            msgBox.setTextFormat(QtCore.Qt.PlainText)
-
-            # Make the message box wider to accommodate the text
-            msgBox.setStyleSheet("QLabel{min-width: 600px;}")
-
-            msgBox.exec()
-
-            return False  # Return False because manual installation is required
-
-        else:
-            print("User declined to download R installer.")
-            return False
-
-    except Exception as ex:
-        print(f"An error occurred during R setup for macOS: {ex}")
-        QtWidgets.QMessageBox.critical(
-            None,
-            "MetExtract - R Setup Error",
-            f"An error occurred while downloading the R installer:\n\n{str(ex)}\n\nPlease download R manually from:\n{r_installer_url}",
-            QtWidgets.QMessageBox.Ok,
-        )
-        return False
+    
 
 
 def setupR():
@@ -526,7 +355,7 @@ import re
 from math import log10
 import functools
 from operator import itemgetter
-from multiprocessing import Pool, freeze_support, cpu_count, Manager
+from multiprocessing import Pool, freeze_support, cpu_count, Manager, set_start_method
 import polars as pl
 import zipfile
 import io
@@ -3383,6 +3212,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             logging.info("Processing %d individual LC-HRMS data files on %d CPU core(s).." % (len(files), min(len(files), cpus)))
 
             # Initialize multiprocessing pool
+            set_start_method("spawn")
             p = Pool(processes=min(len(files), cpus), maxtasksperchild=1)
             manager = Manager()
             lock = manager.Lock()

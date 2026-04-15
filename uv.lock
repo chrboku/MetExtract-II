@@ -700,7 +700,7 @@ wheels = [
 
 [[package]]
 name = "pymetextract"
-version = "3.12.0"
+version = "3.12.1"
 source = { editable = "." }
 dependencies = [
     { name = "context" },
