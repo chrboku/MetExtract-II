@@ -419,7 +419,7 @@ def checkRDependencies():
         "MassSpecWavelet",
     ]
     rlibPath = r("paste0(.libPaths(), collapse = ', ')")
-    print(f"R-libraries path at '{rlibPath}'")
+    print(f"R-libraries path at '{rlibPath[0]}'")
 
     for dep in dependenciesR:
         if str(r('is.installed("%s")' % dep)[0]).lower() != "true":
@@ -446,6 +446,7 @@ if __name__ in ["__main__", "src.MExtract"]:
         if app is None:
             app = QtWidgets.QApplication(sys.argv)
         os.environ["R_HOME"] = get_main_dir() + "/R"
+        os.environ["RPY2_CFFI_MODE"] = "API"
 
         # query user to install R?
         response = QtWidgets.QMessageBox.question(

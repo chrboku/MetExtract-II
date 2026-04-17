@@ -700,7 +700,7 @@ wheels = [
 
 [[package]]
 name = "pymetextract"
-version = "3.12.0"
+version = "3.12.1"
 source = { editable = "." }
 dependencies = [
     { name = "context" },
@@ -766,7 +766,7 @@ requires-dist = [
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=2.0" },
     { name = "python-calamine", specifier = ">=0.6.1" },
     { name = "reportlab", specifier = ">=3.5.0" },
-    { name = "rpy2", specifier = ">=3.6.5" },
+    { name = "rpy2", specifier = "==3.6.6" },
     { name = "scikit-learn", specifier = ">=1.0.0" },
     { name = "scipy", specifier = ">=1.7.0" },
     { name = "termcolor", specifier = ">=1.1.0" },
@@ -1009,16 +1009,16 @@ wheels = [
 
 [[package]]
 name = "rpy2"
-version = "3.6.7"
+version = "3.6.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "packaging", marker = "sys_platform == 'win32'" },
     { name = "rpy2-rinterface" },
     { name = "rpy2-robjects" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/96/eb/8d7ddb80d7c78f017dcb170e5c3fa2f80ca6e5580fb37500c134dd344779/rpy2-3.6.7.tar.gz", hash = "sha256:f1fb4649ce7d14e935133088dec97cda27eb37ce7cc710385f81dca556fe8c9f", size = 53961, upload-time = "2026-03-27T13:35:26.575Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e1/20/67318d6d6071ac8bfbbe9a3d45d8a403d1a4ade47e03b0dbf571293f4e57/rpy2-3.6.6.tar.gz", hash = "sha256:e82cd2d29e440f362c641dd56d2d9b9a1ce60c518ce0b21487d1929b79980bdc", size = 53760, upload-time = "2026-03-19T20:41:48.236Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ee/7d/b0f3d082a0597916db7e7488ef8397a330fd0e3af1331dc651464e7bf99e/rpy2-3.6.7-py3-none-any.whl", hash = "sha256:6490e04cf8a912c0479f1803202cb8680cba702bd3d64c021601235c4fefb249", size = 9910, upload-time = "2026-03-27T13:35:25.188Z" },
+    { url = "https://files.pythonhosted.org/packages/ba/8f/256657012e0b86edf7c031980a69d45150c77650d826be263c344ebbebee/rpy2-3.6.6-py3-none-any.whl", hash = "sha256:c9a2124c8d7411ba230b9f25d0bd69f7e9a392d934fa18917dc5e11e12e676b7", size = 9910, upload-time = "2026-03-19T20:41:46.75Z" },
 ]
 
 [[package]]
