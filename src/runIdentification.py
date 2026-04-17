@@ -36,7 +36,6 @@ import traceback
 import numpy as np
 
 from . import HCA_general
-from .utils import USEGRADIENTDESCENDPEAKPICKING
 from .utils import getNormRatio, CallBackMethod, get_main_dir
 
 pp = pprint.PrettyPrinter(indent=1)

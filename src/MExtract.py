@@ -61,8 +61,9 @@ from .mePyGuis.DependenciesDialog import DependenciesDialog
 from .mePyGuis.RegExTestDialog import RegExTestDialog
 from .mePyGuis.ProgressWrapper import ProgressWrapper
 from .mePyGuis.calcIsoEnrichmentDialog import calcIsoEnrichmentDialog
+from .mePyGuis.PeakPickingSettingsDialog import PeakPickingSettingsDialog
 
-from .utils import USEGRADIENTDESCENDPEAKPICKING, get_main_dir, getDBSuffix, getDBFormat, suppress_logs
+from .utils import get_main_dir, getDBSuffix, getDBFormat, suppress_logs
 
 from .MetExtractII_Main import MetExtractVersion
 
@@ -9590,6 +9591,13 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             for elem in self.elementsForNL:
                 logging.info("  *" + elem.name)
 
+    def _openPeakPickingSettings(self):
+        """Open the peak picking settings dialog."""
+        dlg = PeakPickingSettingsDialog(parent=self, current_settings=self._peakPickingSettings)
+        if dlg.exec() == QtWidgets.QDialog.Accepted:
+            self._peakPickingSettings = dlg.get_settings()
+            logging.info("Peak picking settings updated: algorithm=%s", self._peakPickingSettings.get("algorithm", "wavelettransform"))
+
     def updateCores(self):
         curMax = self.ui.cpuCores.maximum()
         curVal = self.ui.cpuCores.value()
@@ -10326,6 +10334,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.ui.smoothingPolynom_spinner.valueChanged.connect(self.smoothingWindowChanged)
 
+        # RT alignment (PTW) has been removed – disable the checkbox
+        self.ui.alignChromatograms.setChecked(False)
+        self.ui.alignChromatograms.setEnabled(False)
+        self.ui.alignChromatograms.setToolTip("PTW-based RT alignment has been removed (R/rpy2 dependency eliminated)")
         self.ui.alignChromatograms.toggled.connect(self.alignToggled)
 
         self.ui.groupsSave.setText("./results.tsv")
@@ -10610,6 +10622,16 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.relationshipConfig.clicked.connect(self.relationShipConfiguration)
 
         self.ui.defineHeteroAtoms.clicked.connect(self.heteroAtomsConfiguration)
+
+        # Add "Peak Picking Settings" button programmatically
+        self._peakPickingSettings = PeakPickingSettingsDialog.get_default_settings()
+        self.peakPickingSettingsButton = QtWidgets.QPushButton("Peak Picking Settings...")
+        self.peakPickingSettingsButton.setToolTip("Configure chromatographic peak picking algorithm and parameters")
+        # Insert the button into the layout that holds the defineHeteroAtoms button
+        _parent_widget = self.ui.defineHeteroAtoms.parentWidget()
+        if _parent_widget is not None and _parent_widget.layout() is not None:
+            _parent_widget.layout().addWidget(self.peakPickingSettingsButton)
+        self.peakPickingSettingsButton.clicked.connect(self._openPeakPickingSettings)
 
         self.ui.visualConfig.setVisible(False)
         self.ui.scaleFeatures.setVisible(True)

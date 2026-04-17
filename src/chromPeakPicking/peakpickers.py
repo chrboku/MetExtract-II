@@ -124,7 +124,8 @@ class BasePeakPicker(ABC):
         """Trapezoidal integration between *start* and *end* indices."""
         if end <= start:
             return 0.0
-        return float(np.trapz(intensity[start : end + 1], rt[start : end + 1]))
+        _trapz = getattr(np, "trapezoid", getattr(np, "trapz", None))
+        return float(_trapz(intensity[start : end + 1], rt[start : end + 1]))
 
     @staticmethod
     def compute_snr(
@@ -607,10 +608,27 @@ class WaveletTransformPeakPicker(BasePeakPicker):
 
     # -- helpers ------------------------------------------------------------
 
+    @staticmethod
+    def _ricker_wavelet(points: int, width: float) -> np.ndarray:
+        """Generate a Ricker (Mexican hat) wavelet."""
+        x = np.arange(points) - (points - 1) / 2
+        sigma = width
+        norm = 2.0 / (np.sqrt(3.0 * sigma) * (np.pi ** 0.25))
+        wsq = sigma ** 2
+        vec = norm * (1.0 - (x ** 2) / wsq) * np.exp(-(x ** 2) / (2.0 * wsq))
+        return vec
+
     def _cwt_matrix(self, intensity: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Compute CWT coefficient matrix and corresponding widths."""
         widths = np.linspace(self.min_scale, self.max_scale, self.num_scales)
-        cwt_mat = signal.cwt(intensity, signal.ricker, widths)
+        n = len(intensity)
+        cwt_mat = np.empty((len(widths), n), dtype=np.float64)
+        for i, w in enumerate(widths):
+            wavelet_len = min(10 * int(np.ceil(w)), n)
+            if wavelet_len % 2 == 0:
+                wavelet_len += 1
+            wavelet = self._ricker_wavelet(wavelet_len, w)
+            cwt_mat[i] = np.convolve(intensity, wavelet, mode="same")
         return cwt_mat, widths
 
     def _find_ridges(
