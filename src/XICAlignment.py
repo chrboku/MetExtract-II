@@ -1,15 +1,15 @@
-try:
-    import rpy2.robjects as ro
+"""XICAlignment – Simple peak grouping without R/PTW dependency.
 
-    R_AVAILABLE = True
-except ImportError:
-    R_AVAILABLE = False
-    ro = None
-r = ro.r if R_AVAILABLE else None
+The former PTW-based chromatographic alignment has been removed. This module
+now provides a pure-Python fallback that groups peaks by retention-time
+proximity using scipy hierarchical clustering, without performing any warping.
+"""
 
 import numpy as np
-from .utils import mapArrayToRefTimes
+from scipy.cluster.hierarchy import linkage, fcluster
 from copy import deepcopy
+
+from .utils import mapArrayToRefTimes
 
 
 # HELPER METHOD for adding a constant part before and after the actual EIC
@@ -57,7 +57,6 @@ def preAppendEICs(
 
 
 # HELPER METHOD for removing a constant part before and after the actual EIC.
-# Used im combination with preAppendEICs
 def undoPreAppendEICs(eics, refTimes, pretend=25, scanDuration=1, removeFront=True, removeBack=False):
     eics = deepcopy(eics)
     refTimes = np.asarray(refTimes, dtype=np.float64).copy()
@@ -86,13 +85,18 @@ def undoPreAppendEICs(eics, refTimes, pretend=25, scanDuration=1, removeFront=Tr
     return eics, refTimes
 
 
-# Class for chromatographic alignment using PTW (http://cran.fhcrc.org/web/packages/ptw/index.html) and
-# bracketing of different feature pairs
 class XICAlignment:
-    def __init__(self, scriptLocation):
-        r('source("' + scriptLocation + '")')
+    """Peak grouping by retention-time proximity (alignment removed).
 
-    # aligns the EICs and matches the chromatographic peaks detected earlier
+    This class replaces the former PTW-based alignment. It groups peaks
+    solely by hierarchical clustering on retention times without performing
+    any chromatographic warping.
+    """
+
+    def __init__(self, scriptLocation=None):
+        # scriptLocation kept for API compatibility (no longer used)
+        pass
+
     def alignXIC(
         self,
         eics,
@@ -104,10 +108,11 @@ class XICAlignment:
         pretend=100,
         scanDuration=1,
     ):
-        # assert (len(eics) == len(peakss) == len(scantimes))
+        """Group chromatographic peaks across samples by RT proximity.
 
-        nPolynom = max(nPolynom, 1)
-
+        Returns list of lists; each inner list contains [rt_value, group_id].
+        The outer list order matches the flattened order of *peakss*.
+        """
         if len(peakss) == 0:
             return []
 
@@ -117,124 +122,55 @@ class XICAlignment:
                 ret.append([[i, peakss[0][i].NPeakCenterMin]])
             return ret
 
-        refTimes = ""
-        eicsR = ""
-        peakssR = ""
-        if align:
-            # add a constant part before and after the actual EIC as an anchor for the alignment
-            eics, scantimesEnlarged = preAppendEICs(eics, scantimes, pretend=pretend, scanDuration=scanDuration)
+        # Collect all peak RT values (in minutes) from all samples
+        all_rts = []
+        sample_indices = []
+        for si, peaks in enumerate(peakss):
+            for peak in peaks:
+                all_rts.append(peak.NPeakCenterMin)
+                sample_indices.append(si)
 
-            maxTime = np.max([np.max(scanTime) for scanTime in scantimes])
-            refTimes = np.arange(0, int(maxTime / scanDuration)) * scanDuration
+        if len(all_rts) == 0:
+            return []
 
-            for i in range(len(eics)):
-                eics[i] = mapArrayToRefTimes(eics[i], scantimesEnlarged[i], refTimes)
-                # peak translation to ref Time
-                for j in range(len(peakss[i])):
-                    peakTime = scantimes[i][peakss[i][j].NPeakCenter] + pretend * scanDuration
-                    minindex = np.argmin(np.abs(refTimes - peakTime))
-                    peakss[i][j].NPeakCenter = refTimes[minindex]
+        all_rts = np.array(all_rts, dtype=np.float64)
 
-            # convert the EICs to R-function parameters
-            maxLen = max([len(eic) for eic in eics])
-            append = False
-            for eic in eics:
-                if append:
-                    eicsR = eicsR + ","
-                else:
-                    append = True
-                eicsR = eicsR + ",".join((str(d) for d in eic))
-                if len(eic) < maxLen:
-                    eicsR = eicsR + "," + ",".join((str(0) for p in range(len(eic), maxLen)))
+        if len(all_rts) == 1:
+            return [[[all_rts[0], 1]]]
 
-        # convert the detected chromatographic peaks to R-function parameters
-        maxPeaks = max([len(peaks) for peaks in peakss])
-        append = False
-        for peaks in peakss:
-            if append:
-                peakssR = peakssR + ","
-            else:
-                append = True
-            peakssR = peakssR + ",".join((str(peak.NPeakCenter) if align else str(peak.NPeakCenterMin) for peak in peaks))
-            if len(peaks) < maxPeaks:
-                peakssR = peakssR + "," + ",".join((str(0) for p in range(len(peaks), maxPeaks)))
+        # Hierarchical clustering on RT values
+        rt_matrix = all_rts.reshape(-1, 1)
+        Z = linkage(rt_matrix, method="complete", metric="euclidean")
+        labels = fcluster(Z, t=maxTimeDiff, criterion="distance")
 
-        # align the EICs and bracket the chromatographic peaks
-        ret = r(
-            "alignPeaks(c(" + eicsR + "), c(" + ",".join([str(f) for f in refTimes]) + "), c(" + peakssR + "), " + str(len(peakss)) + ", align=" + ("TRUE" if align else "FALSE") + ", npoly=" + str(nPolynom) + ", maxGroupDist=" + str(int(maxTimeDiff)) + ", scanDuration=" + str(scanDuration) + ")"
-        )
-
-        # convert R-results object to python arrays
-        retl = []
-        if len(ret) > 1:
-            for i in range(0, len(ret), 2):
-                cur = []
-                for j in range(0, 2):
-                    cur.append(ret[i + j])
-                retl.append(cur)
-
-        # match aligned results to the supplied chromatographic peaks
+        # Build result in the same format as the R version
         retld = []
-        i = 0
+        idx = 0
         for peaks in peakss:
-            j = 0
             dd = []
             for peak in peaks:
-                dd.append((retl[(i * maxPeaks) + j]))
-                j = j + 1
+                dd.append([all_rts[idx], int(labels[idx])])
+                idx += 1
             retld.append(dd)
-            i = i + 1
 
         return retld
 
-    # returns the algined EICs
     def getAligendXICs(self, eics, scantimes, align=True, nPolynom=3, pretend=100, scanDuration=1):
-        assert len(eics) == len(scantimes)
+        """Return EICs mapped to a common time grid (no warping applied).
+
+        Returns (aligned_eics, refTimes).
+        """
         if len(eics) == 0:
-            return [[]]
+            return [[]], np.array([])
 
-        eics, scantimes = preAppendEICs(eics, scantimes, pretend=pretend, scanDuration=scanDuration)
+        eics_copy, scantimes_copy = preAppendEICs(eics, scantimes, pretend=pretend, scanDuration=scanDuration)
 
-        nPolynom = max(nPolynom, 0)
-        maxTime = np.max([np.max(scanTime) for scanTime in scantimes])
+        maxTime = np.max([np.max(st) for st in scantimes_copy])
         refTimes = np.arange(int(maxTime))
 
-        if len(eics) == 1:
-            retl, refTimes = undoPreAppendEICs(
-                [mapArrayToRefTimes(eics[0], scantimes[0], refTimes)],
-                refTimes,
-                pretend=pretend,
-                scanDuration=scanDuration,
-            )
-            undoPreAppendEICs(retl, refTimes, pretend=pretend)
+        aligned = []
+        for i in range(len(eics_copy)):
+            aligned.append(mapArrayToRefTimes(eics_copy[i], scantimes_copy[i], refTimes))
 
-        maxTime = np.max([np.max(scanTime) for scanTime in scantimes])
-        refTimes = np.arange(int(maxTime))
-
-        eicds = []
-        for i in range(len(eics)):
-            eicds.append(mapArrayToRefTimes(eics[i], scantimes[i], refTimes))
-        eics = eicds
-
-        maxLen = max([len(eic) for eic in eics])
-        eicsR = ""
-        append = False
-        for eic in eics:
-            if append:
-                eicsR = eicsR + ","
-            else:
-                append = True
-            eicsR = eicsR + ",".join([str(d) for d in eic])
-            if len(eic) < maxLen:
-                eicsR = eicsR + "," + ",".join([str(0) for p in range(len(eic), maxLen)])
-
-        ret = r("getAlignXICs(c(" + eicsR + "),  " + str(len(eics)) + ", align=" + ("TRUE" if align else "FALSE") + ", npoly=" + str(nPolynom) + ")")
-        retl = []
-        for i in range(len(eics)):
-            d = []
-            for j in range(maxLen):
-                d.append(ret[(i * maxLen) + j])
-            retl.append(d)
-
-        retl, refTimes = undoPreAppendEICs(retl, [u for u in refTimes], pretend=pretend, scanDuration=scanDuration)
-        return retl, refTimes
+        aligned, refTimes = undoPreAppendEICs(aligned, refTimes, pretend=pretend, scanDuration=scanDuration)
+        return aligned, refTimes

@@ -46,10 +46,9 @@ from . import LoggingSetup
 LoggingSetup.LoggingSetup.Instance().initLogging(location=local_folder)
 
 
-# EXPERIMENTAL: alternative peak picking algorithm. Currently under development
+# experiment types
 
 import sys, pprint
-
 import traceback
 import platform
 
@@ -72,274 +71,19 @@ TRACER = object()
 METABOLOME = object()
 
 
-# <editor-fold desc="### check if R is installed and accessible">
-def checkR():
-    is_available = False
-    print("\nTesting R availability")
-
-    # deactivate logging temporarily to avoid cluttering the console
-    with suppress_logs():
-        from .r_compatibility import is_r_available, get_r_error_message
-
-        is_available = is_r_available()
-
-    if is_available:
-        print(f"   - R is available!")
-    else:
-        print(f"   - R is not available: {get_r_error_message()}")
-
-    return is_available
-
-
-def loadRConfFile(path):
-    import os
-
-    if os.path.isfile(path + "/RPATH.conf"):
-        with open(path + "/RPATH.conf", "r") as rconf:
-            line = rconf.readline().strip()
-            os.environ["R_HOME"] = line
-            return True
-    else:
-        return False
-
-
-def setupR_windows():
-    import subprocess
-    import os
-    import urllib.request
-
-    # Define the URL and the target path for the R installer
-    r_installer_url = "https://cran.r-project.org/bin/windows/base/old/4.5.1/R-4.5.1-win.exe"
-    r_installer_path = os.path.join(get_main_dir(), "R-4.5.1-win.exe")
-    r_install_dir = os.path.join(get_main_dir(), ".R-4.5.1")
-
-    try:
-        # Download the R installer
-        print("Downloading R installer...")
-        urllib.request.urlretrieve(r_installer_url, r_installer_path)
-        print("R installer downloaded successfully.")
-
-        # Execute the installer and install R to the specified directory
-        print("Installing R...")
-        subprocess.run(
-            [r_installer_path, "/SILENT", f"/DIR={r_install_dir}"],
-            check=True,
-        )
-        print("R installed successfully.")
-
-        # Configure RPATH.conf
-        rpath_conf_path = os.path.join(get_main_dir(), "RPATH.conf")
-        with open(rpath_conf_path, "w") as rpath_conf:
-            rpath_conf.write(r_install_dir)
-        print("RPATH.conf configured successfully.")
-
-        # Inform the user
-        print("R has been set up successfully. Please restart the application.")
-        return True
-
-    except Exception as ex:
-        print(f"An error occurred during R setup: {ex}")
-        raise ex
-
-    finally:
-        # Clean up the installer file
-        if os.path.exists(r_installer_path):
-            os.remove(r_installer_path)
-
-
-def get_linux_distro():
-    """Detects the Linux distribution type."""
-    try:
-        # Check for LSB/standard distribution release file
-        with open("/etc/os-release", "r") as f:
-            content = f.read()
-            if "debian" in content.lower() or "ubuntu" in content.lower():
-                return "Debian_or_Ubuntu"
-            elif "fedora" in content.lower() or "red hat" in content.lower() or "centos" in content.lower():
-                return "Fedora_RHEL_or_CentOS"
-
-        # Fallback for systems that don't use /etc/os-release standard fully
-        if os.path.exists("/etc/debian_version"):
-            return "Debian_or_Ubuntu"
-        elif os.path.exists("/etc/redhat-release"):
-            return "Fedora_RHEL_or_CentOS"
-    except Exception:
-        pass
-    return "Other_Linux"
-
-
-## TODO test function
-def setupR_linux(version="4.5.1", subdir_name=".R-4.5.1"):
-    """
-    Downloads R source code and installs it in a subfolder of the current
-    working directory on Linux without administrator rights (assuming
-    system build dependencies are met).
-
-    Developed with Gemini 3 Pro
-
-    Args:
-        version (str): The version of R to install (e.g., "4.5.1").
-        subdir_name (str): The name of the subfolder for installation.
-    """
-    if platform.system() != "Linux":
-        print("Error: This function is intended to run only on a Linux operating system.")
-        return
-
-    print("")
-    print("--------------------------------------------------------------------------")
-    print("  Please make sure that R (version 4.5.2) is installed properly. ")
-    print("  If so, please create the file RPATH.conf in the main directory of MetExtract II and include the path to the base of R")
-    print("  e.g., /usr/lib/R")
-    print("  Also make sure that the necessary packages are installed, which are:")
-    print('  "waveslim", "signal", "ptw", "MASS", "baseline", "BiocManager", "MassSpecWavelet"')
-    print("  Apologies that there is no automated installation method available at this time")
-    print("--------------------------------------------------------------------------")
-    print("")
-
-    import sys
-    exit(1)
-
-
-def setupR_mac():
-    print("")
-    print("--------------------------------------------------------------------------")
-    print("  Please make sure that R (version 4.5.2) is installed properly. ")
-    print("  If so, please create the file RPATH.conf in the main directory of MetExtract II and include the path to the base of R")
-    print("  e.g., /usr/lib/R")
-    print("  Also make sure that the necessary packages are installed, which are:")
-    print('  "waveslim", "signal", "ptw", "MASS", "baseline", "BiocManager", "MassSpecWavelet"')
-    print("  Apologies that there is no automated installation method available at this time")
-    print("--------------------------------------------------------------------------")
-    print("")
-
-    
-
-
-def setupR():
-    # get the operating system
-    os_name = platform.system()
-
-    if os_name == "Windows":
-        setupR_windows()
-
-    elif os_name == "Linux":
-        setupR_linux()
-
-    elif os_name == "Darwin":
-        setupR_mac()
-
-    else:
-        print(f"The script is running on an unknown operating system: {os_name}. Automated setup of R not available, please implement it yourself.")
-        print("")
-
-
-# Checks, if necessary R dependencies are installed
-def checkRDependencies():
-    import rpy2.robjects as ro  # import RPy2 module
-    import platform  # import platform module for version info
-
-    r = ro.r  # make R globally accessible
-
-    print("\nChecking R dependencies...")
-    r("is.installed <- function(mypkg) {ret = is.element(mypkg, installed.packages()[,1]); library(mypkg, character.only=TRUE, quietly=TRUE); return(ret);}")
-    # Dialog showing if the necessary R packages are installed / could be installed successfully
-    dependenciesR = ["waveslim", "signal", "ptw", "MASS", "baseline", "BiocManager"]
-    dependenciesBioConductor = [
-        "MassSpecWavelet",
-    ]
-    rlibPath = r("paste0(.libPaths(), collapse = ', ')")
-    print(f"R-libraries path at '{rlibPath[0]}'")
-
-    for dep in dependenciesR:
-        if str(r('is.installed("%s")' % dep)[0]).lower() != "true":
-            print("\nInstalling dependency '%s'" % (dep))
-            r("install.packages('%s', repos='http://cran.us.r-project.org')" % (dep))
-        else:
-            print("Dependency '%s' is available." % (dep))
-
-    for dep in dependenciesBioConductor:
-        if str(r('is.installed("%s")' % dep)[0]).lower() != "true":
-            print("\nInstalling dependency '%s'" % (dep))
-            r("BiocManager::install('%s', update=TRUE, ask=FALSE, type='binary')" % (dep))
-        else:
-            print("Biocyc-Dependency '%s' is available." % (dep))
-
-
-if __name__ in ["__main__", "src.MExtract"]:
-    rFound = False
-    if not loadRConfFile(path=get_main_dir()) or not checkR():
-        ## initialize for showing message boxes
-        from os import sys
-        from PySide6 import QtCore, QtGui, QtWidgets
-
-        if app is None:
-            app = QtWidgets.QApplication(sys.argv)
-        os.environ["R_HOME"] = get_main_dir() + "/R"
-        os.environ["RPY2_CFFI_MODE"] = "API"
-
-        # query user to install R?
-        response = QtWidgets.QMessageBox.question(
-            None,
-            "MetExtract",
-            "R could not be started. Would you like to download, install, and configure R automatically?",
-            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
-        )
-
-        if response == QtWidgets.QMessageBox.Yes:
-            # Show a "Please wait" dialog while setupR() executes
-            waitDialog = QtWidgets.QProgressDialog(
-                "Downloading and installing R. Please wait...",
-                None,
-                0,
-                0,
-                None,
-            )
-            waitDialog.setWindowTitle("MetExtract - Configuring R (this might take a couple of minutes)...")
-            waitDialog.setWindowModality(QtCore.Qt.ApplicationModal)
-            waitDialog.setCancelButton(None)
-            waitDialog.show()
-            QtCore.QCoreApplication.processEvents()
-
-            time.sleep(1)
-
-            try:
-                setupR()
-            finally:
-                waitDialog.close()
-
-            QtWidgets.QMessageBox.information(
-                None,
-                "MetExtract",
-                "R has been successfully installed and configured. Please restart the application to apply the changes.",
-                QtWidgets.QMessageBox.Ok,
-            )
-            sys.exit(1)
-
-        else:
-            QtWidgets.QMessageBox.information(
-                None,
-                "MetExtract",
-                "R is not available, processing LC-HRMS data is not available.",
-                QtWidgets.QMessageBox.Ok,
-            )
-
-    else:
-        checkRDependencies()
+# <editor-fold desc="### R dependency removed – using native Python peak picking">
+# R/rpy2 is no longer required. All peak picking is handled by the
+# native Python implementations in src/chromPeakPicking/peakpickers.py
 
 # </editor-fold>
-# <editor-fold desc="### Check if R-dependencies are installed. If not try to fetch them from CRAN and Bioconductor">
 
 
-# Returns version of r subprocess
+# Returns version string (R version no longer available)
 def getRVersion():
-    try:
-        import rpy2.robjects as ro  # import RPy2 module
+    return "N/A (R removed)"
 
-        r = ro.r  # make R globally accessible
-        v = r("R.Version()$version.string")  # get R-Version
-        return v[0]
-    except:
-        logging.error("Error: R could not be loaded, please download from https://cran.r-project.org/bin/windows/base/R-4.5.1-win.exe, install and set the path accordingly..")
+
+# </editor-fold>
 
 
 # </editor-fold>
@@ -1601,15 +1345,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
                         tmpF = tempfile.NamedTemporaryFile(delete=False)
 
-                        import rpy2.robjects as ro  # import RPy2 module
-
-                        r = ro.r  # make R globally accessible
-                        v = r("sessionInfo()")  # get R sessin infos
-
-                        tmpF.write(str(v))
-                        tmpF.write("\n\nInstalled packages:\n")
-                        v = r("ip <- as.data.frame(installed.packages()[,c(1,3:4)]); rownames(ip) <- NULL; ip <- ip[is.na(ip$Priority),1:2,drop=FALSE]; print(ip)")
-                        tmpF.write(str(v))
+                        tmpF.write(b"R/rpy2 has been removed. Peak picking uses native Python.\n")
 
                         tmpF.close()
 
@@ -10522,19 +10258,15 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         # display used R-Version in main interface
         try:
-            import rpy2.robjects as ro  # import RPy2 module
             import platform  # import platform module for version info
 
-            r = ro.r  # make R globally accessible
-            v = r("R.Version()$version.string")
-            rlibPath = r("paste0(.libPaths(), collapse = ', ')")
             module = "AllExtract" if self.labellingExperiment == METABOLOME else ("TracExtract" if self.labellingExperiment == TRACER else "")
-            self.ui.version.versionText = "%s II %s // Python %s (%s) // %s // R-libs: %s" % (module, MetExtractVersion, platform.python_version(), platform.architecture()[0], str(v)[5 : (len(str(v)) - 1)], rlibPath)
+            self.ui.version.versionText = "%s II %s // Python %s (%s) // Native peak picking (no R)" % (module, MetExtractVersion, platform.python_version(), platform.architecture()[0])
             self.ui.version.setText(self.ui.version.versionText)
         except Exception as exc:
             logging.info(f"Exception: {exc}")
             traceback.print_exc()
-            self.ui.version.versionText = "%s [Error: R not available]" % version
+            self.ui.version.versionText = "%s II %s" % ("MetExtract", MetExtractVersion)
             self.ui.version.setText(self.ui.version.versionText)
 
         # limit CPU usage to #cores-1 per default

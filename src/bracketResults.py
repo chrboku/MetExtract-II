@@ -19,7 +19,8 @@ from reportlab.lib import colors
 from reportlab.pdfgen import canvas
 from reportlab.graphics import renderPDF
 
-from .XICAlignment import XICAlignment
+# XICAlignment (PTW-based) has been removed along with R/rpy2 dependency.
+# Peak grouping now uses simple hierarchical clustering without RT alignment.
 
 from .utils import (
     ChromPeakPair,
@@ -131,8 +132,8 @@ def bracketResults(
         # used for debug purposes
         colos = [colors.red]
 
-        cpf = get_main_dir() + "/src/XICAlignment.r"  # initialise chromatographic alignment script
-        xicAlign = XICAlignment(cpf)
+        # XICAlignment (PTW) has been removed – alignment is disabled
+        xicAlign = None
 
         results = []
 

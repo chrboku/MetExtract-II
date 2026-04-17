@@ -25,7 +25,7 @@ from multiprocessing import Pool, Manager
 
 from .Chromatogram import Chromatogram
 from .chromPeakPicking.MassSpecWavelet import MassSpecWavelet
-from .utils import Bunch, USEGRADIENTDESCENDPEAKPICKING, get_main_dir, getDBSuffix, getDBFormat
+from .utils import Bunch, get_main_dir, getDBSuffix, getDBFormat
 from .PolarsDB import PolarsDB
 import polars as pl
 
@@ -80,13 +80,9 @@ class ReIntegrationProcessor:
 
         Args:
             forFile: Path to the LC-HRMS data file
-            chromPeakFile: Path to the R script for chromatographic peak picking
+            chromPeakFile: Kept for API compatibility (no longer used)
         """
-        if chromPeakFile is None:
-            cpf = get_main_dir() + "/src/chromPeakPicking/MassSpecWaveletIdentification.r"
-            chromPeakFile = cpf
-
-        self.chromPeakFile = chromPeakFile
+        self.chromPeakFile = chromPeakFile  # kept for backward compatibility
         self.forFile = forFile
         self.queue = None
         self.pID = None
@@ -282,19 +278,8 @@ class ReIntegrationProcessor:
             self.chromatogram = Chromatogram()
             self.chromatogram.parse_file(self.forFile, intensityCutoff=params.reintegrateIntensityCutoff)
 
-            # Initialize peak picking algorithm
-            if not USEGRADIENTDESCENDPEAKPICKING:
-                self.peakPicker = MassSpecWavelet(self.chromPeakFile, scales=params.scales, snrTh=params.snrTH, minScans=1)
-            else:
-                from .chromPeakPicking.GradientPeaks import GradientPeaks
-
-                self.peakPicker = GradientPeaks(
-                    minInt=1000,
-                    minIntFlanks=100,
-                    minIncreaseRatio=0.5,
-                    minDelta=100,
-                    expTime=[5, 150],
-                )
+            # Initialize peak picking algorithm (using native Python wavelet implementation)
+            self.peakPicker = MassSpecWavelet(scales=params.scales, snrTh=params.snrTH, minScans=1)
 
             scanEventsPerPolarity = self.chromatogram.getFilterLinesPerPolarity()
 

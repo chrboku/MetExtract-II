@@ -33,21 +33,6 @@ import polars as pl
 import json
 import traceback
 
-try:
-    import rpy2
-
-    R_AVAILABLE = True
-except ImportError:
-    R_AVAILABLE = False
-    rpy2 = None
-try:
-    import rpy2.robjects as ro
-
-    R_AVAILABLE = True
-except ImportError:
-    R_AVAILABLE = False
-    ro = None
-
 import numpy as np
 
 from . import HCA_general
@@ -435,10 +420,7 @@ class RunIdentification:
         self.calcIsoRatioLabelled = calcIsoRatioLabelled
         self.calcIsoRatioMoiety = calcIsoRatioMoiety
 
-        self.chromPeakFile = chromPeakFile
-        if self.chromPeakFile is None:
-            cpf = get_main_dir() + "/src/chromPeakPicking/MassSpecWaveletIdentification.r"
-            self.chromPeakFile = cpf
+        self.chromPeakFile = chromPeakFile  # kept for backward compatibility (no longer used)
 
         self.performCorrectCCount = correctCCount
 
@@ -3295,18 +3277,9 @@ class RunIdentification:
                 allPeaks[peak.id] = peak
                 peak.correlationsToOthers = []
 
-            rengine = ro.r
-
-            ## export model for R/3.5.3 from outside of MetExtract
-            ## in R load the model and save it as the varible model
-            ## execute
-            ## load("C:/Users/cbueschl/Desktop/PeakCorrelation/model_main_2.Rdata")
-            ## exp = list(predict = model$modelInfo$predict, finalModel = model$finalModel)
-            ## save(exp, file = "C:/Users/cbueschl/Desktop/PeakCorrelation/model.Rdata")
-            # rengine('load("C:/Users/cbueschl/Desktop/PeakCorrelation/model.Rdata")')
-            # rengine('model = exp')
-            # rengine('print("model is")')
-            # rengine('print(model)')
+            # NOTE: R engine reference removed (rpy2 dependency eliminated)
+            # The commented-out model loading below was for an experimental R-based
+            # peak correlation model and is no longer applicable.
 
             # compare all detected feature pairs at approximately the same retention time
             for piA in range(len(chromPeaks)):
@@ -4589,40 +4562,12 @@ class RunIdentification:
             self.postMessageToProgressWrapper("value", 0.0)
             self.postMessageToProgressWrapper("text", "Initialising")
 
-            if not USEGRADIENTDESCENDPEAKPICKING:
-                self.CP = MassSpecWavelet(
-                    self.chromPeakFile,
-                    scales=self.scales,
-                    snrTh=self.snrTh,
-                    minScans=self.hAMinScans,
-                )
-            else:
-                from .chromPeakPicking.GradientPeaks import GradientPeaks
-
-                self.CP = GradientPeaks()  ## generic gradient descend peak picking - do not use. Parameters need to be optimized
-                self.CP = GradientPeaks(minInt=1000, minIntFlanks=1, minIncreaseRatio=0.01)  ## LTQ Orbitrap XL
-                self.CP = GradientPeaks(
-                    minInt=10000,
-                    minIntFlanks=10,
-                    minIncreaseRatio=0.15,
-                    expTime=[10, 250],
-                )  ## Swiss Orbitrap HF data
-                self.CP = GradientPeaks(
-                    minInt=1000,
-                    minIntFlanks=10,
-                    minIncreaseRatio=0.05,
-                    minDelta=10000,
-                    expTime=[5, 150],
-                )  ## Bernhard HSS
-                self.CP = GradientPeaks(
-                    minInt=1000,
-                    minIntFlanks=100,
-                    minIncreaseRatio=0.5,
-                    minDelta=100,
-                    expTime=[5, 150],
-                )  ##Lin
-                # self.CP=GradientPeaks(minInt=5, minIntFlanks=2, minIncreaseRatio=.05, expTime=[15, 150], minDelta=1, minInflectionDelta=2) ## Roitinger
-                # self.CP=GradientPeaks(minInt=10000, minIntFlanks=10, minIncreaseRatio=.05, expTime=[5, 45])       ## RNA
+            # Initialize peak picking (using native Python wavelet implementation)
+            self.CP = MassSpecWavelet(
+                scales=self.scales,
+                snrTh=self.snrTh,
+                minScans=self.hAMinScans,
+            )
 
             self.BL = Baseline.Baseline()
 
