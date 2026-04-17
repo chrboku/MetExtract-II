@@ -10268,13 +10268,14 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         try:
             import platform  # import platform module for version info
 
-            module = "AllExtract" if self.labellingExperiment == METABOLOME else ("TracExtract" if self.labellingExperiment == TRACER else "")
+            module = "AllExtract" if self.labellingExperiment == METABOLOME else ("TracExtract" if self.labellingExperiment == TRACER else "MetExtract")
             self.ui.version.versionText = "%s II %s // Python %s (%s) // Native peak picking (no R)" % (module, MetExtractVersion, platform.python_version(), platform.architecture()[0])
             self.ui.version.setText(self.ui.version.versionText)
         except Exception as exc:
             logging.info(f"Exception: {exc}")
             traceback.print_exc()
-            self.ui.version.versionText = "%s II %s" % ("MetExtract", MetExtractVersion)
+            module = "AllExtract" if self.labellingExperiment == METABOLOME else ("TracExtract" if self.labellingExperiment == TRACER else "MetExtract")
+            self.ui.version.versionText = "%s II %s" % (module, MetExtractVersion)
             self.ui.version.setText(self.ui.version.versionText)
 
         # limit CPU usage to #cores-1 per default

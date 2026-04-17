@@ -124,7 +124,12 @@ class BasePeakPicker(ABC):
         """Trapezoidal integration between *start* and *end* indices."""
         if end <= start:
             return 0.0
-        _trapz = getattr(np, "trapezoid", getattr(np, "trapz", None))
+        _trapz = getattr(np, "trapezoid", None) or getattr(np, "trapz", None)
+        if _trapz is None:
+            # Manual trapezoidal rule fallback
+            x = rt[start : end + 1]
+            y = intensity[start : end + 1]
+            return float(np.sum((y[:-1] + y[1:]) * np.diff(x) / 2.0))
         return float(_trapz(intensity[start : end + 1], rt[start : end + 1]))
 
     @staticmethod

@@ -58,6 +58,19 @@ def preAppendEICs(
 
 # HELPER METHOD for removing a constant part before and after the actual EIC.
 def undoPreAppendEICs(eics, refTimes, pretend=25, scanDuration=1, removeFront=True, removeBack=False):
+    """Undo the padding added by preAppendEICs.
+
+    Args:
+        eics: List of EIC arrays.
+        refTimes: Reference time array.
+        pretend: Number of padding scans that were added.
+        scanDuration: Duration of each scan.
+        removeFront: Whether to remove the front padding.
+        removeBack: Whether to remove the back padding.
+
+    Returns:
+        Tuple of (trimmed_eics, trimmed_refTimes).
+    """
     eics = deepcopy(eics)
     refTimes = np.asarray(refTimes, dtype=np.float64).copy()
 
