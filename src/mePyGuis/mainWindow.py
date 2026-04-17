@@ -2749,7 +2749,7 @@ class Ui_MainWindow(object):
         self.label_53.setText(
             _translate(
                 "MainWindow",
-                "<html><head/><body><p>Please specify the settings for your experiment</p><p>The section &quot;Labeling&quot; provides options for describing the experiment's stable isotopic labeling.</p><p>The section &quot;MZ picking&quot; and &quot;MZ clustering&quot; describe the parameters of your HRMS device</p><p>The section &quot;Chromatographic separation&quot; describes your LC device and are parameters used for peak picking</p><p>The results of each measurement is automatically saved in tabular format to &lt;FileName&gt;.tsv. Additionally the results can be saved as &lt;FileName&gt;.pdf with graphical illustrations. </p><p>For some LC-HRMS devices it is also possible to save &lt;FileName&gt;.mzXML files. These files only include those mass peaks originating from the labeling process</p></body></html>",
+                "<html><head/><body><p>Please specify the settings for your experiment</p><p>The section &quot;Labeling&quot; provides options for describing the experiment's stable isotopic labeling.</p><p>The section &quot;MZ picking&quot; and &quot;MZ clustering&quot; describe the parameters of your HRMS device</p><p>The section &quot;MZ processing&quot; describes your LC device and are parameters used for peak picking</p><p>The results of each measurement is automatically saved in tabular format to &lt;FileName&gt;.tsv. Additionally the results can be saved as &lt;FileName&gt;.pdf with graphical illustrations. </p><p>For some LC-HRMS devices it is also possible to save &lt;FileName&gt;.mzXML files. These files only include those mass peaks originating from the labeling process</p></body></html>",
                 None,
             )
         )
@@ -2786,7 +2786,7 @@ class Ui_MainWindow(object):
         self.minCorrelationConnections.setPrefix(_translate("MainWindow", "≥ ", None))
         self.minCorrelationConnections.setSuffix(_translate("MainWindow", " %", None))
         self.checkBox_simplifyInSourceFragments.setText(_translate("MainWindow", "Simplify in-source fragments", None))
-        self.label_51.setText(_translate("MainWindow", "Chromatographic separation", None))
+        self.label_51.setText(_translate("MainWindow", "MZ processing", None))
         self.groupBox_5.setTitle(_translate("MainWindow", "MZ clustering", None))
         self.minSpectraCount.setSuffix(_translate("MainWindow", " scans", None))
         self.minSpectraCount.setPrefix(_translate("MainWindow", "≥ ", None))

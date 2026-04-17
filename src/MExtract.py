@@ -10624,14 +10624,19 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.ui.defineHeteroAtoms.clicked.connect(self.heteroAtomsConfiguration)
 
-        # Add "Peak Picking Settings" button programmatically
+        # Hide the old "Chromatographic separation" groupBox_10 (min/max scale controls removed)
+        self.ui.groupBox_10.setVisible(False)
+
+        # Add "Peak Picking Settings" button into the MZ processing column, before Peak matching
         self._peakPickingSettings = PeakPickingSettingsDialog.get_default_settings()
         self.peakPickingSettingsButton = QtWidgets.QPushButton("Peak Picking Settings...")
         self.peakPickingSettingsButton.setToolTip("Configure chromatographic peak picking algorithm and parameters")
-        # Insert the button into the layout that holds the defineHeteroAtoms button
-        _parent_widget = self.ui.defineHeteroAtoms.parentWidget()
-        if _parent_widget is not None and _parent_widget.layout() is not None:
-            _parent_widget.layout().addWidget(self.peakPickingSettingsButton)
+        # Insert into verticalLayout_10, right before groupBox_11 (Peak matching)
+        _idx = self.ui.verticalLayout_10.indexOf(self.ui.groupBox_11)
+        if _idx >= 0:
+            self.ui.verticalLayout_10.insertWidget(_idx, self.peakPickingSettingsButton)
+        else:
+            self.ui.verticalLayout_10.addWidget(self.peakPickingSettingsButton)
         self.peakPickingSettingsButton.clicked.connect(self._openPeakPickingSettings)
 
         self.ui.visualConfig.setVisible(False)
