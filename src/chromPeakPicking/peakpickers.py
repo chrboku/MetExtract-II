@@ -597,10 +597,10 @@ class WaveletTransformPeakPicker(BasePeakPicker):
 
     def __init__(
         self,
-        min_scale: int = 1,
-        max_scale: int = 64,
-        num_scales: int = 32,
-        snr_threshold: float = 1.0,
+        min_scale: int = 3,
+        max_scale: int = 11,
+        num_scales: int = 8,
+        snr_threshold: float = 3.0,
         min_ridge_length: int = 4,
         gap_threshold: int = 2,
     ):
