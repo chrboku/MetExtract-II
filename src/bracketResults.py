@@ -1133,7 +1133,7 @@ def calculateMetaboliteGroups(
         assert "doublePeak" in cols
 
         # find double peaks as non nan and greater than 0
-        res = table_df.with_columns(_z=pl.when(pl.col("doublePeak").is_not_null() & (pl.col("doublePeak") > 0)).then(pl.lit("b__doublePeak")).otherwise(pl.lit("a__normal"))).sort("_z").partition_by("_z", maintain_order=True, include_key=False, as_dict=True)
+        res = table_df.with_columns(_z=pl.when(pl.col("doublePeak").is_not_null() & ((pl.col("doublePeak")!= pl.lit("")) | (pl.col("doublePeak").str.to_integer() > 0))).then(pl.lit("b__doublePeak")).otherwise(pl.lit("a__normal"))).sort("_z").partition_by("_z", maintain_order=True, include_key=False, as_dict=True)
 
         table_df = None
         double_peaks_df = None
