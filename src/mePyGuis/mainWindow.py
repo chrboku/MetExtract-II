@@ -2540,6 +2540,17 @@ class Ui_MainWindow(object):
         self.comboBox_separatePeaks.addItem(_fromUtf8(""))
         self.comboBox_separatePeaks.addItem(_fromUtf8(""))
         self.horizontalLayout_22.addWidget(self.comboBox_separatePeaks)
+        self.label_separatePeaksShift = QtWidgets.QLabel(self.tab_6)
+        self.label_separatePeaksShift.setObjectName(_fromUtf8("label_separatePeaksShift"))
+        self.horizontalLayout_22.addWidget(self.label_separatePeaksShift)
+        self.doubleSpinBox_separatePeaksShift = QtWidgets.QDoubleSpinBox(self.tab_6)
+        self.doubleSpinBox_separatePeaksShift.setDecimals(2)
+        self.doubleSpinBox_separatePeaksShift.setMinimum(0.0)
+        self.doubleSpinBox_separatePeaksShift.setMaximum(10.0)
+        self.doubleSpinBox_separatePeaksShift.setProperty("value", 1.0)
+        self.doubleSpinBox_separatePeaksShift.setSuffix(_fromUtf8(" min"))
+        self.doubleSpinBox_separatePeaksShift.setObjectName(_fromUtf8("doubleSpinBox_separatePeaksShift"))
+        self.horizontalLayout_22.addWidget(self.doubleSpinBox_separatePeaksShift)
         spacerItem65 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self.horizontalLayout_22.addItem(spacerItem65)
         self.gridLayout_43.addLayout(self.horizontalLayout_22, 0, 0, 1, 2)
@@ -3235,6 +3246,7 @@ class Ui_MainWindow(object):
         self.label_5.setText(_translate("MainWindow", "Separate according to", None))
         self.comboBox_separatePeaks.setItemText(0, _translate("MainWindow", "Group", None))
         self.comboBox_separatePeaks.setItemText(1, _translate("MainWindow", "Sample", None))
+        self.label_separatePeaksShift.setText(_translate("MainWindow", "Shift", None))
         self.tabWidget_3.setTabText(
             self.tabWidget_3.indexOf(self.tab_6),
             _translate("MainWindow", "Raw XICs", None),

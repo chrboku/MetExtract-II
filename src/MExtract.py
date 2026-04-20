@@ -1894,20 +1894,62 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.drawCanvas(self.ui.resultsExperimentSeparatedPeaks_plot)
             self.drawCanvas(self.ui.resultsExperimentMSScanPeaks_plot)
             return
-        if self.experimentResults.db_con is None:
+
+        if len(self.ui.resultsExperiment_TreeWidget.selectedItems()) == 0:
             self.drawCanvas(self.ui.resultsExperiment_plot)
             self.drawCanvas(self.ui.resultsExperimentSeparatedPeaks_plot)
             self.drawCanvas(self.ui.resultsExperimentMSScanPeaks_plot)
             return
 
-        plotItems = []
+        # Load raw mzXML files if not already loaded
+        if not hasattr(self, "loadedMZXMLs") or self.loadedMZXMLs is None:
+            selectedMZs = None
+            if (
+                QtWidgets.QMessageBox.question(
+                    self,
+                    "MetExtract",
+                    "Raw data needs to be loaded to display EICs.\n"
+                    "Load entire chromatograms (Yes) or just detected m/z values (No)?\n\n"
+                    "If you have limited RAM, choose No.\n"
+                    "Note: loading only detected m/z values disables 'Show custom feature'.",
+                    QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+                )
+                == QtWidgets.QMessageBox.No
+            ):
+                selectedMZs = []
+                for itemI in range(self.ui.resultsExperiment_TreeWidget.topLevelItemCount()):
+                    item = self.ui.resultsExperiment_TreeWidget.topLevelItem(itemI)
+                    if item.bunchData.type == "metaboliteGroup":
+                        for i in range(item.childCount()):
+                            child = item.child(i)
+                            if child.bunchData.type == "featurePair":
+                                selectedMZs.append(child.bunchData.mz)
+                                if child.bunchData.lmz is not None:
+                                    selectedMZs.append(child.bunchData.lmz)
+                    if item.bunchData.type == "featurePair":
+                        selectedMZs.append(item.bunchData.mz)
+                        if item.bunchData.lmz is not None:
+                            selectedMZs.append(item.bunchData.lmz)
 
+            self.loadAllSamples(selectedMZs=selectedMZs, ppm=25.0)
+
+        if not hasattr(self, "loadedMZXMLs") or self.loadedMZXMLs is None:
+            self.drawCanvas(self.ui.resultsExperiment_plot)
+            self.drawCanvas(self.ui.resultsExperimentSeparatedPeaks_plot)
+            self.drawCanvas(self.ui.resultsExperimentMSScanPeaks_plot)
+            return
+
+        definedGroups = self.getAllSampleGroups()
+
+        plotItems = []
         for item in self.ui.resultsExperiment_TreeWidget.selectedItems():
             if item.bunchData.type == "metaboliteGroup":
                 for i in range(item.childCount()):
-                    plotItems.append(item.child(i))
+                    child = item.child(i)
+                    if child.bunchData.type == "featurePair":
+                        plotItems.append(child.bunchData)
             if item.bunchData.type == "featurePair":
-                plotItems.append(item)
+                plotItems.append(item.bunchData)
 
         if not plotItems:
             self.drawCanvas(self.ui.resultsExperiment_plot)
@@ -1915,216 +1957,276 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.drawCanvas(self.ui.resultsExperimentMSScanPeaks_plot)
             return
 
-        axlimMin = 100000
-        axlimMax = 0
+        ppm = self.ui.doubleSpinBox_resultsExperiment_EICppm.value()
+        borderOffset = self.ui.doubleSpinBox_resultsExperiment_PeakWidth.value()
+        shiftMinutes = self.ui.doubleSpinBox_separatePeaksShift.value()
+        separateBy = self.ui.comboBox_separatePeaks.currentText()  # "Group" or "Sample"
+        meanRT = []
+        intlim = [0, 0]
 
-        sampleGroups = self.getAllSampleGroups()
-        definedGroups = {g.name: g for g in sampleGroups}
+        all_files = sum(len(g.files) for g in definedGroups)
 
-        selected_table = getattr(self.experimentResults, "selected_table", None)
-        if selected_table is None:
-            self.drawCanvas(self.ui.resultsExperiment_plot)
-            self.drawCanvas(self.ui.resultsExperimentSeparatedPeaks_plot)
-            self.drawCanvas(self.ui.resultsExperimentMSScanPeaks_plot)
-            return
+        pw = ProgressWrapper(1, parent=self, showIndProgress=False)
+        pw.show()
+        pw.getCallingFunction()("max")(len(plotItems) * all_files)
+        pw.getCallingFunction()("value")(0)
 
-        results_df = self.experimentResults.db_con.tables[selected_table]
+        done = 0
+        for h, pi in enumerate(plotItems):
+            meanRT.append(pi.rt)
 
-        def _short_fname(filePath):
-            fname = filePath
-            if ".mzxml" in fname.lower():
-                fname = fname[max(fname.rfind("/") + 1, fname.rfind("\\") + 1) : fname.lower().rfind(".mzxml")]
-            elif ".mzml" in fname.lower():
-                fname = fname[max(fname.rfind("/") + 1, fname.rfind("\\") + 1) : fname.lower().rfind(".mzml")]
-            else:
-                fname = fname[max(fname.rfind("/") + 1, fname.rfind("\\") + 1) :]
-                if "." in fname:
-                    fname = fname[: fname.rfind(".")]
-            return fname
+            rtBorderMin = pi.rt / 60.0 - borderOffset
+            rtBorderMax = pi.rt / 60.0 + borderOffset
 
-        itemNum = 0
-        for item in plotItems:
-            assert item.bunchData.type == "featurePair"
+            singleOffset = 0
+            offsetOrder = []
+            for grpInd, group in enumerate(definedGroups):
+                if separateBy == "Group":
+                    offsetOrder.append((group.name, group.color if group.color else "gray"))
+                for i in range(len(group.files)):
+                    fi = str(group.files[i]).replace("\\", "/")
+                    a = fi[fi.rfind("/") + 1:]
+                    if ".mzXML" in a:
+                        a = a[:a.find(".mzXML")]
+                    elif ".mzxml" in a.lower():
+                        a = a[:a.lower().find(".mzxml")]
+                    elif ".mzML" in a:
+                        a = a[:a.find(".mzML")]
 
-            rt = item.bunchData.rt / 60.0
-            mz = item.bunchData.mz
-            try:
-                # Xn is stored as string in xlsx and may be semicolon-separated (e.g., "2;3"); use first value
-                xn = int(str(item.bunchData.xn).split(";")[0])
-            except (ValueError, TypeError):
-                xn = 0
+                    pw.getCallingFunction()("text")("MZ: %.5f\nFile: '%s'" % (pi.mz, a))
+                    pw.getCallingFunction()("value")(done)
+                    done = done + 1
 
-            item_row = results_df.filter(pl.col("Num") == item.bunchData.id)
-            if item_row.is_empty():
-                continue
-            row_data = item_row.to_dicts()[0]
-
-            offsetCount = 0
-            toDrawMzsCor = []
-            toDrawIntsCor = []
-
-            for group in sampleGroups:
-                groupColor = group.color if group.color else "gray"
-                for filePath in group.files:
-                    fname = _short_fname(filePath)
-                    found_col = fname + "_Found"
-                    fid_col = fname + "_FID"
-
-                    if found_col not in row_data or row_data[found_col] is None:
+                    if fi not in self.loadedMZXMLs:
                         continue
 
-                    fid_val = row_data.get(fid_col)
-                    if fid_val is None:
-                        continue
+                    scanEvent = pi.scanEvent if hasattr(pi, "scanEvent") and pi.scanEvent else None
+                    if scanEvent is None:
+                        # Try to find a valid filter line
+                        filterLines = self.loadedMZXMLs[fi].getFilterLines(
+                            includeMS1=True, includeMS2=False,
+                            includePosPolarity=True, includeNegPolarity=True,
+                        )
+                        if filterLines:
+                            # Pick the filter line matching the ionisation mode if available
+                            ionMode = getattr(pi, "ionisationMode", None)
+                            if ionMode and "+" in str(ionMode):
+                                scanEvent = next((fl for fl in filterLines if "+" in fl), filterLines[0])
+                            elif ionMode and "-" in str(ionMode):
+                                scanEvent = next((fl for fl in filterLines if "-" in fl), filterLines[0])
+                            else:
+                                scanEvent = filterLines[0]
 
-                    fid_list = [s.strip() for s in str(fid_val).split(";") if s.strip()]
-                    if not fid_list:
+                    if scanEvent is None:
                         continue
 
                     try:
-                        db_path = filePath + getDBSuffix()
-                        if not os.path.exists(db_path):
+                        availableFilterLines = self.loadedMZXMLs[fi].getFilterLines(
+                            includeMS1=True, includeMS2=False,
+                            includePosPolarity=True, includeNegPolarity=True,
+                        )
+                        if scanEvent not in availableFilterLines:
                             continue
-                        file_db_con = PolarsDB(db_path, format=getDBFormat())
 
-                        msSpectrumID = None
+                        eic, times, scanIds, mzs = self.loadedMZXMLs[fi].getEIC(pi.mz, ppm=ppm, filterLine=scanEvent)
+                        lmz = pi.lmz if pi.lmz is not None else pi.mz
+                        eicL, timesL, scanIdsL, mzsL = self.loadedMZXMLs[fi].getEIC(lmz, ppm=ppm, filterLine=scanEvent)
 
-                        xics_df = file_db_con.tables["XICs"]
-                        chrompeaks_df = file_db_con.tables["chromPeaks"]
-                        xic_with_cp = xics_df.join(chrompeaks_df, left_on="id", right_on="eicID", how="inner")
+                        groupColor = group.color if group.color else "gray"
 
-                        for fid_str in fid_list:
-                            try:
-                                fid = int(fid_str)
-                            except ValueError:
-                                continue
+                        maxN = 1
+                        maxL = 1
 
-                            xic_filtered = xic_with_cp.filter(pl.col("id_right") == fid)
+                        if self.ui.resultsExperimentNormaliseXICs_checkBox.isChecked() or self.ui.resultsExperimentNormaliseXICsSeparately_checkBox.isChecked():
+                            m = 0
+                            ml = 0
+                            for j in range(len(eic)):
+                                if abs(pi.rt / 60 - (times[j] / 60.0)) <= 0.2:
+                                    m = max(m, eic[j])
+                                    ml = max(ml, eicL[j])
+                            if m != 0:
+                                maxN = m
+                            if ml != 0:
+                                maxL = ml
 
-                            for xic_row in xic_filtered.to_dicts():
-                                XICObj = Bunch(**xic_row)
-                                XICObj.xic = [float(f) for f in XICObj.xic.split(";")]
-                                XICObj.xicL = [float(f) for f in XICObj.xicL.split(";")]
-                                XICObj.times = [float(f) for f in XICObj.times.split(";")]
+                        if self.ui.resultsExperimentNormaliseXICs_checkBox.isChecked():
+                            maxN = maxL
 
-                                msSpectrumID = XICObj.massSpectrumID
+                        intlim[0] = min(
+                            intlim[0],
+                            min([1] + [-eicL[j] / maxL for j in range(len(eic)) if rtBorderMin <= times[j] / 60.0 <= rtBorderMax]),
+                        )
+                        intlim[1] = max(
+                            intlim[1],
+                            max([1] + [eic[j] / maxN for j in range(len(eic)) if rtBorderMin <= times[j] / 60.0 <= rtBorderMax]),
+                        )
 
-                                useInds = []
-                                bestCenter = 0
-                                bestCenterDiff = 1000000
-                                timeWindow = 4 * 60.0 / 2
-                                for i, t in enumerate(XICObj.times):
-                                    if (item.bunchData.rt - timeWindow) < t < (item.bunchData.rt + timeWindow):
-                                        useInds.append(i)
-                                    if abs(t - item.bunchData.rt) < bestCenterDiff:
-                                        bestCenterDiff = abs(t - item.bunchData.rt)
-                                        bestCenter = i
+                        # --- MS1 scan per file ---
+                        scan = self.loadedMZXMLs[fi].getClosestMS1Scan(pi.rt / 60.0, filterLine=scanEvent)
+                        if scan is not None:
+                            ms1_mzs = scan.mz_list
+                            ms1_ints = scan.intensity_list
+                            use_inds = []
+                            for ind_i in range(len(ms1_mzs)):
+                                if ms1_mzs[ind_i] >= pi.mz - 5 and ms1_mzs[ind_i] <= lmz + 5:
+                                    use_inds.append(ind_i)
+                            if len(use_inds) > 0:
+                                plot_mzs = [ms1_mzs[ii] for ii in use_inds]
+                                plot_ints = [ms1_ints[ii] for ii in use_inds]
 
-                                centerInt = 1
-                                if self.ui.resultsExperimentNormaliseXICs_checkBox.checkState() == QtCore.Qt.Checked:
-                                    centerInt = XICObj.xicL[bestCenter]
+                                max_plotted_int = max(plot_ints) if plot_ints else 1
+                                corrFact = 1.0 / max_plotted_int * 9 if max_plotted_int > 0 else 1
 
-                                if centerInt == 0:
-                                    centerInt = 1
-
-                                self.ui.resultsExperiment_plot.axes.plot(
-                                    [t / 60.0 for t in XICObj.times],
-                                    [f / centerInt for f in XICObj.xic],
+                                self.ui.resultsExperimentMSScanPeaks_plot.axes.vlines(
+                                    x=plot_mzs,
+                                    ymin=done * 10,
+                                    ymax=[done * 10 + ii * corrFact for ii in plot_ints],
                                     color=groupColor,
+                                    alpha=0.3,
                                 )
-                                self.ui.resultsExperiment_plot.axes.plot(
-                                    [t / 60.0 for t in XICObj.times],
-                                    [-f / centerInt for f in XICObj.xicL],
+                                # Highlight M and M' isotope peaks
+                                for target_mz in [pi.mz + k * 1.00335484 for k in [0, 1, 2, 3]] + [lmz + k * 1.00335484 for k in [0, 1, 2, 3]] + [pi.mz - k * 1.00335484 for k in [0, 1, 2, 3]] + [lmz - k * 1.00335484 for k in [0, 1, 2, 3]]:
+                                    peakID = scan.findMZ(target_mz, ppm=ppm)
+                                    if peakID[0] != -1:
+                                        self.ui.resultsExperimentMSScanPeaks_plot.axes.vlines(
+                                            x=scan.mz_list[peakID[0]],
+                                            ymin=done * 10,
+                                            ymax=done * 10 + scan.intensity_list[peakID[0]] * corrFact,
+                                            color=groupColor,
+                                        )
+                                for target_mz in [pi.mz, lmz]:
+                                    peakID = scan.findMZ(target_mz, ppm=ppm)
+                                    if peakID[0] != -1:
+                                        self.ui.resultsExperimentMSScanPeaks_plot.axes.vlines(
+                                            x=scan.mz_list[peakID[0]],
+                                            ymin=done * 10,
+                                            ymax=done * 10 + scan.intensity_list[peakID[0]] * corrFact,
+                                            color=groupColor,
+                                            linewidth=2.0,
+                                        )
+
+                                self.ui.resultsExperimentMSScanPeaks_plot.axes.hlines(
+                                    y=done * 10,
+                                    xmin=pi.mz - 5,
+                                    xmax=lmz + 5,
                                     color=groupColor,
+                                    alpha=0.33,
                                 )
-                                axlimMin = min(axlimMin, rt - 0.5)
-                                axlimMax = max(axlimMax, rt + 0.5)
-
-                                if useInds:
-                                    minInd = min(useInds)
-                                    maxInd = max(useInds)
-
-                                    self.ui.resultsExperimentSeparatedPeaks_plot.axes.plot(
-                                        [t / 60.0 + offsetCount * 0.33 for t in XICObj.times[minInd:maxInd]],
-                                        [f / centerInt for f in XICObj.xic[minInd:maxInd]],
-                                        color=groupColor,
-                                    )
-                                    self.ui.resultsExperimentSeparatedPeaks_plot.axes.plot(
-                                        [t / 60.0 + offsetCount * 0.33 for t in XICObj.times[minInd:maxInd]],
-                                        [-f / centerInt for f in XICObj.xicL[minInd:maxInd]],
-                                        color=groupColor,
-                                    )
-
-                        if msSpectrumID is not None:
-                            ms_spectrum_df = file_db_con.tables["massspectrum"].filter(pl.col("mID") == msSpectrumID)
-                            for ms_row in ms_spectrum_df.to_dicts():
-                                msSpectrum = Bunch(**ms_row)
-                                mzs = [float(f) for f in msSpectrum.mzs.split(";")]
-                                intensities = [float(f) for f in msSpectrum.intensities.split(";")]
-
-                                toDrawMzs = []
-                                toDrawInts = []
-
-                                for j in range(len(mzs)):
-                                    toDrawMzs.extend([mzs[j], mzs[j], mzs[j]])
-                                    toDrawInts.extend([0, intensities[j], 0])
-
-                                    for i in range(-5, xn + 6):
-                                        if mz > 0 and abs(mzs[j] - (mz + i * 1.00335484)) * 1000000 / mz <= 5.0:
-                                            toDrawMzsCor.extend([mzs[j], mzs[j], mzs[j]])
-                                            toDrawIntsCor.extend([0, intensities[j], 0])
-
-                                self.drawPlot(
-                                    self.ui.resultsExperimentMSScanPeaks_plot,
-                                    plotIndex=0,
-                                    x=toDrawMzs,
-                                    y=toDrawInts,
-                                    useCol="lightgrey",
-                                    multipleLocator=None,
-                                    alpha=0.1,
-                                    title="",
-                                    ylab="Signal abundance",
-                                    xlab="MZ",
+                                self.ui.resultsExperimentMSScanPeaks_plot.axes.text(
+                                    y=done * 10,
+                                    x=lmz + 5.5,
+                                    color=groupColor,
+                                    s="%s, max.int. %.3g" % (a, max_plotted_int),
                                 )
 
-                        file_db_con.close()
+                        # --- Overlaid EICs ---
+                        self.ui.resultsExperiment_plot.axes.plot(
+                            [t / 60.0 for t in times],
+                            [e / maxN for e in eic],
+                            color=groupColor,
+                            label="M: %s" % (a),
+                        )
+                        self.ui.resultsExperiment_plot.axes.plot(
+                            [t / 60.0 for t in times],
+                            [-e / maxL for e in eicL],
+                            color=groupColor,
+                            label="M': %s" % (a),
+                        )
+
+                        # --- Separated EICs with artificial RT shift ---
+                        if separateBy == "Group":
+                            offset = grpInd * shiftMinutes
+                        else:
+                            offset = singleOffset * shiftMinutes
+                            offsetOrder.append((a, groupColor))
+
+                        self.ui.resultsExperimentSeparatedPeaks_plot.axes.plot(
+                            [t / 60.0 + offset for t in times if rtBorderMin <= t / 60.0 <= rtBorderMax],
+                            [eic[j] / maxN for j in range(len(eic)) if rtBorderMin <= times[j] / 60.0 <= rtBorderMax],
+                            color=groupColor,
+                            label="M: %s" % (a),
+                        )
+                        self.ui.resultsExperimentSeparatedPeaks_plot.axes.plot(
+                            [t / 60.0 + offset for t in times if rtBorderMin <= t / 60.0 <= rtBorderMax],
+                            [-eicL[j] / maxL for j in range(len(eicL)) if rtBorderMin <= times[j] / 60.0 <= rtBorderMax],
+                            color=groupColor,
+                            label="M': %s" % (a),
+                        )
+
+                        singleOffset += 1
+
                     except Exception as e:
-                        logging.warning("Could not read EIC data for file '%s': %s" % (filePath, str(e)))
+                        logging.warning("Could not compute EIC for file '%s': %s" % (fi, str(e)))
 
-                offsetCount += 1
+        pw.hide()
+        if done > 0:
+            pi = plotItems[0]
+            for oi, o in enumerate(offsetOrder):
+                self.ui.resultsExperimentSeparatedPeaks_plot.axes.axvline(x=oi * shiftMinutes + pi.rt / 60.0, color=o[1])
+                self.ui.resultsExperimentSeparatedPeaks_plot.axes.text(
+                    x=oi * shiftMinutes - 0.05 + pi.rt / 60.0,
+                    y=intlim[1] * 1.05,
+                    s=o[0],
+                    rotation=90,
+                    horizontalalignment="left",
+                    color=o[1],
+                    backgroundcolor="white",
+                    weight="bold",
+                )
+            intlim[1] = intlim[1] * 1.5
 
-            itemNum += 1
-
-            self.drawPlot(
-                self.ui.resultsExperimentMSScanPeaks_plot,
-                plotIndex=0,
-                x=toDrawMzsCor,
-                y=toDrawIntsCor,
-                useCol="black",
-                multipleLocator=None,
-                alpha=0.1,
-                title="",
-                ylab="Signal abundance",
-                xlab="MZ",
+            self.ui.resultsExperiment_plot.axes.set_title("Overlaid EICs of selected feature pairs or groups")
+            self.ui.resultsExperiment_plot.axes.set_xlabel("Retention time (min)")
+            self.ui.resultsExperiment_plot.axes.set_ylabel("Intensity")
+            sepLabel = "experimental group" if separateBy == "Group" else "sample"
+            self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_title(
+                "Overlaid EICs (separated artificially by %s, shift=%.2f min)" % (sepLabel, shiftMinutes)
             )
+            if len(plotItems) == 1:
+                self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_title(
+                    "EICs of %.5f (%.5f), %.2f min, %s\n(separated by %s, shift=%.2f min)"
+                    % (
+                        plotItems[0].mz,
+                        plotItems[0].lmz if plotItems[0].lmz else 0,
+                        plotItems[0].rt / 60.0,
+                        plotItems[0].scanEvent if plotItems[0].scanEvent else "",
+                        sepLabel,
+                        shiftMinutes,
+                    )
+                )
+            self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_xlabel(
+                "Retention time (min) + %s-index × %.2f min" % (sepLabel, shiftMinutes)
+            )
+            self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_ylabel("Intensity")
+            self.ui.resultsExperimentMSScanPeaks_plot.axes.set_xlabel("M/Z")
+            self.ui.resultsExperimentMSScanPeaks_plot.axes.set_ylabel("Normalized Intensity\nSeparated by sample")
 
-        if axlimMin < axlimMax:
-            self.ui.resultsExperiment_plot.axes.set_xlim([axlimMin, axlimMax])
-
-        if self.ui.resultsExperimentNormaliseXICs_checkBox.checkState() == QtCore.Qt.Checked:
-            self.ui.resultsExperiment_plot.axes.set_ylabel("Intensity [counts] (normalised to labeled peaks)")
-            self.ui.resultsExperiment_plot.axes.set_xlabel("Retention time [min]")
-            self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_ylabel("Intensity [counts] (normalised to labeled peaks)")
-            self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_xlabel("Retention time [min] (artificially modified)")
+            rtlim = [
+                mean(meanRT) / 60.0 - borderOffset,
+                mean(meanRT) / 60.0 + borderOffset,
+            ]
+            intlim = [intlim[0] * 1.1, intlim[1] * 1.1]
+            self.drawCanvas(self.ui.resultsExperiment_plot, xlim=rtlim, ylim=intlim)
+            self.drawCanvas(self.ui.resultsExperimentSeparatedPeaks_plot, showLegendOverwrite=False)
+            lmz_val = plotItems[0].lmz if plotItems[0].lmz else plotItems[0].mz
+            self.drawCanvas(
+                self.ui.resultsExperimentMSScanPeaks_plot,
+                xlim=[plotItems[0].mz - 5, lmz_val + 10],
+                ylim=[0, (done + 1) * 10],
+            )
         else:
-            self.ui.resultsExperiment_plot.axes.set_ylabel("Intensity [counts]")
-            self.ui.resultsExperiment_plot.axes.set_xlabel("Retention time [min]")
-            self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_ylabel("Intensity [counts]")
-            self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_xlabel("Retention time [min] (artificially modified)")
+            self.drawCanvas(self.ui.resultsExperiment_plot)
+            self.drawCanvas(self.ui.resultsExperimentSeparatedPeaks_plot)
+            self.drawCanvas(self.ui.resultsExperimentMSScanPeaks_plot)
 
-        self.drawCanvas(self.ui.resultsExperiment_plot)
-        self.drawCanvas(self.ui.resultsExperimentSeparatedPeaks_plot)
-        self.drawCanvas(self.ui.resultsExperimentMSScanPeaks_plot)
+        # Update MSMS spectra list for selected features
+        selectedItems = self.ui.resultsExperiment_TreeWidget.selectedItems()
+        self.updateMSMSList_exp(selectedItems)
+
+    def _refreshExperimentEICs(self, *args):
+        """Re-draw experiment EICs when separation/normalisation controls change, but only if raw data is already loaded."""
+        if hasattr(self, "loadedMZXMLs") and self.loadedMZXMLs is not None:
+            self.resultsExperimentChanged()
 
     # </editor-fold>
 
@@ -10444,6 +10546,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.res_ExtractedData.itemSelectionChanged.connect(self.selectedResChanged)
 
         self.ui.resultsExperiment_TreeWidget.itemSelectionChanged.connect(self.resultsExperimentChanged)
+        self.ui.comboBox_separatePeaks.currentIndexChanged.connect(self._refreshExperimentEICs)
+        self.ui.doubleSpinBox_separatePeaksShift.valueChanged.connect(self._refreshExperimentEICs)
+        self.ui.resultsExperimentNormaliseXICs_checkBox.stateChanged.connect(self._refreshExperimentEICs)
+        self.ui.resultsExperimentNormaliseXICsSeparately_checkBox.stateChanged.connect(self._refreshExperimentEICs)
 
         self.ui.eicSmoothingWindow.currentIndexChanged.connect(self.smoothingWindowChanged)
         self.smoothingWindowChanged()
