@@ -2,7 +2,7 @@
 Peak Picking Architecture for LC-HRMS Extracted Ion Chromatograms (EICs).
 
 This module provides a robust, object-oriented peak picking framework with
-five distinct algorithms, replacing the previous R/rpy2-based implementation.
+five distinct algorithms.
 
 Classes:
     ChromatographicPeak - Dataclass for peak results

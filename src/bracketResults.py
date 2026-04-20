@@ -19,8 +19,6 @@ from reportlab.lib import colors
 from reportlab.pdfgen import canvas
 from reportlab.graphics import renderPDF
 
-# XICAlignment now uses scipy hierarchical clustering for peak grouping
-# (former PTW-based warping via R/rpy2 has been removed).
 from .XICAlignment import XICAlignment
 
 from .utils import (
@@ -87,11 +85,9 @@ def writeConfigToDB(
     nPolynom,
     negativeScanEvent,
     positiveScanEvent,
-    rVersion,
     meVersion,
 ):
     db.insert_row("config", {"key": "MEVersion", "value": str(meVersion)})
-    db.insert_row("config", {"key": "RVersion", "value": str(rVersion)})
     db.insert_row("config", {"key": "FPBRACK_xCounts", "value": str(xCounts)})
     db.insert_row("config", {"key": "FPBRACK_groupSizePPM", "value": str(groupSizePPM)})
     db.insert_row("config", {"key": "FPBRACK_positiveScanEvent", "value": str(positiveScanEvent)})
@@ -118,7 +114,6 @@ def bracketResults(
     pwMaxSet=None,
     pwValSet=None,
     pwTextSet=None,
-    rVersion="",
     meVersion="",
     generalProcessingParams=Bunch(),
     start=0,
@@ -953,8 +948,6 @@ def bracketResults(
         parameters_df["Value"].append(f"")
         parameters_df["Parameter"].append("version")
         parameters_df["Value"].append(f"{meVersion}")
-        parameters_df["Parameter"].append("R version")
-        parameters_df["Value"].append(f"{rVersion}")
         parameters_df["Parameter"].append("# Execution")
         parameters_df["Value"].append(f"")
         parameters_df["Parameter"].append("Date")

@@ -316,7 +316,6 @@ class RunIdentification:
         lock=None,
         queue=None,
         pID=-1,
-        rVersion="NA",
         meVersion="NA",
     ):
         # Check if configuredTracer is None when metabolisationExperiment is True
@@ -451,7 +450,6 @@ class RunIdentification:
         self.lock = lock
         self.queue = queue
         self.pID = pID
-        self.rVersion = rVersion
         self.meVersion = meVersion
 
     # Thread safe printing function
@@ -685,7 +683,6 @@ class RunIdentification:
         db_con.create_table("stats", {"key": pl.Utf8, "value": pl.Utf8})
 
         db_con.insert_row("config", {"key": "MetExtractVersion", "value": self.meVersion})
-        db_con.insert_row("config", {"key": "RVersion", "value": self.rVersion})
 
         db_con.insert_row("config", {"key": "ExperimentName", "value": self.experimentName})
         db_con.insert_row("config", {"key": "ExperimentOperator", "value": self.experimentOperator})
@@ -1065,10 +1062,6 @@ class RunIdentification:
 
         pdf.drawString(70, currentHeight, "MetExtract version")
         pdf.drawString(240, currentHeight, str(self.meVersion))
-        currentHeight -= 15
-
-        pdf.drawString(70, currentHeight, "R-Version")
-        pdf.drawString(240, currentHeight, str(self.rVersion))
         currentHeight -= 15
 
         p = Paragraph("UUID_ext: " + self.processingUUID, style=getSampleStyleSheet()["Normal"])
@@ -3303,10 +3296,6 @@ class RunIdentification:
                 nodes[peak.id] = []
                 allPeaks[peak.id] = peak
                 peak.correlationsToOthers = []
-
-            # NOTE: R engine reference removed (rpy2 dependency eliminated)
-            # The commented-out model loading below was for an experimental R-based
-            # peak correlation model and is no longer applicable.
 
             # compare all detected feature pairs at approximately the same retention time
             for piA in range(len(chromPeaks)):

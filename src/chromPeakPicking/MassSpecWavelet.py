@@ -1,7 +1,7 @@
 """MassSpecWavelet-compatible interface using pure-Python CWT peak picking.
 
-This module replaces the former rpy2/R-based MassSpecWavelet implementation
-with the native WaveletTransformPeakPicker while keeping the same public API.
+This module provides the MassSpecWavelet peak picking interface using
+the native WaveletTransformPeakPicker while keeping the same public API.
 """
 
 from ..utils import Bunch, get_main_dir

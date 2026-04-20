@@ -1,7 +1,7 @@
 """XCMSCentwave-compatible interface using native Python peak picking.
 
-This module replaces the former rpy2/R-based XCMS centWave implementation
-with the native MatchedFilterPeakPicker while keeping the same public API.
+This module provides the XCMS centWave peak picking interface using
+the native MatchedFilterPeakPicker while keeping the same public API.
 """
 
 from ..utils import Bunch

@@ -72,24 +72,6 @@ TRACER = object()
 METABOLOME = object()
 
 
-# <editor-fold desc="### R dependency removed – using native Python peak picking">
-# R/rpy2 is no longer required. All peak picking is handled by the
-# native Python implementations in src/chromPeakPicking/peakpickers.py
-
-# </editor-fold>
-
-
-# Returns version string (R version no longer available)
-def getRVersion():
-    return "N/A (R removed)"
-
-
-# </editor-fold>
-
-
-# </editor-fold>
-
-
 # <editor-fold desc="### Python Standard Library imports">
 import sys
 import shutil
@@ -1364,15 +1346,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         )
                         zipdir(get_main_dir(), zipF)
 
-                        import tempfile
-
-                        tmpF = tempfile.NamedTemporaryFile(delete=False)
-
-                        tmpF.write(b"R/rpy2 has been removed. Peak picking uses native Python.\n")
-
-                        tmpF.close()
-
-                        zipF.write(tmpF.name, arcname="RSessioninfo.txt")
                         zipF.close()
 
                     except Exception as ex:
@@ -2136,21 +2109,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 ):
                     return
 
-            if sett.contains("R-Version"):
-                rversion = str(sett.value("R-Version"))
-                if (
-                    not (silent)
-                    and rversion != getRVersion()
-                    and QtWidgets.QMessageBox.question(
-                        self,
-                        "MetExtract",
-                        "Settings were created from a different R Version. Processed results may slightly be different.\nDo you want to continue?",
-                        QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
-                    )
-                    == QtWidgets.QMessageBox.No
-                ):
-                    return
-
             sett.endGroup()
 
             sett.beginGroup("WorkingDirectory")
@@ -2740,7 +2698,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             sett.beginGroup("MetExtract")
 
             sett.setValue("Version", MetExtractVersion)
-            sett.setValue("RVersion", getRVersion())
             import uuid
             import platform
             import datetime
@@ -3078,7 +3035,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     lock=lock,
                     queue=queue,
                     pID=i + 1,
-                    rVersion=getRVersion(),
                     meVersion="MetExtract (%s)" % MetExtractVersion,
                 )
                 for i in range(len(files))
@@ -3323,7 +3279,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             elements="[%s]" % ",".join([str(e) for e in self.elementsForNL]),
                             heteroAtoms="[%s]" % ",".join([str(h) for h in self.heteroElements]),
                             simplifyInSourceFragments=self.ui.checkBox_simplifyInSourceFragments.isChecked(),
-                            rVersion=getRVersion(),
                             meVersion="MetExtract (%s)" % MetExtractVersion,
                         )
                         procProc = FuncProcess(
@@ -3338,7 +3293,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             file=resFileFull,
                             align=(self.ui.alignChromatograms.checkState() == QtCore.Qt.Checked),
                             nPolynom=self.ui.polynomValue.value(),
-                            rVersion=getRVersion(),
                             meVersion="MetExtract (%s)" % MetExtractVersion,
                             generalProcessingParams=generalProcessingParams,
                             start=start,
@@ -3512,7 +3466,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         lock=None,
                         queue=None,
                         pID=1,
-                        rVersion=getRVersion(),
                         meVersion="MetExtract (%s)" % MetExtractVersion,
                     )
 
@@ -10323,12 +10276,12 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.setModuleUI(self.labellingExperiment)
 
-        # display used R-Version in main interface
+        # display version in main interface
         try:
-            import platform  # import platform module for version info
+            import platform
 
             module = "AllExtract" if self.labellingExperiment == METABOLOME else ("TracExtract" if self.labellingExperiment == TRACER else "MetExtract")
-            self.ui.version.versionText = "%s II %s // Python %s (%s) // Native peak picking (no R)" % (module, MetExtractVersion, platform.python_version(), platform.architecture()[0])
+            self.ui.version.versionText = "%s II %s // Python %s (%s)" % (module, MetExtractVersion, platform.python_version(), platform.architecture()[0])
             self.ui.version.setText(self.ui.version.versionText)
         except Exception as exc:
             logging.info(f"Exception: {exc}")
@@ -10397,7 +10350,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # RT alignment (PTW) has been removed – disable the checkbox
         self.ui.alignChromatograms.setChecked(False)
         self.ui.alignChromatograms.setEnabled(False)
-        self.ui.alignChromatograms.setToolTip("PTW-based RT alignment has been removed (R/rpy2 dependency eliminated)")
+        self.ui.alignChromatograms.setToolTip("RT alignment has been removed")
         self.ui.alignChromatograms.toggled.connect(self.alignToggled)
 
         self.ui.groupsSave.setText("./results.tsv")
