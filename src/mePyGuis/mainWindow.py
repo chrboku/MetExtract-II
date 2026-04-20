@@ -1555,6 +1555,9 @@ class Ui_MainWindow(object):
         spacerItem44 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self.gridLayout_55.addItem(spacerItem44, 1, 3, 1, 1)
         self.gridLayout_10.addWidget(self.frame_generateMSMSTargetLists, 17, 0, 1, 2)
+        # Hide "4th step: Generate MSMS target lists" section from Process tab
+        self.generateMSMSInfo_CheckBox.setVisible(False)
+        self.frame_generateMSMSTargetLists.setVisible(False)
         self.frame_annotateMetabolites = QtWidgets.QFrame(self.scrollAreaWidgetContents_5)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
         sizePolicy.setHorizontalStretch(0)
@@ -2575,10 +2578,6 @@ class Ui_MainWindow(object):
         self.scrollArea.setWidget(self.scrollAreaWidgetContents)
         self.gridLayout_2.addWidget(self.scrollArea, 0, 0, 1, 1)
         self.tabWidget.addTab(self.bracketedResultsTab, _fromUtf8(""))
-        # Step 4 (Experiment results) is deactivated
-        self.bracketedResultsTab.setEnabled(False)
-        _step4_idx = self.tabWidget.indexOf(self.bracketedResultsTab)
-        self.tabWidget.setTabVisible(_step4_idx, False)
 
         # Statistics Tab
         self.statisticsTab = QtWidgets.QWidget()
