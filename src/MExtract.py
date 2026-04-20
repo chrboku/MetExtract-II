@@ -145,7 +145,7 @@ def safe_pickle_loads(data, default_value=None, operation_name="loading data"):
 # <editor-fold desc="### PyQT 4 Imports">
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtGui import QColor
-from PySide6.QtWidgets import QListWidgetItem, QTableWidgetItem, QCheckBox, QComboBox, QWidget, QHBoxLayout
+from PySide6.QtWidgets import QListWidgetItem, QTableWidgetItem, QCheckBox, QComboBox, QWidget, QHBoxLayout, QPushButton
 
 # </editor-fold>
 # <editor-fold desc="### MatPlotLib imports and setup">
@@ -897,7 +897,11 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         files = filesItem.data(QtCore.Qt.UserRole) if filesItem else []
 
         colorWidget = tbl.cellWidget(row, 2)
-        color = colorWidget.currentText() if colorWidget else predefinedColors[0]
+        if colorWidget is not None:
+            btn = colorWidget.findChild(QPushButton)
+            color = btn.property("colorName") if btn else predefinedColors[0]
+        else:
+            color = predefinedColors[0]
 
         minFound = 1
         minFoundItem = tbl.item(row, 3)
@@ -1003,19 +1007,17 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         filesItem.setToolTip("\n".join(files))
         tbl.setItem(row, 1, filesItem)
 
-        # Col 2 – color combobox
-        colorCombo = QComboBox()
-        colorCombo.addItems(predefinedColors)
-        idx = colorCombo.findText(color)
-        if idx < 0:
-            colorCombo.addItem(color)
-            idx = colorCombo.count() - 1
-        colorCombo.setCurrentIndex(idx)
-        # colour the combo
-        colorCombo.currentIndexChanged.connect(lambda _i, cb=colorCombo: self._onColorComboChanged(cb))
-        colorCombo.currentIndexChanged.connect(lambda _i, cb=colorCombo, c=2: self._propagateComboChange(cb, c))
-        tbl.setCellWidget(row, 2, colorCombo)
-        self._styleColorCombo(colorCombo)
+        # Col 2 – color picker button
+        colorBtn = QPushButton()
+        colorBtn.setProperty("colorName", color)
+        self._styleColorButton(colorBtn, color)
+        colorBtn.setToolTip("Click to choose a color")
+        colorBtn.clicked.connect(lambda checked, btn=colorBtn, r=row: self._onColorButtonClicked(btn, r))
+        container2 = QWidget()
+        layout2 = QtWidgets.QHBoxLayout(container2)
+        layout2.setContentsMargins(2, 0, 2, 0)
+        layout2.addWidget(colorBtn)
+        tbl.setCellWidget(row, 2, container2)
 
         # Col 3 – minFound (editable int)
         minFoundItem = QTableWidgetItem(str(minGrpFound))
@@ -1044,17 +1046,41 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         tbl.blockSignals(False)
 
-    def _styleColorCombo(self, combo):
-        col = combo.currentText()
-        qc = QtGui.QColor(col)
-        # pick black or white text depending on luminance
+    def _styleColorButton(self, btn, color_name):
+        """Style a QPushButton as a solid color swatch."""
+        qc = QtGui.QColor(color_name)
+        if not qc.isValid():
+            qc = QtGui.QColor("gray")
         luminance = 0.299 * qc.red() + 0.587 * qc.green() + 0.114 * qc.blue()
         fg = "black" if luminance > 128 else "white"
-        combo.setStyleSheet("background-color: %s; color: %s;" % (col, fg))
+        btn.setText(color_name)
+        btn.setStyleSheet("background-color: %s; color: %s; border: 1px solid gray; padding: 2px 8px;" % (qc.name(), fg))
+
+    def _onColorButtonClicked(self, btn, row):
+        """Open QColorDialog and apply the chosen colour to the button and all selected rows."""
+        current = QtGui.QColor(btn.property("colorName"))
+        chosen = QtWidgets.QColorDialog.getColor(current, self, "Choose group color")
+        if not chosen.isValid():
+            return
+        color_name = chosen.name()
+        btn.setProperty("colorName", color_name)
+        self._styleColorButton(btn, color_name)
+        # Also apply to all selected rows
+        tbl = self.ui.groupsList
+        selectedRows = {idx.row() for idx in tbl.selectedIndexes()}
+        selectedRows.add(row)
+        for r in selectedRows:
+            w = tbl.cellWidget(r, 2)
+            if w is not None:
+                b = w.findChild(QPushButton)
+                if b is not None and b is not btn:
+                    b.setProperty("colorName", color_name)
+                    self._styleColorButton(b, color_name)
+        self.grpFileEdited = True
 
     def _onColorComboChanged(self, combo):
-        self._styleColorCombo(combo)
-        self.grpFileEdited = True
+        """Legacy stub – no longer used (color picker button replaced combo)."""
+        pass
 
     def addGroup(
         self,
@@ -2294,6 +2320,18 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if sett.contains("doubleSpinBox_maxPeakRatio"):
                 self.ui.doubleSpinBox_maxPeakRatio.setValue(self.to_double(sett.value("doubleSpinBox_maxPeakRatio")))
 
+            # Peak width / FWHM filter
+            if sett.contains("checkPeakWidthFilter"):
+                self.ui.groupBox_peakWidthFilter.setChecked(self.to_bool(sett.value("checkPeakWidthFilter")))
+            if sett.contains("minPeakWidth"):
+                self.ui.doubleSpinBox_minPeakWidth.setValue(self.to_double(sett.value("minPeakWidth")))
+            if sett.contains("maxPeakWidth"):
+                self.ui.doubleSpinBox_maxPeakWidth.setValue(self.to_double(sett.value("maxPeakWidth")))
+            if sett.contains("minFWHM"):
+                self.ui.doubleSpinBox_minFWHM.setValue(self.to_double(sett.value("minFWHM")))
+            if sett.contains("maxFWHM"):
+                self.ui.doubleSpinBox_maxFWHM.setValue(self.to_double(sett.value("maxFWHM")))
+
             if sett.contains("calcIsoRatioNative"):
                 self.ui.calcIsoRatioNative_spinBox.setValue(self.to_int(sett.value("calcIsoRatioNative")))
             if sett.contains("calcIsoRatioLabelled"):
@@ -2555,6 +2593,13 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             sett.setValue("checkBox_checkPeakRatio", self.ui.checkBox_checkPeakRatio.isChecked())
             sett.setValue("doubleSpinBox_minPeakRatio", self.ui.doubleSpinBox_minPeakRatio.value())
             sett.setValue("doubleSpinBox_maxPeakRatio", self.ui.doubleSpinBox_maxPeakRatio.value())
+
+            # Peak width / FWHM filter
+            sett.setValue("checkPeakWidthFilter", self.ui.groupBox_peakWidthFilter.isChecked())
+            sett.setValue("minPeakWidth", self.ui.doubleSpinBox_minPeakWidth.value())
+            sett.setValue("maxPeakWidth", self.ui.doubleSpinBox_maxPeakWidth.value())
+            sett.setValue("minFWHM", self.ui.doubleSpinBox_minFWHM.value())
+            sett.setValue("maxFWHM", self.ui.doubleSpinBox_maxFWHM.value())
 
             sett.setValue("calcIsoRatioNative", self.ui.calcIsoRatioNative_spinBox.value())
             sett.setValue("calcIsoRatioLabelled", self.ui.calcIsoRatioLabelled_spinBox.value())
@@ -3015,6 +3060,11 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     checkPeaksRatio=self.ui.checkBox_checkPeakRatio.isChecked(),
                     minPeaksRatio=self.ui.doubleSpinBox_minPeakRatio.value(),
                     maxPeaksRatio=self.ui.doubleSpinBox_maxPeakRatio.value(),
+                    checkPeakWidthFilter=self.ui.groupBox_peakWidthFilter.isChecked(),
+                    minPeakWidth=self.ui.doubleSpinBox_minPeakWidth.value(),
+                    maxPeakWidth=self.ui.doubleSpinBox_maxPeakWidth.value(),
+                    minFWHM=self.ui.doubleSpinBox_minFWHM.value(),
+                    maxFWHM=self.ui.doubleSpinBox_maxFWHM.value(),
                     calcIsoRatioNative=self.ui.calcIsoRatioNative_spinBox.value(),
                     calcIsoRatioLabelled=self.ui.calcIsoRatioLabelled_spinBox.value(),
                     calcIsoRatioMoiety=self.ui.calcIsoRatioMoiety_spinBox.value(),
@@ -3258,6 +3308,11 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             checkPeaksRatio=self.ui.checkBox_checkPeakRatio.isChecked(),
                             minPeaksRatio=self.ui.doubleSpinBox_minPeakRatio.value(),
                             maxPeaksRatio=self.ui.doubleSpinBox_maxPeakRatio.value(),
+                            checkPeakWidthFilter=self.ui.groupBox_peakWidthFilter.isChecked(),
+                            minPeakWidth=self.ui.doubleSpinBox_minPeakWidth.value(),
+                            maxPeakWidth=self.ui.doubleSpinBox_maxPeakWidth.value(),
+                            minFWHM=self.ui.doubleSpinBox_minFWHM.value(),
+                            maxFWHM=self.ui.doubleSpinBox_maxFWHM.value(),
                             calcIsoRatioNative=self.ui.calcIsoRatioNative_spinBox.value(),
                             calcIsoRatioLabelled=self.ui.calcIsoRatioLabelled_spinBox.value(),
                             calcIsoRatioMoiety=self.ui.calcIsoRatioMoiety_spinBox.value(),

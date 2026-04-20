@@ -288,6 +288,14 @@ def matchPartners(
                                                 if obRatio >= 0.5:
                                                     continue
 
+                                            # When lowAbundanceIsotopeCutoff is enabled, also check M-1 abundance
+                                            # to verify the detected peak is truly M and not an isotopolog artifact
+                                            if lowAbundanceIsotopeCutoff and isoM_m1 != -1:
+                                                isoM_m1_Intensity = curScan.intensity_list[isoM_m1]
+                                                if isoM_m1_Intensity > curPeakIntensity:
+                                                    # M-1 is more intense than M: likely not the monoisotopic peak
+                                                    continue
+
                                             # find M+1 peak
                                             isoM_p1 = curScan.findMZ(
                                                 curPeakmz + cValidationOffset,

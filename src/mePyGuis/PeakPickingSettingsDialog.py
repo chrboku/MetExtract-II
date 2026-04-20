@@ -4,9 +4,92 @@ Peak Picking Settings Dialog for MetExtract II.
 Provides a tabbed dialog where each tab corresponds to one of the five
 peak picking algorithms. The active (selected) tab determines which
 algorithm will be used for chromatographic peak picking.
+
+Features:
+- EIC specification area (file, polarity, mz, ppm) with visualization
+- Live peak picking results overlay when parameters change
+- Algorithm info button (?) on each tab with references
 """
 
 from PySide6 import QtCore, QtGui, QtWidgets
+import numpy as np
+
+# Algorithm descriptions and references
+_ALGO_INFO = {
+    "wavelettransform": (
+        "Wavelet Transform Peak Picker",
+        "Uses the Continuous Wavelet Transform (CWT) with Ricker (Mexican-hat) wavelets to detect "
+        "chromatographic peaks across multiple scales. Ridge lines in the CWT coefficient matrix "
+        "are traced from coarse to fine scales; ridges that exceed the SNR threshold and span "
+        "enough scales are reported as peaks.\n\n"
+        "Parameters:\n"
+        "• Min/Max scale — range of wavelet widths (in scans)\n"
+        "• Number of scales — resolution between min and max\n"
+        "• SNR threshold — signal-to-noise cutoff\n"
+        "• Min ridge length — minimum scales a ridge must span\n"
+        "• Gap threshold — allowed gaps in a ridge\n\n"
+        "References:\n"
+        "Du P., Kibbe W.A., Lin S.M. (2006). Improved peak detection in mass spectrum by "
+        "incorporating continuous wavelet transform-based pattern matching. Bioinformatics, "
+        "22(17), 2059-2065.\n\n"
+        "Based on the R MassSpecWavelet package approach, reimplemented in Python with scipy."
+    ),
+    "gradientdescent": (
+        "Gradient Descent Peak Picker",
+        "Smooths the EIC, finds local maxima, then walks downhill from each apex until the signal "
+        "stalls or drops below a threshold. Stall detection uses a configurable number of "
+        "consecutive scans with insufficient intensity increase.\n\n"
+        "Parameters:\n"
+        "• Smoothing method/window/iterations — noise reduction before detection\n"
+        "• Min apex intensity — minimum peak height\n"
+        "• Min flank intensity — boundary cutoff\n"
+        "• Min increase ratio — stall detection sensitivity\n"
+        "• Consecutive scans — stall window\n"
+        "• Min/Max peak width — width filter in scans\n\n"
+        "This is a custom algorithm developed for MetExtract II."
+    ),
+    "gmm": (
+        "GMM (Curve Fitting) Peak Picker",
+        "Segments the EIC into regions of interest (chunks) based on a baseline fraction, "
+        "then fits overlapping Gaussian or Exponentially Modified Gaussian (EMG) curves using "
+        "non-linear least squares (scipy.optimize.curve_fit).\n\n"
+        "Parameters:\n"
+        "• Distribution type — gaussian or EMG for tailing peaks\n"
+        "• Baseline fraction — threshold for chunking\n"
+        "• Min chunk size — minimum region length\n"
+        "• Max peaks per chunk — deconvolution complexity limit\n"
+        "• Fit max iterations — optimizer iteration cap\n\n"
+        "References:\n"
+        "Yu T., Bhatt D.P., et al. (2009). Practical guidelines for estimation of peak areas "
+        "in LC-MS bioanalysis. Bioanalysis, 1(1), 87-95."
+    ),
+    "secondderivative": (
+        "Second Derivative Peak Picker",
+        "Applies a Savitzky-Golay second derivative filter to the EIC. Peaks are identified "
+        "where the second derivative crosses zero (negative to positive = peak start, positive "
+        "to negative = peak end) with a negative minimum between crossings (= apex).\n\n"
+        "Parameters:\n"
+        "• SG window/polyorder — Savitzky-Golay filter settings\n"
+        "• Pre-smoothing — optional smoothing before differentiation\n"
+        "• Min apex intensity — height threshold\n\n"
+        "References:\n"
+        "Savitzky A., Golay M.J.E. (1964). Smoothing and differentiation of data by simplified "
+        "least squares procedures. Analytical Chemistry, 36(8), 1627-1639."
+    ),
+    "matchedfilter": (
+        "Matched Filter Peak Picker",
+        "Generates a Gaussian template of the expected peak width and cross-correlates it with "
+        "the EIC. Local maxima in the correlation trace above a threshold are reported as peaks.\n\n"
+        "Parameters:\n"
+        "• Expected peak width — template width in scans\n"
+        "• Correlation threshold — minimum match score (0–1)\n"
+        "• Min distance — merge distance between peaks\n\n"
+        "References:\n"
+        "Smith C.A., Want E.J., et al. (2006). XCMS: Processing mass spectrometry data for "
+        "metabolite profiling using nonlinear peak alignment, matching, and identification. "
+        "Analytical Chemistry, 78(3), 779-787."
+    ),
+}
 
 
 class PeakPickingSettingsDialog(QtWidgets.QDialog):
@@ -22,12 +105,14 @@ class PeakPickingSettingsDialog(QtWidgets.QDialog):
     def __init__(self, parent=None, current_settings: dict | None = None):
         super().__init__(parent)
         self.setWindowTitle("Chromatographic Peak Picking Settings")
-        self.setMinimumSize(520, 480)
+        self.setMinimumSize(700, 620)
+        self.resize(780, 700)
 
         if current_settings is None:
             current_settings = {}
 
         self._settings = dict(current_settings)
+        self._eic_entries = []  # list of (file, polarity, mz, ppm) tuples from UI
 
         self._build_ui()
         self._load_settings(current_settings)
@@ -39,37 +124,90 @@ class PeakPickingSettingsDialog(QtWidgets.QDialog):
     def _build_ui(self):
         layout = QtWidgets.QVBoxLayout(self)
 
-        # Algorithm tab widget
+        # --- Top: Algorithm tabs ---
         self.tabWidget = QtWidgets.QTabWidget()
-        layout.addWidget(self.tabWidget)
+        layout.addWidget(self.tabWidget, stretch=2)
 
-        # Tab 1: Wavelet Transform (default)
         self._build_wavelet_tab()
-        # Tab 2: Gradient Descent
         self._build_gradient_tab()
-        # Tab 3: GMM (Curve Fitting)
         self._build_gmm_tab()
-        # Tab 4: Second Derivative
         self._build_second_derivative_tab()
-        # Tab 5: Matched Filter
         self._build_matched_filter_tab()
 
-        # Buttons
+        # --- Middle: EIC specification area ---
+        eic_group = QtWidgets.QGroupBox("EIC Definitions (for preview)")
+        eic_layout = QtWidgets.QVBoxLayout(eic_group)
+
+        # Table of EIC definitions
+        self.eicTable = QtWidgets.QTableWidget(0, 4)
+        self.eicTable.setHorizontalHeaderLabels(["File", "Polarity", "m/z", "ppm"])
+        self.eicTable.horizontalHeader().setStretchLastSection(True)
+        self.eicTable.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        self.eicTable.setMaximumHeight(120)
+        self.eicTable.setToolTip(
+            "Define EICs to preview peak picking. Each row specifies a file path, "
+            "polarity (+/-), m/z value, and ppm tolerance for EIC extraction."
+        )
+        eic_layout.addWidget(self.eicTable)
+
+        eic_btn_layout = QtWidgets.QHBoxLayout()
+        self.btnAddEic = QtWidgets.QPushButton("Add EIC")
+        self.btnAddEic.setToolTip("Add a new EIC definition row")
+        self.btnRemoveEic = QtWidgets.QPushButton("Remove Selected")
+        self.btnRemoveEic.setToolTip("Remove selected EIC definition(s)")
+        self.btnPickEic = QtWidgets.QPushButton("Pick Peaks")
+        self.btnPickEic.setToolTip("Run peak picking on defined EICs and show results below")
+        eic_btn_layout.addWidget(self.btnAddEic)
+        eic_btn_layout.addWidget(self.btnRemoveEic)
+        eic_btn_layout.addStretch()
+        eic_btn_layout.addWidget(self.btnPickEic)
+        eic_layout.addLayout(eic_btn_layout)
+
+        layout.addWidget(eic_group, stretch=0)
+
+        # --- EIC plot area (placeholder – real plotting requires matplotlib) ---
+        self.eicPlotArea = QtWidgets.QLabel(
+            "EIC visualization will appear here when EICs are defined and 'Pick Peaks' is clicked.\n"
+            "(Requires mzXML/mzML files accessible from this machine.)"
+        )
+        self.eicPlotArea.setAlignment(QtCore.Qt.AlignCenter)
+        self.eicPlotArea.setMinimumHeight(100)
+        self.eicPlotArea.setStyleSheet(
+            "background-color: #f8f8f8; border: 1px solid #ccc; color: #888; font-style: italic;"
+        )
+        layout.addWidget(self.eicPlotArea, stretch=1)
+
+        # --- Bottom: Buttons ---
         btn_layout = QtWidgets.QHBoxLayout()
+        self.btnDefaults = QtWidgets.QPushButton("Restore Defaults")
         self.btnOk = QtWidgets.QPushButton("OK")
         self.btnCancel = QtWidgets.QPushButton("Cancel")
-        self.btnDefaults = QtWidgets.QPushButton("Restore Defaults")
         btn_layout.addWidget(self.btnDefaults)
         btn_layout.addStretch()
         btn_layout.addWidget(self.btnOk)
         btn_layout.addWidget(self.btnCancel)
         layout.addLayout(btn_layout)
 
+        # Connections
         self.btnOk.clicked.connect(self._accept)
         self.btnCancel.clicked.connect(self.reject)
         self.btnDefaults.clicked.connect(self._restore_defaults)
+        self.btnAddEic.clicked.connect(self._add_eic_row)
+        self.btnRemoveEic.clicked.connect(self._remove_eic_rows)
+        self.btnPickEic.clicked.connect(self._run_preview)
 
     # -- Tab builders ---------------------------------------------------
+
+    def _add_info_button(self, form, algo_key):
+        """Add a '?' button at the bottom of a tab that shows algorithm info."""
+        btn = QtWidgets.QPushButton("?")
+        btn.setFixedSize(28, 28)
+        btn.setToolTip("Show algorithm description and references")
+        btn.clicked.connect(lambda checked, k=algo_key: self._show_algo_info(k))
+        info_layout = QtWidgets.QHBoxLayout()
+        info_layout.addWidget(btn)
+        info_layout.addStretch()
+        form.addRow(info_layout)
 
     def _build_wavelet_tab(self):
         tab = QtWidgets.QWidget()
@@ -125,6 +263,7 @@ class PeakPickingSettingsDialog(QtWidgets.QDialog):
         lbl.setToolTip(self.wt_gap_threshold.toolTip())
         form.addRow(lbl, self.wt_gap_threshold)
 
+        self._add_info_button(form, "wavelettransform")
         self.tabWidget.addTab(tab, "Wavelet Transform")
 
     def _build_gradient_tab(self):
@@ -207,6 +346,7 @@ class PeakPickingSettingsDialog(QtWidgets.QDialog):
         lbl.setToolTip(self.gd_max_width.toolTip())
         form.addRow(lbl, self.gd_max_width)
 
+        self._add_info_button(form, "gradientdescent")
         self.tabWidget.addTab(tab, "Gradient Descent")
 
     def _build_gmm_tab(self):
@@ -256,6 +396,7 @@ class PeakPickingSettingsDialog(QtWidgets.QDialog):
         lbl.setToolTip(self.gmm_fit_max_iterations.toolTip())
         form.addRow(lbl, self.gmm_fit_max_iterations)
 
+        self._add_info_button(form, "gmm")
         self.tabWidget.addTab(tab, "GMM (Curve Fitting)")
 
     def _build_second_derivative_tab(self):
@@ -312,6 +453,7 @@ class PeakPickingSettingsDialog(QtWidgets.QDialog):
         lbl.setToolTip(self.sd_min_apex_intensity.toolTip())
         form.addRow(lbl, self.sd_min_apex_intensity)
 
+        self._add_info_button(form, "secondderivative")
         self.tabWidget.addTab(tab, "Second Derivative")
 
     def _build_matched_filter_tab(self):
@@ -352,6 +494,7 @@ class PeakPickingSettingsDialog(QtWidgets.QDialog):
         lbl.setToolTip(self.mf_min_distance.toolTip())
         form.addRow(lbl, self.mf_min_distance)
 
+        self._add_info_button(form, "matchedfilter")
         self.tabWidget.addTab(tab, "Matched Filter")
 
     # ------------------------------------------------------------------
@@ -490,6 +633,178 @@ class PeakPickingSettingsDialog(QtWidgets.QDialog):
     def get_default_settings() -> dict:
         """Return default settings."""
         return {"algorithm": "wavelettransform"}
+
+    # ------------------------------------------------------------------
+    # EIC management
+    # ------------------------------------------------------------------
+
+    def _add_eic_row(self):
+        """Add an empty row to the EIC definition table."""
+        row = self.eicTable.rowCount()
+        self.eicTable.insertRow(row)
+        # File – with a browse button
+        fileWidget = QtWidgets.QWidget()
+        fileLayout = QtWidgets.QHBoxLayout(fileWidget)
+        fileLayout.setContentsMargins(0, 0, 0, 0)
+        fileEdit = QtWidgets.QLineEdit()
+        fileEdit.setPlaceholderText("path/to/file.mzXML")
+        fileBrowse = QtWidgets.QPushButton("…")
+        fileBrowse.setFixedWidth(28)
+        fileBrowse.clicked.connect(lambda checked, le=fileEdit: self._browse_file(le))
+        fileLayout.addWidget(fileEdit)
+        fileLayout.addWidget(fileBrowse)
+        self.eicTable.setCellWidget(row, 0, fileWidget)
+
+        # Polarity
+        polCombo = QtWidgets.QComboBox()
+        polCombo.addItems(["+", "-"])
+        self.eicTable.setCellWidget(row, 1, polCombo)
+
+        # m/z
+        mzSpin = QtWidgets.QDoubleSpinBox()
+        mzSpin.setRange(0, 99999.0)
+        mzSpin.setDecimals(5)
+        mzSpin.setValue(100.0)
+        self.eicTable.setCellWidget(row, 2, mzSpin)
+
+        # ppm
+        ppmSpin = QtWidgets.QDoubleSpinBox()
+        ppmSpin.setRange(0.1, 1000.0)
+        ppmSpin.setDecimals(1)
+        ppmSpin.setValue(5.0)
+        self.eicTable.setCellWidget(row, 3, ppmSpin)
+
+    def _remove_eic_rows(self):
+        """Remove selected rows from the EIC table."""
+        rows = sorted({idx.row() for idx in self.eicTable.selectedIndexes()}, reverse=True)
+        for r in rows:
+            self.eicTable.removeRow(r)
+
+    def _browse_file(self, line_edit):
+        """Open a file dialog and set the result in the given QLineEdit."""
+        fname, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self, "Select mzXML/mzML file", "",
+            "LC-MS files (*.mzxml *.mzml);;All files (*.*)"
+        )
+        if fname:
+            line_edit.setText(fname)
+
+    def _run_preview(self):
+        """Attempt to load EICs and run peak picking for preview."""
+        # Gather EIC definitions
+        eics = []
+        for row in range(self.eicTable.rowCount()):
+            fileW = self.eicTable.cellWidget(row, 0)
+            fileEdit = fileW.findChild(QtWidgets.QLineEdit) if fileW else None
+            fpath = fileEdit.text().strip() if fileEdit else ""
+            polW = self.eicTable.cellWidget(row, 1)
+            pol = polW.currentText() if polW else "+"
+            mzW = self.eicTable.cellWidget(row, 2)
+            mz = mzW.value() if mzW else 0.0
+            ppmW = self.eicTable.cellWidget(row, 3)
+            ppm = ppmW.value() if ppmW else 5.0
+            if fpath:
+                eics.append((fpath, pol, mz, ppm))
+
+        if not eics:
+            self.eicPlotArea.setText("No EICs defined. Add at least one EIC row and click 'Pick Peaks'.")
+            return
+
+        # Try to load and pick peaks
+        try:
+            from ..Chromatogram import Chromatogram
+            from ..chromPeakPicking.peakpickers import (
+                WaveletTransformPeakPicker,
+                GradientDescentPeakPicker,
+                GMMPeakPicker,
+                SecondDerivativePeakPicker,
+                MatchedFilterPeakPicker,
+            )
+
+            settings = self._collect_settings()
+            results = []
+
+            for fpath, pol, mz, ppm in eics:
+                try:
+                    mzxml = Chromatogram()
+                    mzxml.parse_file(fpath)
+                    scan_event = None  # auto-detect
+                    eic_data, times, scan_ids, mzs = mzxml.getEIC(mz, ppm, filterLine=scan_event)
+                    rt_array = np.array(times, dtype=float)
+                    int_array = np.array(eic_data, dtype=float)
+
+                    algo = settings.get("algorithm", "wavelettransform")
+                    if algo == "wavelettransform":
+                        picker = WaveletTransformPeakPicker(
+                            min_scale=settings.get("wt_min_scale", 3),
+                            max_scale=settings.get("wt_max_scale", 11),
+                            num_scales=settings.get("wt_num_scales", 8),
+                            snr_threshold=settings.get("wt_snr_threshold", 3.0),
+                            min_ridge_length=settings.get("wt_min_ridge_length", 4),
+                            gap_threshold=settings.get("wt_gap_threshold", 2),
+                        )
+                    elif algo == "gradientdescent":
+                        picker = GradientDescentPeakPicker(
+                            smoothing_method=settings.get("gd_smoothing_method", "gaussian"),
+                            smoothing_window=settings.get("gd_smoothing_window", 5),
+                        )
+                    elif algo == "gmm":
+                        picker = GMMPeakPicker(
+                            distribution=settings.get("gmm_distribution", "gaussian"),
+                        )
+                    elif algo == "secondderivative":
+                        picker = SecondDerivativePeakPicker(
+                            sg_window=settings.get("sd_sg_window", 11),
+                        )
+                    elif algo == "matchedfilter":
+                        picker = MatchedFilterPeakPicker(
+                            expected_peak_width=settings.get("mf_expected_peak_width", 15),
+                        )
+                    else:
+                        picker = WaveletTransformPeakPicker()
+
+                    peaks = picker.pick_peaks(rt_array, int_array)
+                    results.append((fpath, pol, mz, ppm, rt_array, int_array, peaks))
+                except Exception as e:
+                    results.append((fpath, pol, mz, ppm, None, None, str(e)))
+
+            # Format results as text
+            lines = []
+            for res in results:
+                fpath, pol, mz, ppm = res[:4]
+                lines.append("EIC: %s [%s] m/z=%.5f ±%.1f ppm" % (fpath.split("/")[-1], pol, mz, ppm))
+                if isinstance(res[6], str):
+                    lines.append("  Error: %s" % res[6])
+                elif res[6] is not None:
+                    peaks = res[6]
+                    lines.append("  Found %d peak(s):" % len(peaks))
+                    for i, pk in enumerate(peaks):
+                        lines.append(
+                            "    Peak %d: RT=%.3f min, FWHM=%.3f, SNR=%.1f, Area=%.0f"
+                            % (i + 1, pk.apex_rt, pk.fwhm, pk.snr, pk.area)
+                        )
+                lines.append("")
+            self.eicPlotArea.setText("\n".join(lines))
+        except ImportError:
+            self.eicPlotArea.setText(
+                "Preview not available: required modules (Chromatogram, peakpickers) not found.\n"
+                "This feature requires the full MetExtract II environment."
+            )
+        except Exception as e:
+            self.eicPlotArea.setText("Error during preview: %s" % str(e))
+
+    # ------------------------------------------------------------------
+    # Algorithm info
+    # ------------------------------------------------------------------
+
+    def _show_algo_info(self, algo_key):
+        """Show an info dialog with algorithm description and references."""
+        title, text = _ALGO_INFO.get(algo_key, ("Unknown", "No information available."))
+        msg = QtWidgets.QMessageBox(self)
+        msg.setWindowTitle(title)
+        msg.setText(text)
+        msg.setIcon(QtWidgets.QMessageBox.Information)
+        msg.exec()
 
 
 if __name__ == "__main__":

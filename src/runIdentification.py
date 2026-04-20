@@ -286,6 +286,11 @@ class RunIdentification:
         checkPeaksRatio=False,
         minPeaksRatio=0,
         maxPeaksRatio=99999999,
+        checkPeakWidthFilter=False,
+        minPeakWidth=0.0,
+        maxPeakWidth=9999.0,
+        minFWHM=0.0,
+        maxFWHM=9999.0,
         calcIsoRatioNative=1,
         calcIsoRatioLabelled=-1,
         calcIsoRatioMoiety=1,
@@ -414,6 +419,11 @@ class RunIdentification:
         self.checkPeaksRatio = checkPeaksRatio
         self.minPeaksRatio = minPeaksRatio
         self.maxPeaksRatio = maxPeaksRatio
+        self.checkPeakWidthFilter = checkPeakWidthFilter
+        self.minPeakWidth = minPeakWidth
+        self.maxPeakWidth = maxPeakWidth
+        self.minFWHM = minFWHM
+        self.maxFWHM = maxFWHM
 
         self.calcIsoRatioNative = calcIsoRatioNative
         self.calcIsoRatioLabelled = calcIsoRatioLabelled
@@ -725,6 +735,11 @@ class RunIdentification:
         db_con.insert_row("config", {"key": "checkPeaksRatio", "value": str(self.checkPeaksRatio)})
         db_con.insert_row("config", {"key": "minPeaksRatio", "value": self.minPeaksRatio})
         db_con.insert_row("config", {"key": "maxPeaksRatio", "value": self.maxPeaksRatio})
+        db_con.insert_row("config", {"key": "checkPeakWidthFilter", "value": str(self.checkPeakWidthFilter)})
+        db_con.insert_row("config", {"key": "minPeakWidth", "value": self.minPeakWidth})
+        db_con.insert_row("config", {"key": "maxPeakWidth", "value": self.maxPeakWidth})
+        db_con.insert_row("config", {"key": "minFWHM", "value": self.minFWHM})
+        db_con.insert_row("config", {"key": "maxFWHM", "value": self.maxFWHM})
         db_con.insert_row("config", {"key": "calcIsoRatioNative", "value": self.calcIsoRatioNative})
         db_con.insert_row("config", {"key": "calcIsoRatioLabelled", "value": self.calcIsoRatioLabelled})
         db_con.insert_row("config", {"key": "calcIsoRatioMoiety", "value": self.calcIsoRatioMoiety})
@@ -1548,6 +1563,19 @@ class RunIdentification:
                             # Calculate new peak stats
                             fwhm_M, area_M, snr_M = getPeakStats(np.vstack((times, eicSmoothed)), int(peakN.peakIndex - peakN.peakLeftFlank), peakN.peakIndex, int(peakN.peakIndex + peakN.peakRightFlank))
                             fwhm_Mp, area_Mp, snr_Mp = getPeakStats(np.vstack((times, eicLSmoothed)), int(peakL.peakIndex - peakL.peakLeftFlank), peakL.peakIndex, int(peakL.peakIndex + peakL.peakRightFlank))
+
+                            # Apply peak width / FWHM filter to both M and M' peaks
+                            if self.checkPeakWidthFilter:
+                                peakWidth_M = (times[int(peakN.peakIndex + peakN.peakRightFlank)] - times[int(peakN.peakIndex - peakN.peakLeftFlank)]) * 60.0  # convert min to sec
+                                peakWidth_Mp = (times[int(peakL.peakIndex + peakL.peakRightFlank)] - times[int(peakL.peakIndex - peakL.peakLeftFlank)]) * 60.0
+                                if peakWidth_M < self.minPeakWidth or peakWidth_M > self.maxPeakWidth:
+                                    continue
+                                if peakWidth_Mp < self.minPeakWidth or peakWidth_Mp > self.maxPeakWidth:
+                                    continue
+                                if fwhm_M < self.minFWHM or fwhm_M > self.maxFWHM:
+                                    continue
+                                if fwhm_Mp < self.minFWHM or fwhm_Mp > self.maxFWHM:
+                                    continue
 
                             # print("M: ", int(peakN.peakIndex - peakN.peakLeftFlank), peakN.peakIndex, int(peakN.peakIndex + peakN.peakRightFlank))
                             # print(f"   FWHM: {fwhm_M}, area: {area_M}, SNR: {snr_M}")
