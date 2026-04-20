@@ -1949,6 +1949,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             rt = item.bunchData.rt / 60.0
             mz = item.bunchData.mz
             try:
+                # Xn is stored as string in xlsx and may be semicolon-separated (e.g., "2;3"); use first value
                 xn = int(str(item.bunchData.xn).split(";")[0])
             except (ValueError, TypeError):
                 xn = 0
