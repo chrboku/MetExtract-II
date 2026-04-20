@@ -1625,6 +1625,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 else:
                     return
 
+                self.experimentResults.selected_table = selected_table
+
                 metaboliteGroupTreeItems = {}
                 # Get distinct OGroup values from GroupResults, ordered by rt
                 group_results_df = self.experimentResults.db_con.tables[selected_table]
@@ -1916,7 +1918,29 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         axlimMin = 100000
         axlimMax = 0
 
-        definedGroups = {g.name: g for g in self.getAllSampleGroups()}
+        sampleGroups = self.getAllSampleGroups()
+        definedGroups = {g.name: g for g in sampleGroups}
+
+        selected_table = getattr(self.experimentResults, "selected_table", None)
+        if selected_table is None:
+            self.drawCanvas(self.ui.resultsExperiment_plot)
+            self.drawCanvas(self.ui.resultsExperimentSeparatedPeaks_plot)
+            self.drawCanvas(self.ui.resultsExperimentMSScanPeaks_plot)
+            return
+
+        results_df = self.experimentResults.db_con.tables[selected_table]
+
+        def _short_fname(filePath):
+            fname = filePath
+            if ".mzxml" in fname.lower():
+                fname = fname[max(fname.rfind("/") + 1, fname.rfind("\\") + 1) : fname.lower().rfind(".mzxml")]
+            elif ".mzml" in fname.lower():
+                fname = fname[max(fname.rfind("/") + 1, fname.rfind("\\") + 1) : fname.lower().rfind(".mzml")]
+            else:
+                fname = fname[max(fname.rfind("/") + 1, fname.rfind("\\") + 1) :]
+                if "." in fname:
+                    fname = fname[: fname.rfind(".")]
+            return fname
 
         itemNum = 0
         for item in plotItems:
@@ -1924,54 +1948,60 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
             rt = item.bunchData.rt / 60.0
             mz = item.bunchData.mz
-            xn = item.bunchData.xn
+            try:
+                xn = int(str(item.bunchData.xn).split(";")[0])
+            except (ValueError, TypeError):
+                xn = 0
 
-            groups = {}
-            file_groups_df = self.experimentResults.db_con.tables["FileGroups"]
-            for row_dict in file_groups_df.to_dicts():
-                groups[row_dict["id"]] = row_dict["groupName"]
-
-            filesToGroup = {}
-            filesInGroups = {}
-
-            file_mapping_df = self.experimentResults.db_con.tables["FileMapping"]
-            for row_dict in file_mapping_df.to_dicts():
-                fileMapping = Bunch(fileName=row_dict["fileName"], filePath=row_dict["filePath"], groupID=row_dict["groupID"])
-                filesToGroup[fileMapping.fileName] = fileMapping.groupID
-                if fileMapping.groupID not in filesInGroups.keys():
-                    filesInGroups[fileMapping.groupID] = []
-                filesInGroups[fileMapping.groupID].append(fileMapping)
-
-            foundIn = {}
-            found_fps_df = self.experimentResults.db_con.tables["FoundFeaturePairs"].filter(pl.col("resID") == item.bunchData.id)
-            for row_dict in found_fps_df.to_dicts():
-                foundFP = Bunch(fil=row_dict["file"], featurePairID=row_dict["featurePairID"], featureGroupID=row_dict["featureGroupID"], areaN=row_dict["areaN"], areaL=row_dict["areaL"], featureType=row_dict.get("featureType"))
-                foundIn[foundFP.fil] = foundFP
+            item_row = results_df.filter(pl.col("Num") == item.bunchData.id)
+            if item_row.is_empty():
+                continue
+            row_data = item_row.to_dicts()[0]
 
             offsetCount = 0
-
             toDrawMzsCor = []
             toDrawIntsCor = []
 
-            for groupID, groupName in groups.items():
-                groupColor = definedGroups[groupName].color if groupName in definedGroups else "gray"
-                for file in filesInGroups.get(groupID, []):
-                    if file.fileName in foundIn.keys():
-                        try:
-                            file_db_con = PolarsDB(file.filePath + getDBSuffix(), format=getDBFormat())
+            for group in sampleGroups:
+                groupColor = group.color if group.color else "gray"
+                for filePath in group.files:
+                    fname = _short_fname(filePath)
+                    found_col = fname + "_Found"
+                    fid_col = fname + "_FID"
 
-                            groupID = filesToGroup[file.fileName]
+                    if found_col not in row_data or row_data[found_col] is None:
+                        continue
 
-                            msSpectrumID = None
+                    fid_val = row_data.get(fid_col)
+                    if fid_val is None:
+                        continue
 
-                            # Get XIC data with JOIN to chromPeaks
-                            xics_df = file_db_con.tables["XICs"]
-                            chrompeaks_df = file_db_con.tables["chromPeaks"]
-                            xic_with_cp = xics_df.join(chrompeaks_df, left_on="id", right_on="eicID", how="inner")
-                            xic_filtered = xic_with_cp.filter(pl.col("id_right") == foundIn[file.fileName].featurePairID)
+                    fid_list = [s.strip() for s in str(fid_val).split(";") if s.strip()]
+                    if not fid_list:
+                        continue
 
-                            for row_dict in xic_filtered.to_dicts():
-                                XICObj = Bunch(**row_dict)
+                    try:
+                        db_path = filePath + getDBSuffix()
+                        if not os.path.exists(db_path):
+                            continue
+                        file_db_con = PolarsDB(db_path, format=getDBFormat())
+
+                        msSpectrumID = None
+
+                        xics_df = file_db_con.tables["XICs"]
+                        chrompeaks_df = file_db_con.tables["chromPeaks"]
+                        xic_with_cp = xics_df.join(chrompeaks_df, left_on="id", right_on="eicID", how="inner")
+
+                        for fid_str in fid_list:
+                            try:
+                                fid = int(fid_str)
+                            except ValueError:
+                                continue
+
+                            xic_filtered = xic_with_cp.filter(pl.col("id_right") == fid)
+
+                            for xic_row in xic_filtered.to_dicts():
+                                XICObj = Bunch(**xic_row)
                                 XICObj.xic = [float(f) for f in XICObj.xic.split(";")]
                                 XICObj.xicL = [float(f) for f in XICObj.xicL.split(";")]
                                 XICObj.times = [float(f) for f in XICObj.times.split(";")]
@@ -2024,41 +2054,41 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                                         color=groupColor,
                                     )
 
-                            if msSpectrumID is not None:
-                                ms_spectrum_df = file_db_con.tables["massspectrum"].filter(pl.col("mID") == msSpectrumID)
-                                for row_dict in ms_spectrum_df.to_dicts():
-                                    msSpectrum = Bunch(**row_dict)
-                                    mzs = [float(f) for f in msSpectrum.mzs.split(";")]
-                                    intensities = [float(f) for f in msSpectrum.intensities.split(";")]
+                        if msSpectrumID is not None:
+                            ms_spectrum_df = file_db_con.tables["massspectrum"].filter(pl.col("mID") == msSpectrumID)
+                            for ms_row in ms_spectrum_df.to_dicts():
+                                msSpectrum = Bunch(**ms_row)
+                                mzs = [float(f) for f in msSpectrum.mzs.split(";")]
+                                intensities = [float(f) for f in msSpectrum.intensities.split(";")]
 
-                                    toDrawMzs = []
-                                    toDrawInts = []
+                                toDrawMzs = []
+                                toDrawInts = []
 
-                                    for j in range(len(mzs)):
-                                        toDrawMzs.extend([mzs[j], mzs[j], mzs[j]])
-                                        toDrawInts.extend([0, intensities[j], 0])
+                                for j in range(len(mzs)):
+                                    toDrawMzs.extend([mzs[j], mzs[j], mzs[j]])
+                                    toDrawInts.extend([0, intensities[j], 0])
 
-                                        for i in range(-5, xn + 6):
-                                            if mz > 0 and abs(mzs[j] - (mz + i * 1.00335484)) * 1000000 / mz <= 5.0:
-                                                toDrawMzsCor.extend([mzs[j], mzs[j], mzs[j]])
-                                                toDrawIntsCor.extend([0, intensities[j], 0])
+                                    for i in range(-5, xn + 6):
+                                        if mz > 0 and abs(mzs[j] - (mz + i * 1.00335484)) * 1000000 / mz <= 5.0:
+                                            toDrawMzsCor.extend([mzs[j], mzs[j], mzs[j]])
+                                            toDrawIntsCor.extend([0, intensities[j], 0])
 
-                                    self.drawPlot(
-                                        self.ui.resultsExperimentMSScanPeaks_plot,
-                                        plotIndex=0,
-                                        x=toDrawMzs,
-                                        y=toDrawInts,
-                                        useCol="lightgrey",
-                                        multipleLocator=None,
-                                        alpha=0.1,
-                                        title="",
-                                        ylab="Signal abundance",
-                                        xlab="MZ",
-                                    )
+                                self.drawPlot(
+                                    self.ui.resultsExperimentMSScanPeaks_plot,
+                                    plotIndex=0,
+                                    x=toDrawMzs,
+                                    y=toDrawInts,
+                                    useCol="lightgrey",
+                                    multipleLocator=None,
+                                    alpha=0.1,
+                                    title="",
+                                    ylab="Signal abundance",
+                                    xlab="MZ",
+                                )
 
-                            file_db_con.close()
-                        except Exception as e:
-                            logging.warning("Could not read EIC data for file '%s': %s" % (file.filePath, str(e)))
+                        file_db_con.close()
+                    except Exception as e:
+                        logging.warning("Could not read EIC data for file '%s': %s" % (filePath, str(e)))
 
                 offsetCount += 1
 
