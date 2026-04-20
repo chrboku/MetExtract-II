@@ -1887,6 +1887,17 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.clearPlot(self.ui.resultsExperimentSeparatedPeaks_plot)
         self.clearPlot(self.ui.resultsExperimentMSScanPeaks_plot)
 
+        if not hasattr(self, "experimentResults") or self.experimentResults is None:
+            self.drawCanvas(self.ui.resultsExperiment_plot)
+            self.drawCanvas(self.ui.resultsExperimentSeparatedPeaks_plot)
+            self.drawCanvas(self.ui.resultsExperimentMSScanPeaks_plot)
+            return
+        if self.experimentResults.db_con is None:
+            self.drawCanvas(self.ui.resultsExperiment_plot)
+            self.drawCanvas(self.ui.resultsExperimentSeparatedPeaks_plot)
+            self.drawCanvas(self.ui.resultsExperimentMSScanPeaks_plot)
+            return
+
         plotItems = []
 
         for item in self.ui.resultsExperiment_TreeWidget.selectedItems():
@@ -1895,6 +1906,12 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     plotItems.append(item.child(i))
             if item.bunchData.type == "featurePair":
                 plotItems.append(item)
+
+        if not plotItems:
+            self.drawCanvas(self.ui.resultsExperiment_plot)
+            self.drawCanvas(self.ui.resultsExperimentSeparatedPeaks_plot)
+            self.drawCanvas(self.ui.resultsExperimentMSScanPeaks_plot)
+            return
 
         axlimMin = 100000
         axlimMax = 0
@@ -1937,74 +1954,76 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             toDrawIntsCor = []
 
             for groupID, groupName in groups.items():
-                for file in filesInGroups[groupID]:
+                groupColor = definedGroups[groupName].color if groupName in definedGroups else "gray"
+                for file in filesInGroups.get(groupID, []):
                     if file.fileName in foundIn.keys():
-                        file_db_con = PolarsDB(file.filePath + getDBSuffix(), format=getDBFormat())
+                        try:
+                            file_db_con = PolarsDB(file.filePath + getDBSuffix(), format=getDBFormat())
 
-                        groupID = filesToGroup[file.fileName]
+                            groupID = filesToGroup[file.fileName]
 
-                        msSpectrumID = None
+                            msSpectrumID = None
 
-                        # Get XIC data with JOIN to chromPeaks
-                        xics_df = file_db_con.tables["XICs"]
-                        chrompeaks_df = file_db_con.tables["chromPeaks"]
-                        xic_with_cp = xics_df.join(chrompeaks_df, left_on="id", right_on="eicID", how="inner")
-                        xic_filtered = xic_with_cp.filter(pl.col("id_right") == foundIn[file.fileName].featurePairID)
+                            # Get XIC data with JOIN to chromPeaks
+                            xics_df = file_db_con.tables["XICs"]
+                            chrompeaks_df = file_db_con.tables["chromPeaks"]
+                            xic_with_cp = xics_df.join(chrompeaks_df, left_on="id", right_on="eicID", how="inner")
+                            xic_filtered = xic_with_cp.filter(pl.col("id_right") == foundIn[file.fileName].featurePairID)
 
-                        for row_dict in xic_filtered.to_dicts():
-                            XICObj = Bunch(**row_dict)
-                            XICObj.xic = [float(f) for f in XICObj.xic.split(";")]
-                            XICObj.xicL = [float(f) for f in XICObj.xicL.split(";")]
-                            XICObj.times = [float(f) for f in XICObj.times.split(";")]
+                            for row_dict in xic_filtered.to_dicts():
+                                XICObj = Bunch(**row_dict)
+                                XICObj.xic = [float(f) for f in XICObj.xic.split(";")]
+                                XICObj.xicL = [float(f) for f in XICObj.xicL.split(";")]
+                                XICObj.times = [float(f) for f in XICObj.times.split(";")]
 
-                            msSpectrumID = XICObj.massSpectrumID
+                                msSpectrumID = XICObj.massSpectrumID
 
-                            useInds = []
-                            bestCenter = 0
-                            bestCenterDiff = 1000000
-                            timeWindow = 4 * 60.0 / 2
-                            for i, t in enumerate(XICObj.times):
-                                if (item.bunchData.rt - timeWindow) < t < (item.bunchData.rt + timeWindow):
-                                    useInds.append(i)
-                                if abs(t - item.bunchData.rt) < bestCenterDiff:
-                                    bestCenterDiff = abs(t - item.bunchData.rt)
-                                    bestCenter = i
+                                useInds = []
+                                bestCenter = 0
+                                bestCenterDiff = 1000000
+                                timeWindow = 4 * 60.0 / 2
+                                for i, t in enumerate(XICObj.times):
+                                    if (item.bunchData.rt - timeWindow) < t < (item.bunchData.rt + timeWindow):
+                                        useInds.append(i)
+                                    if abs(t - item.bunchData.rt) < bestCenterDiff:
+                                        bestCenterDiff = abs(t - item.bunchData.rt)
+                                        bestCenter = i
 
-                            centerInt = 1
-                            if self.ui.resultsExperimentNormaliseXICs_checkBox.checkState() == QtCore.Qt.Checked:
-                                centerInt = XICObj.xicL[bestCenter]
-
-                            if centerInt == 0:
                                 centerInt = 1
+                                if self.ui.resultsExperimentNormaliseXICs_checkBox.checkState() == QtCore.Qt.Checked:
+                                    centerInt = XICObj.xicL[bestCenter]
 
-                            self.ui.resultsExperiment_plot.axes.plot(
-                                [t / 60.0 for t in XICObj.times],
-                                [f / centerInt for f in XICObj.xic],
-                                color=definedGroups[groupName].color,
-                            )
-                            self.ui.resultsExperiment_plot.axes.plot(
-                                [t / 60.0 for t in XICObj.times],
-                                [-f / centerInt for f in XICObj.xicL],
-                                color=definedGroups[groupName].color,
-                            )
-                            axlimMin = min(axlimMin, rt - 0.5)
-                            axlimMax = max(axlimMax, rt + 0.5)
+                                if centerInt == 0:
+                                    centerInt = 1
 
-                            minInd = min(useInds)
-                            maxInd = max(useInds)
+                                self.ui.resultsExperiment_plot.axes.plot(
+                                    [t / 60.0 for t in XICObj.times],
+                                    [f / centerInt for f in XICObj.xic],
+                                    color=groupColor,
+                                )
+                                self.ui.resultsExperiment_plot.axes.plot(
+                                    [t / 60.0 for t in XICObj.times],
+                                    [-f / centerInt for f in XICObj.xicL],
+                                    color=groupColor,
+                                )
+                                axlimMin = min(axlimMin, rt - 0.5)
+                                axlimMax = max(axlimMax, rt + 0.5)
 
-                            self.ui.resultsExperimentSeparatedPeaks_plot.axes.plot(
-                                [t / 60.0 + offsetCount * 0.33 for t in XICObj.times[minInd:maxInd]],
-                                [f / centerInt for f in XICObj.xic[minInd:maxInd]],
-                                color=definedGroups[groupName].color,
-                            )
-                            self.ui.resultsExperimentSeparatedPeaks_plot.axes.plot(
-                                [t / 60.0 + offsetCount * 0.33 for t in XICObj.times[minInd:maxInd]],
-                                [-f / centerInt for f in XICObj.xicL[minInd:maxInd]],
-                                color=definedGroups[groupName].color,
-                            )
+                                if useInds:
+                                    minInd = min(useInds)
+                                    maxInd = max(useInds)
 
-                        if True:
+                                    self.ui.resultsExperimentSeparatedPeaks_plot.axes.plot(
+                                        [t / 60.0 + offsetCount * 0.33 for t in XICObj.times[minInd:maxInd]],
+                                        [f / centerInt for f in XICObj.xic[minInd:maxInd]],
+                                        color=groupColor,
+                                    )
+                                    self.ui.resultsExperimentSeparatedPeaks_plot.axes.plot(
+                                        [t / 60.0 + offsetCount * 0.33 for t in XICObj.times[minInd:maxInd]],
+                                        [-f / centerInt for f in XICObj.xicL[minInd:maxInd]],
+                                        color=groupColor,
+                                    )
+
                             if msSpectrumID is not None:
                                 ms_spectrum_df = file_db_con.tables["massspectrum"].filter(pl.col("mID") == msSpectrumID)
                                 for row_dict in ms_spectrum_df.to_dicts():
@@ -2037,7 +2056,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                                         xlab="MZ",
                                     )
 
-                        file_db_con.close()
+                            file_db_con.close()
+                        except Exception as e:
+                            logging.warning("Could not read EIC data for file '%s': %s" % (file.filePath, str(e)))
 
                 offsetCount += 1
 
@@ -2056,7 +2077,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 xlab="MZ",
             )
 
-        self.ui.resultsExperiment_plot.axes.set_xlim([axlimMin, axlimMax])
+        if axlimMin < axlimMax:
+            self.ui.resultsExperiment_plot.axes.set_xlim([axlimMin, axlimMax])
 
         if self.ui.resultsExperimentNormaliseXICs_checkBox.checkState() == QtCore.Qt.Checked:
             self.ui.resultsExperiment_plot.axes.set_ylabel("Intensity [counts] (normalised to labeled peaks)")
@@ -9044,8 +9066,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.resultsExperimentChangedNew(askForFeature=True)
 
     def resultsExperimentChangedNew(self, askForFeature=False):
-        if len(self.ui.resultsExperiment_TreeWidget.selectedItems()) == 0:
-            pass
+        if not askForFeature and len(self.ui.resultsExperiment_TreeWidget.selectedItems()) == 0:
+            return
 
         if self.loadedMZXMLs is None:
             selectedMZs = None
@@ -10390,7 +10412,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.ui.res_ExtractedData.itemSelectionChanged.connect(self.selectedResChanged)
 
-        # self.ui.resultsExperiment_TreeWidget.itemSelectionChanged.connect(self.resultsExperimentChanged)
+        self.ui.resultsExperiment_TreeWidget.itemSelectionChanged.connect(self.resultsExperimentChanged)
 
         self.ui.eicSmoothingWindow.currentIndexChanged.connect(self.smoothingWindowChanged)
         self.smoothingWindowChanged()
@@ -10663,7 +10685,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.tabWidget.setTabEnabled(3, True)
 
         self.loadedMZXMLs = None
-        self.ui.resultsExperiment_TreeWidget.itemSelectionChanged.connect(self.resultsExperimentChangedNew)
+        # resultsExperimentChangedNew is used only by showCustomFeature (loads raw mzXML);
+        # normal tree selection uses resultsExperimentChanged (reads pre-computed per-file DBs)
         self.ui.msms_SpectraList_exp.itemSelectionChanged.connect(self.plotSelectedMSMSSpectra_exp)
         self.ui.pushButton_exportAllAsPDF.clicked.connect(self.exportAsPDF)
 
