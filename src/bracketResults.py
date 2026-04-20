@@ -173,6 +173,7 @@ def bracketResults(
         excel_data["MZ"] = []
         excel_data["Charge"] = []
         excel_data["Xn"] = []
+        excel_data["N_found_Samples"] = []
         excel_data["Ion"] = []
         excel_data["Loss"] = []
         excel_data["M"] = []
@@ -199,6 +200,7 @@ def bracketResults(
         excel_data_dTypes["RT_Range"] = pl.Utf8
         excel_data_dTypes["PeakScalesNL"] = pl.Utf8
         excel_data_dTypes["Xn"] = pl.Utf8
+        excel_data_dTypes["N_found_Samples"] = pl.Int64
         excel_data_dTypes["Charge"] = pl.Int64
         excel_data_dTypes["ScanEvent"] = pl.Utf8
         excel_data_dTypes["Ionisation_Mode"] = pl.Utf8
@@ -223,10 +225,12 @@ def bracketResults(
             excel_data[fname + "_peaksCorr"] = []
             excel_data[fname + "_SNR_N"] = []
             excel_data[fname + "_SNR_L"] = []
-            excel_data[fname + "_NBorderLeft"] = []
-            excel_data[fname + "_NBorderRight"] = []
-            excel_data[fname + "_LBorderLeft"] = []
-            excel_data[fname + "_LBorderRight"] = []
+            excel_data[fname + "_N_startRT"] = []
+            excel_data[fname + "_N_apexRT"] = []
+            excel_data[fname + "_N_endRT"] = []
+            excel_data[fname + "_L_startRT"] = []
+            excel_data[fname + "_L_apexRT"] = []
+            excel_data[fname + "_L_endRT"] = []
             excel_data[fname + "_peaksRatio"] = []
             excel_data[fname + "_artificialEICLShift"] = []
             excel_data[fname + "_FID"] = []
@@ -240,10 +244,12 @@ def bracketResults(
             excel_data_dTypes[fname + "_peaksCorr"] = pl.Utf8
             excel_data_dTypes[fname + "_SNR_N"] = pl.Utf8
             excel_data_dTypes[fname + "_SNR_L"] = pl.Utf8
-            excel_data_dTypes[fname + "_NBorderLeft"] = pl.Utf8
-            excel_data_dTypes[fname + "_NBorderRight"] = pl.Utf8
-            excel_data_dTypes[fname + "_LBorderLeft"] = pl.Utf8
-            excel_data_dTypes[fname + "_LBorderRight"] = pl.Utf8
+            excel_data_dTypes[fname + "_N_startRT"] = pl.Utf8
+            excel_data_dTypes[fname + "_N_apexRT"] = pl.Utf8
+            excel_data_dTypes[fname + "_N_endRT"] = pl.Utf8
+            excel_data_dTypes[fname + "_L_startRT"] = pl.Utf8
+            excel_data_dTypes[fname + "_L_apexRT"] = pl.Utf8
+            excel_data_dTypes[fname + "_L_endRT"] = pl.Utf8
             excel_data_dTypes[fname + "_peaksRatio"] = pl.Utf8
             excel_data_dTypes[fname + "_artificialEICLShift"] = pl.Utf8
             excel_data_dTypes[fname + "_FID"] = pl.Utf8
@@ -428,6 +434,10 @@ def bracketResults(
                                             NBorderRight=float(row["NBorderRight"]),
                                             LBorderLeft=float(row["LBorderLeft"]),
                                             LBorderRight=float(row["LBorderRight"]),
+                                            N_startRT=float(row["N_startRT"]) if row.get("N_startRT") is not None else float(row["NPeakCenterMin"]),
+                                            N_endRT=float(row["N_endRT"]) if row.get("N_endRT") is not None else float(row["NPeakCenterMin"]),
+                                            L_startRT=float(row["L_startRT"]) if row.get("L_startRT") is not None else float(row["LPeakCenterMin"]),
+                                            L_endRT=float(row["L_endRT"]) if row.get("L_endRT") is not None else float(row["LPeakCenterMin"]),
                                             artificialEICLShift=int(row["artificialEICLShift"]),
                                             peaksRatio=float(row["peaksRatio"]),
                                             peaksCorr=float(row["peaksCorr"]),
@@ -841,6 +851,7 @@ def bracketResults(
                                                     excel_data["M"].append(None)
 
                                                     doublePeak = 0
+                                                    nFoundSamples = 0
                                                     for j in range(len(results)):
                                                         res = results[j].filePath
                                                         fname = results[j].fileName
@@ -851,6 +862,7 @@ def bracketResults(
 
                                                         if res in groupedChromPeaks[i] and len(groupedChromPeaks[i][res]) > 0:
                                                             doublePeak += 1 if len(groupedChromPeaks[i][res]) > 1 else 0
+                                                            nFoundSamples += 1
 
                                                             excel_data[fname + "_Found"].append(";".join(["Direct" for peak in groupedChromPeaks[i][res]]))
                                                             excel_data[fname + "_Area_N"].append(";".join([str(peak[1].NPeakArea) for peak in groupedChromPeaks[i][res]]))
@@ -860,10 +872,12 @@ def bracketResults(
                                                             excel_data[fname + "_peaksCorr"].append(";".join([str(peak[1].peaksCorr) for peak in groupedChromPeaks[i][res]]))
                                                             excel_data[fname + "_SNR_N"].append(";".join([str(peak[1].NSNR) for peak in groupedChromPeaks[i][res]]))
                                                             excel_data[fname + "_SNR_L"].append(";".join([str(peak[1].LSNR) for peak in groupedChromPeaks[i][res]]))
-                                                            excel_data[fname + "_NBorderLeft"].append(";".join([str(peak[1].NBorderLeft) for peak in groupedChromPeaks[i][res]]))
-                                                            excel_data[fname + "_NBorderRight"].append(";".join([str(peak[1].NBorderRight) for peak in groupedChromPeaks[i][res]]))
-                                                            excel_data[fname + "_LBorderLeft"].append(";".join([str(peak[1].LBorderLeft) for peak in groupedChromPeaks[i][res]]))
-                                                            excel_data[fname + "_LBorderRight"].append(";".join([str(peak[1].LBorderRight) for peak in groupedChromPeaks[i][res]]))
+                                                            excel_data[fname + "_N_startRT"].append(";".join([str(getattr(peak[1], 'N_startRT', peak[1].NPeakCenterMin) / 60.0) for peak in groupedChromPeaks[i][res]]))
+                                                            excel_data[fname + "_N_apexRT"].append(";".join([str(peak[1].NPeakCenterMin / 60.0) for peak in groupedChromPeaks[i][res]]))
+                                                            excel_data[fname + "_N_endRT"].append(";".join([str(getattr(peak[1], 'N_endRT', peak[1].NPeakCenterMin) / 60.0) for peak in groupedChromPeaks[i][res]]))
+                                                            excel_data[fname + "_L_startRT"].append(";".join([str(getattr(peak[1], 'L_startRT', peak[1].LPeakCenterMin) / 60.0) for peak in groupedChromPeaks[i][res]]))
+                                                            excel_data[fname + "_L_apexRT"].append(";".join([str(peak[1].LPeakCenterMin / 60.0) for peak in groupedChromPeaks[i][res]]))
+                                                            excel_data[fname + "_L_endRT"].append(";".join([str(getattr(peak[1], 'L_endRT', peak[1].LPeakCenterMin) / 60.0) for peak in groupedChromPeaks[i][res]]))
                                                             excel_data[fname + "_peaksRatio"].append(";".join([str(peak[1].peaksRatio) for peak in groupedChromPeaks[i][res]]))
                                                             excel_data[fname + "_artificialEICLShift"].append(";".join([str(peak[1].artificialEICLShift) for peak in groupedChromPeaks[i][res]]))
                                                             excel_data[fname + "_FID"].append(";".join([str(peak[1].id) for peak in groupedChromPeaks[i][res]]))
@@ -878,14 +892,18 @@ def bracketResults(
                                                             excel_data[fname + "_peaksCorr"].append(None)
                                                             excel_data[fname + "_SNR_N"].append(None)
                                                             excel_data[fname + "_SNR_L"].append(None)
-                                                            excel_data[fname + "_NBorderLeft"].append(None)
-                                                            excel_data[fname + "_NBorderRight"].append(None)
-                                                            excel_data[fname + "_LBorderLeft"].append(None)
-                                                            excel_data[fname + "_LBorderRight"].append(None)
+                                                            excel_data[fname + "_N_startRT"].append(None)
+                                                            excel_data[fname + "_N_apexRT"].append(None)
+                                                            excel_data[fname + "_N_endRT"].append(None)
+                                                            excel_data[fname + "_L_startRT"].append(None)
+                                                            excel_data[fname + "_L_apexRT"].append(None)
+                                                            excel_data[fname + "_L_endRT"].append(None)
                                                             excel_data[fname + "_peaksRatio"].append(None)
                                                             excel_data[fname + "_artificialEICLShift"].append(None)
                                                             excel_data[fname + "_FID"].append(None)
                                                             excel_data[fname + "_GroupID"].append(None)
+
+                                                    excel_data["N_found_Samples"].append(nFoundSamples)
 
                                                     if doublePeak > 0:
                                                         excel_data["doublePeak"].append(doublePeak)
@@ -1059,6 +1077,17 @@ def getPeak(times, rt, borderleft, borderright):
     return (minind, maxind)
 
 
+def getPeakByRT(times, start_rt, end_rt):
+    """Find scan indices corresponding to start and end retention times."""
+    if len(times) == 0:
+        return (0, 0)
+    minind = min(range(len(times)), key=lambda x: abs(times[x] - start_rt))
+    maxind = min(range(len(times)), key=lambda x: abs(times[x] - end_rt))
+    minind = max(0, minind)
+    maxind = min(len(times) - 1, maxind)
+    return (minind, maxind)
+
+
 def calculateMetaboliteGroups(
     file="./results.xlsx",
     groups=[],
@@ -1187,11 +1216,14 @@ def calculateMetaboliteGroups(
                     fID = row[f"{fil}_FID"]
 
                     if fID is not None:
-                        nBorderLeft = row[f"{fil}_NBorderLeft"]
-                        nBorderRight = row[f"{fil}_NBorderRight"]
-                        lBorderLeft = row[f"{fil}_LBorderLeft"]
-                        lBorderRight = row[f"{fil}_LBorderRight"]
-                        borders[fi][fpNum] = (float(nBorderLeft), float(nBorderRight), float(lBorderLeft), float(lBorderRight))
+                        n_start_rt = row.get(f"{fil}_N_startRT")
+                        n_apex_rt = row.get(f"{fil}_N_apexRT")
+                        n_end_rt = row.get(f"{fil}_N_endRT")
+                        l_start_rt = row.get(f"{fil}_L_startRT")
+                        l_apex_rt = row.get(f"{fil}_L_apexRT")
+                        l_end_rt = row.get(f"{fil}_L_endRT")
+                        if n_start_rt is not None and n_end_rt is not None and l_start_rt is not None and l_end_rt is not None:
+                            borders[fi][fpNum] = (float(n_start_rt), float(n_apex_rt), float(n_end_rt), float(l_start_rt), float(l_apex_rt), float(l_end_rt))
 
                 if fi not in fileCorrelations.keys():
                     s = ConvoluteFPsInFile(eicPPM, fi, maxAnnotationTimeWindow, nodes, borders)
@@ -1504,8 +1536,17 @@ class ConvoluteFPsInFile:
                         rb = borders[fi][nodeB.fpNum]
 
                     if ra != None and rb != None:
-                        nanbl, nanbr, nalbl, nalbr = ra
-                        nbnbl, nbnbr, nblbl, nblbr = rb
+                        na_start, na_apex, na_end, la_start, la_apex, la_end = ra
+                        nb_start, nb_apex, nb_end, lb_start, lb_apex, lb_end = rb
+
+                        na_hw_left = max(0.001, na_apex - na_start)
+                        na_hw_right = max(0.001, na_end - na_apex)
+                        la_hw_left = max(0.001, la_apex - la_start)
+                        la_hw_right = max(0.001, la_end - la_apex)
+                        nb_hw_left = max(0.001, nb_apex - nb_start)
+                        nb_hw_right = max(0.001, nb_end - nb_apex)
+                        lb_hw_left = max(0.001, lb_apex - lb_start)
+                        lb_hw_right = max(0.001, lb_end - lb_apex)
 
                         if nodeA.scanEvent in filterLines and nodeB.scanEvent in filterLines:
                             meanRT = mean([nodeA.rt, nodeB.rt])
@@ -1569,11 +1610,12 @@ class ConvoluteFPsInFile:
 
                             ## A) Test correlation of different feature pairs
                             try:
-                                lI, rI = getPeak(
+                                corr_left = min(na_hw_left, nb_hw_left) * 2
+                                corr_right = min(na_hw_right, nb_hw_right) * 2
+                                lI, rI = getPeakByRT(
                                     timesMin,
-                                    meanRT,
-                                    min(nanbl, nbnbl) * 2,
-                                    min(nanbr, nbnbr) * 2,
+                                    meanRT - corr_left,
+                                    meanRT + corr_right,
                                 )
 
                                 eicAC = eicAL[lI:rI]
@@ -1588,11 +1630,12 @@ class ConvoluteFPsInFile:
 
                             ## B) Test similarity of native:labeled ratio
                             try:
-                                lISIL, rISIL = getPeak(
+                                sil_hw_a_n = min(na_hw_left, na_hw_right) * 0.8
+                                sil_hw_a_l = min(la_hw_left, la_hw_right) * 0.8
+                                lISIL, rISIL = getPeakByRT(
                                     timesMin,
-                                    nodeA.rt,
-                                    min(nanbl, nanbr) * 0.8,
-                                    min(nalbl, nalbr) * 0.8,
+                                    nodeA.rt - sil_hw_a_n,
+                                    nodeA.rt + sil_hw_a_l,
                                 )
 
                                 eicANCSIL = eicA[lISIL:rISIL]
@@ -1602,11 +1645,10 @@ class ConvoluteFPsInFile:
                                 ma = mean(folds)
                                 sa = sd(folds)
 
-                                lISIL, rISIL = getPeak(
+                                lISIL, rISIL = getPeakByRT(
                                     timesMin,
-                                    nodeB.rt,
-                                    min(nanbl, nanbr) * 0.8,
-                                    min(nalbl, nalbr) * 0.8,
+                                    nodeB.rt - sil_hw_a_n,
+                                    nodeB.rt + sil_hw_a_l,
                                 )
 
                                 eicBNCSIL = eicB[lISIL:rISIL]

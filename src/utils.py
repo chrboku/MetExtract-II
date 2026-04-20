@@ -588,6 +588,19 @@ class ChromPeakPair:
             self.LBorderRight = args["LBorderRight"]
             argsUsed += 1
 
+        if "N_startRT" in args:
+            self.N_startRT = args["N_startRT"]
+            argsUsed += 1
+        if "N_endRT" in args:
+            self.N_endRT = args["N_endRT"]
+            argsUsed += 1
+        if "L_startRT" in args:
+            self.L_startRT = args["L_startRT"]
+            argsUsed += 1
+        if "L_endRT" in args:
+            self.L_endRT = args["L_endRT"]
+            argsUsed += 1
+
         if "isotopeRatios" in args:
             self.isotopeRatios = args["isotopeRatios"]
             argsUsed += 1

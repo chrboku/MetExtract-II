@@ -593,6 +593,10 @@ class RunIdentification:
                 "NBorderRight": pl.Int64,
                 "LBorderLeft": pl.Int64,
                 "LBorderRight": pl.Int64,
+                "N_startRT": pl.Float64,
+                "N_endRT": pl.Float64,
+                "L_startRT": pl.Float64,
+                "L_endRT": pl.Float64,
                 "adducts": pl.Utf8,
                 "heteroAtomsFeaturePairs": pl.Utf8,
                 "massSpectrumID": pl.Int64,
@@ -648,6 +652,10 @@ class RunIdentification:
                 "NBorderRight": pl.Int64,
                 "LBorderLeft": pl.Int64,
                 "LBorderRight": pl.Int64,
+                "N_startRT": pl.Float64,
+                "N_endRT": pl.Float64,
+                "L_startRT": pl.Float64,
+                "L_endRT": pl.Float64,
                 "adducts": pl.Utf8,
                 "heteroAtomsFeaturePairs": pl.Utf8,
                 "ionMode": pl.Utf8,
@@ -1604,6 +1612,10 @@ class RunIdentification:
                                 NBorderRight=peakN.peakRightFlank,
                                 LBorderLeft=peakL.peakLeftFlank,
                                 LBorderRight=peakL.peakRightFlank,
+                                N_startRT=times[max(0, peakN.peakIndex - peakN.peakLeftFlank)],
+                                N_endRT=times[min(len(times) - 1, peakN.peakIndex + peakN.peakRightFlank)],
+                                L_startRT=times[max(0, peakL.peakIndex - peakL.peakLeftFlank)],
+                                L_endRT=times[min(len(times) - 1, peakL.peakIndex + peakL.peakRightFlank)],
                                 isotopeRatios=[],
                                 mzDiffErrors=Bunch(),
                                 comments=[],
@@ -1872,6 +1884,10 @@ class RunIdentification:
                                     "LPeakAbundance": peak.LPeakAbundance,
                                     "LBorderLeft": peak.LBorderLeft,
                                     "LBorderRight": peak.LBorderRight,
+                                    "N_startRT": peak.N_startRT,
+                                    "N_endRT": peak.N_endRT,
+                                    "L_startRT": peak.L_startRT,
+                                    "L_endRT": peak.L_endRT,
                                     "peaksCorr": peak.peaksCorr,
                                     "heteroAtoms": "",
                                     "adducts": "",
@@ -1923,6 +1939,10 @@ class RunIdentification:
                                     "LPeakAbundance": peak.LPeakAbundance,
                                     "LBorderLeft": peak.LBorderLeft,
                                     "LBorderRight": peak.LBorderRight,
+                                    "N_startRT": peak.N_startRT,
+                                    "N_endRT": peak.N_endRT,
+                                    "L_startRT": peak.L_startRT,
+                                    "L_endRT": peak.L_endRT,
                                     "peaksCorr": peak.peaksCorr,
                                     "heteroAtoms": "",
                                     "adducts": "",
@@ -4143,6 +4163,10 @@ class RunIdentification:
                     chromPeak.NBorderRight = row["NBorderRight"]
                     chromPeak.LBorderLeft = row["LBorderLeft"]
                     chromPeak.LBorderRight = row["LBorderRight"]
+                    chromPeak.N_startRT = row.get("N_startRT", None)
+                    chromPeak.N_endRT = row.get("N_endRT", None)
+                    chromPeak.L_startRT = row.get("L_startRT", None)
+                    chromPeak.L_endRT = row.get("L_endRT", None)
                     chromPeak.peaksCorr = row["peaksCorr"]
                     chromPeak.tracer = row["tracer"]
                     chromPeak.tracerName = row["name"]

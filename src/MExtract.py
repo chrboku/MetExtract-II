@@ -1658,6 +1658,16 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     fp_with_counts = fp_with_counts.sort("mz")
 
                 for row_dict in group_results_df.to_dicts():
+                    # Count N_found_Samples from per-file _Found columns or use pre-computed value
+                    n_found_samples = row_dict.get("N_found_Samples")
+                    if n_found_samples is None:
+                        n_found_samples = 0
+                        for col_name in row_dict.keys():
+                            if col_name.endswith("_Found") and row_dict[col_name] is not None:
+                                found_val = str(row_dict[col_name])
+                                if "Direct" in found_val:
+                                    n_found_samples += 1
+
                     fp = Bunch(
                         type="featurePair",
                         id=row_dict["Num"],
@@ -1671,12 +1681,12 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         scanEvent=row_dict.get("ScanEvent"),
                         ionisationMode=row_dict.get("Ionisation_Mode"),
                         tracer=row_dict.get("Tracer"),
-                        FOUNDINCOUNT=row_dict.get("FOUNDINCOUNT", -1),
+                        N_found_Samples=n_found_samples,
                     )
 
                     title = "%s" % (str(fp.id))
                     try:
-                        title = "%s / %d" % (title, int(fp.FOUNDINCOUNT))
+                        title = "%s / %d samples" % (title, int(fp.N_found_Samples))
                     except:
                         pass
                     try:
