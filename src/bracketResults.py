@@ -19,8 +19,9 @@ from reportlab.lib import colors
 from reportlab.pdfgen import canvas
 from reportlab.graphics import renderPDF
 
-# XICAlignment (PTW-based) has been removed along with R/rpy2 dependency.
-# Peak grouping now uses simple hierarchical clustering without RT alignment.
+# XICAlignment now uses scipy hierarchical clustering for peak grouping
+# (former PTW-based warping via R/rpy2 has been removed).
+from .XICAlignment import XICAlignment
 
 from .utils import (
     ChromPeakPair,
@@ -132,8 +133,8 @@ def bracketResults(
         # used for debug purposes
         colos = [colors.red]
 
-        # XICAlignment (PTW) has been removed – alignment is disabled
-        xicAlign = None
+        # XICAlignment groups peaks by RT proximity (PTW warping removed)
+        xicAlign = XICAlignment()
 
         results = []
 

@@ -124,9 +124,9 @@ class PeakPickingSettingsDialog(QtWidgets.QDialog):
     def _build_ui(self):
         layout = QtWidgets.QVBoxLayout(self)
 
-        # --- Top: Algorithm tabs ---
+        # --- Top: Algorithm tabs (fixed height - does not stretch) ---
         self.tabWidget = QtWidgets.QTabWidget()
-        layout.addWidget(self.tabWidget, stretch=2)
+        layout.addWidget(self.tabWidget, stretch=0)
 
         self._build_wavelet_tab()
         self._build_gradient_tab()
@@ -171,11 +171,11 @@ class PeakPickingSettingsDialog(QtWidgets.QDialog):
             "(Requires mzXML/mzML files accessible from this machine.)"
         )
         self.eicPlotArea.setAlignment(QtCore.Qt.AlignCenter)
-        self.eicPlotArea.setMinimumHeight(100)
+        self.eicPlotArea.setMinimumHeight(150)
         self.eicPlotArea.setStyleSheet(
             "background-color: #f8f8f8; border: 1px solid #ccc; color: #888; font-style: italic;"
         )
-        layout.addWidget(self.eicPlotArea, stretch=1)
+        layout.addWidget(self.eicPlotArea, stretch=3)
 
         # --- Bottom: Buttons ---
         btn_layout = QtWidgets.QHBoxLayout()
