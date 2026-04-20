@@ -711,6 +711,9 @@ class PeakPickingSettingsDialog(QtWidgets.QDialog):
             return
 
         # Try to load and pick peaks
+        # NOTE: imports are lazy here because this dialog can be opened outside the
+        # full MetExtract environment (e.g. standalone testing) where Chromatogram
+        # and peakpickers may not be available.
         try:
             from ..Chromatogram import Chromatogram
             from ..chromPeakPicking.peakpickers import (

@@ -40,17 +40,7 @@ class groupEdit(QtWidgets.QDialog, Ui_GroupEditor):
         self._colorButton = QtWidgets.QPushButton()
         self._colorButton.setToolTip("Click to choose a color")
         self._colorButton.clicked.connect(self._pickColor)
-        # Insert button where the combo was
-        parent_layout = self.colorsComboBox.parentWidget().layout() if self.colorsComboBox.parentWidget() else None
-        if parent_layout is None:
-            # fallback: insert into gridLayout_3 at same position
-            self.gridLayout_3.addWidget(self._colorButton, 0, 2, 1, 2)
-        else:
-            idx = parent_layout.indexOf(self.colorsComboBox)
-            if idx >= 0 and hasattr(parent_layout, 'addWidget'):
-                self.gridLayout_3.addWidget(self._colorButton, 0, 2, 1, 2)
-            else:
-                self.gridLayout_3.addWidget(self._colorButton, 0, 2, 1, 2)
+        self.gridLayout_3.addWidget(self._colorButton, 0, 2, 1, 2)
 
         # Set initial color
         if isinstance(activeColor, int) and 0 <= activeColor < len(self.colors):

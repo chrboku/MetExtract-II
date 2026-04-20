@@ -1078,10 +1078,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     self._styleColorButton(b, color_name)
         self.grpFileEdited = True
 
-    def _onColorComboChanged(self, combo):
-        """Legacy stub – no longer used (color picker button replaced combo)."""
-        pass
-
     def addGroup(
         self,
         name,
@@ -5046,7 +5042,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 if "lowAbundanceIsotopeCutoff" in config.keys():
                     itle = QtWidgets.QTreeWidgetItem(
                         [
-                            "Consider isotopologue abundance",
+                            "Check M±1 / M'±1 isotopolog abundance",
                             config["lowAbundanceIsotopeCutoff"],
                         ]
                     )
