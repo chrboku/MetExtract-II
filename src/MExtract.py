@@ -9151,40 +9151,48 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     ):
                         availableFilterLines.add(fl)
 
-            mz = float(
-                QtWidgets.QInputDialog.getDouble(
-                    self,
-                    "Custom feature",
-                    "Please enter the m/z value of the native feature",
-                    decimals=8,
-                )[0]
-            )
-            lmz = float(
-                QtWidgets.QInputDialog.getDouble(
-                    self,
-                    "Custom feature",
-                    "Please enter the m/z value of the labeled feature",
-                    decimals=8,
-                )[0]
-            )
+            dlg = QtWidgets.QDialog(self)
+            dlg.setWindowTitle("Custom feature")
+            dlg.setMinimumWidth(400)
+            form = QtWidgets.QFormLayout(dlg)
 
-            rt = float(
-                QtWidgets.QInputDialog.getDouble(
-                    self,
-                    "Custom feature",
-                    "Please enter the retention time (in minutes) of the feature",
-                    decimals=3,
-                )[0]
-            )
+            mz_spin = QtWidgets.QDoubleSpinBox()
+            mz_spin.setDecimals(8)
+            mz_spin.setRange(0, 100000)
+            mz_spin.setValue(0)
+            form.addRow("Native m/z:", mz_spin)
 
-            fl = str(
-                QtWidgets.QInputDialog.getItem(
-                    self,
-                    "Custom feature",
-                    "Please select the filter line for this feature",
-                    list(availableFilterLines),
-                )[0]
+            lmz_spin = QtWidgets.QDoubleSpinBox()
+            lmz_spin.setDecimals(8)
+            lmz_spin.setRange(0, 100000)
+            lmz_spin.setValue(0)
+            form.addRow("Labeled m/z:", lmz_spin)
+
+            rt_spin = QtWidgets.QDoubleSpinBox()
+            rt_spin.setDecimals(3)
+            rt_spin.setRange(0, 10000)
+            rt_spin.setValue(0)
+            rt_spin.setSuffix(" min")
+            form.addRow("Retention time:", rt_spin)
+
+            fl_combo = QtWidgets.QComboBox()
+            fl_combo.addItems(sorted(availableFilterLines))
+            form.addRow("Filter line:", fl_combo)
+
+            btn_box = QtWidgets.QDialogButtonBox(
+                QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
             )
+            btn_box.accepted.connect(dlg.accept)
+            btn_box.rejected.connect(dlg.reject)
+            form.addRow(btn_box)
+
+            if dlg.exec() != QtWidgets.QDialog.Accepted:
+                return
+
+            mz = mz_spin.value()
+            lmz = lmz_spin.value()
+            rt = rt_spin.value()
+            fl = fl_combo.currentText()
 
             plotItems.append(Bunch(mz=mz, lmz=lmz, rt=rt * 60.0, scanEvent=fl))
         else:
