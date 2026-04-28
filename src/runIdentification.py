@@ -1687,6 +1687,8 @@ class RunIdentification:
                                             ],
                                         )
                                     )
+                                if not correlations:
+                                    return None
                                 bestFit = max(correlations, key=lambda x: x.correlation)
 
                                 return bestFit
@@ -1702,7 +1704,7 @@ class RunIdentification:
 
                             # check peak shape (Pearson correlation)
 
-                            if co.correlation >= self.minPeakCorr and ((not self.checkPeaksRatio) or self.minPeaksRatio <= (peak.NPeakArea / peak.LPeakArea) <= self.maxPeaksRatio):
+                            if co is not None and co.correlation >= self.minPeakCorr and ((not self.checkPeaksRatio) or self.minPeaksRatio <= (peak.NPeakArea / peak.LPeakArea) <= self.maxPeaksRatio):
                                 peak.peaksCorr = co.correlation
                                 peak.silRatios = Bunch(
                                     silRatios=co.silRatios,

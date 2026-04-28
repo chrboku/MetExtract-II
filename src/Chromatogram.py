@@ -282,7 +282,8 @@ class Chromatogram:
 
         # Apply threshold filter
         mask = eic < intThreshold
-        mask[0] = False  # Don't filter first element
+        if len(mask) > 0:
+            mask[0] = False  # Don't filter first element
         eic[mask] = 0
         mzs[mask] = -1
 

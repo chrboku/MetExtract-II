@@ -1451,7 +1451,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if hasattr(value, "toInt"):
             return value.toInt()[0]
         else:
-            return int(value)
+            return int(float(value))
 
     def to_double(self, value):
         """Convert QSettings value to float (PySide6 compatible)"""
@@ -3113,7 +3113,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             logging.info("Processing %d individual LC-HRMS data files on %d CPU core(s).." % (len(files), min(len(files), cpus)))
 
             # Initialize multiprocessing pool
-            set_start_method("spawn")
+            try:
+                set_start_method("spawn")
+            except RuntimeError:
+                pass  # context already set
             p = Pool(processes=min(len(files), cpus), maxtasksperchild=1)
             manager = Manager()
             lock = manager.Lock()
