@@ -1,14 +1,14 @@
-from __future__ import print_function, division, absolute_import
-import sys
+from __future__ import absolute_import, division, print_function
+
+import base64
 import os
 import pickle
-import base64
+import sys
 from copy import deepcopy
 
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6 import QtCore, QtWidgets
 
 from ..formulaTools import formulaTools
-
 from .adductsEditor import Ui_Dialog
 
 

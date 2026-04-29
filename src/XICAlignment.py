@@ -5,9 +5,10 @@ now provides a pure-Python fallback that groups peaks by retention-time
 proximity using scipy hierarchical clustering, without performing any warping.
 """
 
-import numpy as np
-from scipy.cluster.hierarchy import linkage, fcluster
 from copy import deepcopy
+
+import numpy as np
+from scipy.cluster.hierarchy import fcluster, linkage
 
 from .utils import mapArrayToRefTimes
 

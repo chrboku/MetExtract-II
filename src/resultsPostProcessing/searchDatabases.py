@@ -2,16 +2,11 @@ import sys
 
 sys.path.append("C:/development/PyMetExtract")
 
-from ..formulaTools import formulaTools
-from ..utils import is_float
-
-from .. import TableUtils
-
 import csv
-
 from copy import deepcopy
-from math import floor, ceil
+from math import ceil
 
+from ..formulaTools import formulaTools
 
 exID = "Num"
 exMZ = "MZ"
@@ -23,6 +18,7 @@ exCharge = "Charge"
 
 
 import logging
+
 from .. import LoggingSetup
 
 LoggingSetup.LoggingSetup.Instance().initLogging()
@@ -150,7 +146,7 @@ class DBSearch:
                         try:
                             elems = fT.parseFormula(sumFormula)
                             mass = fT.calcMolWeight(elems)
-                        except Exception as ex:
+                        except Exception:
                             logging.error("DB import error (%s, row: %d): The sumformula (%s) of the entry %s '%s' could not be parsed" % (dbName, rowi, sumFormula, num, name))
                             notImported += 1
 
@@ -167,7 +163,7 @@ class DBSearch:
                     )
 
                     use = True
-                    if callBackCheckFunction != None:
+                    if callBackCheckFunction is not None:
                         use = callBackCheckFunction(dbEntry)
 
                     if use:
@@ -293,7 +289,7 @@ class DBSearch:
                 if ph[0] != -1:
                     for entryi in range(ph[0], ph[1] + 1):
                         entry = self.dbEntriesNeutral[entryi]
-                        if rt_min == None or entry.rt_min == None or (abs(rt_min - entry.rt_min) <= rt_error):
+                        if rt_min is None or entry.rt_min is None or (abs(rt_min - entry.rt_min) <= rt_error):
                             elems = None
                             if entry.sumFormula != "":
                                 fT = formulaTools()
@@ -323,7 +319,7 @@ class DBSearch:
             for entryi in range(ph[0], ph[1] + 1):
                 entry = self.dbEntriesMZ[entryi]
                 print(entry)
-                if entry.polarity == polarity and (rt_min == None or entry.rt_min == None or (abs(rt_min - entry.rt_min) <= rt_error)):
+                if entry.polarity == polarity and (rt_min is None or entry.rt_min is None or (abs(rt_min - entry.rt_min) <= rt_error)):
                     elems = None
                     if entry.sumFormula != "":
                         fT = formulaTools()
@@ -383,7 +379,7 @@ class DBSearch:
                 if ph[0] != -1:
                     for entryi in range(ph[0], ph[1] + 1):
                         entry = self.dbEntriesMZ[entryi]
-                        if entry.polarity == adduct[2] and (rt_min == None or entry.rt_min == None or (abs(rt_min - entry.rt_min) <= rt_error)):
+                        if entry.polarity == adduct[2] and (rt_min is None or entry.rt_min is None or (abs(rt_min - entry.rt_min) <= rt_error)):
                             elems = None
                             if entry.sumFormula != "":
                                 fT = formulaTools()
@@ -411,7 +407,7 @@ class DBSearch:
         if ph[0] != -1:
             for entryi in range(ph[0], ph[1] + 1):
                 entry = self.dbEntriesNeutral[entryi]
-                if rt_min == None or entry.rt_min == None or (abs(rt_min - entry.rt_min) <= rt_error):
+                if rt_min is None or entry.rt_min is None or (abs(rt_min - entry.rt_min) <= rt_error):
                     elems = None
                     if entry.sumFormula != "":
                         fT = formulaTools()
@@ -456,7 +452,7 @@ class DBSearch:
             ("-2H+", -2 * 1.007276, "-", 1, 1),
         ],
     ):
-        if mass != None:
+        if mass is not None:
             return self.searchDBForMass(
                 mass,
                 polarity,

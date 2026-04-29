@@ -16,10 +16,10 @@
 #    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 
-from .utils import getNormRatio
-from .utils import Bunch
 from copy import deepcopy
+
 from .formulaTools import formulaTools
+from .utils import Bunch, getNormRatio
 
 maxSub = 5
 
@@ -138,6 +138,7 @@ def matchPartners(
     checkRatio,
     minRatio,
     maxRatio,
+    scanIndexOffset=0,
     reportFunction=None,
     writeExtendedDiagnostics=True,
 ):
@@ -181,8 +182,6 @@ def matchPartners(
         maxXn=9,
     )
 
-    minLabelingAtoms = 5
-    maxLabelingAtoms = 5
     ## combinations of labeling elements
     tempCombs = getCombinationsOfLabel(["C", "H"], labelingElements, 2, 12)
     combs = []
@@ -220,13 +219,32 @@ def matchPartners(
                             (curScan.retention_time / 60.0 - startTime) / scanRTRange,
                             "RT %.2f" % (curScan.retention_time / 60.0),
                         )
+                    # Compute the scan used to search for labeled signals; may be offset relative to the native scan.
+                    # Falls back to curScan when the offset puts the index out of bounds or on a different filter line.
+                    # but make sure that the offset is scanIndexOffset scans of the correct filter_line
+                    cj = j
+                    cur_scan_Index_Offset = 0
+                    direction = 1 if scanIndexOffset >= 0 else -1
+                    while cj > 0:
+                        if mzXMLData.MS1_list[cj].filter_line == filterLine:
+                            if cur_scan_Index_Offset == scanIndexOffset:
+                                break
+                            else:
+                                cur_scan_Index_Offset += direction
+                        cj += direction
+
+                    labScanJ = cj
+                    if 0 <= labScanJ < len(mzXMLData.MS1_list) and mzXMLData.MS1_list[labScanJ].filter_line == filterLine:
+                        labScan = mzXMLData.MS1_list[labScanJ]
+                    else:
+                        raise RuntimeError(f"ERROR: Could not find a suitable lab scan for scan index {j} with offset {scanIndexOffset}. ")
 
                     dontUsePeakIndices = []
 
                     # assume each peak to be a valid M (monoisotopic, native metabolite ion)
                     # and verify this assumption (search for (partially) labelled pendant)
                     for currentPeakIndex in range(0, len(curScan.mz_list)):
-                        if not (currentPeakIndex in dontUsePeakIndices):
+                        if currentPeakIndex not in dontUsePeakIndices:
                             curPeakmz = curScan.mz_list[currentPeakIndex]
                             curPeakIntensity = curScan.intensity_list[currentPeakIndex]
 
@@ -307,33 +325,31 @@ def matchPartners(
                                                 # test certain number of labelled carbon atoms
 
                                                 for xCount in sorted(xCounts, reverse=True):
-                                                    # find corresponding M' peak
-                                                    isoM_pX = curScan.findMZ(
+                                                    # find corresponding M' peak (search in labScan, which may be offset)
+                                                    isoM_pX = labScan.findMZ(
                                                         curPeakmz + xCount * xOffset,
                                                         ppm,
-                                                        start=currentPeakIndex,
                                                     )
-                                                    isoM_pX = curScan.getMostIntensePeak(
+                                                    isoM_pX = labScan.getMostIntensePeak(
                                                         isoM_pX[0],
                                                         isoM_pX[1],
                                                         intensityThres,
                                                     )
                                                     if isoM_pX != -1:
-                                                        labPeakmz = curScan.mz_list[isoM_pX]
-                                                        labPeakIntensity = curScan.intensity_list[isoM_pX]
+                                                        labPeakmz = labScan.mz_list[isoM_pX]
+                                                        labPeakIntensity = labScan.intensity_list[isoM_pX]
 
                                                         # find M'-1 peak
-                                                        isoM_pXm1 = curScan.findMZ(
+                                                        isoM_pXm1 = labScan.findMZ(
                                                             curPeakmz + xCount * xOffset - cValidationOffset,
                                                             ppm * 2,
-                                                            start=currentPeakIndex,
                                                         )
-                                                        isoM_pXm1 = curScan.getMostIntensePeak(
+                                                        isoM_pXm1 = labScan.getMostIntensePeak(
                                                             isoM_pXm1[0],
                                                             isoM_pXm1[1],
                                                         )
                                                         if isoM_pXm1 != -1:
-                                                            obRatio = curScan.intensity_list[isoM_pXm1] / curScan.intensity_list[isoM_pX]
+                                                            obRatio = labScan.intensity_list[isoM_pXm1] / labScan.intensity_list[isoM_pX]
                                                             if obRatio >= 0.5:
                                                                 continue
 
@@ -365,17 +381,16 @@ def matchPartners(
                                                             continue
 
                                                         # find M'+1 peak
-                                                        isoM_pXp1 = curScan.findMZ(
+                                                        isoM_pXp1 = labScan.findMZ(
                                                             curPeakmz + xCount * xOffset + cValidationOffset,
                                                             ppm,
-                                                            start=currentPeakIndex,
                                                         )
-                                                        isoM_pXp1 = curScan.getMostIntensePeak(
+                                                        isoM_pXp1 = labScan.getMostIntensePeak(
                                                             isoM_pXp1[0],
                                                             isoM_pXp1[1],
                                                         )
 
-                                                        # calculate the ratio of M+1/M
+                                                        # calculate the ratio of M+1/M (native, always in curScan)
                                                         isoPeakIntensity = curScan.intensity_list[isoM_p1]
                                                         if peakCountLeft == 1:
                                                             ratioN = None
@@ -384,8 +399,8 @@ def matchPartners(
                                                         else:
                                                             ratioN = isoPeakIntensity / curPeakIntensity
 
-                                                        # calculate the ratio of M'+1/M'
-                                                        isoLabPeakIntensity = curScan.intensity_list[isoM_pXp1]
+                                                        # calculate the ratio of M'+1/M' (labeled, in labScan)
+                                                        isoLabPeakIntensity = labScan.intensity_list[isoM_pXp1]
                                                         if peakCountRight == 1:
                                                             ratioL = None
                                                         elif peakCountRight > 1 and lowAbundanceIsotopeCutoff and isoLabPeakIntensity <= isotopologIntensityThres:
@@ -393,7 +408,7 @@ def matchPartners(
                                                         else:
                                                             ratioL = isoLabPeakIntensity / labPeakIntensity
                                                         # 2. check if the observed M'+1/M' ratio and the M+1/M ratio are approximately equal
-                                                        if (ratioN != None and ratioL != None) and abs(ratioN - ratioL) <= intensityErrorL:
+                                                        if (ratioN is not None and ratioL is not None) and abs(ratioN - ratioL) <= intensityErrorL:
                                                             curPeakDetectedIonPairs.append(
                                                                 mzFeature(
                                                                     mz=curPeakmz,
@@ -410,7 +425,7 @@ def matchPartners(
 
                                                             skipOtherLoadings = True
                                                             continue
-                                                        elif lowAbundanceIsotopeCutoff and (ratioN == None or ratioL == None):
+                                                        elif lowAbundanceIsotopeCutoff and (ratioN is None or ratioL is None):
                                                             curPeakDetectedIonPairs.append(
                                                                 mzFeature(
                                                                     mz=curPeakmz,
@@ -464,35 +479,33 @@ def matchPartners(
                                                     if xCount > curPeakmz * curLoading / 12:
                                                         continue
 
-                                                    # find corresponding M' peak
-                                                    isoM_pX = curScan.findMZ(
+                                                    # find corresponding M' peak (search in labScan, which may be offset)
+                                                    isoM_pX = labScan.findMZ(
                                                         curPeakmz + xCount * cValidationOffset,
                                                         ppm,
-                                                        start=currentPeakIndex,
                                                     )
-                                                    isoM_pX = curScan.getMostIntensePeak(
+                                                    isoM_pX = labScan.getMostIntensePeak(
                                                         isoM_pX[0],
                                                         isoM_pX[1],
                                                         intensityThres,
                                                     )
                                                     if isoM_pX != -1:
-                                                        labPeakmz = curScan.mz_list[isoM_pX]
-                                                        labPeakIntensity = curScan.intensity_list[isoM_pX]
+                                                        labPeakmz = labScan.mz_list[isoM_pX]
+                                                        labPeakIntensity = labScan.intensity_list[isoM_pX]
 
                                                         # (0.) verify that peak is M' and not something else (e.g. M'-1, M'-2)
                                                         # only for AllExtract experiments
                                                         adjRatio = 0
-                                                        isoM_pXp1 = curScan.findMZ(
+                                                        isoM_pXp1 = labScan.findMZ(
                                                             curPeakmz + (xCount + 1) * cValidationOffset,
                                                             ppm,
-                                                            start=currentPeakIndex,
                                                         )
-                                                        isoM_pXp1 = curScan.getMostIntensePeak(
+                                                        isoM_pXp1 = labScan.getMostIntensePeak(
                                                             isoM_pXp1[0],
                                                             isoM_pXp1[1],
                                                         )
                                                         if isoM_pXp1 != -1:
-                                                            adjRatio = curScan.intensity_list[isoM_pXp1] / labPeakIntensity
+                                                            adjRatio = labScan.intensity_list[isoM_pXp1] / labPeakIntensity
 
                                                         if not metabolisationExperiment:
                                                             if adjRatio >= 0.5:
@@ -526,12 +539,11 @@ def matchPartners(
                                                             continue
 
                                                         # find M'-1 peak
-                                                        isoM_pXm1 = curScan.findMZ(
+                                                        isoM_pXm1 = labScan.findMZ(
                                                             curPeakmz + (xCount - 1) * cValidationOffset,
                                                             ppm,
-                                                            start=currentPeakIndex,
                                                         )
-                                                        isoM_pXm1 = curScan.getMostIntensePeak(
+                                                        isoM_pXm1 = labScan.getMostIntensePeak(
                                                             isoM_pXm1[0],
                                                             isoM_pXm1[1],
                                                         )
@@ -547,7 +559,7 @@ def matchPartners(
                                                             else:
                                                                 continue
                                                         elif isoM_pXm1 != -1:
-                                                            isoM_pXm1_Intensity = curScan.intensity_list[isoM_pXm1]
+                                                            isoM_pXm1_Intensity = labScan.intensity_list[isoM_pXm1]
                                                             observedRatioMp = isoM_pXm1_Intensity / labPeakIntensity
                                                             if abs(normRatioL - observedRatioMp) <= intensityErrorL:
                                                                 pass
@@ -558,7 +570,7 @@ def matchPartners(
                                                         else:
                                                             continue
 
-                                                        # 3. check if the observed M+1/M ratio fits the theoretical one
+                                                        # 3. check if the observed M+1/M ratio fits the theoretical one (native, always in curScan)
                                                         if peakCountLeft == 1:
                                                             pass
                                                         elif isoM_p1 == -1:
@@ -630,20 +642,19 @@ def matchPartners(
                                                 # test certain number of labelled carbon atoms
 
                                                 for comb in combs:
-                                                    # find corresponding M' peak
-                                                    isoM_pX = curScan.findMZ(
+                                                    # find corresponding M' peak (search in labScan, which may be offset)
+                                                    isoM_pX = labScan.findMZ(
                                                         curPeakmz + comb.mzdelta / curLoading,
                                                         ppm,
-                                                        start=currentPeakIndex,
                                                     )
-                                                    isoM_pX = curScan.getMostIntensePeak(
+                                                    isoM_pX = labScan.getMostIntensePeak(
                                                         isoM_pX[0],
                                                         isoM_pX[1],
                                                         intensityThres,
                                                     )
                                                     if isoM_pX != -1:
-                                                        labPeakmz = curScan.mz_list[isoM_pX]
-                                                        labPeakIntensity = curScan.intensity_list[isoM_pX]
+                                                        labPeakmz = labScan.mz_list[isoM_pX]
+                                                        labPeakIntensity = labScan.intensity_list[isoM_pX]
 
                                                         # (1.) check if M' and M ratio are as expected
                                                         if False:
@@ -654,17 +665,17 @@ def matchPartners(
                                                                 continue  ## ratio check not passed
 
                                                         # find M'-1 peak
-                                                        isoM_pXm1 = curScan._findMZGeneric(
+                                                        isoM_pXm1 = labScan._findMZGeneric(
                                                             curPeakmz + (comb.mzdelta - 1.00628 * (1.0 + curPeakmz * ppm / 1000000)) / curLoading,
                                                             curPeakmz + (comb.mzdelta - 1.00335 * (1.0 - curPeakmz * ppm / 1000000)) / curLoading,
                                                         )
-                                                        isoM_pXm1 = curScan.getMostIntensePeak(
+                                                        isoM_pXm1 = labScan.getMostIntensePeak(
                                                             isoM_pXm1[0],
                                                             isoM_pXm1[1],
                                                         )
 
                                                         if isoM_pXm1 != -1:
-                                                            isoPeakIntensity = curScan.intensity_list[isoM_pXm1]
+                                                            isoPeakIntensity = labScan.intensity_list[isoM_pXm1]
                                                             rat = isoPeakIntensity / labPeakIntensity
 
                                                             if rat <= 0.75:
@@ -673,17 +684,17 @@ def matchPartners(
                                                                 continue
 
                                                         # find M'+1 peak
-                                                        isoM_pXp1 = curScan._findMZGeneric(
+                                                        isoM_pXp1 = labScan._findMZGeneric(
                                                             curPeakmz + (comb.mzdelta + 1.00335 * (1.0 - curPeakmz * ppm / 1000000)) / curLoading,
                                                             curPeakmz + (comb.mzdelta + 1.00628 * (1.0 + curPeakmz * ppm / 1000000)) / curLoading,
                                                         )
-                                                        isoM_pXp1 = curScan.getMostIntensePeak(
+                                                        isoM_pXp1 = labScan.getMostIntensePeak(
                                                             isoM_pXp1[0],
                                                             isoM_pXp1[1],
                                                         )
 
                                                         if isoM_pXp1 != -1:
-                                                            isoPeakIntensity = curScan.intensity_list[isoM_pXp1]
+                                                            isoPeakIntensity = labScan.intensity_list[isoM_pXp1]
                                                             rat = isoPeakIntensity / labPeakIntensity
 
                                                             if rat <= 0.9:
@@ -696,7 +707,7 @@ def matchPartners(
                                                         curPeakDetectedIonPairs.append(
                                                             mzFeature(
                                                                 mz=curPeakmz,
-                                                                lmz=curScan.mz_list[isoM_pX],
+                                                                lmz=labScan.mz_list[isoM_pX],
                                                                 tmz=comb.mzdelta / curLoading,
                                                                 xCount=fT.flatToString(comb.atoms),
                                                                 scanIndex=curScanIndex,
@@ -746,7 +757,7 @@ def matchPartners(
                 detectedIonPairs.extend(curScanDetectedIonPairs)
                 curScanIndex += 1
 
-        except Exception as e:
+        except Exception:
             import traceback
 
             traceback.print_exc()

@@ -38,24 +38,24 @@ MetExtractVersion = get_version_from_toml(os.path.join(os.path.dirname(os.path.a
 
 # Handle both relative imports (when used as module) and absolute imports (when run directly)
 try:
-    from .mePyGuis.ModuleSelectionWindow import Ui_MainWindow
     from .mePyGuis import calcIsoEnrichmentDialog
+    from .mePyGuis.ModuleSelectionWindow import Ui_MainWindow
 except ImportError:
     # When run directly, use absolute imports
-    import sys
     import os
+    import sys
 
     # Handle case where __file__ might not be defined (e.g., when using exec())
     if "__file__" in globals():
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     else:
         sys.path.insert(0, os.path.dirname(os.path.abspath(os.getcwd() + "/src")))
-    from mePyGuis.ModuleSelectionWindow import Ui_MainWindow
     from mePyGuis import calcIsoEnrichmentDialog
+    from mePyGuis.ModuleSelectionWindow import Ui_MainWindow
 
-from PySide6 import QtGui, QtCore, QtWidgets
 import subprocess
-import platform
+
+from PySide6 import QtWidgets
 
 
 class ModuleSelection(QtWidgets.QMainWindow, Ui_MainWindow):
@@ -83,9 +83,6 @@ class ModuleSelection(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def openMetExtractModule(self, module):
         try:
-            import sys
-            import os
-
             # Get the Python executable from the current environment
             args = []
             if module == "AllExtract" or module == "TracExtract":
@@ -133,8 +130,9 @@ class ModuleSelection(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def openDocumentation(self):
         import subprocess
-        import webbrowser
         import sys
+        import webbrowser
+
         from .utils import get_main_dir
 
         url = get_main_dir() + "/documentation/index.html"

@@ -1,13 +1,12 @@
 from .GradientPeaks import GradientPeaks
 from .peakpickers import (
     BasePeakPicker,
-    ChromatographicPeak,
-    GradientDescentPeakPicker,
     GMMPeakPicker,
-    WaveletTransformPeakPicker,
-    SecondDerivativePeakPicker,
+    GradientDescentPeakPicker,
     MatchedFilterPeakPicker,
     PeakPickerAdapter,
+    SecondDerivativePeakPicker,
+    WaveletTransformPeakPicker,
 )
 
 # Supported algorithm names (case-insensitive)
@@ -45,10 +44,7 @@ class ChromPeakPicking:
         elif key in _ALGORITHMS:
             self._picker = PeakPickerAdapter(_ALGORITHMS[key](**kwargs))
         else:
-            raise ValueError(
-                f"Unknown peak picking algorithm '{algorithm}'. "
-                f"Available: {', '.join(list(_ALGORITHMS.keys()) + ['GradientPeaks_legacy'])}"
-            )
+            raise ValueError(f"Unknown peak picking algorithm '{algorithm}'. Available: {', '.join(list(_ALGORITHMS.keys()) + ['GradientPeaks_legacy'])}")
 
     def getPeaksFor(self, times, eic, **kwargs):
         """Legacy-compatible interface."""

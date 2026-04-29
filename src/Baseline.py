@@ -1,10 +1,8 @@
 if __name__ == "__main__":
-    import MExtract
+    pass
 
 import numpy as np
 from scipy.ndimage import median_filter
-
-from .utils import Bunch
 
 
 class Baseline:
@@ -41,20 +39,14 @@ class Baseline:
 
 
 if __name__ == "__main__":
-    import matplotlib
     import matplotlib.pyplot as plt
 
     BL = Baseline()
 
     from . import Chromatogram
-    from .utils import getLastTimeBefore, smoothDataSeries
+    from .chromPeakPicking.peakpickers import PeakPickerAdapter, WaveletTransformPeakPicker
     from .utils import printObjectsAsTable
 
-    from .chromPeakPicking.GradientPeaks import GradientPeaks
-
-    from .utils import get_main_dir
-
-    from .chromPeakPicking.peakpickers import WaveletTransformPeakPicker, PeakPickerAdapter
     CP = PeakPickerAdapter(WaveletTransformPeakPicker())
 
     chromatogram = Chromatogram.Chromatogram()

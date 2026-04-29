@@ -16,19 +16,18 @@
 #    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 
-from __future__ import print_function, division, absolute_import
+from __future__ import absolute_import, division, print_function
+
+import os
+import shutil
+import subprocess
 
 # Set up path for direct execution before any relative imports
 import sys
-import os
-import platform
 import threading
-import psutil
 import time
-import subprocess
-import tarfile
-import urllib.request
-import shutil
+
+import psutil
 
 app = None
 
@@ -36,7 +35,8 @@ app = None
 from .utils import get_app_folder
 
 local_folder = get_app_folder()
-print(f"Using local folder '{local_folder}'")
+if __name__ == "__main__":
+    print(f"Using local folder '{local_folder}'")
 
 
 import logging
@@ -48,24 +48,20 @@ LoggingSetup.LoggingSetup.Instance().initLogging(location=local_folder)
 
 # experiment types
 
-import sys, pprint
+import pprint
 import traceback
-import platform
 
 sys.displayhook = pprint.pprint
 
-from .mePyGuis.groupEdit import groupEdit
 from .mePyGuis.adductsEdit import adductsEdit
-from .mePyGuis.heteroAtomEdit import heteroAtomEdit
-from .mePyGuis.DependenciesDialog import DependenciesDialog
-from .mePyGuis.RegExTestDialog import RegExTestDialog
-from .mePyGuis.ProgressWrapper import ProgressWrapper
 from .mePyGuis.calcIsoEnrichmentDialog import calcIsoEnrichmentDialog
+from .mePyGuis.groupEdit import groupEdit
+from .mePyGuis.heteroAtomEdit import heteroAtomEdit
 from .mePyGuis.PeakPickingSettingsDialog import PeakPickingSettingsDialog
-
-from .utils import get_main_dir, getDBSuffix, getDBFormat, suppress_logs
-
+from .mePyGuis.ProgressWrapper import ProgressWrapper
+from .mePyGuis.RegExTestDialog import RegExTestDialog
 from .MetExtractII_Main import MetExtractVersion
+from .utils import get_main_dir, getDBFormat, getDBSuffix
 
 # experiment types
 TRACER = object()
@@ -73,30 +69,26 @@ METABOLOME = object()
 
 
 # <editor-fold desc="### Python Standard Library imports">
-import sys
-import shutil
-import gc
-from pickle import loads, dumps
-from collections import defaultdict
 import base64
-import re
-from math import log10
-import functools
-from operator import itemgetter
-from multiprocessing import Pool, freeze_support, cpu_count, Manager, set_start_method
-import polars as pl
-import zipfile
-import io
-from .PolarsDB import PolarsDB
-from copy import copy, deepcopy
-from xml.parsers.expat import ExpatError
-from optparse import OptionParser
 
 # capture stdout and stderr
-
-
 # from hashlib import sha256
-import csv
+import functools
+import json
+import re
+import sys
+from collections import defaultdict
+from copy import deepcopy
+from math import log10
+from multiprocessing import Manager, Pool, cpu_count, freeze_support, set_start_method, Lock
+from operator import itemgetter
+from optparse import OptionParser
+from pickle import dumps, loads
+from xml.parsers.expat import ExpatError
+
+import polars as pl
+
+from .PolarsDB import PolarsDB
 
 
 # Helper function to safely load pickled data with error handling for old cached data
@@ -125,22 +117,21 @@ def safe_pickle_loads(data, default_value=None, operation_name="loading data"):
 
 # </editor-fold>
 # <editor-fold desc="### PyQT 4 Imports">
-from PySide6 import QtCore, QtGui, QtWidgets
-from PySide6.QtGui import QColor
-from PySide6.QtWidgets import QListWidgetItem, QTableWidgetItem, QCheckBox, QComboBox, QWidget, QHBoxLayout, QPushButton
-
 # </editor-fold>
 # <editor-fold desc="### MatPlotLib imports and setup">
 import matplotlib
+from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import QCheckBox, QComboBox, QHBoxLayout, QPushButton, QTableWidgetItem, QWidget
 
 matplotlib.use("Qt5Agg")  # Use Qt5Agg backend for PySide6 compatibility
+import matplotlib.patches as patches
 import matplotlib.pyplot as plt
-from matplotlib.ticker import ScalarFormatter
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
-from matplotlib.cm import get_cmap
-import matplotlib.patches as patches
+from matplotlib.ticker import ScalarFormatter
+
 # from mpldatacursor import datacursor, HighlightingDataCursor
 
 matplotlib.rcParams["savefig.dpi"] = 300
@@ -219,7 +210,7 @@ from .Chromatogram import Chromatogram
 # </editor-fold>
 # <editor-fold desc="### MassSpecWavelet Processing Class Import">
 try:
-    from .chromPeakPicking.MassSpecWavelet import MassSpecWavelet
+    pass
 except Error as err:
     if __name__ in ["__main__", "src.MExtract"]:
         logging.error("Peak-picking via MassSpecWavelet is not available: %s" % (str(err)))
@@ -232,51 +223,42 @@ except Error as err:
         logging.error("Identification/Processing of new files is not available: %s" % (str(err)))
 # </editor-fold>
 # <editor-fold desc="### Group Results Import">
-from .bracketResults import bracketResults, calculateMetaboliteGroups
+from . import HCA_general, annotateResultMatrix, pyperclip
 from .annotateResultMatrix import addGroup as grpAdd
 from .annotateResultMatrix import addStatsColumnToResults
 from .annotateResultMatrix import performGroupOmit as grpOmit
-
-# </editor-fold>
-# <editor-fold desc="### Re-integration Import">
-from .reIntegration import reIntegrateResultsFile
+from .bracketResults import bracketResults, calculateMetaboliteGroups
+from .formulaTools import formulaTools, getElementOfIsotope, getIsotopeMass
+from .mePyGuis.adductsEdit import ConfiguredAdduct, ConfiguredElement
+from .mePyGuis.heteroAtomEdit import ConfiguredHeteroAtom
 
 # </editor-fold>
 # <editor-fold desc="### UI Window Imports">
 from .mePyGuis.mainWindow import Ui_MainWindow
-from .mePyGuis.adductsEdit import ConfiguredAdduct, ConfiguredElement
-from .mePyGuis.heteroAtomEdit import ConfiguredHeteroAtom
-from .mePyGuis.TracerEdit import tracerEdit, ConfiguredTracer
 from .mePyGuis.QScrollableMessageBox import QScrollableMessageBox
-from .formulaTools import formulaTools, getIsotopeMass, getElementOfIsotope
+from .mePyGuis.TracerEdit import ConfiguredTracer, tracerEdit
+from .MSMS import optimizeMSMSTargets
+
+# </editor-fold>
+# <editor-fold desc="### Re-integration Import">
+from .reIntegration import reIntegrateResultsFile
+from .resultsPostProcessing import searchDatabases as searchDatabases
+from .TableUtils import TableUtils
 
 # </editor-fold>
 # <editor-fold desc="### Various Imports">
-from .utils import natSort, ChromPeakPair, getNormRatio, mean, SampleGroup
 from .utils import (
     Bunch,
+    CallBackMethod,
+    ChromPeakPair,
+    FuncProcess,
+    SampleGroup,
     SQLInsert,
-    get_main_dir,
-    smoothDataSeries,
+    getNormRatio,
+    mean,
+    natSort,
     sd,
 )
-from .utils import FuncProcess, CallBackMethod
-from .utils import getFileHash_sha1
-from . import HCA_general
-
-from .TableUtils import TableUtils
-
-from .MSMS import optimizeMSMSTargets
-
-from .resultsPostProcessing import generateSumFormulas as sumFormulaGeneration
-from .resultsPostProcessing import searchDatabases as searchDatabases
-
-from . import annotateResultMatrix
-
-from . import pyperclip
-
-
-from .ParquetCache import ParquetCache
 
 
 def memory_usage_psutil():
@@ -400,7 +382,7 @@ def loadMZXMLFile(params):
     # {"File":fi, "Group":group.name, "IntensityThreshold":intensityThrehold}
 
     mzFilter = None
-    if params["selectedMZs"] != None:
+    if params["selectedMZs"] is not None:
         mzFilter = []
         for selMZ in params["selectedMZs"]:
             mzFilter.append(
@@ -596,7 +578,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         continue
 
                     try:
-                        if self.checkFileImport(file) == True:
+                        if self.checkFileImport(file):
                             # fhash="%s_%s"%(file, sha256(open(file, 'rb').read()).hexdigest())
                             fhash = "%s_NOHash" % (file)  ## ignore hash, files are not likely to change
                             b = self.checkedLCMSFiles[fhash]
@@ -661,11 +643,11 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             pw.getCallingFunction()("statustext")(file, text="File: %s\nStatus: %s" % (file, "failed"))
                             failed["General error"].append(file)
 
-                    except ExpatError as ex:
+                    except ExpatError:
                         pw.getCallingFunction()("statuscolor")(file, "firebrick")
                         pw.getCallingFunction()("statustext")(file, text="File: %s\nStatus: %s" % (file, "failed"))
                         failed["Parsing error"].append(file)
-                    except Exception as ex:
+                    except Exception:
                         pw.getCallingFunction()("statuscolor")(file, "firebrick")
                         pw.getCallingFunction()("statustext")(file, text="File: %s\nStatus: %s" % (file, "failed"))
                         failed["General error"].append(file)
@@ -799,9 +781,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                                         "experimentName",
                                         "processingUUID_ext",
                                     ]:
-                                        if not (key in settings):
+                                        if key not in settings:
                                             settings[key] = {}
-                                        if not (value in settings[key]):
+                                        if value not in settings[key]:
                                             settings[key][value] = 0
                                         settings[key][value] += 1
                             if db_con is not None:
@@ -1085,12 +1067,12 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         for f in files:
             pw.getCallingFunction()("text")("Checking group %s\nFile: %s" % (name, f))
             x = self.checkFileImport(f)
-            if x == True:
+            if x:
                 pw.getCallingFunction()("statuscolor")(f, "olivedrab")
                 pw.getCallingFunction()("statustext")(f, text="File: %s\nStatus: %s" % (f, "imported"))
             else:
                 failed[x].append(f)
-                pw.getCallingFunction()( "statuscolor")(f, "Firebrick")
+                pw.getCallingFunction()("statuscolor")(f, "Firebrick")
                 pw.getCallingFunction()("statustext")(f, text="File: %s\nStatus: %s" % (f, x))
             i += 1
             pw.getCallingFunction()("value")(i)
@@ -1157,7 +1139,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
                 x = self.checkFileImport(f)
 
-                if x == True:
+                if x:
                     pw.getCallingFunction()("statuscolor")(f, "olivedrab")
                     pw.getCallingFunction()("statustext")(f, text="File: %s\nStatus: %s" % (f, "imported"))
                 else:
@@ -1686,7 +1668,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
                     title = "%s" % (str(fp.id))
                     try:
-                        title = "%s / %d samples" % (title, int(fp.N_found_Samples))
+                        title = "%s / %d rep." % (title, int(fp.N_found_Samples))
                     except:
                         pass
                     try:
@@ -1918,10 +1900,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 QtWidgets.QMessageBox.question(
                     self,
                     "MetExtract",
-                    "Raw data needs to be loaded to display EICs.\n"
-                    "Load entire chromatograms (Yes) or just detected m/z values (No)?\n\n"
-                    "If you have limited RAM, choose No.\n"
-                    "Note: loading only detected m/z values disables 'Show custom feature'.",
+                    "Raw data needs to be loaded to display EICs.\nLoad entire chromatograms (Yes) or just detected m/z values (No)?\n\nIf you have limited RAM, choose No.\nNote: loading only detected m/z values disables 'Show custom feature'.",
                     QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
                 )
                 == QtWidgets.QMessageBox.No
@@ -1995,13 +1974,13 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     offsetOrder.append((group.name, group.color if group.color else "gray"))
                 for i in range(len(group.files)):
                     fi = str(group.files[i]).replace("\\", "/")
-                    a = fi[fi.rfind("/") + 1:]
+                    a = fi[fi.rfind("/") + 1 :]
                     if ".mzXML" in a:
-                        a = a[:a.find(".mzXML")]
+                        a = a[: a.find(".mzXML")]
                     elif ".mzxml" in a.lower():
-                        a = a[:a.lower().find(".mzxml")]
+                        a = a[: a.lower().find(".mzxml")]
                     elif ".mzML" in a:
-                        a = a[:a.find(".mzML")]
+                        a = a[: a.find(".mzML")]
 
                     pw.getCallingFunction()("text")("MZ: %.5f\nFile: '%s'" % (pi.mz, a))
                     pw.getCallingFunction()("value")(done)
@@ -2014,8 +1993,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     if scanEvent is None:
                         # Try to find a valid filter line
                         filterLines = self.loadedMZXMLs[fi].getFilterLines(
-                            includeMS1=True, includeMS2=False,
-                            includePosPolarity=True, includeNegPolarity=True,
+                            includeMS1=True,
+                            includeMS2=False,
+                            includePosPolarity=True,
+                            includeNegPolarity=True,
                         )
                         if filterLines:
                             # Pick the filter line matching the ionisation mode if available
@@ -2032,8 +2013,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
                     try:
                         availableFilterLines = self.loadedMZXMLs[fi].getFilterLines(
-                            includeMS1=True, includeMS2=False,
-                            includePosPolarity=True, includeNegPolarity=True,
+                            includeMS1=True,
+                            includeMS2=False,
+                            includePosPolarity=True,
+                            includeNegPolarity=True,
                         )
                         if scanEvent not in availableFilterLines:
                             continue
@@ -2189,9 +2172,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.ui.resultsExperiment_plot.axes.set_xlabel("Retention time (min)")
             self.ui.resultsExperiment_plot.axes.set_ylabel("Intensity")
             sepLabel = "experimental group" if separateBy == "Group" else "sample"
-            self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_title(
-                "Overlaid EICs (separated artificially by %s, shift=%.2f min)" % (sepLabel, shiftMinutes)
-            )
+            self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_title("Overlaid EICs (separated artificially by %s, shift=%.2f min)" % (sepLabel, shiftMinutes))
             if len(plotItems) == 1:
                 self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_title(
                     "EICs of %.5f (%.5f), %.2f min, %s\n(separated by %s, shift=%.2f min)"
@@ -2204,9 +2185,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         shiftMinutes,
                     )
                 )
-            self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_xlabel(
-                "Retention time (min) + %s-index × %.2f min" % (sepLabel, shiftMinutes)
-            )
+            self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_xlabel("Retention time (min) + %s-index × %.2f min" % (sepLabel, shiftMinutes))
             self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_ylabel("Intensity")
             self.ui.resultsExperimentMSScanPeaks_plot.axes.set_xlabel("M/Z")
             self.ui.resultsExperimentMSScanPeaks_plot.axes.set_ylabel("Normalized Intensity\nSeparated by sample")
@@ -2345,8 +2324,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 self.ui.isotopeBText.setText(str(sett.value("LabellingElementB")))
             if sett.contains("IsotopicAbundanceB") and self.labellingExperiment == METABOLOME:
                 self.ui.isotopicAbundanceB.setValue(self.to_double(sett.value("IsotopicAbundanceB")) * 100.0)
-            if sett.contains("useCValidation") and self.labellingExperiment == METABOLOME:
-                self.ui.useCValidation.setCheckState(self.to_int(sett.value("useCValidation")))
+            if sett.contains("useCValidation"):
+                self.ui.useCValidation.setCheckState(QtCore.Qt.CheckState(self.to_int(sett.value("useCValidation"))))
             if sett.contains("useRatio") and self.labellingExperiment == METABOLOME:
                 self.ui.useRatio.setChecked(self.to_bool(sett.value("useRatio")))
             if sett.contains("minRatio") and self.labellingExperiment == METABOLOME:
@@ -2382,6 +2361,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 self.ui.isotopePatternCountA.setValue(self.to_int(sett.value("IsotopicPatternCountA")))
             if sett.contains("IsotopicPatternCountB"):
                 self.ui.isotopePatternCountB.setValue(self.to_int(sett.value("IsotopicPatternCountB")))
+            if sett.contains("ScanIndexOffset"):
+                self.ui.scanIndexOffset.setValue(self.to_int(sett.value("ScanIndexOffset")))
             if sett.contains("lowAbundanceIsotopeCutoff"):
                 self.ui.isoAbundance.setChecked(self.to_bool(sett.value("lowAbundanceIsotopeCutoff")))
             if sett.contains("IntensityAbundanceErrorA"):
@@ -2439,17 +2420,12 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if sett.contains("doubleSpinBox_maxPeakRatio"):
                 self.ui.doubleSpinBox_maxPeakRatio.setValue(self.to_double(sett.value("doubleSpinBox_maxPeakRatio")))
 
-            # Peak width / FWHM filter
-            if sett.contains("checkPeakWidthFilter"):
-                self.ui.groupBox_peakWidthFilter.setChecked(self.to_bool(sett.value("checkPeakWidthFilter")))
-            if sett.contains("minPeakWidth"):
-                self.ui.doubleSpinBox_minPeakWidth.setValue(self.to_double(sett.value("minPeakWidth")))
-            if sett.contains("maxPeakWidth"):
-                self.ui.doubleSpinBox_maxPeakWidth.setValue(self.to_double(sett.value("maxPeakWidth")))
-            if sett.contains("minFWHM"):
-                self.ui.doubleSpinBox_minFWHM.setValue(self.to_double(sett.value("minFWHM")))
-            if sett.contains("maxFWHM"):
-                self.ui.doubleSpinBox_maxFWHM.setValue(self.to_double(sett.value("maxFWHM")))
+            # Peak picking settings (algorithm + post-processing filters)
+            if sett.contains("peakPickingSettings"):
+                try:
+                    self._peakPickingSettings = json.loads(sett.value("peakPickingSettings"))
+                except Exception:
+                    pass
 
             if sett.contains("calcIsoRatioNative"):
                 self.ui.calcIsoRatioNative_spinBox.setValue(self.to_int(sett.value("calcIsoRatioNative")))
@@ -2665,10 +2641,11 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 sett.setValue("IsotopicAbundanceA", self.ui.isotopicAbundanceA.value() / 100.0)
                 sett.setValue("LabellingElementB", self.ui.isotopeBText.text())
                 sett.setValue("IsotopicAbundanceB", self.ui.isotopicAbundanceB.value() / 100.0)
-                sett.setValue("useCValidation", str(self.ui.useCValidation.checkState()))
                 sett.setValue("useRatio", self.ui.useRatio.isChecked())
                 sett.setValue("minRatio", self.ui.minRatio.value())
                 sett.setValue("maxRatio", self.ui.maxRatio.value())
+
+            sett.setValue("useCValidation", self.ui.useCValidation.checkState().value)
 
             sett.setValue("IntensityThreshold", self.ui.intensityThreshold.value())
             sett.setValue("IntensityCutoff", self.ui.intensityCutoff.value())
@@ -2679,6 +2656,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             sett.setValue("MaxMassDeviation", self.ui.ppmRangeIdentification.value())
             sett.setValue("IsotopicPatternCountA", self.ui.isotopePatternCountA.value())
             sett.setValue("IsotopicPatternCountB", self.ui.isotopePatternCountB.value())
+            sett.setValue("ScanIndexOffset", self.ui.scanIndexOffset.value())
             sett.setValue(
                 "lowAbundanceIsotopeCutoff",
                 self.ui.isoAbundance.checkState() == QtCore.Qt.Checked,
@@ -2713,12 +2691,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             sett.setValue("doubleSpinBox_minPeakRatio", self.ui.doubleSpinBox_minPeakRatio.value())
             sett.setValue("doubleSpinBox_maxPeakRatio", self.ui.doubleSpinBox_maxPeakRatio.value())
 
-            # Peak width / FWHM filter
-            sett.setValue("checkPeakWidthFilter", self.ui.groupBox_peakWidthFilter.isChecked())
-            sett.setValue("minPeakWidth", self.ui.doubleSpinBox_minPeakWidth.value())
-            sett.setValue("maxPeakWidth", self.ui.doubleSpinBox_maxPeakWidth.value())
-            sett.setValue("minFWHM", self.ui.doubleSpinBox_minFWHM.value())
-            sett.setValue("maxFWHM", self.ui.doubleSpinBox_maxFWHM.value())
+            # Peak picking settings (algorithm + post-processing filters)
+            sett.setValue("peakPickingSettings", json.dumps(self._peakPickingSettings))
 
             sett.setValue("calcIsoRatioNative", self.ui.calcIsoRatioNative_spinBox.value())
             sett.setValue("calcIsoRatioLabelled", self.ui.calcIsoRatioLabelled_spinBox.value())
@@ -2863,9 +2837,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             sett.beginGroup("MetExtract")
 
             sett.setValue("Version", MetExtractVersion)
-            import uuid
-            import platform
             import datetime
+            import platform
+            import uuid
 
             sett.setValue(
                 "UUID_ext",
@@ -2934,8 +2908,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             logging.info("CWD set to '%s'" % file)
 
     def openTempDir(self):
-        import subprocess
-
         subprocess.Popen('explorer "' + local_folder)
 
     def aboutMe(self):
@@ -2950,9 +2922,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     # open local MetExtract documentation
     # taken from http://stackoverflow.com/questions/4216985/call-to-operating-system-to-open-url
     def helpMe(self):
-        import subprocess
-        import webbrowser
         import sys
+        import webbrowser
 
         url = get_main_dir() + "/documentation/index.html"
         if sys.platform == "darwin":  # in case of OS X
@@ -3076,13 +3047,19 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # get all individual LC-HRMS files for processing
         files = []
 
+        # --- Unified peak picker and filter config ---
+        from .chromPeakPicking.peakpickers import make_peak_picker, make_peak_filter_config
+
+        picker = make_peak_picker(self._peakPickingSettings)
+        filter_config = make_peak_filter_config(self._peakPickingSettings)
+
         indGroups = {}
         for group in definedGroups:
             grName = str(group.name)
             indGroups[grName] = []
             for file in natSort(group.files):
                 indGroups[grName].append(str(file))
-                if not (file in files):
+                if file not in files:
                     files.append(file)
 
         errorCount = 0
@@ -3134,13 +3111,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     exExperimentID=str(self.ui.exExperimentID_LineEdit.text()),
                     exComments=str(self.ui.exComments_TextEdit.toPlainText()),
                     exExperimentName=str(self.ui.exExperimentName_LineEdit.text()),
-                    writePDF=self.ui.savePDF.checkState() == QtCore.Qt.Checked,
-                    writeFeatureML=self.ui.saveFeatureML.checkState() == QtCore.Qt.Checked,
-                    writeTSV=self.ui.saveCSV.checkState() == QtCore.Qt.Checked,
-                    writeMZXML=writeMZXMLOptions,
                     metabolisationExperiment=self.labellingExperiment == TRACER,
-                    intensityThreshold=self.ui.intensityThreshold.value(),
-                    intensityCutoff=self.ui.intensityCutoff.value(),
                     labellingisotopeA=str(self.ui.isotopeAText.text()),
                     labellingisotopeB=str(self.ui.isotopeBText.text()),
                     xOffset=self.isotopeBmass - self.isotopeAmass,
@@ -3149,6 +3120,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     maxRatio=self.ui.maxRatio.value(),
                     useCIsotopePatternValidation=int(self.ui.useCValidation.checkState().value),
                     configuredTracer=self.configuredTracer,
+                    intensityThreshold=self.ui.intensityThreshold.value(),
+                    intensityCutoff=self.ui.intensityCutoff.value(),
                     startTime=self.ui.scanStartTime.value(),
                     stopTime=self.ui.scanEndTime.value(),
                     maxLoading=self.ui.maxLoading.value(),
@@ -3162,30 +3135,16 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     purityL=self.ui.isotopicAbundanceB.value() / 100.0,
                     intensityErrorN=self.ui.baseRange.value() / 100.0,
                     intensityErrorL=self.ui.isotopeRange.value() / 100.0,
+                    scanIndexOffset=self.ui.scanIndexOffset.value(),
                     minSpectraCount=self.ui.minSpectraCount.value(),
                     clustPPM=self.ui.clustPPM.value(),
                     chromPeakPPM=self.ui.wavelet_EICppm.value(),
                     eicSmoothingWindow=str(self.ui.eicSmoothingWindow.currentText()),
                     eicSmoothingWindowSize=self.ui.eicSmoothingWindowSize.value(),
                     eicSmoothingPolynom=self.ui.smoothingPolynom_spinner.value(),
+                    peakCenterError=self.ui.peak_centerError.value(),
                     artificialMPshift_start=self.ui.spinBox_artificialMPshift_start.value(),
                     artificialMPshift_stop=self.ui.spinBox_artificialMPshift_stop.value(),
-                    scales=[
-                        self.ui.wavelet_minScale.value(),
-                        self.ui.wavelet_maxScale.value(),
-                    ],
-                    snrTh=self.ui.wavelet_SNRThreshold.value(),
-                    peakCenterError=self.ui.peak_centerError.value(),
-                    peakScaleError=self.ui.peak_scaleError.value(),
-                    minPeakCorr=self.ui.minPeakCorr.value() / 100.0,
-                    checkPeaksRatio=self.ui.checkBox_checkPeakRatio.isChecked(),
-                    minPeaksRatio=self.ui.doubleSpinBox_minPeakRatio.value(),
-                    maxPeaksRatio=self.ui.doubleSpinBox_maxPeakRatio.value(),
-                    checkPeakWidthFilter=self.ui.groupBox_peakWidthFilter.isChecked(),
-                    minPeakWidth=self.ui.doubleSpinBox_minPeakWidth.value(),
-                    maxPeakWidth=self.ui.doubleSpinBox_maxPeakWidth.value(),
-                    minFWHM=self.ui.doubleSpinBox_minFWHM.value(),
-                    maxFWHM=self.ui.doubleSpinBox_maxFWHM.value(),
                     calcIsoRatioNative=self.ui.calcIsoRatioNative_spinBox.value(),
                     calcIsoRatioLabelled=self.ui.calcIsoRatioLabelled_spinBox.value(),
                     calcIsoRatioMoiety=self.ui.calcIsoRatioMoiety_spinBox.value(),
@@ -3204,6 +3163,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     queue=queue,
                     pID=i + 1,
                     meVersion="MetExtract (%s)" % MetExtractVersion,
+                    peak_picker=picker,
+                    peak_filter_config=filter_config,
                 )
                 for i in range(len(files))
             ]
@@ -3246,6 +3207,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             loop = True
             freeSlots = list(range(min(len(files), cpus)))
             assignedThreads = {}
+            messages_to_print = defaultdict(list)
             while loop and not self.terminateJobs:
                 try:
                     completed = res._index
@@ -3262,6 +3224,22 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             mess[mes.pid][mes.mes] = mes
 
                         for v in mess.values():
+                            if "start" in v.keys():
+                                mes = v["start"]
+                                if len(freeSlots) > 0:
+                                    w = freeSlots.pop()
+                                    assignedThreads[mes.pid] = w
+
+                                    pw.getCallingFunction()("statuscolor")(pIds[mes.pid], "orange")
+                                    pw.getCallingFunction()("statustext")(
+                                        pIds[mes.pid],
+                                        text="File: %s\nStatus: %s\nProcess ID: %d" % (pIds[mes.pid], "processing", mes.pid),
+                                    )
+                                else:
+                                    logging.error("Something went wrong..")
+                                    logging.error('Progress bars do not work correctly, but files will be processed and "finished.." will be printed..')
+
+                        for v in mess.values():
                             if "end" in v.keys() or "failed" in v.keys():
                                 mes = None
                                 if "end" in v.keys():
@@ -3272,6 +3250,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                                 freeS = assignedThreads[mes.pid]
                                 pw.getCallingFunction(assignedThreads[mes.pid] + 1)("text")("")
                                 pw.getCallingFunction(assignedThreads[mes.pid] + 1)("value")(0)
+
+                                pw.getCallingFunction(assignedThreads[mes.pid] + 1)("log")("\n".join(messages_to_print[mes.pid + 1]))
 
                                 pw.getCallingFunction()("statuscolor")(
                                     pIds[mes.pid],
@@ -3294,28 +3274,18 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                                     freeSlots.append(freeS)
 
                         for v in mess.values():
-                            if "start" in v.keys():
-                                mes = v["start"]
-                                if len(freeSlots) > 0:
-                                    w = freeSlots.pop()
-                                    assignedThreads[mes.pid] = w
-
-                                    pw.getCallingFunction()("statuscolor")(pIds[mes.pid], "orange")
-                                    pw.getCallingFunction()("statustext")(
-                                        pIds[mes.pid],
-                                        text="File: %s\nStatus: %s\nProcess ID: %d" % (pIds[mes.pid], "processing", mes.pid),
-                                    )
-                                else:
-                                    logging.error("Something went wrong..")
-                                    logging.error('Progress bars do not work correctly, but files will be processed and "finished.." will be printed..')
-
-                        for v in mess.values():
                             for mes in v.values():
-                                if mes.mes in ["log", "text", "max", "value"]:
+                                if mes.mes == "log":
+                                    messages_to_print[mes.pid + 1].append(mes.val)
+                                elif mes.mes in ["text", "max", "value"]:
                                     if mes.pid in assignedThreads:
                                         pw.getCallingFunction(assignedThreads[mes.pid] + 1)(mes.mes)(mes.val)
                                     else:
                                         logging.error("Error in messaging pipeline of subprocess id %d" % mes.pid)
+                                elif mes.mes in ["end", "failed", "start"]:
+                                    pass
+                                else:
+                                    logging.error(f"Received unknown message {mes.mes} with payload {mes.__dict__}")
 
                         elapsed = (time.time() - start) / 60.0
                         hours = ""
@@ -3333,7 +3303,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             )
                         )
                         time.sleep(0.5)
-                except Exception as exc:
+                except Exception:
                     traceback.print_exc()
 
             # Log time used for processing of individual files
@@ -3381,10 +3351,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             exExperimentID=str(self.ui.exExperimentID_LineEdit.text()),
                             exComments=str(self.ui.exComments_TextEdit.toPlainText()),
                             exExperimentName=str(self.ui.exExperimentName_LineEdit.text()),
-                            writePDF=self.ui.savePDF.checkState() == QtCore.Qt.Checked,
-                            writeFeatureML=self.ui.saveFeatureML.checkState() == QtCore.Qt.Checked,
-                            writeTSV=self.ui.saveCSV.checkState() == QtCore.Qt.Checked,
-                            writeMZXML=writeMZXMLOptions,
                             metabolisationExperiment=self.labellingExperiment == TRACER,
                             intensityThreshold=self.ui.intensityThreshold.value(),
                             intensityCutoff=self.ui.intensityCutoff.value(),
@@ -3409,6 +3375,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             purityL=self.ui.isotopicAbundanceB.value() / 100.0,
                             intensityErrorN=self.ui.baseRange.value() / 100.0,
                             intensityErrorL=self.ui.isotopeRange.value() / 100.0,
+                            scanIndexOffset=self.ui.scanIndexOffset.value(),
                             minSpectraCount=self.ui.minSpectraCount.value(),
                             clustPPM=self.ui.clustPPM.value(),
                             chromPeakPPM=self.ui.wavelet_EICppm.value(),
@@ -3428,11 +3395,14 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             checkPeaksRatio=self.ui.checkBox_checkPeakRatio.isChecked(),
                             minPeaksRatio=self.ui.doubleSpinBox_minPeakRatio.value(),
                             maxPeaksRatio=self.ui.doubleSpinBox_maxPeakRatio.value(),
-                            checkPeakWidthFilter=self.ui.groupBox_peakWidthFilter.isChecked(),
-                            minPeakWidth=self.ui.doubleSpinBox_minPeakWidth.value(),
-                            maxPeakWidth=self.ui.doubleSpinBox_maxPeakWidth.value(),
-                            minFWHM=self.ui.doubleSpinBox_minFWHM.value(),
-                            maxFWHM=self.ui.doubleSpinBox_maxFWHM.value(),
+                            checkPeakWidthFilter=self._peakPickingSettings.get("pf_enabled", False),
+                            minPeakWidth=self._peakPickingSettings.get("pf_min_peak_width", 0.0),
+                            maxPeakWidth=self._peakPickingSettings.get("pf_max_peak_width", 9999.0),
+                            minFWHM=self._peakPickingSettings.get("pf_min_fwhm", 0.0),
+                            maxFWHM=self._peakPickingSettings.get("pf_max_fwhm", 9999.0),
+                            minApexToFlankFactor=self._peakPickingSettings.get("pf_min_apex_to_flank_factor", 0.0),
+                            minApexToFlankIncrease=self._peakPickingSettings.get("pf_min_apex_to_flank_increase", 0.0),
+                            minSnr=self._peakPickingSettings.get("pf_min_snr", 0.0),
                             calcIsoRatioNative=self.ui.calcIsoRatioNative_spinBox.value(),
                             calcIsoRatioLabelled=self.ui.calcIsoRatioLabelled_spinBox.value(),
                             calcIsoRatioMoiety=self.ui.calcIsoRatioMoiety_spinBox.value(),
@@ -3578,13 +3548,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         exExperimentID=str(self.ui.exExperimentID_LineEdit.text()),
                         exComments=str(self.ui.exComments_TextEdit.toPlainText()),
                         exExperimentName=str(self.ui.exExperimentName_LineEdit.text()),
-                        writePDF=False,
-                        writeFeatureML=False,
-                        writeTSV=False,
-                        writeMZXML=0,
                         metabolisationExperiment=self.labellingExperiment == TRACER,
-                        intensityThreshold=self.ui.intensityThreshold.value(),
-                        intensityCutoff=self.ui.intensityCutoff.value(),
                         labellingisotopeA=str(self.ui.isotopeAText.text()),
                         labellingisotopeB=str(self.ui.isotopeBText.text()),
                         xOffset=self.isotopeBmass - self.isotopeAmass,
@@ -3593,6 +3557,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         maxRatio=self.ui.maxRatio.value(),
                         useCIsotopePatternValidation=int(self.ui.useCValidation.checkState().value),
                         configuredTracer=self.configuredTracer,
+                        intensityThreshold=self.ui.intensityThreshold.value(),
+                        intensityCutoff=self.ui.intensityCutoff.value(),
                         startTime=self.ui.scanStartTime.value(),
                         stopTime=self.ui.scanEndTime.value(),
                         maxLoading=self.ui.maxLoading.value(),
@@ -3604,6 +3570,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         purityL=self.ui.isotopicAbundanceB.value() / 100.0,
                         intensityErrorN=self.ui.baseRange.value() / 100.0,
                         intensityErrorL=self.ui.isotopeRange.value() / 100.0,
+                        scanIndexOffset=self.ui.scanIndexOffset.value(),
                         minSpectraCount=self.ui.minSpectraCount.value(),
                         clustPPM=self.ui.clustPPM.value(),
                         chromPeakPPM=self.ui.wavelet_EICppm.value(),
@@ -3612,14 +3579,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         eicSmoothingPolynom=self.ui.smoothingPolynom_spinner.value(),
                         artificialMPshift_start=self.ui.spinBox_artificialMPshift_start.value(),
                         artificialMPshift_stop=self.ui.spinBox_artificialMPshift_stop.value(),
-                        scales=[
-                            self.ui.wavelet_minScale.value(),
-                            self.ui.wavelet_maxScale.value(),
-                        ],
-                        snrTh=self.ui.wavelet_SNRThreshold.value(),
-                        peakCenterError=self.ui.peak_centerError.value(),
-                        peakScaleError=self.ui.peak_scaleError.value(),
-                        minPeakCorr=self.ui.minPeakCorr.value() / 100.0,
+                        calcIsoRatioNative=self.ui.calcIsoRatioNative_spinBox.value(),
+                        calcIsoRatioLabelled=self.ui.calcIsoRatioLabelled_spinBox.value(),
+                        calcIsoRatioMoiety=self.ui.calcIsoRatioMoiety_spinBox.value(),
                         minCorrelationConnections=self.ui.minCorrelationConnections.value() / 100.0,
                         positiveScanEvent=str(self.ui.positiveScanEvent.currentText()),
                         negativeScanEvent=str(self.ui.negativeScanEvent.currentText()),
@@ -3635,6 +3597,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         queue=None,
                         pID=1,
                         meVersion="MetExtract (%s)" % MetExtractVersion,
+                        peak_picker=picker,
+                        peak_filter_config=filter_config,
                     )
 
                     procProc = FuncProcess(
@@ -3650,12 +3614,19 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         minConnectionRate=self.ui.minConnectionRate.value() / 100.0,
                         minPeakCorrelation=self.ui.minCorrelation.value() / 100.0,
                         useRatio=self.ui.useSILRatioForConvolution.checkState() == QtCore.Qt.Checked,
-                        runIdentificationInstance=runIdentificationInstance,
                         cpus=min(len(files), cpus),
                     )
-                    procProc.addKwd("pwMaxSet", procProc.getQueue())
-                    procProc.addKwd("pwValSet", procProc.getQueue())
-                    procProc.addKwd("pwTextSet", procProc.getQueue())
+
+                    # Create a shared Queue and Lock and attach to the RunIdentification instance
+                    q = procProc.getQueue()
+                    lock = Lock()
+                    runIdentificationInstance.queue = q
+                    runIdentificationInstance.lock = lock
+
+                    procProc.addKwd("pwMaxSet", q)
+                    procProc.addKwd("pwValSet", q)
+                    procProc.addKwd("pwTextSet", q)
+                    procProc.addKwd("runIdentificationInstance", runIdentificationInstance)
                     procProc.start()
 
                     pw.setCloseCallback(
@@ -4135,8 +4106,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.loadGroupsResultsFile(str(self.ui.groupsSave.text()))
 
     def showResultsSummary(self):
-        from .utils import SQLgetSingleFieldFromOneRow
-
         texts = []
 
         definedGroups = self.getAllSampleGroups()
@@ -4236,31 +4205,31 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                                 nMetabolites if nMetabolites > 0 else "",
                                 "%s (+/- %s)"
                                 % (
-                                    "%.2f" % nMZsPPMDelta if nMZsPPMDelta != None else "",
-                                    "%.2f" % nMZsPPMDeltaStd if nMZsPPMDeltaStd != None else "",
+                                    "%.2f" % nMZsPPMDelta if nMZsPPMDelta is not None else "",
+                                    "%.2f" % nMZsPPMDeltaStd if nMZsPPMDeltaStd is not None else "",
                                 )
-                                if nMZsPPMDelta != None
+                                if nMZsPPMDelta is not None
                                 else "",
                                 "%s; %s; %s"
                                 % (
                                     "%6.2f (+/- %s)"
                                     % (
                                         avgRatioSignals,
-                                        "%.2f" % avgRatioSignalsStd if avgRatioSignalsStd != None else "",
+                                        "%.2f" % avgRatioSignalsStd if avgRatioSignalsStd is not None else "",
                                     )
-                                    if avgRatioSignals != None
+                                    if avgRatioSignals is not None
                                     else "-",
-                                    "%6.2f" % avgRatioFeaturesArea if avgRatioFeaturesArea != None else "-",
-                                    "%6.2f" % avgRatioFeaturesAbundance if avgRatioFeaturesAbundance != None else "-",
+                                    "%6.2f" % avgRatioFeaturesArea if avgRatioFeaturesArea is not None else "-",
+                                    "%6.2f" % avgRatioFeaturesAbundance if avgRatioFeaturesAbundance is not None else "-",
                                 )
-                                if avgRatioSignalsStd != None or avgRatioFeaturesArea != None or avgRatioFeaturesAbundance != None
+                                if avgRatioSignalsStd is not None or avgRatioFeaturesArea is not None or avgRatioFeaturesAbundance is not None
                                 else "",
                                 "%.2f%% (+/- %s%%)"
                                 % (
                                     100 * avgEnrichmentL,
-                                    "%.2f" % (100 * avgEnrichmentLStd) if avgEnrichmentLStd != None else "",
+                                    "%.2f" % (100 * avgEnrichmentLStd) if avgEnrichmentLStd is not None else "",
                                 )
-                                if avgEnrichmentL != None
+                                if avgEnrichmentL is not None
                                 else "",
                             )
                         )
@@ -5512,7 +5481,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         useColi = 0
         maxIntX = 0
         maxIntY = 0
-        minIntX = 0
         minIntY = 0
         minMZ = 1000000
         maxMZ = 0
@@ -6028,7 +5996,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                                     alpha=0.15,
                                 )
 
-                    isMetabolisationExperiment = self.isTracerMetabolisationExperiment()
+                    self.isTracerMetabolisationExperiment()
                     mzD, purN, purL = self.getLabellingParametersForResult(cp.id)
 
                     toDrawMzs = []
@@ -6211,16 +6179,16 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             cp = item.child(childi).myData
 
                             if cp.ionMode == "-":
-                                mInt = max(toDrawIntsNeg)
+                                max(toDrawIntsNeg)
                                 toDrawInts = toDrawIntsNeg
                                 toDrawMzs = toDrawMZsNeg
                             else:
-                                mInt = max(toDrawIntsPos)
+                                max(toDrawIntsPos)
                                 toDrawInts = toDrawIntsPos
                                 toDrawMzs = toDrawMZsPos
 
                             if massSpectraAvailable:
-                                isMetabolisationExperiment = self.isTracerMetabolisationExperiment()
+                                self.isTracerMetabolisationExperiment()
                                 mzD, purN, purL = self.getLabellingParametersForResult(cp.id)
 
                                 bm = (
@@ -6290,7 +6258,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                                     drawArrowHead=True,
                                 )
 
-                                annotationHeight = h
 
                                 if self.ui.MSIsos.checkState() == QtCore.Qt.Checked:
                                     bml = (
@@ -6929,7 +6896,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             texts.append("")
                             featureIDToColsNum[childIDs[i]] = i
 
-                        cIds = ",".join(["%d" % f for f in childIDs])
+                        ",".join(["%d" % f for f in childIDs])
 
                         chrompeaks_df = self.currentOpenResultsFile.db_con.tables["chromPeaks"].filter(pl.col("id").is_in(childIDs))
                         for row_dict in chrompeaks_df.to_dicts():
@@ -7116,7 +7083,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         self.ui.pl2A.fig.canvas.draw()
                         self.ui.pl2B.fig.canvas.draw()
 
-                    except Exception as ex:
+                    except Exception:
                         traceback.print_exc()
                         logging.error(str(traceback))
 
@@ -7161,7 +7128,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     if self.ui.negEIC.isChecked():
                         invert = -1
 
-                    isMetabolisationExperiment = self.isTracerMetabolisationExperiment()
+                    self.isTracerMetabolisationExperiment()
                     mzD, purN, purL = self.getLabellingParametersForResult(cp.id)
 
                     toDrawMzs = []
@@ -7239,7 +7206,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         drawArrowHead=True,
                     )
 
-                    annotationHeight = h
 
                     if self.ui.MSIsos.checkState() == QtCore.Qt.Checked:
                         bml = (
@@ -7615,7 +7581,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             joined = mzbinskids_df.join(mzs_df, left_on="mzid", right_on="id", how="inner")
             grouped = joined.group_by("mzbinid").agg([pl.col("mz").min().alias("mzmin"), pl.col("mz").max().alias("mzmax"), pl.col("mz").count().alias("n")])
             for row_dict in grouped.to_dicts():
-                binid = row_dict["mzbinid"]
+                row_dict["mzbinid"]
                 mzmin = row_dict["mzmin"]
                 mzmax = row_dict["mzmax"]
                 n = row_dict["n"]
@@ -7893,8 +7859,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 id = row_dict["id"]
                 mzdifferrors = loads(base64.b64decode(row_dict["mzdifferrors"]))
                 mz = row_dict["mz"]
-                rt = row_dict["nPeakCenterMin"] / 60.0
-                if mzdifferrors.mean == None or mzdifferrors.mean < 1:
+                row_dict["nPeakCenterMin"] / 60.0
+                if mzdifferrors.mean is None or mzdifferrors.mean < 1:
                     removeids.append(id)
 
             if False:
@@ -7943,9 +7909,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 mz = row_dict["mz"]
                 center = row_dict["NPeakCenter"]
                 scale = row_dict["NPeakScale"]
-                peakRT = row_dict["NPeakCenterMin"] / 60.0
+                row_dict["NPeakCenterMin"] / 60.0
                 mzs = row_dict["mzs"]
-                mzsL = row_dict["mzsL"]
+                row_dict["mzsL"]
                 mzs = [float(t) for t in mzs.split(";")]
                 # mzsL = [float(t) for t in mzsL.split(";")]
                 mzsPeak = mzs[max(0, center - int(1.5 * scale)) : min(len(mzs) - 1, center + int(1.5 * scale))]
@@ -8530,11 +8496,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if useCol is None:
                 useCol = plotIndex
 
-            ylim = None
-            xlim = None
             if len(plt.twinxs) > 0 and not rearrange:
-                ylim = plt.twinxs[0].get_ylim()
-                xlim = plt.twinxs[0].get_xlim()
+                plt.twinxs[0].get_ylim()
+                plt.twinxs[0].get_xlim()
 
             if plotIndex == len(plt.twinxs):
                 plt.twinxs.append(plt.axes.twinx())
@@ -8558,7 +8522,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 plotCol = b[useCol % len(b)]
 
             if plot:
-                line = ax.plot(x, y, color=plotCol, label=label, linestyle=linestyle, gid=gid)
+                ax.plot(x, y, color=plotCol, label=label, linestyle=linestyle, gid=gid)
                 if addDC:
                     pass
                     # datacursor(line, formatter='{label}'.format)
@@ -8593,12 +8557,12 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         #    xlim = plt.twinxs[0].get_xlim()
 
         for ax in plt.twinxs:
-            if ylim != None:
+            if ylim is not None:
                 if len(ylim) == 1:
                     ax.set_ylim(ylim[0])
                 elif len(ylim) == 2:
                     ax.set_ylim(ylim[0], ylim[1])
-            if xlim != None:
+            if xlim is not None:
                 if len(xlim) == 1:
                     ax.set_xlim(xlim[0])
                 else:
@@ -8641,7 +8605,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 for row_dict in xics_df.to_dicts():
                     xic = [float(t) for t in row_dict["xic"].split(";")]
                     times = [float(t) / 60.0 for t in row_dict["times"].split(";")]
-                    xicL = [float(t) for t in row_dict["xicL"].split(";")]
+                    [float(t) for t in row_dict["xicL"].split(";")]
                 self.ui.pl2A.xics.append(xic)
                 self.ui.pl2A.times.append(times)
                 self.ui.pl2A.peaks.append([item.myData])
@@ -8870,7 +8834,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         featureGroupsRem = 0
         if item.myType == "feature":
             cp = item.myData
-            myType = item.myType
             myID = item.myID
             self.currentOpenResultsFile.curs.execute("delete from ChromPeaks where id=%d" % cp.id)
             self.currentOpenResultsFile.curs.execute("delete from featureGroupFeatures where fID=%d" % cp.id)
@@ -8892,7 +8855,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 self.ui.res_ExtractedData.topLevelItem(3).removeChild(self.ui.res_ExtractedData.topLevelItem(3).child(i))
                 featureGroupsRem += 1
         elif item.myType == "featureGroup":
-            myType = item.myType
             myID = item.myID
             partChromPeaks = []
             for j in range(item.childCount()):
@@ -9201,7 +9163,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         logging.info(
             "Loading (%s, intensity threshold %d counts) took %.1f minutes and used %s of Memory"
             % (
-                "entire chromatograms" if selectedMZs == None else "only detected feature pairs",
+                "entire chromatograms" if selectedMZs is None else "only detected feature pairs",
                 intensityThreshold,
                 duration / 60.0,
                 "%.1f MB" % usedMemory if usedMemory < 1024 else "%.1f GB" % (usedMemory / 1024),
@@ -9300,9 +9262,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             fl_combo.addItems(sorted(availableFilterLines))
             form.addRow("Filter line:", fl_combo)
 
-            btn_box = QtWidgets.QDialogButtonBox(
-                QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
-            )
+            btn_box = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
             btn_box.accepted.connect(dlg.accept)
             btn_box.rejected.connect(dlg.reject)
             form.addRow(btn_box)
@@ -9714,7 +9674,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
             metabolitesToPlot.append(Bunch(name="unknown_" + str(ogrp), ogroup=ogrp, features=features))
 
-        if pdfFile == None or pdfFile == False:
+        if pdfFile is None or not pdfFile:
             pdfFile = str(
                 QtWidgets.QFileDialog.getSaveFileName(
                     caption="Select pdf file",
@@ -9773,7 +9733,21 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def _openPeakPickingSettings(self):
         """Open the peak picking settings dialog."""
-        dlg = PeakPickingSettingsDialog(parent=self, current_settings=self._peakPickingSettings)
+        sample_files = [(group.name, f) for group in self.getAllSampleGroups() for f in group.files]
+        pos_items = [self.ui.positiveScanEvent.itemText(i) for i in range(self.ui.positiveScanEvent.count()) if self.ui.positiveScanEvent.itemText(i) not in ("None", "")]
+        neg_items = [self.ui.negativeScanEvent.itemText(i) for i in range(self.ui.negativeScanEvent.count()) if self.ui.negativeScanEvent.itemText(i) not in ("None", "")]
+        scan_events = {}
+        if pos_items:
+            scan_events["+"] = pos_items
+        if neg_items:
+            scan_events["-"] = neg_items
+
+        dlg = PeakPickingSettingsDialog(
+            parent=self,
+            current_settings=self._peakPickingSettings,
+            sample_files=sample_files,
+            scan_events=scan_events,
+        )
         if dlg.exec() == QtWidgets.QDialog.Accepted:
             self._peakPickingSettings = dlg.get_settings()
             logging.info("Peak picking settings updated: algorithm=%s", self._peakPickingSettings.get("algorithm", "wavelettransform"))
@@ -9960,7 +9934,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         gNames = {}
                         for gName, files in groups.items():
                             cleaned = gName.replace("\\", "/")
-                            cleaned = cleaned[(cleaned.rfind("/") + 1):]
+                            cleaned = cleaned[(cleaned.rfind("/") + 1) :]
                             gNames[cleaned] = len(files)
 
                         if (
@@ -9977,7 +9951,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             for gName in groupNames:
                                 files = groups[gName]
                                 cleanedName = gName.replace("\\", "/")
-                                cleanedName = cleanedName[(cleanedName.rfind("/") + 1):]
+                                cleanedName = cleanedName[(cleanedName.rfind("/") + 1) :]
                                 color = predefinedColors[self.ui.groupsList.rowCount() % len(predefinedColors)]
                                 self.addGroup(
                                     name=cleanedName,
@@ -9999,7 +9973,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def loadAvailableSettingsFile(self, file):
         try:
             self.loadSettingsFile(file)
-        except Exception as ex:
+        except Exception:
             pass
 
     def addDB(self, events):
@@ -10810,6 +10784,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         # Hide the old "Chromatographic separation" groupBox_10 (min/max scale controls removed)
         self.ui.groupBox_10.setVisible(False)
+
+        # Peak width / FWHM filter is now part of the peak picking settings dialog
+        self.ui.groupBox_peakWidthFilter.setVisible(False)
 
         # Add "Peak Picking Settings" button into the MZ processing column, before Peak matching
         self._peakPickingSettings = PeakPickingSettingsDialog.get_default_settings()

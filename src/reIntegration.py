@@ -15,20 +15,20 @@
 #    along with this program; if not, write to the Free Software
 #    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-from __future__ import print_function, division, absolute_import
+from __future__ import absolute_import, division, print_function
+
 import gc
 import logging
 import time
 import traceback
-from copy import copy
-from multiprocessing import Pool, Manager
+from multiprocessing import Manager, Pool
+
+import polars as pl
 
 from .Chromatogram import Chromatogram
 from .chromPeakPicking.MassSpecWavelet import MassSpecWavelet
-from .utils import Bunch, get_main_dir, getDBSuffix, getDBFormat
 from .PolarsDB import PolarsDB
-import polars as pl
-
+from .utils import Bunch
 
 # Constants for peak abundance calculation
 peakAbundanceUseSignalsSides = 2
@@ -210,10 +210,8 @@ class ReIntegrationProcessor:
             logging.error(f"   - Reintegration failed for feature pair (N) {self.forFile} ({mz} {rt}) [{exc}]")
 
         nFound = False
-        areaN = 0.0
         if r is not None:
             area, abundance, snr = r
-            areaN = area
             result[f"{fileName}_Found"] = "Reintegrated"
             result[f"{fileName}_Area_N"] = area
             result[f"{fileName}_Abundance_N"] = abundance
@@ -237,10 +235,8 @@ class ReIntegrationProcessor:
             logging.error(f"   - Reintegration failed for feature pair (L) {self.forFile} ({lmz} {rt}) [{exc}]")
 
         lFound = False
-        areaL = 0.0
         if r is not None:
             area, abundance, snr = r
-            areaL = area
             result[f"{fileName}_Found"] = "Reintegrated"
             result[f"{fileName}_Area_L"] = area
             result[f"{fileName}_Abundance_L"] = abundance
@@ -502,7 +498,6 @@ def reIntegrateResultsFile(
     loop = True
     freeSlots = list(range(min(len(fDict), cpus)))
     assignedThreads = {}
-    completed = 0
 
     while loop and (selfObj is None or not selfObj.terminateJobs):
         completed_now = imap_results._index
@@ -613,7 +608,7 @@ def reIntegrateResultsFile(
         results_df = results_df.with_columns(pl.Series(col_name, col_data))
 
     # Update values from results
-    print(f"Updating results in all_results table")
+    print("Updating results in all_results table")
 
     for row_idx, row in enumerate(results_df.iter_rows()):
         num = int(results_df[row_idx, "Num"])
@@ -674,7 +669,7 @@ def interruptReIntegrationProcessing(pool, selfObj):
         True if processing should be interrupted, False otherwise
     """
     try:
-        from PySide6 import QtWidgets, QtCore
+        from PySide6 import QtWidgets
 
         if (
             QtWidgets.QMessageBox.question(

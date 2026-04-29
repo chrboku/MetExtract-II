@@ -4,9 +4,7 @@ This module provides the XCMS centWave peak picking interface using
 the native MatchedFilterPeakPicker while keeping the same public API.
 """
 
-from ..utils import Bunch
 from .peakpickers import MatchedFilterPeakPicker, PeakPickerAdapter
-import numpy as np
 
 
 class XCMSCentwave:

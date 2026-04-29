@@ -16,20 +16,21 @@ Classes:
 
 from __future__ import annotations
 
-import warnings
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
 from enum import Enum
-from typing import Callable, Optional, Sequence
+from dataclasses import dataclass
+from typing import Optional, Sequence
 
 import numpy as np
-from scipy import signal, optimize, stats
+from scipy import optimize, signal
 from scipy.ndimage import gaussian_filter1d, uniform_filter1d
 
+from ..utils import Bunch
 
 # ---------------------------------------------------------------------------
 # Data structures
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class ChromatographicPeak:
@@ -61,6 +62,44 @@ class ChromatographicPeak:
     apex_index: int = 0
     baseline: float = 0.0
 
+    @staticmethod
+    def from_Bunch(bu: Bunch, eic_rt: np.ndarray, eic_int: np.ndarray) -> ChromatographicPeak:
+        """Convenience constructor from a Bunch object.
+        Example bunch
+            peak = Bunch(
+                peakIndex=int(cur[0]),        ## index in eic_rt
+                peakScale=float(cur[1]),      ## arbitrary, not really needed
+                peakSNR=float(cur[2]),        ## float
+                peakArea=float(cur[3]),       ## float
+                peakLeftFlank=float(cur[1]),  ## offset relative to peakIndex
+                peakRightFlank=float(cur[1]), ## offset relative to peakIndex
+            )
+        """
+
+        return ChromatographicPeak(
+            start_rt=float(eic_rt[int(bu.peakIndex - bu.peakLeftFlank)]),
+            end_rt=float(eic_rt[int(bu.peakIndex + bu.peakRightFlank)]),
+            apex_rt=float(eic_rt[int(bu.peakIndex)]),
+            fwhm=BasePeakPicker.compute_fwhm(eic_rt, eic_int, int(bu.peakIndex), int(bu.peakIndex - bu.peakLeftFlank), int(bu.peakIndex + bu.peakRightFlank)),
+            snr=BasePeakPicker.compute_snr(eic_int, int(bu.peakIndex), int(bu.peakIndex - bu.peakLeftFlank), int(bu.peakIndex + bu.peakRightFlank)),
+            area=BasePeakPicker.compute_area(eic_rt, eic_int, int(bu.peakIndex - bu.peakLeftFlank), int(bu.peakIndex + bu.peakRightFlank)),
+            apex_intensity=float(eic_int[int(bu.peakIndex)]),
+            start_index=int(bu.peakIndex - bu.peakLeftFlank),
+            end_index=int(bu.peakIndex + bu.peakRightFlank),
+            apex_index=int(bu.peakIndex),
+            baseline=0.0,  # Baseline is not provided in the Bunch, can be estimated later if needed
+        )
+
+    def to_Bunch(self):
+        return Bunch(
+            peakIndex=self.apex_index,
+            peakScale=1.0,  # Scale is not defined in ChromatographicPeak, set to 1.0 or compute if needed
+            peakSNR=self.snr,
+            peakArea=self.area,
+            peakLeftFlank=self.apex_index - self.start_index,
+            peakRightFlank=self.end_index - self.apex_index,
+        )
+
 
 class SmoothingMethod(str, Enum):
     """Supported smoothing kernels."""
@@ -80,6 +119,7 @@ class DistributionType(str, Enum):
 # ---------------------------------------------------------------------------
 # Base class
 # ---------------------------------------------------------------------------
+
 
 class BasePeakPicker(ABC):
     """Abstract base class for all peak picking algorithms."""
@@ -258,6 +298,7 @@ class BasePeakPicker(ABC):
 # Method 1: GradientDescentPeakPicker
 # ---------------------------------------------------------------------------
 
+
 class GradientDescentPeakPicker(BasePeakPicker):
     """Smoothes the EIC, finds local maxima and descends slopes to define bounds.
 
@@ -266,13 +307,9 @@ class GradientDescentPeakPicker(BasePeakPicker):
         smoothing_window: Kernel size for smoothing.
         smoothing_iterations: Number of sequential smoothing passes.
         smoothing_polynom: Polynomial order (SG only).
-        min_intensity: Minimum apex intensity for a peak to be kept.
-        min_flank_intensity: Minimum intensity at the flank to continue descending.
         min_increase_ratio: Ratio threshold to stop descending.
         consecutive_scans: Number of consecutive scans to check for intensity change.
         intensity_change_threshold: Stop when change over *consecutive_scans* < this.
-        min_width: Minimum peak width in scans.
-        max_width: Maximum peak width in scans.
     """
 
     def __init__(
@@ -281,38 +318,30 @@ class GradientDescentPeakPicker(BasePeakPicker):
         smoothing_window: int = 5,
         smoothing_iterations: int = 1,
         smoothing_polynom: int = 3,
-        min_intensity: float = 1000.0,
-        min_flank_intensity: float = 10.0,
         min_increase_ratio: float = 0.05,
         consecutive_scans: int = 3,
         intensity_change_threshold: float = 0.0,
-        min_width: int = 3,
-        max_width: int = 300,
     ):
         self.smoothing_method = smoothing_method
         self.smoothing_window = smoothing_window
         self.smoothing_iterations = smoothing_iterations
         self.smoothing_polynom = smoothing_polynom
-        self.min_intensity = min_intensity
-        self.min_flank_intensity = min_flank_intensity
         self.min_increase_ratio = min_increase_ratio
         self.consecutive_scans = max(consecutive_scans, 1)
         self.intensity_change_threshold = intensity_change_threshold
-        self.min_width = min_width
-        self.max_width = max_width
 
     # -- helpers ------------------------------------------------------------
 
     def _find_local_maxima(self, y: np.ndarray) -> list[int]:
-        """Return indices of local maxima above *min_intensity*."""
+        """Return indices of all local maxima."""
         if y.size < 3:
             return []
         maxima: list[int] = []
-        if y[0] >= self.min_intensity and y[0] > y[1]:
+        if y[0] > y[1]:
             maxima.append(0)
-        mid = (y[1:-1] >= self.min_intensity) & (y[:-2] < y[1:-1]) & (y[1:-1] > y[2:])
+        mid = (y[:-2] < y[1:-1]) & (y[1:-1] > y[2:])
         maxima.extend((np.where(mid)[0] + 1).tolist())
-        if y[-1] >= self.min_intensity and y[-2] <= y[-1]:
+        if y[-2] <= y[-1]:
             maxima.append(len(y) - 1)
         return maxima
 
@@ -335,8 +364,6 @@ class GradientDescentPeakPicker(BasePeakPicker):
             if (y[pos] - y[window_start]) < self.intensity_change_threshold and pos < apex:
                 break
 
-            if y[pos - 1] < self.min_flank_intensity:
-                break
             if ratio < self.min_increase_ratio:
                 break
             pos -= 1
@@ -360,8 +387,6 @@ class GradientDescentPeakPicker(BasePeakPicker):
             if (y[pos] - y[window_end]) < self.intensity_change_threshold and pos > apex:
                 break
 
-            if y[pos + 1] < self.min_flank_intensity:
-                break
             if ratio < self.min_increase_ratio:
                 break
             pos += 1
@@ -393,9 +418,6 @@ class GradientDescentPeakPicker(BasePeakPicker):
         for apex in maxima:
             left = self._descend_left(smoothed, apex)
             right = self._descend_right(smoothed, apex)
-            width = right - left
-            if width < self.min_width or width > self.max_width:
-                continue
             peaks.append(self._build_peak(rt, intensity, apex, left, right))
         return peaks
 
@@ -403,6 +425,7 @@ class GradientDescentPeakPicker(BasePeakPicker):
 # ---------------------------------------------------------------------------
 # Method 2: GMMPeakPicker
 # ---------------------------------------------------------------------------
+
 
 def _gaussian(x: np.ndarray, amplitude: float, mean: float, sigma: float) -> np.ndarray:
     return amplitude * np.exp(-0.5 * ((x - mean) / sigma) ** 2)
@@ -415,6 +438,7 @@ def _emg(x: np.ndarray, amplitude: float, mean: float, sigma: float, lam: float)
     with np.errstate(over="ignore", invalid="ignore"):
         arg = (mean + lam * sigma**2 - x) / (np.sqrt(2.0) * sigma)
         from scipy.special import erfc
+
         part2 = erfc(arg)
     result = amplitude * part1 * part2
     return np.nan_to_num(result, nan=0.0, posinf=0.0, neginf=0.0)
@@ -485,7 +509,7 @@ class GMMPeakPicker(BasePeakPicker):
         if len(local_max_idx) == 0:
             local_max_idx = np.array([np.argmax(int_chunk)])
         sorted_idx = local_max_idx[np.argsort(int_chunk[local_max_idx])[::-1]]
-        chosen = sorted_idx[: n_peaks]
+        chosen = sorted_idx[:n_peaks]
 
         rt_range = rt_chunk[-1] - rt_chunk[0]
         sigma_guess = max(rt_range / (2.0 * n_peaks), 0.1)
@@ -581,6 +605,7 @@ class GMMPeakPicker(BasePeakPicker):
 # Method 3: WaveletTransformPeakPicker
 # ---------------------------------------------------------------------------
 
+
 class WaveletTransformPeakPicker(BasePeakPicker):
     """CWT-based peak detection inspired by MassSpecWavelet.
 
@@ -590,7 +615,6 @@ class WaveletTransformPeakPicker(BasePeakPicker):
         min_scale: Minimum wavelet scale in number of scans.
         max_scale: Maximum wavelet scale in number of scans.
         num_scales: Number of scales to evaluate.
-        snr_threshold: Minimum SNR for accepting a ridge.
         min_ridge_length: Minimum number of scales a ridge must span.
         gap_threshold: Max consecutive scale gaps allowed in a ridge.
     """
@@ -600,14 +624,12 @@ class WaveletTransformPeakPicker(BasePeakPicker):
         min_scale: int = 3,
         max_scale: int = 11,
         num_scales: int = 8,
-        snr_threshold: float = 3.0,
         min_ridge_length: int = 4,
         gap_threshold: int = 2,
     ):
         self.min_scale = max(min_scale, 1)
         self.max_scale = max_scale
         self.num_scales = num_scales
-        self.snr_threshold = snr_threshold
         self.min_ridge_length = max(min_ridge_length, 1)
         self.gap_threshold = gap_threshold
 
@@ -618,9 +640,9 @@ class WaveletTransformPeakPicker(BasePeakPicker):
         """Generate a Ricker (Mexican hat) wavelet."""
         x = np.arange(points) - (points - 1) / 2
         sigma = width
-        norm = 2.0 / (np.sqrt(3.0 * sigma) * (np.pi ** 0.25))
-        wsq = sigma ** 2
-        vec = norm * (1.0 - (x ** 2) / wsq) * np.exp(-(x ** 2) / (2.0 * wsq))
+        norm = 2.0 / (np.sqrt(3.0 * sigma) * (np.pi**0.25))
+        wsq = sigma**2
+        vec = norm * (1.0 - (x**2) / wsq) * np.exp(-(x**2) / (2.0 * wsq))
         return vec
 
     def _cwt_matrix(self, intensity: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -741,11 +763,6 @@ class WaveletTransformPeakPicker(BasePeakPicker):
             best_scale_idx, best_pos = max(ridge, key=lambda sp: cwt_mat[sp[0], sp[1]])
             if best_pos in used_positions:
                 continue
-            # Check SNR at the best scale
-            row = cwt_mat[best_scale_idx]
-            noise_est = float(np.median(np.abs(row)))
-            if noise_est > 0 and cwt_mat[best_scale_idx, best_pos] / noise_est < self.snr_threshold:
-                continue
             left, right = self._peak_bounds_from_cwt(intensity, cwt_mat, best_scale_idx, best_pos)
             # Refine apex as the argmax in the original intensity within bounds
             apex = left + int(np.argmax(intensity[left : right + 1]))
@@ -757,6 +774,7 @@ class WaveletTransformPeakPicker(BasePeakPicker):
 # ---------------------------------------------------------------------------
 # Method 4: SecondDerivativePeakPicker
 # ---------------------------------------------------------------------------
+
 
 class SecondDerivativePeakPicker(BasePeakPicker):
     """Uses the Savitzky-Golay second derivative to find peaks.
@@ -860,6 +878,7 @@ class SecondDerivativePeakPicker(BasePeakPicker):
 # Method 5: MatchedFilterPeakPicker
 # ---------------------------------------------------------------------------
 
+
 class MatchedFilterPeakPicker(BasePeakPicker):
     """Cross-correlates the EIC with an ideal peak template.
 
@@ -933,12 +952,12 @@ class MatchedFilterPeakPicker(BasePeakPicker):
 # Adapter to maintain backward compatibility with legacy getPeaksFor() API
 # ---------------------------------------------------------------------------
 
-class PeakPickerAdapter:
-    """Wraps any BasePeakPicker to expose the legacy ``getPeaksFor()`` interface.
 
-    This allows drop-in replacement in existing MetExtract code that expects
-    Bunch objects with attributes: peakIndex, peakScale, peakSNR, peakArea,
-    peakLeftFlank, peakRightFlank.
+class PeakPickerAdapter:
+    """Wraps any BasePeakPicker to expose the ``getPeaksFor()`` interface.
+
+    Returns :class:`ChromatographicPeak` objects with absolute array indices
+    relative to the full ``times``/``eic`` arrays passed in.
     """
 
     def __init__(self, picker: BasePeakPicker):
@@ -952,14 +971,13 @@ class PeakPickerAdapter:
         snrTh: float = 0.1,
         startIndex: Optional[int] = None,
         endIndex: Optional[int] = None,
-    ) -> list:
-        """Legacy-compatible peak detection interface.
+    ) -> list[ChromatographicPeak]:
+        """Detect chromatographic peaks and return :class:`ChromatographicPeak` objects.
 
-        Returns list of Bunch-like objects with peakIndex, peakScale, peakSNR,
-        peakArea, peakLeftFlank, peakRightFlank.
+        The returned indices (``apex_index``, ``start_index``, ``end_index``) are
+        absolute indices into the full *times*/*eic* arrays (i.e. the *offset*
+        from *startIndex* is already applied).
         """
-        from ..utils import Bunch
-
         times = np.asarray(times, dtype=np.float64)
         eic = np.asarray(eic, dtype=np.float64)
 
@@ -978,17 +996,160 @@ class PeakPickerAdapter:
 
         results = []
         for pk in detected:
-            idx = pk.apex_index + offset
-            left_flank = pk.apex_index - pk.start_index
-            right_flank = pk.end_index - pk.apex_index
             results.append(
-                Bunch(
-                    peakIndex=idx,
-                    peakScale=(left_flank + right_flank) / 2.0,
-                    peakSNR=pk.snr,
-                    peakArea=pk.area,
-                    peakLeftFlank=left_flank,
-                    peakRightFlank=right_flank,
+                ChromatographicPeak(
+                    start_rt=pk.start_rt,
+                    end_rt=pk.end_rt,
+                    apex_rt=pk.apex_rt,
+                    fwhm=pk.fwhm,
+                    snr=pk.snr,
+                    area=pk.area,
+                    apex_intensity=pk.apex_intensity,
+                    start_index=pk.start_index + offset,
+                    end_index=pk.end_index + offset,
+                    apex_index=pk.apex_index + offset,
+                    baseline=pk.baseline,
                 )
             )
         return results
+
+
+# ---------------------------------------------------------------------------
+# Shared post-processing peak filters
+# ---------------------------------------------------------------------------
+
+
+def filter_peaks(
+    peaks: list[ChromatographicPeak | Bunch],
+    min_peak_width: float = 0.0,
+    max_peak_width: float = 9999.0,
+    min_fwhm: float = 0.0,
+    max_fwhm: float = 9999.0,
+    min_apex_to_flank_factor: float = 0.0,
+    min_apex_to_flank_increase: float = 0.0,
+    min_snr: float = 0.0,
+    config: Optional[PeakFilterConfig] = None,
+) -> list[ChromatographicPeak | Bunch]:
+    """Filter a list of :class:`ChromatographicPeak` objects by post-processing criteria.
+
+    All width/FWHM values are in the same unit as the RT axis of the peaks
+    (seconds when the picker receives RT in seconds).  Pass ``0`` to disable
+    a filter.
+
+    Args:
+        peaks: Raw peak list returned by any :class:`BasePeakPicker`.
+        min_peak_width: Minimum peak width (start→end).
+        max_peak_width: Maximum peak width.
+        min_fwhm: Minimum FWHM.
+        max_fwhm: Maximum FWHM.
+        min_apex_to_flank_factor: Minimum apex/baseline ratio (0 = disabled).
+        min_apex_to_flank_increase: Minimum apex−baseline difference (0 = disabled).
+        min_snr: Minimum SNR (0 = disabled).
+
+    Returns:
+        Filtered list of peaks.
+    """
+    filtered = []
+    if len(peaks) == 0:
+        return []
+
+    if config is not None:
+        min_peak_width = config.min_peak_width
+        max_peak_width = config.max_peak_width
+        min_fwhm = config.min_fwhm
+        max_fwhm = config.max_fwhm
+        min_apex_to_flank_factor = config.min_apex_to_flank_factor
+        min_apex_to_flank_increase = config.min_apex_to_flank_increase
+        min_snr = config.min_snr
+
+    for pk in peaks:
+        # check if a ChromatographicPeak instance
+        if isinstance(pk, ChromatographicPeak):
+            pw = float(pk.end_rt) - float(pk.start_rt)
+            if pw < min_peak_width or pw > max_peak_width:
+                continue
+            if pk.fwhm < min_fwhm or pk.fwhm > max_fwhm:
+                continue
+            flank = max(pk.baseline, 1e-12)
+            if min_apex_to_flank_factor > 0 and pk.apex_intensity / flank < min_apex_to_flank_factor:
+                continue
+            if min_apex_to_flank_increase > 0 and (pk.apex_intensity - pk.baseline) < min_apex_to_flank_increase:
+                continue
+            if min_snr > 0 and pk.snr < min_snr:
+                continue
+            filtered.append(pk)
+        else:
+            raise RuntimeError(f"Unsupported peak type: {type(pk)}. Expected ChromatographicPeak or Bunch, Bunch currently not implemented.")
+    return filtered
+
+
+# ---------------------------------------------------------------------------
+# Additional utilities
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class PeakFilterConfig:
+    min_peak_width: float = 0.0
+    max_peak_width: float = 9999.0
+    min_fwhm: float = 0.0
+    max_fwhm: float = 9999.0
+    min_apex_to_flank_factor: float = 0.0
+    min_apex_to_flank_increase: float = 0.0
+    min_snr: float = 0.0
+
+
+def make_peak_filter_config(settings: dict) -> PeakFilterConfig:
+    return PeakFilterConfig(
+        min_peak_width=settings.get("pf_min_peak_width", 0.0),
+        max_peak_width=settings.get("pf_max_peak_width", 9999.0),
+        min_fwhm=settings.get("pf_min_fwhm", 0.0),
+        max_fwhm=settings.get("pf_max_fwhm", 9999.0),
+        min_apex_to_flank_factor=settings.get("pf_min_apex_to_flank_factor", 0.0),
+        min_apex_to_flank_increase=settings.get("pf_min_apex_to_flank_increase", 0.0),
+        min_snr=settings.get("pf_min_snr", 0.0),
+    )
+
+
+def make_peak_picker(settings: dict):
+    algo = settings.get("algorithm", "wavelettransform")
+    if algo == "wavelettransform":
+        return PeakPickerAdapter(
+            WaveletTransformPeakPicker(
+                min_scale=settings.get("wt_min_scale", 3),
+                max_scale=settings.get("wt_max_scale", 11),
+                num_scales=settings.get("wt_num_scales", 8),
+                min_ridge_length=settings.get("wt_min_ridge_length", 4),
+                gap_threshold=settings.get("wt_gap_threshold", 2),
+            )
+        )
+    elif algo == "gradientdescent":
+        return PeakPickerAdapter(
+            GradientDescentPeakPicker(
+                smoothing_method=settings.get("gd_smoothing_method", "gaussian"),
+                smoothing_window=settings.get("gd_smoothing_window", 5),
+                smoothing_iterations=settings.get("gd_smoothing_iterations", 1),
+                min_increase_ratio=settings.get("gd_min_increase_ratio", 0.05),
+                consecutive_scans=settings.get("gd_consecutive_scans", 3),
+            )
+        )
+    elif algo == "gmm":
+        return PeakPickerAdapter(
+            GMMPeakPicker(
+                distribution=settings.get("gmm_distribution", "gaussian"),
+            )
+        )
+    elif algo == "secondderivative":
+        return PeakPickerAdapter(
+            SecondDerivativePeakPicker(
+                sg_window=settings.get("sd_sg_window", 11),
+            )
+        )
+    elif algo == "matchedfilter":
+        return PeakPickerAdapter(
+            MatchedFilterPeakPicker(
+                expected_peak_width=settings.get("mf_expected_peak_width", 15),
+            )
+        )
+    else:
+        raise RuntimeError(f"Unknown peak picking algorithm: {algo}")

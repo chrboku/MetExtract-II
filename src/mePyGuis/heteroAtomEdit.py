@@ -1,14 +1,12 @@
-import sys
-import os
-import pickle
 import base64
+import pickle
+import sys
 from copy import deepcopy
 
-from PySide6 import QtCore, QtGui, QtWidgets
-
-from .heteroAtomEditor import Ui_Dialog
+from PySide6 import QtCore, QtWidgets
 
 from ..formulaTools import formulaTools
+from .heteroAtomEditor import Ui_Dialog
 
 
 class ConfiguredHeteroAtom:
@@ -231,8 +229,8 @@ if __name__ == "__main__":
 
     has = Dialog.getHeteroAtoms()
 
-    import pickle
     import base64
+    import pickle
 
     print(base64.b64encode(pickle.dumps(has)), has)
     for ha in has:

@@ -1,11 +1,11 @@
-from __future__ import print_function, division, absolute_import
+from __future__ import absolute_import, division, print_function
+
 import os
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from .groupEditor import Ui_GroupEditor
-
 from ..utils import natSort
+from .groupEditor import Ui_GroupEditor
 
 
 class groupEdit(QtWidgets.QDialog, Ui_GroupEditor):
@@ -130,9 +130,7 @@ class groupEdit(QtWidgets.QDialog, Ui_GroupEditor):
         luminance = 0.299 * qc.red() + 0.587 * qc.green() + 0.114 * qc.blue()
         fg = "black" if luminance > 128 else "white"
         self._colorButton.setText(self._selectedColor)
-        self._colorButton.setStyleSheet(
-            "background-color: %s; color: %s; border: 1px solid gray; padding: 2px 8px;" % (qc.name(), fg)
-        )
+        self._colorButton.setStyleSheet("background-color: %s; color: %s; border: 1px solid gray; padding: 2px 8px;" % (qc.name(), fg))
 
     def getUseAsMSMSTarget(self):
         return bool(self.useAsMSMSTarget.checkState() == QtCore.Qt.Checked)

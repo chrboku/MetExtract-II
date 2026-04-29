@@ -102,10 +102,7 @@ class Ui_MainWindow(object):
         self.gridLayout_22.addWidget(self.label_42, 6, 0, 1, 1)
         self.groupsList = QtWidgets.QTableWidget(self.inputTab)
         self.groupsList.setColumnCount(8)
-        self.groupsList.setHorizontalHeaderLabels([
-            "Name", "Files", "Color", "Min Found",
-            "Omit Features", "Metabolite Grouping", "False Positive", "MSMS Target"
-        ])
+        self.groupsList.setHorizontalHeaderLabels(["Name", "Files", "Color", "Min Found", "Omit Features", "Metabolite Grouping", "False Positive", "MSMS Target"])
         self.groupsList.horizontalHeader().setStretchLastSection(False)
         self.groupsList.horizontalHeader().setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
         for col in range(1, 8):
@@ -1356,6 +1353,15 @@ class Ui_MainWindow(object):
         self.label_73 = QtWidgets.QLabel(self.groupBox_6)
         self.label_73.setObjectName(_fromUtf8("label_73"))
         self.gridLayout_16.addWidget(self.label_73, 3, 0, 1, 1)
+        self.label_scanIndexOffset = QtWidgets.QLabel(self.groupBox_6)
+        self.label_scanIndexOffset.setObjectName(_fromUtf8("label_scanIndexOffset"))
+        self.gridLayout_16.addWidget(self.label_scanIndexOffset, 6, 0, 1, 1)
+        self.scanIndexOffset = QtWidgets.QSpinBox(self.groupBox_6)
+        self.scanIndexOffset.setMinimum(-100)
+        self.scanIndexOffset.setMaximum(100)
+        self.scanIndexOffset.setProperty("value", 0)
+        self.scanIndexOffset.setObjectName(_fromUtf8("scanIndexOffset"))
+        self.gridLayout_16.addWidget(self.scanIndexOffset, 6, 1, 1, 1)
         self.verticalLayout_21.addWidget(self.groupBox_6)
         spacerItem35 = QtWidgets.QSpacerItem(20, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.verticalLayout_21.addItem(spacerItem35)
@@ -3029,12 +3035,14 @@ class Ui_MainWindow(object):
         self.label_29.setText(_translate("MainWindow", "Number of isotopologs labeled", None))
         self.isotopePatternCountB.setPrefix(_translate("MainWindow", "= ", None))
         self.isoAbundance.setText(_translate("MainWindow", "Check M±1 / M'±1 isotopolog abundance", None))
-        self.isoAbundance.setToolTip(_translate("MainWindow",
-            "When enabled, checks the abundance of the M+1/M-1 and M'+1/M'-1 isotopolog peaks "
-            "to verify that the detected feature pair is consistent with expected isotope patterns.", None))
+        self.isoAbundance.setToolTip(_translate("MainWindow", "When enabled, checks the abundance of the M+1/M-1 and M'+1/M'-1 isotopolog peaks to verify that the detected feature pair is consistent with expected isotope patterns.", None))
         self.isotopePatternCountA.setPrefix(_translate("MainWindow", "= ", None))
         self.intensityThresholdIsotopologs.setPrefix(_translate("MainWindow", "≥ ", None))
         self.label_73.setText(_translate("MainWindow", "Isotopolog threshold", None))
+        self.label_scanIndexOffset.setText(_translate("MainWindow", "Labeled scan offset", None))
+        self.label_scanIndexOffset.setToolTip(_translate("MainWindow", "Scan index offset for labeled signal search. 0 = same scan as native. Negative = labeled signal searched in earlier scans, positive = later scans.", None))
+        self.scanIndexOffset.setPrefix(_translate("MainWindow", "= ", None))
+        self.scanIndexOffset.setToolTip(_translate("MainWindow", "Scan index offset for labeled signal search. 0 = same scan as native. Negative = labeled signal searched in earlier scans, positive = later scans.", None))
         self.label_86.setText(
             _translate(
                 "MainWindow",
@@ -3285,11 +3293,10 @@ try:
     from .. import resources_rc
 except ImportError:
     # When run directly, use absolute imports
-    import sys
     import os
+    import sys
 
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    import resources_rc
 
 if __name__ == "__main__":
     import sys

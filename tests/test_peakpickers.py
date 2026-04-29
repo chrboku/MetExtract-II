@@ -6,20 +6,20 @@ import pytest
 from src.chromPeakPicking.peakpickers import (
     BasePeakPicker,
     ChromatographicPeak,
-    GradientDescentPeakPicker,
+    DistributionType,
     GMMPeakPicker,
-    WaveletTransformPeakPicker,
-    SecondDerivativePeakPicker,
+    GradientDescentPeakPicker,
     MatchedFilterPeakPicker,
     PeakPickerAdapter,
+    SecondDerivativePeakPicker,
     SmoothingMethod,
-    DistributionType,
+    WaveletTransformPeakPicker,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures – synthetic EICs
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def simple_gaussian_eic():
@@ -67,19 +67,28 @@ def empty_eic():
 # ChromatographicPeak dataclass
 # ---------------------------------------------------------------------------
 
+
 class TestChromatographicPeak:
     def test_creation(self):
         pk = ChromatographicPeak(
-            start_rt=10.0, end_rt=20.0, apex_rt=15.0,
-            fwhm=5.0, snr=10.0, area=1234.0,
+            start_rt=10.0,
+            end_rt=20.0,
+            apex_rt=15.0,
+            fwhm=5.0,
+            snr=10.0,
+            area=1234.0,
         )
         assert pk.apex_rt == 15.0
         assert pk.snr == 10.0
 
     def test_defaults(self):
         pk = ChromatographicPeak(
-            start_rt=0, end_rt=1, apex_rt=0.5,
-            fwhm=0.5, snr=1.0, area=0.5,
+            start_rt=0,
+            end_rt=1,
+            apex_rt=0.5,
+            fwhm=0.5,
+            snr=1.0,
+            area=0.5,
         )
         assert pk.apex_intensity == 0.0
         assert pk.baseline == 0.0
@@ -88,6 +97,7 @@ class TestChromatographicPeak:
 # ---------------------------------------------------------------------------
 # BasePeakPicker utility methods
 # ---------------------------------------------------------------------------
+
 
 class TestBasePeakPickerUtilities:
     def test_validate_inputs_empty(self, empty_eic):
@@ -152,6 +162,7 @@ class TestBasePeakPickerUtilities:
 # GradientDescentPeakPicker
 # ---------------------------------------------------------------------------
 
+
 class TestGradientDescentPeakPicker:
     def test_single_peak(self, simple_gaussian_eic):
         picker = GradientDescentPeakPicker(min_intensity=100)
@@ -191,6 +202,7 @@ class TestGradientDescentPeakPicker:
 # GMMPeakPicker
 # ---------------------------------------------------------------------------
 
+
 class TestGMMPeakPicker:
     def test_single_peak(self, simple_gaussian_eic):
         picker = GMMPeakPicker(baseline_fraction=0.01)
@@ -222,6 +234,7 @@ class TestGMMPeakPicker:
 # WaveletTransformPeakPicker
 # ---------------------------------------------------------------------------
 
+
 class TestWaveletTransformPeakPicker:
     def test_single_peak(self, simple_gaussian_eic):
         picker = WaveletTransformPeakPicker(min_scale=1, max_scale=30, snr_threshold=0.5, min_ridge_length=2)
@@ -248,6 +261,7 @@ class TestWaveletTransformPeakPicker:
 # SecondDerivativePeakPicker
 # ---------------------------------------------------------------------------
 
+
 class TestSecondDerivativePeakPicker:
     def test_single_peak(self, simple_gaussian_eic):
         picker = SecondDerivativePeakPicker(sg_window=11, sg_polyorder=3)
@@ -271,7 +285,8 @@ class TestSecondDerivativePeakPicker:
 
     def test_with_pre_smoothing(self, noisy_eic):
         picker = SecondDerivativePeakPicker(
-            sg_window=15, sg_polyorder=3,
+            sg_window=15,
+            sg_polyorder=3,
             pre_smoothing=SmoothingMethod.GAUSSIAN,
             pre_smoothing_window=5,
             pre_smoothing_iterations=2,
@@ -283,6 +298,7 @@ class TestSecondDerivativePeakPicker:
 # ---------------------------------------------------------------------------
 # MatchedFilterPeakPicker
 # ---------------------------------------------------------------------------
+
 
 class TestMatchedFilterPeakPicker:
     def test_single_peak(self, simple_gaussian_eic):
@@ -309,6 +325,7 @@ class TestMatchedFilterPeakPicker:
 # ---------------------------------------------------------------------------
 # PeakPickerAdapter (legacy interface)
 # ---------------------------------------------------------------------------
+
 
 class TestPeakPickerAdapter:
     def test_adapter_returns_bunch_objects(self, simple_gaussian_eic):
@@ -338,9 +355,11 @@ class TestPeakPickerAdapter:
 # MassSpecWavelet drop-in replacement
 # ---------------------------------------------------------------------------
 
+
 class TestMassSpecWaveletDropIn:
     def test_legacy_interface(self, simple_gaussian_eic):
         from src.chromPeakPicking.MassSpecWavelet import MassSpecWavelet
+
         cp = MassSpecWavelet(scales=[2, 30], snrTh=0.5, minScans=1)
         rt, intensity = simple_gaussian_eic
         results = cp.getPeaksFor(rt, intensity)
@@ -355,9 +374,11 @@ class TestMassSpecWaveletDropIn:
 # Baseline replacement
 # ---------------------------------------------------------------------------
 
+
 class TestBaseline:
     def test_median_baseline(self, simple_gaussian_eic):
         from src.Baseline import Baseline
+
         bl = Baseline()
         rt, intensity = simple_gaussian_eic
         baseline = bl.getBaseline(intensity, rt)
@@ -368,6 +389,7 @@ class TestBaseline:
 
     def test_empty_eic(self):
         from src.Baseline import Baseline
+
         bl = Baseline()
         result = bl.getBaseline(np.array([]), np.array([]))
         assert len(result) == 0

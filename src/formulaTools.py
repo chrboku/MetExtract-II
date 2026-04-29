@@ -1,7 +1,7 @@
 # a class used to parse chemical formulas
 # e.g. the formula C6H12O6 will be parsed to a dictionary {'H':12, 'C':6, 'O':6}
 # NOTE: different isotopes may be specified as [13C]C5H12O6
-from __future__ import print_function, division, absolute_import
+from __future__ import absolute_import, division, print_function
 
 
 class formulaTools:
@@ -328,7 +328,7 @@ class formulaTools:
             if self.isIso(elem):
                 curElem, iso = self.getElementFor(elem)
 
-                if not (curElem in fIso):
+                if curElem not in fIso:
                     fIso[curElem] = []
                 fIso[curElem].append((iso, elems[elem]))
 
@@ -356,7 +356,7 @@ class formulaTools:
             if self.isIso(elem):
                 curElem, iso = self.getElementFor(elem)
 
-                if not (curElem in fIso):
+                if curElem not in fIso:
                     fIso[curElem] = []
                 fIso[curElem].append((iso, elems[elem]))
         for elem in fElems:
@@ -411,7 +411,7 @@ class formulaTools:
 
                         d = {}
                         for y in x:
-                            if not (y in d):
+                            if y not in d:
                                 d[y] = 0
                             d[y] = d[y] + 1
                         ret.append(d)

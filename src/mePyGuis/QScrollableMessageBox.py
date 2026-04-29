@@ -1,4 +1,5 @@
 import sys
+
 from PySide6 import QtGui, QtWidgets
 
 

@@ -1,15 +1,13 @@
 USEGRADIENTDESCENDPEAKPICKING = False
 
-from math import pow, sqrt
-from copy import copy as copycopy
+import os
+import platform
+from math import factorial, sqrt
+from operator import itemgetter
+
 import numpy
 import numpy as np
-from numpy import array, concatenate, vstack, hstack, zeros, ones, argmax, argmin
 from scipy.ndimage import gaussian_filter1d
-from operator import itemgetter
-from math import factorial
-import platform
-import os
 
 
 # get the operating system
@@ -80,7 +78,7 @@ def savitzky_golay(y, window_size, order, deriv=0, rate=1):
     try:
         window_size = np.abs(np.int(window_size))
         order = np.abs(np.int(order))
-    except ValueError as msg:
+    except ValueError:
         raise ValueError("window_size and order have to be of type int")
     if window_size % 2 != 1 or window_size < 1:
         raise TypeError("window_size size must be a positive odd number")
@@ -143,7 +141,7 @@ def __smooth(x, window_len=11, window="bartlett"):
     if window_len < 3:
         return x
 
-    if not window in ["flat", "hanning", "hamming", "bartlett", "blackman"]:
+    if window not in ["flat", "hanning", "hamming", "bartlett", "blackman"]:
         raise ValueError("Window is non of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'")
 
     s = numpy.r_[x[window_len - 1 : 0 : -1], x, x[-1:-window_len:-1]]
@@ -225,7 +223,8 @@ def smoothDataSeries(x, y, windowLen=2, polynom=3, window="gaussian", removeNegI
 
 # HELPER METHOD
 # taken from http://www.py2exe.org/index.cgi/HowToDetermineIfRunningFromExe
-import importlib, os, sys
+import importlib
+import sys
 
 
 def main_is_frozen():
@@ -698,7 +697,7 @@ def mean(x, skipExtremes=0):
 
     if skipExtremes > 0:
         x_arr = np.sort(x_arr)
-        n = len(x_arr)
+        len(x_arr)
         x_arr = x_arr[int(len(x_arr) * skipExtremes) : int(len(x_arr) - len(x_arr) * skipExtremes)]
 
     return np.mean(x_arr)
@@ -812,8 +811,10 @@ import re
 
 
 def natSort(l, key=lambda ent: ent):
-    convert = lambda text: int(text) if text.isdigit() else text
-    alphanum_key = lambda ent, key=key: [convert(c) for c in re.split("([0-9]+)", str(key(ent)))]
+    def convert(text):
+        return int(text) if text.isdigit() else text
+    def alphanum_key(ent, key=key):
+        return [convert(c) for c in re.split("([0-9]+)", str(key(ent)))]
     # Convert to list first to handle Python 3 dict_keys, dict_values, etc.
     if not isinstance(l, list):
         l = list(l)
@@ -1038,7 +1039,6 @@ def readXLSXFileAsBunch(file, sheetName="", useColumns=None, omitFirstNRows=0):
             sheetName = bn
     assert omitFirstNRows >= 0
 
-    ret = None
     rb = open_workbook(file)
 
     ind = 0
@@ -1071,7 +1071,6 @@ def readXLSXFileAsBunch(file, sheetName="", useColumns=None, omitFirstNRows=0):
             colIDs.append(i)
         i = i + 1
 
-    remainingRows = True
     rows = []
     r = 1 + omitFirstNRows
     allEmpty = False
@@ -1162,7 +1161,7 @@ def SQLSelectAsObject(curs_or_db, selectStatement, returnColumns=False, newObjec
         where_match = re.search(r"WHERE\s+(.+?)(?:ORDER BY|$)", selectStatement, re.IGNORECASE | re.DOTALL)
         if where_match:
             # This is a simplified WHERE parser - may need enhancement for complex queries
-            where_clause = where_match.group(1).strip()
+            where_match.group(1).strip()
             # For now, skip filtering as it requires complex parsing
             # Users should use execute_select method for complex queries
             pass

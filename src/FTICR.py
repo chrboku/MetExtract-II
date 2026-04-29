@@ -1,14 +1,11 @@
-from .utils import Bunch, getRatio
-from .formulaTools import formulaTools
+from copy import deepcopy
 
 from .Chromatogram import Chromatogram
-
+from .formulaTools import formulaTools
 from .HCA import *
-
 from .MSScan import MSScan
 from .SGR import SGRGenerator
-
-from copy import deepcopy
+from .utils import Bunch, getRatio
 
 
 class FTICRProcessing:
@@ -334,12 +331,12 @@ class FTICRProcessing:
 
         self.addToHistory("----------------------------------------------------------")
         allRes = []
-        if setFunctionMax != None:
+        if setFunctionMax is not None:
             setFunctionMax(len(msScans) * 2 + 4)
-        if setFunctionValue != None:
+        if setFunctionValue is not None:
             setFunctionValue(0)
         for i, fileName in enumerate(msScans.keys()):
-            if setFunctionText != None:
+            if setFunctionText is not None:
                 setFunctionText("Processing file %s" % fileName)
             msScan = msScans[fileName]
 
@@ -356,11 +353,11 @@ class FTICRProcessing:
             )
             self.log("%d signals pairs found in %s" % (len(res), fileName))
             self.addToHistory("%d signals pairs found in %s" % (len(res), fileName))
-            if setFunctionValue != None:
+            if setFunctionValue is not None:
                 setFunctionValue(i)
             allRes.extend(res)
 
-        if setFunctionText != None:
+        if setFunctionText is not None:
             setFunctionText("Combining results and generating sum formulas")
         s = "".join(["%s(%d-%d)" % (atoms[i], atomsRange[i][0], atomsRange[i][1]) for i in range(len(atoms))])
         self.log("Annotating elements with %s" % s)
@@ -380,9 +377,9 @@ class FTICRProcessing:
 
         averageMZErrors = {}
         if recalibrateWithUniqueSumFormulas:
-            if setFunctionValue != None:
+            if setFunctionValue is not None:
                 setFunctionValue(len(msScans) + 1)
-            if setFunctionText != None:
+            if setFunctionText is not None:
                 setFunctionText("Re-calibrating files")
             self.log("Applying calibration based on generated unique sum formulas..")
             self.addToHistory("Spectra will be calibrated based")
@@ -391,10 +388,10 @@ class FTICRProcessing:
             self.log("re-doing analysis with calibrated MS scans")
 
             allRes = []
-            if setFunctionValue != None:
+            if setFunctionValue is not None:
                 setFunctionValue(len(msScans) + 2)
             for i, fileName in enumerate(msScans.keys()):
-                if setFunctionText != None:
+                if setFunctionText is not None:
                     setFunctionText("Processing file %s" % fileName)
                 msScan = msScans[fileName]
 
@@ -409,11 +406,11 @@ class FTICRProcessing:
                 )
                 self.log("%d signals pairs found in %s" % (len(res), fileName))
                 self.addToHistory("%d signals pairs found in %s after calibration" % (len(res), fileName))
-                if setFunctionValue != None:
+                if setFunctionValue is not None:
                     setFunctionValue(len(msScans) + 2 + i)
                 allRes.extend(res)
 
-            if setFunctionText != None:
+            if setFunctionText is not None:
                 setFunctionText("Combining results and generating sum formulas")
             s = "".join(["%s(%d-%d)" % (atoms[i], atomsRange[i][0], atomsRange[i][1]) for i in range(len(atoms))])
             self.log("Annotating elements with %s" % s)
@@ -432,7 +429,7 @@ class FTICRProcessing:
             )
 
         foundSFs = self.annotateWithDBs(foundSFs, annotationPPM=annotationPPM, dbs=dbs)
-        if setFunctionValue != None:
+        if setFunctionValue is not None:
             setFunctionValue(len(msScans) + 1)
 
         return foundSFs, averageMZErrors

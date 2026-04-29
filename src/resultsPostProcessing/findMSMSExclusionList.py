@@ -5,12 +5,10 @@ version = 0.1
 ### Import dependencies
 ##
 #
-from .utils import Bunch
-from .Chromatogram import Chromatogram
-import csv
 
 from matplotlib import pyplot as plt
 
+from .Chromatogram import Chromatogram
 
 #################################################################################
 ################################################################################

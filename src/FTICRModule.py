@@ -1,27 +1,23 @@
-from . import FTICR
-
-from .mePyGuis.TSVLoaderEdit import *
-
 import logging
-from . import LoggingSetup
+
+from . import FTICR, LoggingSetup
+from .mePyGuis.TSVLoaderEdit import *
 
 LoggingSetup.LoggingSetup.Instance().initLogging()
 
 import os
-
-
-from .formulaTools import formulaTools
-from .mePyGuis.FTICRWindow import Ui_MainWindow
-from PySide6 import QtCore, QtGui, QtWidgets
-from .utils import Bunch, mean
-from .mePyGuis.ProgressWrapper import ProgressWrapper
-
 
 # <editor-fold desc="### MatPlotLib imports and setup">
 import matplotlib
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
+from PySide6 import QtCore, QtGui, QtWidgets
+
+from .formulaTools import formulaTools
+from .mePyGuis.FTICRWindow import Ui_MainWindow
+from .mePyGuis.ProgressWrapper import ProgressWrapper
+from .utils import Bunch, mean
 
 matplotlib.rcParams["savefig.dpi"] = 300
 font = {"size": 16}
@@ -490,12 +486,12 @@ class FTICRModuleWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def setLims(self, xlim=None, ylim=None, twinxsind=1):
         ax = self.pl.twinxs[twinxsind]
-        if ylim != None:
+        if ylim is not None:
             if len(ylim) == 1:
                 ax.set_ylim(ylim[0])
             elif len(ylim) == 2:
                 ax.set_ylim(ylim[0], ylim[1])
-        if xlim != None:
+        if xlim is not None:
             if len(xlim) == 1:
                 ax.set_xlim(xlim[0])
             else:

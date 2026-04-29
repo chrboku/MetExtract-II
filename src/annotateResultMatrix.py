@@ -1,15 +1,16 @@
-from __future__ import print_function, division, absolute_import
-import polars as pl
-import logging
-from .utils import add_sheet_to_excel, getDBSuffix, getDBFormat
-from .PolarsDB import PolarsDB
-from .resultsPostProcessing import searchDatabases
-from .resultsPostProcessing import generateSumFormulas as sumFormulaGeneration
-from .formulaTools import formulaTools
+from __future__ import absolute_import, division, print_function
 
 import json
-
+import logging
 import pprint
+
+import polars as pl
+
+from .formulaTools import formulaTools
+from .PolarsDB import PolarsDB
+from .resultsPostProcessing import generateSumFormulas as sumFormulaGeneration
+from .resultsPostProcessing import searchDatabases
+from .utils import add_sheet_to_excel
 
 pp = pprint.PrettyPrinter(indent=1)
 
@@ -186,7 +187,7 @@ def annotateWithDatabases(
     Returns:
         List of annotation column names added
     """
-    logging.info(f"Starting database search annotation using PolarsDB")
+    logging.info("Starting database search annotation using PolarsDB")
     logging.info(f"Reading file {file}")
 
     # Load the PolarsDB
@@ -321,10 +322,10 @@ def annotateWithDatabases(
                 hit_str = f"(Name: {hit.name}, Type: {hit.hitType}, Num: {hit.num}, Formula: {hit.sumFormula}, RT: {hit.rt_min}, MassErrorPPM: {hit.matchErrorPPM:.5f}, MassErrorMass: {hit.matchErrorMass:.5f}, Additional information: {hit.additionalInfo})"
                 hits_per_db[hit.dbName]["hits"].append(hit_str)
 
-                if hit.rt_min != None and hit.rt_min != "":
+                if hit.rt_min is not None and hit.rt_min != "":
                     try:
                         rtDelta = abs(float(hit.rt_min) - rt_min)
-                        rt_hit_str = f"RT delta: {rtDelta:.2f} (Name: {hit.name} Type: {hit.hitType}, Num: {hit.num}, Formula: {hit.sumFormula}, RT: {hit.rt_min}, MassErrorPPM: {hit.matchErrorPPM:.5f}, MassErrorMass: {hit.matchErrorMass:.5f}, RTError: {float(hit.rt_min) - rt_min if hit.rt_min != None and hit.rt_min != '' else ''}, Additional information: {hit.additionalInfo})"
+                        rt_hit_str = f"RT delta: {rtDelta:.2f} (Name: {hit.name} Type: {hit.hitType}, Num: {hit.num}, Formula: {hit.sumFormula}, RT: {hit.rt_min}, MassErrorPPM: {hit.matchErrorPPM:.5f}, MassErrorMass: {hit.matchErrorMass:.5f}, RTError: {float(hit.rt_min) - rt_min if hit.rt_min is not None and hit.rt_min != '' else ''}, Additional information: {hit.additionalInfo})"
                         hits_per_db[hit.dbName]["hitsRT"].append((rtDelta, rt_hit_str))
                     except Exception as e:
                         logging.error(f"Error processing RT for database hit: {e}")
@@ -527,7 +528,7 @@ def annotateWithSumFormulas(
     Returns:
         List of sum formula column names added
     """
-    logging.info(f"Starting sum formula generation using PolarsDB")
+    logging.info("Starting sum formula generation using PolarsDB")
     logging.info(f"Reading file {file}")
 
     # Load the PolarsDB

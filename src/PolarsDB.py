@@ -15,18 +15,19 @@
 #    along with this program; if not, write to the Free Software
 #    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-from __future__ import print_function, division, absolute_import
-import io
-import os
-import zipfile
-import polars as pl
-import xlsxwriter
-from json import dumps, loads
+from __future__ import absolute_import, division, print_function
 
+import io
 
 # Disable polars dtype warnings
 # copied from https://github.com/ToucanToco/fastexcel/issues/326#issuecomment-2615748271
 import logging
+import os
+import zipfile
+from json import dumps, loads
+
+import polars as pl
+import xlsxwriter
 
 # This will disable all messages with a level <= WARNING
 logging.getLogger("fastexcel.types.dtype").setLevel(logging.ERROR)

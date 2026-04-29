@@ -1,17 +1,17 @@
-from __future__ import print_function, division, absolute_import
-import sys
+from __future__ import absolute_import, division, print_function
+
 import base64
-import zlib
 import struct
+import sys
 import xml.parsers.expat
+import zlib
 from xml.dom.minidom import parse
+
 import numpy as np
+import pymzml
 
 from .MSScan import MS1Scan, MS2Scan
-
 from .utils import Bunch
-
-import pymzml
 
 
 # reads and holds the information of one MZXML file
@@ -703,8 +703,8 @@ class Chromatogram:
             for i in range(len(precursorsTemp)):
                 if (precursorsTemp[i].precursormz - lastmz) >= 25 * lastmz / 1000000.0:
                     if len(lastmzs) > 0:
-                        minMZ = lastmzs[0].precursormz
-                        maxMZ = lastmzs[-1].precursormz
+                        lastmzs[0].precursormz
+                        lastmzs[-1].precursormz
                         # print(polarity, minMZ, maxMZ, (maxMZ-minMZ)*1000000./minMZ, "  \n --> ", (precursorsTemp[i].precursormz-lastmz)*1000000./lastmz, ": ", precursorsTemp[i].precursormz)
 
                         for j in range(len(lastmzs)):

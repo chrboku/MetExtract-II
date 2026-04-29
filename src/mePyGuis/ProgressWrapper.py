@@ -3,8 +3,8 @@ import sys
 from PySide6 import QtGui, QtWidgets
 from PySide6.QtCore import Qt
 
-from .ColoredProgressBar import ColoredProgressBar
 from ..utils import CallBackMethod, natSort
+from .ColoredProgressBar import ColoredProgressBar
 
 
 def setLabelBackground(qlabel, colorName=None, r=255, g=0, b=0, alpha=255):
@@ -185,7 +185,7 @@ class ProgressWrapper(QtWidgets.QDialog):
         self.setMinimumWidth(600)
 
     def closeEvent(self, event):
-        if not self.skipCallBack and self.closeCallBack != None:
+        if not self.skipCallBack and self.closeCallBack is not None:
             if not self.closeCallBack():
                 return event.ignore()
 

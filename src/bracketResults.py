@@ -1,52 +1,39 @@
-from __future__ import print_function, division, absolute_import
+from __future__ import absolute_import, division, print_function
+
+import datetime
 import logging
+import os
+import time
+import uuid
+from collections import OrderedDict, defaultdict
+from math import isnan
+from multiprocessing import Manager, Pool
+from operator import itemgetter
 
 import polars as pl
-import xlsxwriter
-from operator import itemgetter
-import os
-from math import floor
-import ast
-from collections import defaultdict, OrderedDict
-import uuid
-import datetime
-from pprint import pprint
-from multiprocessing import Pool, Manager
-
-from reportlab.graphics.shapes import Drawing
+from reportlab.graphics import renderPDF
 from reportlab.graphics.charts.lineplots import LinePlot
+from reportlab.graphics.shapes import Drawing
 from reportlab.lib import colors
 from reportlab.pdfgen import canvas
-from reportlab.graphics import renderPDF
 
-from .XICAlignment import XICAlignment
-
-from .utils import (
-    ChromPeakPair,
-    getSubGraphs,
-    Bunch,
-    natSort,
-    get_main_dir,
-    getSubGraphsFromDictDict,
-    CallBackMethod,
-)
-from .runIdentification import ChromPeakPair
-from .utils import getDBSuffix
-from .PolarsDB import PolarsDB
-from .MZHCA import HierarchicalClustering, cutTreeSized
-
-import base64
-from pickle import dumps, loads
-
-from math import isnan
-
-import time
-
-from . import HCA_general
+from . import HCA_general, exportAsFeatureML
 from .Chromatogram import Chromatogram
-from .utils import mean, sd, corr, add_sheet_to_excel
-
-from . import exportAsFeatureML
+from .MZHCA import HierarchicalClustering, cutTreeSized
+from .PolarsDB import PolarsDB
+from .runIdentification import ChromPeakPair
+from .utils import (
+    Bunch,
+    CallBackMethod,
+    ChromPeakPair,
+    corr,
+    getDBSuffix,
+    getSubGraphs,
+    mean,
+    natSort,
+    sd,
+)
+from .XICAlignment import XICAlignment
 
 
 # HELPER METHOD for writing first page of PDF (unused)
@@ -349,7 +336,6 @@ def bracketResults(
                         totalThingsToDo += 1
 
         doneSoFar = 0
-        doneSoFarPercent = 0
         if pwMaxSet is not None:
             pwMaxSet.put(Bunch(mes="max", val=totalThingsToDo))
 
@@ -493,7 +479,6 @@ def bracketResults(
 
                         # get all results that match current bracketing criteria
                         chromPeaksAct = 0
-                        allmz = []
                         for res in results:
                             chromPeaksAct = chromPeaksAct + len([chromPeak.mz for chromPeak in res.featurePairs])
 
@@ -778,7 +763,7 @@ def bracketResults(
                                             j = 0
                                             for k in partChromPeaks.keys():
                                                 for i in range(len(partChromPeaks[k])):
-                                                    if not (k in groupedChromPeaks[aligned[j][1]]):
+                                                    if k not in groupedChromPeaks[aligned[j][1]]:
                                                         groupedChromPeaks[aligned[j][1]][k] = []
                                                     groupedChromPeaks[aligned[j][1]][k].append(
                                                         (
@@ -872,12 +857,12 @@ def bracketResults(
                                                             excel_data[fname + "_peaksCorr"].append(";".join([str(peak[1].peaksCorr) for peak in groupedChromPeaks[i][res]]))
                                                             excel_data[fname + "_SNR_N"].append(";".join([str(peak[1].NSNR) for peak in groupedChromPeaks[i][res]]))
                                                             excel_data[fname + "_SNR_L"].append(";".join([str(peak[1].LSNR) for peak in groupedChromPeaks[i][res]]))
-                                                            excel_data[fname + "_N_startRT"].append(";".join([str(getattr(peak[1], 'N_startRT', peak[1].NPeakCenterMin) / 60.0) for peak in groupedChromPeaks[i][res]]))
+                                                            excel_data[fname + "_N_startRT"].append(";".join([str(getattr(peak[1], "N_startRT", peak[1].NPeakCenterMin) / 60.0) for peak in groupedChromPeaks[i][res]]))
                                                             excel_data[fname + "_N_apexRT"].append(";".join([str(peak[1].NPeakCenterMin / 60.0) for peak in groupedChromPeaks[i][res]]))
-                                                            excel_data[fname + "_N_endRT"].append(";".join([str(getattr(peak[1], 'N_endRT', peak[1].NPeakCenterMin) / 60.0) for peak in groupedChromPeaks[i][res]]))
-                                                            excel_data[fname + "_L_startRT"].append(";".join([str(getattr(peak[1], 'L_startRT', peak[1].LPeakCenterMin) / 60.0) for peak in groupedChromPeaks[i][res]]))
+                                                            excel_data[fname + "_N_endRT"].append(";".join([str(getattr(peak[1], "N_endRT", peak[1].NPeakCenterMin) / 60.0) for peak in groupedChromPeaks[i][res]]))
+                                                            excel_data[fname + "_L_startRT"].append(";".join([str(getattr(peak[1], "L_startRT", peak[1].LPeakCenterMin) / 60.0) for peak in groupedChromPeaks[i][res]]))
                                                             excel_data[fname + "_L_apexRT"].append(";".join([str(peak[1].LPeakCenterMin / 60.0) for peak in groupedChromPeaks[i][res]]))
-                                                            excel_data[fname + "_L_endRT"].append(";".join([str(getattr(peak[1], 'L_endRT', peak[1].LPeakCenterMin) / 60.0) for peak in groupedChromPeaks[i][res]]))
+                                                            excel_data[fname + "_L_endRT"].append(";".join([str(getattr(peak[1], "L_endRT", peak[1].LPeakCenterMin) / 60.0) for peak in groupedChromPeaks[i][res]]))
                                                             excel_data[fname + "_peaksRatio"].append(";".join([str(peak[1].peaksRatio) for peak in groupedChromPeaks[i][res]]))
                                                             excel_data[fname + "_artificialEICLShift"].append(";".join([str(peak[1].artificialEICLShift) for peak in groupedChromPeaks[i][res]]))
                                                             excel_data[fname + "_FID"].append(";".join([str(peak[1].id) for peak in groupedChromPeaks[i][res]]))
@@ -963,18 +948,18 @@ def bracketResults(
         # Prepare metadata strings
         parameters_df = {"Parameter": [], "Value": []}
         parameters_df["Parameter"].append("# MetExtract II")
-        parameters_df["Value"].append(f"")
+        parameters_df["Value"].append("")
         parameters_df["Parameter"].append("version")
         parameters_df["Value"].append(f"{meVersion}")
         parameters_df["Parameter"].append("# Execution")
-        parameters_df["Value"].append(f"")
+        parameters_df["Value"].append("")
         parameters_df["Parameter"].append("Date")
         parameters_df["Value"].append(f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         parameters_df["Parameter"].append("UUID")
         parameters_df["Value"].append(f"{uuid.uuid4()}")
 
         parameters_df["Parameter"].append("# Individual files processing parameters")
-        parameters_df["Value"].append(f"")
+        parameters_df["Value"].append("")
 
         for k, v in generalProcessingParams.__dict__.items():
             parameters_df["Parameter"].append(str(k))
@@ -997,7 +982,7 @@ def bracketResults(
             xCountsFmt = xCounts
 
         parameters_df["Parameter"].append("# Bracketing data processing parameters")
-        parameters_df["Value"].append(f"")
+        parameters_df["Value"].append("")
         parameters_df["Parameter"].append("xCounts")
         parameters_df["Value"].append("".join([str(t) for t in xCountsFmt]))
         parameters_df["Parameter"].append("Group size ppm")
@@ -1012,9 +997,9 @@ def bracketResults(
             parameters_df["Parameter"].append("n polynom for alignment")
             parameters_df["Value"].append(f"{nPolynom}")
         parameters_df["Parameter"].append("")
-        parameters_df["Value"].append(f"")
+        parameters_df["Value"].append("")
         parameters_df["Parameter"].append("")
-        parameters_df["Value"].append(f"")
+        parameters_df["Value"].append("")
 
         params_df = pl.DataFrame(parameters_df)
         df = pl.DataFrame(excel_data, schema=excel_data_dTypes).sort("RT")
@@ -1028,7 +1013,7 @@ def bracketResults(
 
         exportAsFeatureML.convertMEMatrixToFeatureMLSepPolarities(excel_file, sheet_name="1_Bracketed", postfix="_ab")
 
-    except Exception as ex:
+    except Exception:
         import traceback
 
         traceback.print_exc()
@@ -1050,12 +1035,12 @@ def bracketResults(
 
 # store used configuration to DB file
 def writeMetaboliteGroupingConfigToDB(db, minConnectionsInFiles, minConnectionRate, groups):
-    db.insert_row("Parameters", {"Parameter": f"MEGroups", "Value": f"{groups}"})
+    db.insert_row("Parameters", {"Parameter": "MEGroups", "Value": f"{groups}"})
     db.insert_row(
         "Parameters",
-        {"Parameter": f"MEGROUP_minConnectionsInFiles", "Value": f"{minConnectionsInFiles}"},
+        {"Parameter": "MEGROUP_minConnectionsInFiles", "Value": f"{minConnectionsInFiles}"},
     )
-    db.insert_row("Parameters", {"Parameter": f"MEGROUP_minConnectionRate", "Value": f"{minConnectionRate}"})
+    db.insert_row("Parameters", {"Parameter": "MEGROUP_minConnectionRate", "Value": f"{minConnectionRate}"})
 
 
 def getBordersFor(db, fID, file):
@@ -1157,7 +1142,11 @@ def calculateMetaboliteGroups(
         assert "doublePeak" in cols
 
         # find double peaks as non nan and greater than 0
-        res = table_df.with_columns(_z=pl.when(pl.col("doublePeak").is_not_null() & ((pl.col("doublePeak")!= pl.lit("")) | (pl.col("doublePeak").str.to_integer() > 0))).then(pl.lit("b__doublePeak")).otherwise(pl.lit("a__normal"))).sort("_z").partition_by("_z", maintain_order=True, include_key=False, as_dict=True)
+        res = (
+            table_df.with_columns(_z=pl.when(pl.col("doublePeak").is_not_null() & ((pl.col("doublePeak") != pl.lit("")) | (pl.col("doublePeak").str.to_integer() > 0))).then(pl.lit("b__doublePeak")).otherwise(pl.lit("a__normal")))
+            .sort("_z")
+            .partition_by("_z", maintain_order=True, include_key=False, as_dict=True)
+        )
 
         table_df = None
         double_peaks_df = None
@@ -1231,7 +1220,7 @@ def calculateMetaboliteGroups(
 
         p = Pool(processes=cpus, maxtasksperchild=1)  # only in python >=2.7; experimental
         manager = Manager()
-        queue = manager.Queue()
+        manager.Queue()
 
         start = time.time()
         # start the multiprocessing pool
@@ -1239,8 +1228,7 @@ def calculateMetaboliteGroups(
 
         # wait until all subprocesses have finished re-integrating their respective LC-HRMS data file
         loop = True
-        freeSlots = range(min(len(procObjects), cpus))
-        assignedThreads = {}
+        range(min(len(procObjects), cpus))
         while loop:
             completed = res._index
             if completed == len(procObjects):
@@ -1440,7 +1428,7 @@ def calculateMetaboliteGroups(
 
             # Sort by average abundance descending
             avg_abundances.sort(key=lambda x: x[1], reverse=True)
-            total_abundance, max_abundance = sum([ab for _, ab in avg_abundances]), max([ab for _, ab in avg_abundances])
+            total_abundance, _max_abundance = sum([ab for _, ab in avg_abundances]), max([ab for _, ab in avg_abundances])
 
             # Assign Relative_peakarea_in_group and Average_peakarea
             for rank, (fpNum, avg_abundance) in enumerate(avg_abundances, start=1):
@@ -1535,7 +1523,7 @@ class ConvoluteFPsInFile:
                     if fi in borders.keys() and nodeB.fpNum in borders[fi].keys():
                         rb = borders[fi][nodeB.fpNum]
 
-                    if ra != None and rb != None:
+                    if ra is not None and rb is not None:
                         na_start, na_apex, na_end, la_start, la_apex, la_end = ra
                         nb_start, nb_apex, nb_end, lb_start, lb_apex, lb_end = rb
 
@@ -1545,8 +1533,8 @@ class ConvoluteFPsInFile:
                         la_hw_right = max(0.001, la_end - la_apex)
                         nb_hw_left = max(0.001, nb_apex - nb_start)
                         nb_hw_right = max(0.001, nb_end - nb_apex)
-                        lb_hw_left = max(0.001, lb_apex - lb_start)
-                        lb_hw_right = max(0.001, lb_end - lb_apex)
+                        max(0.001, lb_apex - lb_start)
+                        max(0.001, lb_end - lb_apex)
 
                         if nodeA.scanEvent in filterLines and nodeB.scanEvent in filterLines:
                             meanRT = mean([nodeA.rt, nodeB.rt])
@@ -1623,7 +1611,7 @@ class ConvoluteFPsInFile:
 
                                 co = corr(eicAC, eicBC)
 
-                                if not (isnan(co)) and co != None:
+                                if not (isnan(co)) and co is not None:
                                     fileCorrelations[fpNumA][fpNumB] = co
                             except Exception as err:
                                 logging.error("  Error during convolution of feature pairs (Peak-correlation, Nums: %s and %s, message: %s).." % (fpNumA, fpNumB, err.message))
@@ -1658,11 +1646,11 @@ class ConvoluteFPsInFile:
                                 mb = mean(folds)
                                 sb = sd(folds)
 
-                                if ma != None and mb != None and sa != None and sb != None:
+                                if ma is not None and mb is not None and sa is not None and sb is not None:
                                     silRatioFold = 1
                                     try:
                                         silRatioFold = max([ma, mb]) / min([ma, mb])
-                                    except RuntimeWarning as ex:
+                                    except RuntimeWarning:
                                         pass
                                     # print(ma, mb, sa, sb, max([ma, mb]), min([ma, mb]))
                                     fileSILRatios[fpNumA][fpNumB] = silRatioFold <= 1 + max(0.5, 3 * mean([sa, sb]))

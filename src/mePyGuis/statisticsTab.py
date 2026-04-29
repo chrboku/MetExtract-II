@@ -12,44 +12,43 @@ Copyright (C) 2015 MetExtract Team
 License: GNU General Public License v2 (GPLv2)
 """
 
+import matplotlib
 from PySide6 import QtCore, QtGui, QtWidgets
-from PySide6.QtCore import Qt, Signal, QRectF
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QSplitter,
-    QTreeWidget,
-    QTreeWidgetItem,
-    QTableWidget,
-    QTableWidgetItem,
+    QAbstractItemView,
+    QComboBox,
     QDialog,
     QDialogButtonBox,
-    QComboBox,
+    QFrame,
+    QGridLayout,
+    QHBoxLayout,
+    QHeaderView,
     QLabel,
     QPushButton,
-    QFrame,
     QScrollArea,
-    QGroupBox,
-    QGridLayout,
-    QHeaderView,
-    QAbstractItemView,
+    QSplitter,
+    QTableWidget,
+    QTableWidgetItem,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QVBoxLayout,
+    QWidget,
 )
 
-import matplotlib
-
 matplotlib.use("Qt5Agg")
+import logging
+from typing import Any, Dict, List, Optional, Tuple
+
+import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 from matplotlib.widgets import RectangleSelector
-import matplotlib.pyplot as plt
-import numpy as np
 from scipy.cluster.hierarchy import dendrogram
-from typing import List, Dict, Tuple, Optional, Any
-import logging
 
-from .statisticsModule import StatisticsData, DataQualityAnalysis, MultivariateAnalysis, UnivariateAnalysis, SelectionManager
+from .statisticsModule import DataQualityAnalysis, MultivariateAnalysis, SelectionManager, StatisticsData, UnivariateAnalysis
 
 
 class AddComparisonDialog(QDialog):
@@ -373,7 +372,7 @@ class MultiVolcanoWidget(QWidget):
         # Calculate grid layout
         n_plots = len(comparisons)
         cols = min(3, n_plots)
-        rows = (n_plots + cols - 1) // cols
+        (n_plots + cols - 1) // cols
 
         for i, (group1, group2) in enumerate(comparisons):
             canvas = InteractiveVolcanoCanvas(self)
@@ -449,9 +448,7 @@ class SelectedFeaturesTable(QTableWidget):
         self.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.setSelectionMode(QAbstractItemView.ExtendedSelection)
-        self.setStyleSheet(
-            "QTableWidget::item:selected { background-color: rgba(80, 200, 80, 120); color: black; }"
-        )
+        self.setStyleSheet("QTableWidget::item:selected { background-color: rgba(80, 200, 80, 120); color: black; }")
         self.setSortingEnabled(True)
         self.feature_data = []
 
@@ -1089,13 +1086,11 @@ class StatisticsTabWidget(QWidget):
 
             for i, sample in enumerate(sample_names):
                 sample_color = "gray"
-                sample_group = None
                 for group_name in selected_groups:
                     if group_name in self.stats_data.group_info:
                         samples = self.stats_data.group_info[group_name]
                         if sample in samples:
                             sample_color = group_colors[group_name]
-                            sample_group = group_name
                             break
 
                 ax.scatter(scores[i, 0], scores[i, 1], c=sample_color, s=100, alpha=0.8, edgecolors="black", linewidth=0.5)
@@ -1330,7 +1325,7 @@ class StatisticsTabWidget(QWidget):
 
             if self.stats_data.add_volcano_comparison(group1, group2):
                 # Add to tree
-                comparison_item = QTreeWidgetItem(self.volcano_parent_item, [f"{group1} vs {group2}"])
+                QTreeWidgetItem(self.volcano_parent_item, [f"{group1} vs {group2}"])
                 self.methods_tree.expandItem(self.volcano_parent_item)
 
     def _remove_volcano_comparison(self):
@@ -1363,18 +1358,18 @@ class StatisticsTabWidget(QWidget):
         def _to_list(v):
             return v.tolist() if hasattr(v, "tolist") else list(v)
 
-        feature_names    = _to_list(vd.get("feature_names", []))
-        log2_fc_array    = _to_list(vd.get("log2_fc", []))
-        pvalues_array    = _to_list(vd.get("pvalues", []))
-        significant      = _to_list(vd.get("significant", []))
+        feature_names = _to_list(vd.get("feature_names", []))
+        log2_fc_array = _to_list(vd.get("log2_fc", []))
+        pvalues_array = _to_list(vd.get("pvalues", []))
+        significant = _to_list(vd.get("significant", []))
         feature_pair_ids = _to_list(vd.get("featurePairIDs", []))
-        feature_group_ids= _to_list(vd.get("featureGroupIDs", []))
-        g1_means         = _to_list(vd.get("g1_means", []))
-        g1_medians       = _to_list(vd.get("g1_medians", []))
-        g1_sds           = _to_list(vd.get("g1_sds", []))
-        g2_means         = _to_list(vd.get("g2_means", []))
-        g2_medians       = _to_list(vd.get("g2_medians", []))
-        g2_sds           = _to_list(vd.get("g2_sds", []))
+        feature_group_ids = _to_list(vd.get("featureGroupIDs", []))
+        g1_means = _to_list(vd.get("g1_means", []))
+        g1_medians = _to_list(vd.get("g1_medians", []))
+        g1_sds = _to_list(vd.get("g1_sds", []))
+        g2_means = _to_list(vd.get("g2_means", []))
+        g2_medians = _to_list(vd.get("g2_medians", []))
+        g2_sds = _to_list(vd.get("g2_sds", []))
 
         metadata = {}
         if self.stats_data.feature_metadata is not None:
@@ -1386,24 +1381,24 @@ class StatisticsTabWidget(QWidget):
         group_stats = {"g1_mean": {}, "g1_median": {}, "g1_sd": {}, "g2_mean": {}, "g2_median": {}, "g2_sd": {}}
 
         COLOR_GRAY = QtGui.QColor(190, 190, 190, 60)
-        COLOR_RED  = QtGui.QColor(220, 80,  80,  70)
-        COLOR_BLUE = QtGui.QColor(80,  80,  220, 70)
+        COLOR_RED = QtGui.QColor(220, 80, 80, 70)
+        COLOR_BLUE = QtGui.QColor(80, 80, 220, 70)
         row_colors = {}
 
         for pos_idx, feature_id in enumerate(feature_names):
-            fc   = log2_fc_array[pos_idx]  if pos_idx < len(log2_fc_array)   else 0.0
-            pval = pvalues_array[pos_idx]  if pos_idx < len(pvalues_array)   else 1.0
-            sig  = significant[pos_idx]    if pos_idx < len(significant)      else False
-            metadata["log2_fc"][feature_id]     = fc
-            metadata["pvalue"][feature_id]      = pval
-            metadata["featurePairID"][feature_id]  = feature_pair_ids[pos_idx]  if pos_idx < len(feature_pair_ids)  else 0
+            fc = log2_fc_array[pos_idx] if pos_idx < len(log2_fc_array) else 0.0
+            pval = pvalues_array[pos_idx] if pos_idx < len(pvalues_array) else 1.0
+            sig = significant[pos_idx] if pos_idx < len(significant) else False
+            metadata["log2_fc"][feature_id] = fc
+            metadata["pvalue"][feature_id] = pval
+            metadata["featurePairID"][feature_id] = feature_pair_ids[pos_idx] if pos_idx < len(feature_pair_ids) else 0
             metadata["featureGroupID"][feature_id] = feature_group_ids[pos_idx] if pos_idx < len(feature_group_ids) else 0
-            group_stats["g1_mean"][feature_id]   = g1_means[pos_idx]   if pos_idx < len(g1_means)   else np.nan
+            group_stats["g1_mean"][feature_id] = g1_means[pos_idx] if pos_idx < len(g1_means) else np.nan
             group_stats["g1_median"][feature_id] = g1_medians[pos_idx] if pos_idx < len(g1_medians) else np.nan
-            group_stats["g1_sd"][feature_id]     = g1_sds[pos_idx]     if pos_idx < len(g1_sds)     else np.nan
-            group_stats["g2_mean"][feature_id]   = g2_means[pos_idx]   if pos_idx < len(g2_means)   else np.nan
+            group_stats["g1_sd"][feature_id] = g1_sds[pos_idx] if pos_idx < len(g1_sds) else np.nan
+            group_stats["g2_mean"][feature_id] = g2_means[pos_idx] if pos_idx < len(g2_means) else np.nan
             group_stats["g2_median"][feature_id] = g2_medians[pos_idx] if pos_idx < len(g2_medians) else np.nan
-            group_stats["g2_sd"][feature_id]     = g2_sds[pos_idx]     if pos_idx < len(g2_sds)     else np.nan
+            group_stats["g2_sd"][feature_id] = g2_sds[pos_idx] if pos_idx < len(g2_sds) else np.nan
             if sig:
                 row_colors[feature_id] = COLOR_RED if fc > 0 else COLOR_BLUE
             else:
