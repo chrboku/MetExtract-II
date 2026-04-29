@@ -1,5 +1,5 @@
 import numpy
-from math import floor
+
 from ..utils import Bunch
 
 
@@ -176,9 +176,8 @@ class GradientPeaks:
 
 
 if __name__ == "__main__":
-    from .Chromatogram import Chromatogram
     from ..utils import smoothDataSeries
-
+    from .Chromatogram import Chromatogram
     from .utilities.Stopwatch import Stopwatch
 
     sw = Stopwatch()
@@ -477,7 +476,6 @@ if __name__ == "__main__":
             "black",
         )
 
-    from . import MExtract
     from MassSpecWavelet import MassSpecWavelet
 
     from utils import get_main_dir

@@ -1,7 +1,8 @@
-from PySide6 import QtCore, QtGui, QtWidgets
-from .calcIsotopeEnrichmentDialog import Ui_Dialog
-
 from math import factorial
+
+from PySide6 import QtWidgets
+
+from .calcIsotopeEnrichmentDialog import Ui_Dialog
 
 
 def choose(n, r):
@@ -40,7 +41,7 @@ class calcIsoEnrichmentDialog(QtWidgets.QDialog, Ui_Dialog):
                     5,
                     QtWidgets.QTableWidgetItem("%.4f%%" % (100.0 * calcIsoEnrichment(cn, 1, mpo / m))),
                 )
-            except Exception as ex:
+            except Exception:
                 pass
             try:
                 mpmo = float(self.tableWidget.item(rowi, 2).text())
@@ -52,7 +53,7 @@ class calcIsoEnrichmentDialog(QtWidgets.QDialog, Ui_Dialog):
                     6,
                     QtWidgets.QTableWidgetItem("%.4f%%" % (100.0 * calcIsoEnrichment(cn, 1, mpmo / mp))),
                 )
-            except Exception as ex:
+            except Exception:
                 pass
 
     def executeDialog(self):

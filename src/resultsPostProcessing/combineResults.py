@@ -1,19 +1,16 @@
 ########################################################################################################################
 ########################################################################################################################
 
-import sys
-
-# sys.path.append("C:/PyMetExtract/PyMetExtract")  # Removed hardcoded path
-
-from ..TableUtils import TableUtils
-from ..utils import Bunch
-
-from ..mePyGuis import combineResultsDialog
-from PySide6 import QtCore, QtGui, QtWidgets
-
 import csv
 import os
+import sys
 
+from PySide6 import QtWidgets
+
+from ..mePyGuis import combineResultsDialog
+
+# sys.path.append("C:/PyMetExtract/PyMetExtract")  # Removed hardcoded path
+from ..utils import Bunch
 
 ########################################################################################################################
 ########################################################################################################################
@@ -145,7 +142,7 @@ def combineResults(
                 if len(results[expDesc]) > 0:
                     result = next(iter(results[expDesc].values()))
                     break
-            run = result != None
+            run = result is not None
 
             ## match all results for the current one (variable result)
             minRT = 1000000

@@ -1,9 +1,8 @@
-from .utils import Bunch
-
-from time import gmtime, strftime
 import csv
+from time import gmtime, strftime
 
 from .MetExtractII_Main import MetExtractVersion
+from .utils import Bunch
 
 
 def writeFeatureListToFeatureML(features, toFile, ppmPM=5, rtPM=0.25 * 60):

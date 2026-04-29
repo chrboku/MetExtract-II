@@ -15,109 +15,48 @@
 #    along with this program; if not, write to the Free Software
 #    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-from __future__ import print_function, division, absolute_import
+from __future__ import absolute_import, division, print_function
+
 import base64
 import functools
-import io
 import logging
 import os
 import platform
-import pprint
 import re
 import time
-import zipfile
-from copy import copy
-from math import floor
-from pickle import loads, dumps
-import polars as pl
-import json
 import traceback
-
-try:
-    import rpy2
-
-    R_AVAILABLE = True
-except ImportError:
-    R_AVAILABLE = False
-    rpy2 = None
-try:
-    import rpy2.robjects as ro
-
-    R_AVAILABLE = True
-except ImportError:
-    R_AVAILABLE = False
-    ro = None
-
-import numpy as np
-
-from . import HCA_general
-from .utils import USEGRADIENTDESCENDPEAKPICKING
-from .utils import getNormRatio, CallBackMethod, get_main_dir
-
-pp = pprint.PrettyPrinter(indent=1)
-
-from reportlab.graphics.shapes import Drawing
-from reportlab.graphics.charts.lineplots import LinePlot
-from reportlab.graphics.charts.lineplots import ScatterPlot
-from reportlab.lib import pagesizes
-from reportlab.lib import colors
-from reportlab.lib.colors import Color
-from reportlab.lib.units import mm
-from reportlab.platypus import Paragraph, Table
-from reportlab.platypus.flowables import Flowable
-from reportlab.pdfgen import canvas
-from reportlab.graphics import renderPDF
-from reportlab.lib.styles import getSampleStyleSheet
-
-
-# helper function for ReportLab
-def coord(x, y):
-    return x, y
-
-
-# helper function for ReportLab
-def noLabel(a):
-    return ""
-
-
-# helper class for ReportLab
-class TTR(Flowable):  # TableTextRotate
-    """Rotates a tex in a table cell."""
-
-    def __init__(self, text):
-        Flowable.__init__(self)
-        self.text = text
-
-    def draw(self):
-        canvas = self.canv
-        canvas.rotate(90)
-        canvas.drawString(0, -1, self.text)
-
-
+from . import HCA_general, Baseline, exportAsFeatureML
+from .utils import CallBackMethod, getNormRatio, getDBSuffix
 from .Chromatogram import Chromatogram
-from .runIdentification_matchPartners import matchPartners
 from .formulaTools import formulaTools, getIsotopeMass
-from .utils import (
-    getAtomAdd,
-    mean,
-    weightedMean,
-    sd,
-    weightedSd,
-    smoothDataSeries,
-)
-from .MZHCA import HierarchicalClustering, cutTreeSized
-from .chromPeakPicking.MassSpecWavelet import MassSpecWavelet
-from . import Baseline
-from .utils import corr, getSubGraphs, ChromPeakPair, Bunch
-from .SGR import SGRGenerator
 from .mePyGuis.TracerEdit import ConfiguredTracer
-from . import exportAsFeatureML
-from .chromPeakPicking.CommonChromPeak import getPeakStats
+from .MZHCA import HierarchicalClustering, cutTreeSized
+from .PolarsDB import PolarsDB
+from .runIdentification_matchPartners import matchPartners
+from .SGR import SGRGenerator
+from .chromPeakPicking.peakpickers import filter_peaks
+
 import numpy as np
+import polars as pl
 import scipy
 
-from .PolarsDB import PolarsDB
-from .utils import getDBSuffix, getDBFormat
+from pickle import dumps, loads
+from copy import copy
+from math import floor
+
+from .utils import (
+    Bunch,
+    ChromPeakPair,
+    corr,
+    getAtomAdd,
+    getDBFormat,
+    getSubGraphs,
+    mean,
+    sd,
+    smoothDataSeries,
+    weightedMean,
+    weightedSd,
+)
 
 
 # returns the abbreviation for a given element
@@ -136,7 +75,7 @@ def getShortName(element):
 def countEntries(x):
     ret = {}
     for i in x:
-        if not (i in ret):
+        if i not in ret:
             ret[i] = 0
         ret[i] = ret[i] + 1
     return ret
@@ -216,7 +155,6 @@ def smooth(abundances):
         return data_convolved
 
     elif algorithm.lower() == "savgol":
-        kernel_size = self.smoothingkernel_size
         window_length = self.smoothingwindow_length
         polynom_degree = self.smoothingpolynom_degree
         return scipy.signal.savgol_filter(abundances, window_length, polynom_degree)
@@ -265,7 +203,6 @@ class RunIdentification:
         exExperimentID="",
         exComments="",
         exExperimentName="",
-        writePDF=False,
         writeFeatureML=False,
         writeTSV=False,
         writeMZXML=9,
@@ -302,6 +239,11 @@ class RunIdentification:
         checkPeaksRatio=False,
         minPeaksRatio=0,
         maxPeaksRatio=99999999,
+        checkPeakWidthFilter=False,
+        minPeakWidth=0.0,
+        maxPeakWidth=9999.0,
+        minFWHM=0.0,
+        maxFWHM=9999.0,
         calcIsoRatioNative=1,
         calcIsoRatioLabelled=-1,
         calcIsoRatioMoiety=1,
@@ -327,9 +269,19 @@ class RunIdentification:
         lock=None,
         queue=None,
         pID=-1,
-        rVersion="NA",
         meVersion="NA",
+        scanIndexOffset=0,
+        peak_picker=None,
+        peak_filter_config=None,
     ):
+        # System
+        self.lock = lock
+        self.queue = queue
+        self.pID = pID
+        self.meVersion = meVersion
+
+        self.peak_picker = peak_picker
+        self.peak_filter_config = peak_filter_config
         # Check if configuredTracer is None when metabolisationExperiment is True
         if metabolisationExperiment and configuredTracer is None:
             self.printMessage("Metabolisation experiment requires a configured tracer, but none was provided.", type="error")
@@ -350,7 +302,6 @@ class RunIdentification:
             raise Exception("No scan event was specified..")
 
         self.file = file
-        self.writePDF = writePDF
         self.writeFeatureML = writeFeatureML
         self.writeTSV = writeTSV
         self.writeMZXML = writeMZXML
@@ -398,6 +349,7 @@ class RunIdentification:
         self.xCounts = sorted(list(set(self.xCounts)))
 
         self.xOffset = xOffset
+        self.scanIndexOffset = scanIndexOffset
         self.ppm = ppm
         self.isotopicPatternCountLeft = isotopicPatternCountLeft
         self.isotopicPatternCountRight = isotopicPatternCountRight
@@ -415,7 +367,7 @@ class RunIdentification:
         # 3. Peak detection
         self.chromPeakPPM = chromPeakPPM
 
-        if eicSmoothingWindow == None or eicSmoothingWindow == "" or eicSmoothingWindow == "none":
+        if eicSmoothingWindow is None or eicSmoothingWindow == "" or eicSmoothingWindow == "none":
             eicSmoothingWindow = "None"
         self.eicSmoothingWindow = eicSmoothingWindow
         self.eicSmoothingWindowSize = eicSmoothingWindowSize
@@ -430,15 +382,17 @@ class RunIdentification:
         self.checkPeaksRatio = checkPeaksRatio
         self.minPeaksRatio = minPeaksRatio
         self.maxPeaksRatio = maxPeaksRatio
+        self.checkPeakWidthFilter = checkPeakWidthFilter
+        self.minPeakWidth = minPeakWidth
+        self.maxPeakWidth = maxPeakWidth
+        self.minFWHM = minFWHM
+        self.maxFWHM = maxFWHM
 
         self.calcIsoRatioNative = calcIsoRatioNative
         self.calcIsoRatioLabelled = calcIsoRatioLabelled
         self.calcIsoRatioMoiety = calcIsoRatioMoiety
 
-        self.chromPeakFile = chromPeakFile
-        if self.chromPeakFile is None:
-            cpf = get_main_dir() + "/src/chromPeakPicking/MassSpecWaveletIdentification.r"
-            self.chromPeakFile = cpf
+        self.chromPeakFile = chromPeakFile  # kept for backward compatibility (no longer used)
 
         self.performCorrectCCount = correctCCount
 
@@ -456,29 +410,28 @@ class RunIdentification:
             self.heteroAtoms[heteroAtom.name] = heteroAtom
         self.simplifyInSourceFragments = simplifyInSourceFragments
 
-        # System
-        self.lock = lock
-        self.queue = queue
-        self.pID = pID
-        self.rVersion = rVersion
-        self.meVersion = meVersion
-
     # Thread safe printing function
     def printMessage(self, message, type="info"):
+        # Always print to stdout for debugging
         if self.lock is not None:
             self.lock.acquire()
             if type.lower() == "info":
-                logging.info("   %d: %s" % (self.pID, message))
+                # logging.info("   %d: %s" % (self.pID, message))
+                self.postMessageToProgressWrapper(mes="log", val=message)
             elif type.lower() == "warning":
-                logging.warning("   %d: %s" % (self.pID, message))
+                # logging.warning("   %d: %s" % (self.pID, message))
+                self.postMessageToProgressWrapper(mes="log", val=message)
             elif type.lower() == "error":
-                logging.error("   %d: %s" % (self.pID, message))
+                # logging.error("   %d: %s" % (self.pID, message))
+                self.postMessageToProgressWrapper(mes="log", val=message)
             else:
-                logging.debug("   %d: %s" % (self.pID, message))
+                # logging.debug("   %d: %s" % (self.pID, message))
+                self.postMessageToProgressWrapper(mes="log", val=message)
             self.lock.release()
 
     # helper function used to update the status of the current processing in the Process Dialog
     def postMessageToProgressWrapper(self, mes, val=""):
+        # Always print to stdout for debugging
         if self.pID != -1 and self.queue is not None:
             if mes.lower() == "text":
                 self.queue.put(Bunch(pid=self.pID, mes="text", val="%d: %s" % (self.pID, val)))
@@ -486,6 +439,8 @@ class RunIdentification:
                 self.queue.put(Bunch(pid=self.pID, mes=mes, val=val))
             elif mes == "start" or mes == "end" or mes == "failed":
                 self.queue.put(Bunch(pid=self.pID, mes=mes))
+            elif mes == "log":
+                self.queue.put(Bunch(pid=self.pID, mes=mes, val=mes))
 
     def getMostLikelyHeteroIsotope(self, foundIsotopes):
         if len(foundIsotopes) == 0:
@@ -502,7 +457,7 @@ class RunIdentification:
 
                 cnRatio = mean([x[1] for x in cnF])
                 cnRatioTheo = mean([x[2] for x in cnF])
-                cnScans = len(cnF)
+                len(cnF)
 
                 if useCn == -1 or (abs(cnRatioTheo - cnRatio) < abs(useCnRatio - useCnRatioTheo)):
                     useCn = cn
@@ -604,6 +559,10 @@ class RunIdentification:
                 "NBorderRight": pl.Int64,
                 "LBorderLeft": pl.Int64,
                 "LBorderRight": pl.Int64,
+                "N_startRT": pl.Float64,
+                "N_endRT": pl.Float64,
+                "L_startRT": pl.Float64,
+                "L_endRT": pl.Float64,
                 "adducts": pl.Utf8,
                 "heteroAtomsFeaturePairs": pl.Utf8,
                 "massSpectrumID": pl.Int64,
@@ -620,12 +579,6 @@ class RunIdentification:
                 "correlationsToOthers": pl.Utf8,
                 "comments": pl.Utf8,
                 "artificialEICLShift": pl.Int64,
-                "new_FWHM_M": pl.Float64,
-                "new_FWHM_Mp": pl.Float64,
-                "new_Area_M": pl.Float64,
-                "new_Area_Mp": pl.Float64,
-                "new_SNR_M": pl.Float64,
-                "new_SNR_Mp": pl.Float64,
             },
         )
 
@@ -659,6 +612,10 @@ class RunIdentification:
                 "NBorderRight": pl.Int64,
                 "LBorderLeft": pl.Int64,
                 "LBorderRight": pl.Int64,
+                "N_startRT": pl.Float64,
+                "N_endRT": pl.Float64,
+                "L_startRT": pl.Float64,
+                "L_endRT": pl.Float64,
                 "adducts": pl.Utf8,
                 "heteroAtomsFeaturePairs": pl.Utf8,
                 "ionMode": pl.Utf8,
@@ -674,12 +631,6 @@ class RunIdentification:
                 "comment": pl.Utf8,
                 "comments": pl.Utf8,
                 "artificialEICLShift": pl.Int64,
-                "new_FWHM_M": pl.Float64,
-                "new_FWHM_Mp": pl.Float64,
-                "new_Area_M": pl.Float64,
-                "new_Area_Mp": pl.Float64,
-                "new_SNR_M": pl.Float64,
-                "new_SNR_Mp": pl.Float64,
             },
         )
 
@@ -694,7 +645,6 @@ class RunIdentification:
         db_con.create_table("stats", {"key": pl.Utf8, "value": pl.Utf8})
 
         db_con.insert_row("config", {"key": "MetExtractVersion", "value": self.meVersion})
-        db_con.insert_row("config", {"key": "RVersion", "value": self.rVersion})
 
         db_con.insert_row("config", {"key": "ExperimentName", "value": self.experimentName})
         db_con.insert_row("config", {"key": "ExperimentOperator", "value": self.experimentOperator})
@@ -719,6 +669,7 @@ class RunIdentification:
         db_con.insert_row("config", {"key": "maxLoading", "value": self.maxLoading})
         db_con.insert_row("config", {"key": "xCounts", "value": self.xCountsString})
         db_con.insert_row("config", {"key": "xOffset", "value": self.xOffset})
+        db_con.insert_row("config", {"key": "scanIndexOffset", "value": self.scanIndexOffset})
         db_con.insert_row("config", {"key": "ppm", "value": self.ppm})
         db_con.insert_row("config", {"key": "isotopicPatternCountLeft", "value": self.isotopicPatternCountLeft})
         db_con.insert_row("config", {"key": "isotopicPatternCountRight", "value": self.isotopicPatternCountRight})
@@ -735,11 +686,7 @@ class RunIdentification:
         db_con.insert_row("config", {"key": "eicSmoothingPolynom", "value": self.eicSmoothingPolynom})
         db_con.insert_row("config", {"key": "artificialMPshift_start", "value": self.artificialMPshift_start})
         db_con.insert_row("config", {"key": "artificialMPshift_stop", "value": self.artificialMPshift_stop})
-        db_con.insert_row("config", {"key": "snrTh", "value": self.snrTh})
-        db_con.insert_row("config", {"key": "scales", "value": base64.b64encode(dumps(self.scales)).decode("utf-8")})
         db_con.insert_row("config", {"key": "peakAbundanceCriteria", "value": "Center +- %d signals (%d total)" % (peakAbundanceUseSignalsSides, peakAbundanceUseSignals)})
-        db_con.insert_row("config", {"key": "peakCenterError", "value": self.peakCenterError})
-        db_con.insert_row("config", {"key": "peakScaleError", "value": self.peakScaleError})
         db_con.insert_row("config", {"key": "minPeakCorr", "value": self.minPeakCorr})
         db_con.insert_row("config", {"key": "checkPeaksRatio", "value": str(self.checkPeaksRatio)})
         db_con.insert_row("config", {"key": "minPeaksRatio", "value": self.minPeaksRatio})
@@ -757,9 +704,9 @@ class RunIdentification:
         db_con.insert_row("config", {"key": "elements", "value": base64.b64encode(dumps(self.elements)).decode("utf-8")})
         db_con.insert_row("config", {"key": "simplifyInSourceFragments", "value": str(self.simplifyInSourceFragments)})
 
-        import uuid
-        import platform
         import datetime
+        import platform
+        import uuid
 
         self.processingUUID = "%s_%s_%s" % (
             str(uuid.uuid1()),
@@ -1071,10 +1018,6 @@ class RunIdentification:
         pdf.drawString(240, currentHeight, str(self.meVersion))
         currentHeight -= 15
 
-        pdf.drawString(70, currentHeight, "R-Version")
-        pdf.drawString(240, currentHeight, str(self.rVersion))
-        currentHeight -= 15
-
         p = Paragraph("UUID_ext: " + self.processingUUID, style=getSampleStyleSheet()["Normal"])
         w, h = p.wrap(450, 120)
         p.wrapOn(pdf, 450, 120)
@@ -1199,6 +1142,7 @@ class RunIdentification:
                 checkRatio=checkRatio,
                 minRatio=minRatio,
                 maxRatio=maxRatio,
+                scanIndexOffset=self.scanIndexOffset,
                 reportFunction=reportFunctionHelper,
             )
             posFound = len(p)
@@ -1239,6 +1183,7 @@ class RunIdentification:
                 checkRatio=checkRatio,
                 minRatio=minRatio,
                 maxRatio=maxRatio,
+                scanIndexOffset=self.scanIndexOffset,
                 reportFunction=reportFunctionHelper,
             )
             negFound = len(n)
@@ -1283,7 +1228,7 @@ class RunIdentification:
         db_con.commit()
         db_con.close()
 
-    # data processing step 2: cluster detected signal pairs with HCA
+    # data processing step 2: cluster detected signal pairs with H
     def clusterFeaturePairs(self, mzs, reportFunction=None):
         mzbins = {}
         mzbins["+"] = []
@@ -1405,7 +1350,7 @@ class RunIdentification:
                 if len(ratios) >= minRatiosNecessary:
                     assert len(ratios) == len(weights)
                     ratio = sum([ratios[o] * weights[o] for o in range(len(ratios))])
-                    deviation = sum([ratios[o] * weights[o] for o in range(len(ratios))])
+                    sum([ratios[o] * weights[o] for o in range(len(ratios))])
                     return ratio
                 else:
                     return -1
@@ -1439,511 +1384,492 @@ class RunIdentification:
 
             if scanEvent != "None":
                 for mzbin, i in zip(mzbins[ionMode], range(0, len(mzbins[ionMode]))):
-                    if reportFunction is not None:
-                        doneBins = i
-                        if ionMode == "-":
-                            doneBins += len(mzbins["+"])
-
-                        reportFunction(
-                            1.0 * doneBins / totalBins,
-                            "%d mzbins remaining" % (totalBins - doneBins),
-                        )
-
-                    kids = mzbin.getKids()
-                    if len(kids) < self.minSpectraCount:
-                        continue
-
-                    # calulcate mean mz value for this signal pair cluster
-                    meanmz = weightedMean(
-                        [kid.getObject().mz for kid in kids],
-                        [kid.getObject().nIntensity for kid in kids],
-                    )
-                    meanmzLabelled = weightedMean(
-                        [kid.getObject().lmz for kid in kids],
-                        [kid.getObject().lIntensity for kid in kids],
-                    )
-                    meantmz = weightedMean(
-                        [kid.getObject().tmz for kid in kids],
-                        [kid.getObject().lIntensity for kid in kids],
-                    )
-
-                    xcount = kids[0].getObject().xCount
-                    assert all([kid.getObject().xCount == xcount for kid in kids])
-
-                    loading = kids[0].getObject().loading
-                    assert all([kid.getObject().loading == loading for kid in kids])
-
-                    # extract the EIC of the native ion and detect its chromatographic peaks
-                    # optionally: smoothing
-                    eic, times, scanIds, mzs = mzxml.getEIC(meanmz, self.chromPeakPPM, filterLine=scanEvent)
-                    eicBaseline = self.BL.getBaseline(copy(eic), times)
-                    eicSmoothed = smoothDataSeries(
-                        times,
-                        copy(eic),
-                        windowLen=self.eicSmoothingWindowSize,
-                        window=self.eicSmoothingWindow,
-                        polynom=self.eicSmoothingPolynom,
-                    )
-                    # extract the EIC of the labelled ion and detect its chromatographic peaks
-                    # optionally: smoothing
-                    eicL, times, scanIds, mzsL = mzxml.getEIC(meanmzLabelled, self.chromPeakPPM, filterLine=scanEvent)
-                    eicLBaseline = self.BL.getBaseline(copy(eicL), times)
-                    eicLSmoothed = smoothDataSeries(
-                        times,
-                        copy(eicL),
-                        windowLen=self.eicSmoothingWindowSize,
-                        window=self.eicSmoothingWindow,
-                        polynom=self.eicSmoothingPolynom,
-                    )
-
-                    # determine boundaries for chromatographic peak picking
-                    minInd = min([kid.getObject().scanIndex for kid in kids])
-                    maxInd = max([kid.getObject().scanIndex for kid in kids])
-
-                    ## TODO needs to be optimized
-                    # startIndex=max(0, minInd-int(ceil(self.scales[1]*10)))
-                    # endIndex=min(len(eic)-1, int(ceil(maxInd+self.scales[1]*10)))
-                    startIndex = 0
-                    endIndex = len(eic) - 1
-
-                    peaksN = []
                     try:
-                        peaksN = self.CP.getPeaksFor(times, eicSmoothed, startIndex=startIndex, endIndex=endIndex)
-                    except Exception as ex:
-                        self.printMessage("Errora: %s" % str(ex), type="error")
+                        if reportFunction is not None:
+                            doneBins = i
+                            if ionMode == "-":
+                                doneBins += len(mzbins["+"])
 
-                    peaksL = []
-                    try:
-                        peaksL = self.CP.getPeaksFor(
-                            times,
-                            eicLSmoothed,
-                            startIndex=startIndex,
-                            endIndex=endIndex,
-                        )
-                    except Exception as ex:
-                        self.printMessage("Errorb: %s" % str(ex), type="error")
-
-                    # get EICs of M+1, M'-1 and M'+1 for the database
-                    eicfirstiso, timesL, scanIdsL, mzsfirstiso = mzxml.getEIC(
-                        meanmz + 1.00335484 / loading,
-                        self.chromPeakPPM,
-                        filterLine=scanEvent,
-                    )
-                    # eicfirstisoSmoothed = smoothDataSeries(times, eicfirstiso, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
-
-                    eicLfirstiso, timesL, scanIdsL, mzsLfirstiso = mzxml.getEIC(
-                        meanmzLabelled - 1.00335484 / loading,
-                        self.chromPeakPPM,
-                        filterLine=scanEvent,
-                    )
-                    # eicLfirstisoSmoothed = smoothDataSeries(times, eicLfirstiso, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
-
-                    eicLfirstisoconjugate, timesL, scanIdsL, mzsLfirstisoconjugate = mzxml.getEIC(
-                        meanmzLabelled + 1.00335484 / loading,
-                        self.chromPeakPPM,
-                        filterLine=scanEvent,
-                    )
-                    # eicLfirstisoconjugateSmoothed = smoothDataSeries(times, eicLfirstisoconjugate, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
-
-                    peaksBoth = []
-
-                    # match detected chromatographic peaks from both EICs
-                    for peakN in peaksN:
-                        closestMatch = -1
-                        closestOffset = 10000000000
-
-                        # search closest peak pair
-                        for li, peakL in enumerate(peaksL):
-                            ##print(peakN.peakIndex, peakL.peakIndex, meanmz, meanmzLabelled)
-                            ##if abs(peakN[0] - peakL[0]) <= self.peakCenterError:
-                            if abs(peakN.peakIndex - peakL.peakIndex) <= self.peakCenterError:
-                                if closestMatch == -1 or closestOffset > abs(peakN.peakIndex - peakL.peakIndex):
-                                    closestMatch = li
-                                    closestOffset = abs(peakN.peakIndex - peakL.peakIndex)
-
-                        if closestMatch != -1:
-                            peakL = peaksL[closestMatch]
-
-                            # Calculate new peak stats
-                            fwhm_M, area_M, snr_M = getPeakStats(np.vstack((times, eicSmoothed)), int(peakN.peakIndex - peakN.peakLeftFlank), peakN.peakIndex, int(peakN.peakIndex + peakN.peakRightFlank))
-                            fwhm_Mp, area_Mp, snr_Mp = getPeakStats(np.vstack((times, eicLSmoothed)), int(peakL.peakIndex - peakL.peakLeftFlank), peakL.peakIndex, int(peakL.peakIndex + peakL.peakRightFlank))
-
-                            # print("M: ", int(peakN.peakIndex - peakN.peakLeftFlank), peakN.peakIndex, int(peakN.peakIndex + peakN.peakRightFlank))
-                            # print(f"   FWHM: {fwhm_M}, area: {area_M}, SNR: {snr_M}")
-                            # print("Mp: ", int(peakL.peakIndex - peakL.peakLeftFlank), peakL.peakIndex, int(peakL.peakIndex + peakL.peakRightFlank))
-                            # print(f"   FWHM: {fwhm_Mp}, area: {area_Mp}, SNR: {snr_Mp}")
-
-                            peak = ChromPeakPair(
-                                mz=meanmz,
-                                lmz=meanmzLabelled,
-                                tmz=meantmz,
-                                xCount=xcount,
-                                loading=loading,
-                                ionMode=ionMode,
-                                NPeakCenter=peakN.peakIndex,
-                                NPeakCenterMin=times[peakN.peakIndex],
-                                NPeakScale=peakN.peakScale,
-                                NSNR=peakN.peakSNR,
-                                NPeakArea=peakN.peakArea,
-                                LPeakCenter=peakL.peakIndex,
-                                LPeakCenterMin=times[peakL.peakIndex],
-                                LPeakScale=peakL.peakScale,
-                                LSNR=peakL.peakSNR,
-                                LPeakArea=peakL.peakArea,
-                                NXIC=eic,
-                                LXIC=eicL,
-                                times=times,
-                                fDesc=[],
-                                adducts=[],
-                                heteroAtomsFeaturePairs=[],
-                                NXICSmoothed=eicSmoothed,
-                                LXICSmoothed=eicLSmoothed,
-                                NBorderLeft=peakN.peakLeftFlank,
-                                NBorderRight=peakN.peakRightFlank,
-                                LBorderLeft=peakL.peakLeftFlank,
-                                LBorderRight=peakL.peakRightFlank,
-                                isotopeRatios=[],
-                                mzDiffErrors=Bunch(),
-                                comments=[],
-                                artificialEICLShift=0,
-                                new_FWHM_M=fwhm_M,
-                                new_Area_M=area_M,
-                                new_SNR_M=snr_M,
-                                new_FWHM_Mp=fwhm_Mp,
-                                new_Area_Mp=area_Mp,
-                                new_SNR_Mp=snr_Mp,
+                            reportFunction(
+                                1.0 * doneBins / totalBins,
+                                "%d mzbins remaining" % (totalBins - doneBins),
                             )
 
+                        kids = mzbin.getKids()
+                        if len(kids) < self.minSpectraCount:
+                            continue
+
+                        # calulcate mean mz value for this signal pair cluster
+                        meanmz = weightedMean(
+                            [kid.getObject().mz for kid in kids],
+                            [kid.getObject().nIntensity for kid in kids],
+                        )
+                        meanmzLabelled = weightedMean(
+                            [kid.getObject().lmz for kid in kids],
+                            [kid.getObject().lIntensity for kid in kids],
+                        )
+                        meantmz = weightedMean(
+                            [kid.getObject().tmz for kid in kids],
+                            [kid.getObject().lIntensity for kid in kids],
+                        )
+
+                        xcount = kids[0].getObject().xCount
+                        assert all([kid.getObject().xCount == xcount for kid in kids])
+
+                        loading = kids[0].getObject().loading
+                        assert all([kid.getObject().loading == loading for kid in kids])
+
+                        # extract the EIC of the native ion and detect its chromatographic peaks
+                        # optionally: smoothing
+                        eic, times, scanIds, mzs = mzxml.getEIC(meanmz, self.chromPeakPPM, filterLine=scanEvent)
+                        eicBaseline = self.BL.getBaseline(copy(eic), times)
+                        eicSmoothed = smoothDataSeries(
+                            times,
+                            copy(eic),
+                            windowLen=self.eicSmoothingWindowSize,
+                            window=self.eicSmoothingWindow,
+                            polynom=self.eicSmoothingPolynom,
+                        )
+                        # extract the EIC of the labelled ion and detect its chromatographic peaks
+                        # optionally: smoothing
+                        eicL, times, scanIds, mzsL = mzxml.getEIC(meanmzLabelled, self.chromPeakPPM, filterLine=scanEvent)
+                        eicLBaseline = self.BL.getBaseline(copy(eicL), times)
+                        eicLSmoothed = smoothDataSeries(
+                            times,
+                            copy(eicL),
+                            windowLen=self.eicSmoothingWindowSize,
+                            window=self.eicSmoothingWindow,
+                            polynom=self.eicSmoothingPolynom,
+                        )
+
+                        ## TODO needs to be optimized
+                        # startIndex=max(0, minInd-int(ceil(self.scales[1]*10)))
+                        # endIndex=min(len(eic)-1, int(ceil(maxInd+self.scales[1]*10)))
+                        startIndex = 0
+                        endIndex = len(eic) - 1
+
+                        # Use unified peak picker and filter config
+                        peaksN = self.peak_picker.getPeaksFor(times, eicSmoothed, startIndex=startIndex, endIndex=endIndex)
+                        peaksL = self.peak_picker.getPeaksFor(times, eicLSmoothed, startIndex=startIndex, endIndex=endIndex)
+
+                        if self.peak_filter_config is not None:
+                            peaksN = filter_peaks(peaksN, config=self.peak_filter_config)
+                            peaksL = filter_peaks(peaksL, config=self.peak_filter_config)
+
+                        # get EICs of M+1, M'-1 and M'+1 for the database
+                        eicfirstiso, timesL, scanIdsL, mzsfirstiso = mzxml.getEIC(
+                            meanmz + 1.00335484 / loading,
+                            self.chromPeakPPM,
+                            filterLine=scanEvent,
+                        )
+                        # eicfirstisoSmoothed = smoothDataSeries(times, eicfirstiso, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
+
+                        eicLfirstiso, timesL, scanIdsL, mzsLfirstiso = mzxml.getEIC(
+                            meanmzLabelled - 1.00335484 / loading,
+                            self.chromPeakPPM,
+                            filterLine=scanEvent,
+                        )
+                        # eicLfirstisoSmoothed = smoothDataSeries(times, eicLfirstiso, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
+
+                        eicLfirstisoconjugate, timesL, scanIdsL, mzsLfirstisoconjugate = mzxml.getEIC(
+                            meanmzLabelled + 1.00335484 / loading,
+                            self.chromPeakPPM,
+                            filterLine=scanEvent,
+                        )
+                        # eicLfirstisoconjugateSmoothed = smoothDataSeries(times, eicLfirstisoconjugate, windowLen=self.eicSmoothingWindowSize, window=self.eicSmoothingWindow, polynom=self.eicSmoothingPolynom)
+
+                        peaksBoth = []
+
+                        # match detected chromatographic peaks from both EICs
+                        for peakN in peaksN:
+                            closestMatch = -1
+                            closestOffset = 10000000000
+
+                            # search closest peak pair
+                            for li, peakL in enumerate(peaksL):
+                                if abs(peakN.apex_index - peakL.apex_index) <= self.peakCenterError:
+                                    if closestMatch == -1 or closestOffset > abs(peakN.apex_index - peakL.apex_index):
+                                        closestMatch = li
+                                        closestOffset = abs(peakN.apex_index - peakL.apex_index)
+
+                            if closestMatch != -1:
+                                peakL = peaksL[closestMatch]
+
+                                # print("M: ", int(peakN.peakIndex - peakN.peakLeftFlank), peakN.peakIndex, int(peakN.peakIndex + peakN.peakRightFlank))
+                                # print(f"   FWHM: {fwhm_M}, area: {area_M}, SNR: {snr_M}")
+                                # print("Mp: ", int(peakL.peakIndex - peakL.peakLeftFlank), peakL.peakIndex, int(peakL.peakIndex + peakL.peakRightFlank))
+                                # print(f"   FWHM: {fwhm_Mp}, area: {area_Mp}, SNR: {snr_Mp}")
+
+                                peak = ChromPeakPair(
+                                    mz=meanmz,
+                                    lmz=meanmzLabelled,
+                                    tmz=meantmz,
+                                    xCount=xcount,
+                                    loading=loading,
+                                    ionMode=ionMode,
+                                    NPeakCenter=peakN.apex_index,
+                                    NPeakCenterMin=peakN.apex_rt,
+                                    NPeakScale=(peakN.apex_index - peakN.start_index + peakN.end_index - peakN.apex_index) / 2.0,
+                                    NSNR=peakN.snr,
+                                    NPeakArea=peakN.area,
+                                    LPeakCenter=peakL.apex_index,
+                                    LPeakCenterMin=peakL.apex_rt,
+                                    LPeakScale=(peakL.apex_index - peakL.start_index + peakL.end_index - peakL.apex_index) / 2.0,
+                                    LSNR=peakL.snr,
+                                    LPeakArea=peakL.area,
+                                    NXIC=eic,
+                                    LXIC=eicL,
+                                    times=times,
+                                    fDesc=[],
+                                    adducts=[],
+                                    heteroAtomsFeaturePairs=[],
+                                    NXICSmoothed=eicSmoothed,
+                                    LXICSmoothed=eicLSmoothed,
+                                    NBorderLeft=peakN.apex_index - peakN.start_index,
+                                    NBorderRight=peakN.end_index - peakN.apex_index,
+                                    LBorderLeft=peakL.apex_index - peakL.start_index,
+                                    LBorderRight=peakL.end_index - peakL.apex_index,
+                                    N_startRT=peakN.start_rt,
+                                    N_endRT=peakN.end_rt,
+                                    L_startRT=peakL.start_rt,
+                                    L_endRT=peakL.end_rt,
+                                    isotopeRatios=[],
+                                    mzDiffErrors=Bunch(),
+                                    comments=[],
+                                    artificialEICLShift=0,
+                                )
+
+                                lb = int(
+                                    max(
+                                        0,
+                                        min(
+                                            peak.NPeakCenter - peak.NBorderLeft,
+                                            peak.LPeakCenter - peak.LBorderLeft,
+                                        ),
+                                    )
+                                )
+                                rb = int(
+                                    min(
+                                        max(
+                                            peak.NPeakCenter + peak.NBorderRight,
+                                            peak.LPeakCenter + peak.LBorderRight,
+                                        )
+                                        + 1,
+                                        len(eic) - 1,
+                                    )
+                                )
+                                peakN = eicSmoothed[lb:rb]
+                                peakL = eicLSmoothed[lb:rb]
+
+                                def findBestArtificialShift(eicN, eicL, lb, rb, shiftFrom=0, shiftTo=0):
+                                    correlations = []
+
+                                    for artShift in range(shiftFrom, shiftTo + 1):
+                                        peakN = eicN[lb:rb]
+                                        peakL = eicL[(lb + artShift) : (rb + artShift)]
+                                        silRatios = [
+                                            peakN[i] / peakL[i]
+                                            for i in range(
+                                                int(len(peakN) * 0.25),
+                                                int(len(peakN) * 0.75) + 1,
+                                            )
+                                            if peakL[i] > 0 and peakN[i] > 0
+                                        ]
+                                        correlations.append(
+                                            Bunch(
+                                                correlation=corr(peakN, peakL),
+                                                artificialShift=artShift,
+                                                silRatios=silRatios,
+                                                peakNInts=[
+                                                    peakN[i]
+                                                    for i in range(
+                                                        int(len(peakN) * 0.25),
+                                                        int(len(peakN) * 0.75) + 1,
+                                                    )
+                                                    if peakL[i] > 0 and peakN[i] > 0
+                                                ],
+                                                peakLInts=[
+                                                    peakL[i]
+                                                    for i in range(
+                                                        int(len(peakN) * 0.25),
+                                                        int(len(peakN) * 0.75) + 1,
+                                                    )
+                                                    if peakL[i] > 0 and peakN[i] > 0
+                                                ],
+                                            )
+                                        )
+                                    if not correlations:
+                                        return None
+                                    bestFit = max(correlations, key=lambda x: x.correlation)
+
+                                    return bestFit
+
+                                co = findBestArtificialShift(
+                                    eicSmoothed,
+                                    eicLSmoothed,
+                                    lb,
+                                    rb,
+                                    self.artificialMPshift_start,
+                                    self.artificialMPshift_stop,
+                                )
+
+                                # check peak shape (Pearson correlation)
+
+                                if co is not None and co.correlation >= self.minPeakCorr and ((not self.checkPeaksRatio) or self.minPeaksRatio <= (peak.NPeakArea / peak.LPeakArea) <= self.maxPeaksRatio):
+                                    peak.peaksCorr = co.correlation
+                                    peak.silRatios = Bunch(
+                                        silRatios=co.silRatios,
+                                        peakNInts=co.peakNInts,
+                                        peakLInts=co.peakLInts,
+                                    )
+                                    if co.artificialShift != 0:
+                                        peak.artificialEICLShift = co.artificialShift
+
+                                    peaksBoth.append(peak)
+
+                                    libs = int(
+                                        max(
+                                            peak.NPeakCenter - floor(peak.NBorderLeft * 0.33),
+                                            peak.LPeakCenter - floor(peak.LBorderLeft * 0.33),
+                                        )
+                                    )
+                                    ribs = (
+                                        int(
+                                            min(
+                                                peak.NPeakCenter + floor(peak.NBorderRight * 0.33),
+                                                peak.LPeakCenter + floor(peak.LBorderRight * 0.33),
+                                            )
+                                        )
+                                        + 1
+                                    )
+
+                                    peak.peaksRatio = self.getMeanRatioOfScans(
+                                        eic,
+                                        eicL,
+                                        libs,
+                                        ribs,
+                                        minInt=self.intensityThreshold,
+                                    )
+                                    peak.peaksRatioMp1 = self.getMeanRatioOfScans(
+                                        eicfirstiso,
+                                        eic,
+                                        libs,
+                                        ribs,
+                                        minInt=self.intensityThreshold,
+                                    )
+                                    peak.peaksRatioMPm1 = self.getMeanRatioOfScans(
+                                        eicLfirstiso,
+                                        eicL,
+                                        libs,
+                                        ribs,
+                                        minInt=self.intensityThreshold,
+                                    )
+
+                        # check, if enough MS scans fulfill the requirements (isotope patterns)
+                        for kid in kids:
+                            kido = kid.getObject()
+
+                            closestPeak = -1
+                            distance = len(eic)
+                            i = 0
+                            for peak in peaksBoth:
+                                if abs(kido.scanIndex - peak.NPeakCenter) < distance:
+                                    closestPeak = i
+                                    distance = abs(kido.scanIndex - peak.NPeakCenter)
+                                i = i + 1
+                            if closestPeak != -1 and distance < (
+                                min(
+                                    peaksBoth[closestPeak].NBorderLeft,
+                                    peaksBoth[closestPeak].NBorderRight,
+                                )
+                                * 2
+                            ):
+                                peaksBoth[closestPeak].assignedMZs.append(kido)
+
+                        curChromPeaks = []
+                        for peak in peaksBoth:
+                            if len(peak.assignedMZs) >= self.minSpectraCount:
+                                curChromPeaks.append(peak)
+
+                        for peak in curChromPeaks:
                             lb = int(
                                 max(
                                     0,
                                     min(
-                                        peak.NPeakCenter - peak.NBorderLeft,
-                                        peak.LPeakCenter - peak.LBorderLeft,
+                                        peak.NPeakCenter - peakAbundanceUseSignalsSides,
+                                        peak.LPeakCenter - peakAbundanceUseSignalsSides,
                                     ),
                                 )
                             )
                             rb = int(
                                 min(
                                     max(
-                                        peak.NPeakCenter + peak.NBorderRight,
-                                        peak.LPeakCenter + peak.LBorderRight,
+                                        peak.NPeakCenter + peakAbundanceUseSignalsSides,
+                                        peak.LPeakCenter + peakAbundanceUseSignalsSides,
                                     )
                                     + 1,
                                     len(eic) - 1,
                                 )
                             )
-                            peakN = eicSmoothed[lb:rb]
-                            peakL = eicLSmoothed[lb:rb]
+                            peakN = eic[lb:rb]
+                            peakL = eicL[lb:rb]
 
-                            def findBestArtificialShift(eicN, eicL, lb, rb, shiftFrom=0, shiftTo=0):
-                                correlations = []
+                            peak.NPeakAbundance = max(peakN)  # mean(peakN)
+                            peak.LPeakAbundance = max(peakL)  # mean(peakL)
 
-                                for artShift in range(shiftFrom, shiftTo + 1):
-                                    peakN = eicN[lb:rb]
-                                    peakL = eicL[(lb + artShift) : (rb + artShift)]
-                                    silRatios = [
-                                        peakN[i] / peakL[i]
-                                        for i in range(
-                                            int(len(peakN) * 0.25),
-                                            int(len(peakN) * 0.75) + 1,
-                                        )
-                                        if peakL[i] > 0 and peakN[i] > 0
-                                    ]
-                                    correlations.append(
-                                        Bunch(
-                                            correlation=corr(peakN, peakL),
-                                            artificialShift=artShift,
-                                            silRatios=silRatios,
-                                            peakNInts=[
-                                                peakN[i]
-                                                for i in range(
-                                                    int(len(peakN) * 0.25),
-                                                    int(len(peakN) * 0.75) + 1,
-                                                )
-                                                if peakL[i] > 0 and peakN[i] > 0
-                                            ],
-                                            peakLInts=[
-                                                peakL[i]
-                                                for i in range(
-                                                    int(len(peakN) * 0.25),
-                                                    int(len(peakN) * 0.75) + 1,
-                                                )
-                                                if peakL[i] > 0 and peakN[i] > 0
-                                            ],
-                                        )
-                                    )
-                                bestFit = max(correlations, key=lambda x: x.correlation)
+                        # write detected feature pair to the database
+                        if len(curChromPeaks) > 0:
+                            assert len(eic) == len(eicL) == len(eicfirstiso) == len(eicLfirstiso) == len(eicLfirstisoconjugate) == len(times)
 
-                                return bestFit
+                            keepScans = set()
+                            for cs in range(len(eic)):
+                                if eic[cs] > 0 or eicL[cs] > 0 or eicfirstiso[cs] > 0 or eicLfirstiso[cs] > 0 or eicLfirstisoconjugate[cs] > 0:
+                                    keepScans.add(cs)
+                            keepScans.add(0)
+                            keepScans.add(len(eic) - 1)
 
-                            co = findBestArtificialShift(
-                                eicSmoothed,
-                                eicLSmoothed,
-                                lb,
-                                rb,
-                                self.artificialMPshift_start,
-                                self.artificialMPshift_stop,
-                            )
-
-                            # check peak shape (Pearson correlation)
-
-                            if co.correlation >= self.minPeakCorr and ((not self.checkPeaksRatio) or self.minPeaksRatio <= (peak.NPeakArea / peak.LPeakArea) <= self.maxPeaksRatio):
-                                peak.peaksCorr = co.correlation
-                                peak.silRatios = Bunch(
-                                    silRatios=co.silRatios,
-                                    peakNInts=co.peakNInts,
-                                    peakLInts=co.peakLInts,
-                                )
-                                if co.artificialShift != 0:
-                                    peak.artificialEICLShift = co.artificialShift
-
-                                peaksBoth.append(peak)
-
-                                libs = int(
-                                    max(
-                                        peak.NPeakCenter - floor(peak.NBorderLeft * 0.33),
-                                        peak.LPeakCenter - floor(peak.LBorderLeft * 0.33),
-                                    )
-                                )
-                                ribs = (
-                                    int(
-                                        min(
-                                            peak.NPeakCenter + floor(peak.NBorderRight * 0.33),
-                                            peak.LPeakCenter + floor(peak.LBorderRight * 0.33),
-                                        )
-                                    )
-                                    + 1
-                                )
-
-                                peak.peaksRatio = self.getMeanRatioOfScans(
-                                    eic,
-                                    eicL,
-                                    libs,
-                                    ribs,
-                                    minInt=self.intensityThreshold,
-                                )
-                                peak.peaksRatioMp1 = self.getMeanRatioOfScans(
-                                    eicfirstiso,
-                                    eic,
-                                    libs,
-                                    ribs,
-                                    minInt=self.intensityThreshold,
-                                )
-                                peak.peaksRatioMPm1 = self.getMeanRatioOfScans(
-                                    eicLfirstiso,
-                                    eicL,
-                                    libs,
-                                    ribs,
-                                    minInt=self.intensityThreshold,
-                                )
-
-                    # check, if enough MS scans fulfill the requirements (isotope patterns)
-                    for kid in kids:
-                        kido = kid.getObject()
-
-                        closestPeak = -1
-                        distance = len(eic)
-                        i = 0
-                        for peak in peaksBoth:
-                            if abs(kido.scanIndex - peak.NPeakCenter) < distance:
-                                closestPeak = i
-                                distance = abs(kido.scanIndex - peak.NPeakCenter)
-                            i = i + 1
-                        if closestPeak != -1 and distance < (
-                            min(
-                                peaksBoth[closestPeak].NBorderLeft,
-                                peaksBoth[closestPeak].NBorderRight,
-                            )
-                            * 2
-                        ):
-                            peaksBoth[closestPeak].assignedMZs.append(kido)
-
-                    curChromPeaks = []
-                    for peak in peaksBoth:
-                        if len(peak.assignedMZs) >= self.minSpectraCount:
-                            curChromPeaks.append(peak)
-
-                    for peak in curChromPeaks:
-                        lb = int(
-                            max(
-                                0,
-                                min(
-                                    peak.NPeakCenter - peakAbundanceUseSignalsSides,
-                                    peak.LPeakCenter - peakAbundanceUseSignalsSides,
-                                ),
-                            )
-                        )
-                        rb = int(
-                            min(
-                                max(
-                                    peak.NPeakCenter + peakAbundanceUseSignalsSides,
-                                    peak.LPeakCenter + peakAbundanceUseSignalsSides,
-                                )
-                                + 1,
-                                len(eic) - 1,
-                            )
-                        )
-                        peakN = eic[lb:rb]
-                        peakL = eicL[lb:rb]
-
-                        peak.NPeakAbundance = max(peakN)  # mean(peakN)
-                        peak.LPeakAbundance = max(peakL)  # mean(peakL)
-
-                    # write detected feature pair to the database
-                    if len(curChromPeaks) > 0:
-                        assert len(eic) == len(eicL) == len(eicfirstiso) == len(eicLfirstiso) == len(eicLfirstisoconjugate) == len(times)
-
-                        keepScans = set()
-                        for cs in range(len(eic)):
-                            if eic[cs] > 0 or eicL[cs] > 0 or eicfirstiso[cs] > 0 or eicLfirstiso[cs] > 0 or eicLfirstisoconjugate[cs] > 0:
-                                keepScans.add(cs)
-                        keepScans.add(0)
-                        keepScans.add(len(eic) - 1)
-
-                        # save the native and labelled EICs to the database
-                        db_con.insert_row(
-                            "XICs",
-                            {
-                                "id": self.curEICId,
-                                "avgmz": meanmz,
-                                "xcount": xcount,
-                                "loading": kids[0].getObject().loading,
-                                "polarity": ionMode,
-                                "xic": ";".join(["%f" % i for i in eic]),
-                                "xicL": ";".join(["%f" % i for i in eicL]),
-                                "xicfirstiso": ";".join(["%f" % i for i in eicfirstiso]),
-                                "xicLfirstiso": ";".join(["%f" % i for i in eicLfirstiso]),
-                                "xicLfirstisoconjugate": ";".join(["%f" % i for i in eicLfirstisoconjugate]),
-                                "xic_smoothed": ";".join(["%f" % i for i in eicSmoothed]),
-                                "xicL_smoothed": ";".join(["%f" % i for i in eicLSmoothed]),
-                                "xic_baseline": ";".join(["%f" % i for i in eicBaseline]),
-                                "xicL_baseline": ";".join(["%f" % i for i in eicLBaseline]),
-                                "mzs": ";".join(["%f" % (mzs[i]) for i in range(0, len(eic))]),
-                                "mzsL": ";".join(["%f" % (mzsL[i]) for i in range(0, len(eic))]),
-                                "mzsfirstiso": ";".join(["%f" % (mzsfirstiso[i]) for i in range(0, len(eic))]),
-                                "mzsLfirstiso": ";".join(["%f" % (mzsLfirstiso[i]) for i in range(0, len(eic))]),
-                                "mzsLfirstisoconjugate": ";".join(["%f" % (mzsLfirstisoconjugate[i]) for i in range(0, len(eic))]),
-                                "times": ";".join(["%f" % (times[i]) for i in range(0, len(times))]),
-                                "scanCount": len(eic),
-                                "allPeaks": base64.b64encode(dumps({"peaksN": peaksN, "peaksL": peaksL})).decode("utf-8"),
-                            },
-                        )
-
-                        # save the detected feature pairs in these EICs to the database
-                        for peak in curChromPeaks:
-                            peak.id = self.curPeakId
-                            peak.eicID = self.curEICId
-                            adjcCount = peak.xCount
-                            peak.correctedXCount = peak.xCount
-
-                            if self.performCorrectCCount and False:
-                                adjcCount = adjcCount + getAtomAdd(self.purityL, peak.xCount) + getAtomAdd(self.purityN, peak.xCount)
-                                peak.correctedXCount = adjcCount
-
+                            # save the native and labelled EICs to the database
                             db_con.insert_row(
-                                "chromPeaks",
+                                "XICs",
                                 {
-                                    "id": peak.id,
-                                    "tracer": tracerID,
-                                    "eicID": peak.eicID,
-                                    "mz": peak.mz,
-                                    "lmz": peak.lmz,
-                                    "tmz": peak.tmz,
-                                    "xcount": peak.correctedXCount,
-                                    "xcountId": peak.xCount,
-                                    "Loading": peak.loading,
-                                    "ionMode": ionMode,
-                                    "NPeakCenter": peak.NPeakCenter,
-                                    "NPeakCenterMin": peak.NPeakCenterMin,
-                                    "NPeakScale": peak.NPeakScale,
-                                    "NSNR": peak.NSNR,
-                                    "NPeakArea": peak.NPeakArea,
-                                    "NPeakAbundance": peak.NPeakAbundance,
-                                    "NBorderLeft": peak.NBorderLeft,
-                                    "NBorderRight": peak.NBorderRight,
-                                    "LPeakCenter": peak.LPeakCenter,
-                                    "LPeakCenterMin": peak.LPeakCenterMin,
-                                    "LPeakScale": peak.LPeakScale,
-                                    "LSNR": peak.LSNR,
-                                    "LPeakArea": peak.LPeakArea,
-                                    "LPeakAbundance": peak.LPeakAbundance,
-                                    "LBorderLeft": peak.LBorderLeft,
-                                    "LBorderRight": peak.LBorderRight,
-                                    "peaksCorr": peak.peaksCorr,
-                                    "heteroAtoms": "",
-                                    "adducts": "",
-                                    "heteroAtomsFeaturePairs": "",
-                                    "massSpectrumID": 0,
-                                    "assignedMZs": base64.b64encode(dumps(peak.assignedMZs)).decode("utf-8"),
-                                    "fDesc": base64.b64encode(dumps([])).decode("utf-8"),
-                                    "peaksRatio": peak.peaksRatio,
-                                    "peaksRatioMp1": peak.peaksRatioMp1,
-                                    "peaksRatioMPm1": peak.peaksRatioMPm1,
-                                    "peakType": "patternFound",
-                                    "comments": base64.b64encode(dumps(peak.comments)).decode("utf-8"),
-                                    "artificialEICLShift": peak.artificialEICLShift,
-                                    "new_FWHM_M": peak.new_FWHM_M,
-                                    "new_FWHM_Mp": peak.new_FWHM_Mp,
-                                    "new_Area_M": peak.new_Area_M,
-                                    "new_Area_Mp": peak.new_Area_Mp,
-                                    "new_SNR_M": peak.new_SNR_M,
-                                    "new_SNR_Mp": peak.new_SNR_Mp,
+                                    "id": self.curEICId,
+                                    "avgmz": meanmz,
+                                    "xcount": xcount,
+                                    "loading": kids[0].getObject().loading,
+                                    "polarity": ionMode,
+                                    "xic": ";".join(["%f" % i for i in eic]),
+                                    "xicL": ";".join(["%f" % i for i in eicL]),
+                                    "xicfirstiso": ";".join(["%f" % i for i in eicfirstiso]),
+                                    "xicLfirstiso": ";".join(["%f" % i for i in eicLfirstiso]),
+                                    "xicLfirstisoconjugate": ";".join(["%f" % i for i in eicLfirstisoconjugate]),
+                                    "xic_smoothed": ";".join(["%f" % i for i in eicSmoothed]),
+                                    "xicL_smoothed": ";".join(["%f" % i for i in eicLSmoothed]),
+                                    "xic_baseline": ";".join(["%f" % i for i in eicBaseline]),
+                                    "xicL_baseline": ";".join(["%f" % i for i in eicLBaseline]),
+                                    "mzs": ";".join(["%f" % (mzs[i]) for i in range(0, len(eic))]),
+                                    "mzsL": ";".join(["%f" % (mzsL[i]) for i in range(0, len(eic))]),
+                                    "mzsfirstiso": ";".join(["%f" % (mzsfirstiso[i]) for i in range(0, len(eic))]),
+                                    "mzsLfirstiso": ";".join(["%f" % (mzsLfirstiso[i]) for i in range(0, len(eic))]),
+                                    "mzsLfirstisoconjugate": ";".join(["%f" % (mzsLfirstisoconjugate[i]) for i in range(0, len(eic))]),
+                                    "times": ";".join(["%f" % (times[i]) for i in range(0, len(times))]),
+                                    "scanCount": len(eic),
+                                    "allPeaks": base64.b64encode(dumps({"peaksN": peaksN, "peaksL": peaksL})).decode("utf-8"),
                                 },
                             )
 
-                            db_con.insert_row(
-                                "allChromPeaks",
-                                {
-                                    "id": peak.id,
-                                    "tracer": tracerID,
-                                    "eicID": peak.eicID,
-                                    "mz": peak.mz,
-                                    "lmz": peak.lmz,
-                                    "tmz": peak.tmz,
-                                    "xcount": peak.correctedXCount,
-                                    "xcountId": peak.xCount,
-                                    "Loading": peak.loading,
-                                    "ionMode": ionMode,
-                                    "NPeakCenter": peak.NPeakCenter,
-                                    "NPeakCenterMin": peak.NPeakCenterMin,
-                                    "NPeakScale": peak.NPeakScale,
-                                    "NSNR": peak.NSNR,
-                                    "NPeakArea": peak.NPeakArea,
-                                    "NPeakAbundance": peak.NPeakAbundance,
-                                    "NBorderLeft": peak.NBorderLeft,
-                                    "NBorderRight": peak.NBorderRight,
-                                    "LPeakCenter": peak.LPeakCenter,
-                                    "LPeakCenterMin": peak.LPeakCenterMin,
-                                    "LPeakScale": peak.LPeakScale,
-                                    "LSNR": peak.LSNR,
-                                    "LPeakArea": peak.LPeakArea,
-                                    "LPeakAbundance": peak.LPeakAbundance,
-                                    "LBorderLeft": peak.LBorderLeft,
-                                    "LBorderRight": peak.LBorderRight,
-                                    "peaksCorr": peak.peaksCorr,
-                                    "heteroAtoms": "",
-                                    "adducts": "",
-                                    "heteroAtomsFeaturePairs": "",
-                                    "assignedMZs": len(peak.assignedMZs),
-                                    "fDesc": base64.b64encode(dumps([])).decode("utf-8"),
-                                    "peaksRatio": peak.peaksRatio,
-                                    "peaksRatioMp1": peak.peaksRatioMp1,
-                                    "peaksRatioMPm1": peak.peaksRatioMPm1,
-                                    "peakType": "patternFound",
-                                    "comments": base64.b64encode(dumps(peak.comments)).decode("utf-8"),
-                                    "artificialEICLShift": peak.artificialEICLShift,
-                                    "new_FWHM_M": peak.new_FWHM_M,
-                                    "new_FWHM_Mp": peak.new_FWHM_Mp,
-                                    "new_Area_M": peak.new_Area_M,
-                                    "new_Area_Mp": peak.new_Area_Mp,
-                                    "new_SNR_M": peak.new_SNR_M,
-                                    "new_SNR_Mp": peak.new_SNR_Mp,
-                                },
-                            )
+                            # save the detected feature pairs in these EICs to the database
+                            for peak in curChromPeaks:
+                                peak.id = self.curPeakId
+                                peak.eicID = self.curEICId
+                                adjcCount = peak.xCount
+                                peak.correctedXCount = peak.xCount
 
-                            chromPeaks.append(peak)
-                            self.curPeakId = self.curPeakId + 1
+                                if self.performCorrectCCount and False:
+                                    adjcCount = adjcCount + getAtomAdd(self.purityL, peak.xCount) + getAtomAdd(self.purityN, peak.xCount)
+                                    peak.correctedXCount = adjcCount
+
+                                db_con.insert_row(
+                                    "chromPeaks",
+                                    {
+                                        "id": peak.id,
+                                        "tracer": tracerID,
+                                        "eicID": peak.eicID,
+                                        "mz": peak.mz,
+                                        "lmz": peak.lmz,
+                                        "tmz": peak.tmz,
+                                        "xcount": peak.correctedXCount,
+                                        "xcountId": peak.xCount,
+                                        "Loading": peak.loading,
+                                        "ionMode": ionMode,
+                                        "NPeakCenter": peak.NPeakCenter,
+                                        "NPeakCenterMin": peak.NPeakCenterMin,
+                                        "NPeakScale": peak.NPeakScale,
+                                        "NSNR": peak.NSNR,
+                                        "NPeakArea": peak.NPeakArea,
+                                        "NPeakAbundance": peak.NPeakAbundance,
+                                        "NBorderLeft": peak.NBorderLeft,
+                                        "NBorderRight": peak.NBorderRight,
+                                        "LPeakCenter": peak.LPeakCenter,
+                                        "LPeakCenterMin": peak.LPeakCenterMin,
+                                        "LPeakScale": peak.LPeakScale,
+                                        "LSNR": peak.LSNR,
+                                        "LPeakArea": peak.LPeakArea,
+                                        "LPeakAbundance": peak.LPeakAbundance,
+                                        "LBorderLeft": peak.LBorderLeft,
+                                        "LBorderRight": peak.LBorderRight,
+                                        "N_startRT": peak.N_startRT,
+                                        "N_endRT": peak.N_endRT,
+                                        "L_startRT": peak.L_startRT,
+                                        "L_endRT": peak.L_endRT,
+                                        "peaksCorr": peak.peaksCorr,
+                                        "heteroAtoms": "",
+                                        "adducts": "",
+                                        "heteroAtomsFeaturePairs": "",
+                                        "massSpectrumID": 0,
+                                        "assignedMZs": base64.b64encode(dumps(peak.assignedMZs)).decode("utf-8"),
+                                        "fDesc": base64.b64encode(dumps([])).decode("utf-8"),
+                                        "peaksRatio": peak.peaksRatio,
+                                        "peaksRatioMp1": peak.peaksRatioMp1,
+                                        "peaksRatioMPm1": peak.peaksRatioMPm1,
+                                        "peakType": "patternFound",
+                                        "comments": base64.b64encode(dumps(peak.comments)).decode("utf-8"),
+                                        "artificialEICLShift": peak.artificialEICLShift,
+                                    },
+                                )
+
+                                db_con.insert_row(
+                                    "allChromPeaks",
+                                    {
+                                        "id": peak.id,
+                                        "tracer": tracerID,
+                                        "eicID": peak.eicID,
+                                        "mz": peak.mz,
+                                        "lmz": peak.lmz,
+                                        "tmz": peak.tmz,
+                                        "xcount": peak.correctedXCount,
+                                        "xcountId": peak.xCount,
+                                        "Loading": peak.loading,
+                                        "ionMode": ionMode,
+                                        "NPeakCenter": peak.NPeakCenter,
+                                        "NPeakCenterMin": peak.NPeakCenterMin,
+                                        "NPeakScale": peak.NPeakScale,
+                                        "NSNR": peak.NSNR,
+                                        "NPeakArea": peak.NPeakArea,
+                                        "NPeakAbundance": peak.NPeakAbundance,
+                                        "NBorderLeft": peak.NBorderLeft,
+                                        "NBorderRight": peak.NBorderRight,
+                                        "LPeakCenter": peak.LPeakCenter,
+                                        "LPeakCenterMin": peak.LPeakCenterMin,
+                                        "LPeakScale": peak.LPeakScale,
+                                        "LSNR": peak.LSNR,
+                                        "LPeakArea": peak.LPeakArea,
+                                        "LPeakAbundance": peak.LPeakAbundance,
+                                        "LBorderLeft": peak.LBorderLeft,
+                                        "LBorderRight": peak.LBorderRight,
+                                        "N_startRT": peak.N_startRT,
+                                        "N_endRT": peak.N_endRT,
+                                        "L_startRT": peak.L_startRT,
+                                        "L_endRT": peak.L_endRT,
+                                        "peaksCorr": peak.peaksCorr,
+                                        "heteroAtoms": "",
+                                        "adducts": "",
+                                        "heteroAtomsFeaturePairs": "",
+                                        "assignedMZs": len(peak.assignedMZs),
+                                        "fDesc": base64.b64encode(dumps([])).decode("utf-8"),
+                                        "peaksRatio": peak.peaksRatio,
+                                        "peaksRatioMp1": peak.peaksRatioMp1,
+                                        "peaksRatioMPm1": peak.peaksRatioMPm1,
+                                        "peakType": "patternFound",
+                                        "comments": base64.b64encode(dumps(peak.comments)).decode("utf-8"),
+                                        "artificialEICLShift": peak.artificialEICLShift,
+                                    },
+                                )
+
+                                chromPeaks.append(peak)
+                                self.curPeakId = self.curPeakId + 1
+                    except Exception as e:
+                        print("Error processing mzbin with meanmz %f: %s" % (meanmz, str(e)))
+                        traceback.print_exc()
 
                     self.curEICId = self.curEICId + 1
         db_con.commit()
@@ -2134,9 +2060,9 @@ class RunIdentification:
 
                                     relativeIntensity = isoIntensity / peakIntensity
                                     if abs(relativeIntensity - pIsotope.relativeAbundance * haCount) < self.hAIntensityError:
-                                        if not (pIso in peak.heteroIsotopologues):
+                                        if pIso not in peak.heteroIsotopologues:
                                             peak.heteroIsotopologues[pIso] = {}
-                                        if not (haCount in peak.heteroIsotopologues[pIso]):
+                                        if haCount not in peak.heteroIsotopologues[pIso]:
                                             peak.heteroIsotopologues[pIso][haCount] = []
                                         peak.heteroIsotopologues[pIso][haCount].append(
                                             (
@@ -2704,31 +2630,7 @@ class RunIdentification:
                                                 "[M+2Na]++",
                                                 peakB.adducts,
                                             )
-                                            and isAdductPairPresent(
-                                                pa,
-                                                "[M+H]++",
-                                                peakA.adducts,
-                                                pc,
-                                                "[M+2Na]++",
-                                                peakC.adducts,
-                                            )
-                                            and isAdductPairPresent(
-                                                pb,
-                                                "[M+2H]++",
-                                                peakB.adducts,
-                                                pc,
-                                                "[M+H+Na]++",
-                                                peakC.adducts,
-                                            )
-                                            and isAdductPairPresent(
-                                                pb,
-                                                "[M+H+Na]++",
-                                                peakB.adducts,
-                                                pc,
-                                                "[M+2Na]++",
-                                                peakC.adducts,
-                                            )
-                                            and peakA.mz < peakB.mz < peakC.mz
+                                            and peakA.mz < peakB.mz
                                         ):
                                             removeAdductPair(
                                                 pa,
@@ -2738,387 +2640,34 @@ class RunIdentification:
                                                 "[M+2Na]++",
                                                 peakB.adducts,
                                             )
-                                            removeAdductPair(
-                                                pb,
+
+                                        if (
+                                            isAdductPairPresent(
+                                                pa,
                                                 "[M+2H]++",
+                                                peakA.adducts,
+                                                pb,
+                                                "[M+H+K]++",
                                                 peakB.adducts,
-                                                pc,
+                                            )
+                                            and isAdductPairPresent(
+                                                pa,
+                                                "[M+H+K]++",
+                                                peakA.adducts,
+                                                pb,
+                                                "[M+2K]++",
+                                                peakB.adducts,
+                                            )
+                                            and peakA.mz < peakB.mz
+                                        ):
+                                            removeAdductPair(
+                                                pa,
                                                 "[M+H+Na]++",
-                                                peakC.adducts,
-                                            )
-
-                                        if (
-                                            isAdductPairPresent(
-                                                pa,
-                                                "[M+2H]++",
                                                 peakA.adducts,
                                                 pb,
-                                                "[M+H+K]++",
+                                                "[M+2Na]++",
                                                 peakB.adducts,
                                             )
-                                            and isAdductPairPresent(
-                                                pa,
-                                                "[M+H+K]++",
-                                                peakA.adducts,
-                                                pb,
-                                                "[M+2K]++",
-                                                peakB.adducts,
-                                            )
-                                            and isAdductPairPresent(
-                                                pa,
-                                                "[M+H]++",
-                                                peakA.adducts,
-                                                pc,
-                                                "[M+2K]++",
-                                                peakC.adducts,
-                                            )
-                                            and isAdductPairPresent(
-                                                pb,
-                                                "[M+2H]++",
-                                                peakB.adducts,
-                                                pc,
-                                                "[M+H+K]++",
-                                                peakC.adducts,
-                                            )
-                                            and isAdductPairPresent(
-                                                pb,
-                                                "[M+H+K]++",
-                                                peakB.adducts,
-                                                pc,
-                                                "[M+2K]++",
-                                                peakC.adducts,
-                                            )
-                                            and peakA.mz < peakB.mz < peakC.mz
-                                        ):
-                                            removeAdductPair(
-                                                pa,
-                                                "[M+H+K]++",
-                                                peakA.adducts,
-                                                pb,
-                                                "[M+2K]++",
-                                                peakB.adducts,
-                                            )
-                                            removeAdductPair(
-                                                pb,
-                                                "[M+2H]++",
-                                                peakB.adducts,
-                                                pc,
-                                                "[M+H+K]++",
-                                                peakC.adducts,
-                                            )
-
-                                        if (
-                                            isAdductPairPresent(
-                                                pb,
-                                                "[M+H]+",
-                                                peakB.adducts,
-                                                pc,
-                                                "[M+Na]+",
-                                                peakC.adducts,
-                                            )
-                                            and isAdductPairPresent(
-                                                pa,
-                                                "[M+2Na-H]+",
-                                                peakA.adducts,
-                                                pc,
-                                                "[M+CH3FeN]+",
-                                                peakC.adducts,
-                                            )
-                                            and peakA.mz < peakB.mz < peakC.mz
-                                        ):
-                                            removeAdductPair(
-                                                pa,
-                                                "[M+2Na-H]+",
-                                                peakA.adducts,
-                                                pc,
-                                                "[M+CH3FeN]+",
-                                                peakC.adducts,
-                                            )
-
-                                        if (
-                                            isAdductPairPresent(
-                                                pa,
-                                                "[M-H]-",
-                                                peakA.adducts,
-                                                pb,
-                                                "[M+H]+",
-                                                peakB.adducts,
-                                            )
-                                            and isAdductPairPresent(
-                                                pa,
-                                                "[M+Na-2H]-",
-                                                peakA.adducts,
-                                                pc,
-                                                "[M+Na]+",
-                                                peakC.adducts,
-                                            )
-                                            and peakA.mz < peakB.mz < peakC.mz
-                                        ):
-                                            aFound = []
-                                            for i, add in enumerate(peakA.adducts):
-                                                if add.name == "[M+Na-2H]-":
-                                                    aFound.append(i)
-                                            aFound = reversed(sorted(list(set(aFound))))
-                                            for i in aFound:
-                                                del peakA.adducts[i]
-
-                                        if (
-                                            isAdductPairPresent(
-                                                pa,
-                                                "[M-H]-",
-                                                peakA.adducts,
-                                                pb,
-                                                "[M+H]+",
-                                                peakB.adducts,
-                                            )
-                                            and isAdductPairPresent(
-                                                pa,
-                                                "[M+Na]+",
-                                                peakA.adducts,
-                                                pc,
-                                                "[M+Na]+",
-                                                peakC.adducts,
-                                            )
-                                            and peakA.mz < peakB.mz < peakC.mz
-                                        ):
-                                            bFound = []
-                                            for i, add in enumerate(peakB.adducts):
-                                                if add.name == "[M+Na-2H]-":
-                                                    bFound.append(i)
-                                            bFound = reversed(sorted(list(set(bFound))))
-                                            for i in bFound:
-                                                del peakB.adducts[i]
-
-            for pa in group:
-                peakA = peaksInGroup[pa]
-                if len(peakA.adducts) > 0:
-                    for pb in group:
-                        peakB = peaksInGroup[pb]
-                        if len(peakB.adducts) > 0:
-                            if peakA.mz < peakB.mz:
-                                if (
-                                    isAdductPairPresent(
-                                        pa,
-                                        "[M+H]+",
-                                        peakA.adducts,
-                                        pb,
-                                        "[M+Na]+",
-                                        peakB.adducts,
-                                    )
-                                    and isAdductPairPresent(
-                                        pa,
-                                        "[M+Na]+",
-                                        peakA.adducts,
-                                        pb,
-                                        "[M+2Na-H]+",
-                                        peakB.adducts,
-                                    )
-                                    and peakA.mz < peakB.mz
-                                ):
-                                    removeAdductPair(
-                                        pa,
-                                        "[M+Na]+",
-                                        peakA.adducts,
-                                        pb,
-                                        "[M+2Na-H]+",
-                                        peakB.adducts,
-                                    )
-
-                                if (
-                                    isAdductPairPresent(
-                                        pa,
-                                        "[M+H]+",
-                                        peakA.adducts,
-                                        pb,
-                                        "[M+K]+",
-                                        peakB.adducts,
-                                    )
-                                    and isAdductPairPresent(
-                                        pa,
-                                        "[M+K]+",
-                                        peakA.adducts,
-                                        pb,
-                                        "[M+2K-H]+",
-                                        peakB.adducts,
-                                    )
-                                    and peakA.mz < peakB.mz
-                                ):
-                                    removeAdductPair(
-                                        pa,
-                                        "[M+K]+",
-                                        peakA.adducts,
-                                        pb,
-                                        "[M+2K-H]+",
-                                        peakB.adducts,
-                                    )
-
-                                if (
-                                    isAdductPairPresent(
-                                        pa,
-                                        "[M-H]-",
-                                        peakA.adducts,
-                                        pb,
-                                        "[M+Na]+",
-                                        peakB.adducts,
-                                    )
-                                    and isAdductPairPresent(
-                                        pa,
-                                        "[M+Na-2H]-",
-                                        peakA.adducts,
-                                        pb,
-                                        "[M+2Na-H]+",
-                                        peakB.adducts,
-                                    )
-                                    and peakA.mz < peakB.mz
-                                ):
-                                    removeAdductPair(
-                                        pa,
-                                        "[M+Na-2H]-",
-                                        peakA.adducts,
-                                        pb,
-                                        "[M+2Na-H]+",
-                                        peakB.adducts,
-                                    )
-
-                                if (
-                                    isAdductPairPresent(
-                                        pa,
-                                        "[M-H]-",
-                                        peakA.adducts,
-                                        pb,
-                                        "[M+K]+",
-                                        peakB.adducts,
-                                    )
-                                    and isAdductPairPresent(
-                                        pa,
-                                        "[M+K-2H]-",
-                                        peakA.adducts,
-                                        pb,
-                                        "[M+2K-H]+",
-                                        peakB.adducts,
-                                    )
-                                    and peakA.mz < peakB.mz
-                                ):
-                                    removeAdductPair(
-                                        pa,
-                                        "[M+K-2H]-",
-                                        peakA.adducts,
-                                        pb,
-                                        "[M+2K-H]+",
-                                        peakB.adducts,
-                                    )
-
-                                if (
-                                    isAdductPairPresent(
-                                        pa,
-                                        "[M-H]-",
-                                        peakA.adducts,
-                                        pb,
-                                        "[M+Na]+",
-                                        peakB.adducts,
-                                    )
-                                    and isAdductPairPresent(
-                                        pa,
-                                        "[M+Na-2H]-",
-                                        peakA.adducts,
-                                        pb,
-                                        "[M+H]+",
-                                        peakB.adducts,
-                                    )
-                                    and peakA.mz < peakB.mz
-                                ):
-                                    removeAdductPair(
-                                        pa,
-                                        "[M+Na-2H]-",
-                                        peakA.adducts,
-                                        pb,
-                                        "[M+Na]+",
-                                        peakB.adducts,
-                                    )
-
-                                if (
-                                    isAdductPairPresent(
-                                        pa,
-                                        "[M-H]-",
-                                        peakA.adducts,
-                                        pb,
-                                        "[M+K]+",
-                                        peakB.adducts,
-                                    )
-                                    and isAdductPairPresent(
-                                        pa,
-                                        "[M+K-2H]-",
-                                        peakA.adducts,
-                                        pb,
-                                        "[M+H]+",
-                                        peakB.adducts,
-                                    )
-                                    and peakA.mz < peakB.mz
-                                ):
-                                    removeAdductPair(
-                                        pa,
-                                        "[M+K-2H]-",
-                                        peakA.adducts,
-                                        pb,
-                                        "[M+K]+",
-                                        peakB.adducts,
-                                    )
-
-                                if (
-                                    isAdductPairPresent(
-                                        pa,
-                                        "[M+2H]++",
-                                        peakA.adducts,
-                                        pb,
-                                        "[M+H+Na]++",
-                                        peakB.adducts,
-                                    )
-                                    and isAdductPairPresent(
-                                        pa,
-                                        "[M+H+Na]++",
-                                        peakA.adducts,
-                                        pb,
-                                        "[M+2Na]++",
-                                        peakB.adducts,
-                                    )
-                                    and peakA.mz < peakB.mz
-                                ):
-                                    removeAdductPair(
-                                        pa,
-                                        "[M+H+Na]++",
-                                        peakA.adducts,
-                                        pb,
-                                        "[M+2Na]++",
-                                        peakB.adducts,
-                                    )
-
-                                if (
-                                    isAdductPairPresent(
-                                        pa,
-                                        "[M+2H]++",
-                                        peakA.adducts,
-                                        pb,
-                                        "[M+H+K]++",
-                                        peakB.adducts,
-                                    )
-                                    and isAdductPairPresent(
-                                        pa,
-                                        "[M+H+K]++",
-                                        peakA.adducts,
-                                        pb,
-                                        "[M+2K]++",
-                                        peakB.adducts,
-                                    )
-                                    and peakA.mz < peakB.mz
-                                ):
-                                    removeAdductPair(
-                                        pa,
-                                        "[M+H+Na]++",
-                                        peakA.adducts,
-                                        pb,
-                                        "[M+2Na]++",
-                                        peakB.adducts,
-                                    )
 
             for pa in group:
                 peakA = peaksInGroup[pa]
@@ -3176,7 +2725,6 @@ class RunIdentification:
                     # peakA shall always have the lower mass
                     if peakA.mz < peakB.mz and abs(peakA.mz - peakB.mz) <= 101:
                         mzDif = peakB.mz - peakA.mz
-                        done = False
 
                         # generate putative in-source fragments (using the labelled carbon atoms)
                         if len(self.elements) > 0:
@@ -3237,7 +2785,7 @@ class RunIdentification:
 
                                     c = fT.parseFormula(pF)
                                     mw = fT.calcMolWeight(c)
-                                    dif = abs(abs(peakB.mz - peakA.mz) - mw)
+                                    abs(abs(peakB.mz - peakA.mz) - mw)
                                     sf = fT.flatToString(c, prettyPrintWithHTMLTags=False)
                                     inSourceFragments[pa][pb].append("%.4f-%s" % (peakB.mz, sf))
 
@@ -3295,19 +2843,6 @@ class RunIdentification:
                 allPeaks[peak.id] = peak
                 peak.correlationsToOthers = []
 
-            rengine = ro.r
-
-            ## export model for R/3.5.3 from outside of MetExtract
-            ## in R load the model and save it as the varible model
-            ## execute
-            ## load("C:/Users/cbueschl/Desktop/PeakCorrelation/model_main_2.Rdata")
-            ## exp = list(predict = model$modelInfo$predict, finalModel = model$finalModel)
-            ## save(exp, file = "C:/Users/cbueschl/Desktop/PeakCorrelation/model.Rdata")
-            # rengine('load("C:/Users/cbueschl/Desktop/PeakCorrelation/model.Rdata")')
-            # rengine('model = exp')
-            # rengine('print("model is")')
-            # rengine('print(model)')
-
             # compare all detected feature pairs at approximately the same retention time
             for piA in range(len(chromPeaks)):
                 peakA = chromPeaks[piA]
@@ -3357,40 +2892,6 @@ class RunIdentification:
                                 peakA.NXICSmoothed[bmin:bmax],
                                 peakB.NXICSmoothed[bmin:bmax],
                             )
-
-                            if False:
-                                ## development: test for shifted correlation, Kristina Missbach
-                                testShifts = np.arange(-3, 3.00001, 0.1)
-                                nonShiftCorr, shiftBestCorr, bestShift = getCorrelationShifted(
-                                    np.transpose(np.array([peakA.times, peakA.NXICSmoothed]))[bmin:bmax],
-                                    np.transpose(np.array([peakB.times, peakB.NXICSmoothed]))[bmin:bmax],
-                                    peakA.times[bmin],
-                                    peakA.times[bmax],
-                                    rtShiftsMin=testShifts,
-                                )
-                                assignedClass = "NA"
-                                try:
-                                    ret = rengine(
-                                        "as.character(model$predict(model$finalModel, data.frame(nonShiftedCorr = %f, bestShiftedCorr = %f, bestShift = %f)))"
-                                        % (
-                                            nonShiftCorr,
-                                            shiftBestCorr,
-                                            bestShift / 60.0,
-                                        )
-                                    )
-                                    assignedClass = ret[0]
-                                except Exception as ex:
-                                    print("Exception: %s" % (ex.message))
-                                print(
-                                    "Correlation unshifted is %.3f/%.3f, best shifted correlation is %.3f by %.3f sec, verdict %s"
-                                    % (
-                                        pb,
-                                        nonShiftCorr,
-                                        shiftBestCorr,
-                                        bestShift,
-                                        assignedClass,
-                                    )
-                                )
 
                             if str(pb) == "nan":
                                 pb = -1
@@ -3822,7 +3323,7 @@ class RunIdentification:
             ("ALIGN", (0, 0), (-1, -1), "CENTER"),
         ]
 
-        cIds = ",".join(["%d" % f[0].id for f in gPeaks])
+        ",".join(["%d" % f[0].id for f in gPeaks])
         cIds_list = [f[0].id for f in gPeaks]
 
         # Get featurefeatures data with joins using Polars
@@ -4154,6 +3655,10 @@ class RunIdentification:
                     chromPeak.NBorderRight = row["NBorderRight"]
                     chromPeak.LBorderLeft = row["LBorderLeft"]
                     chromPeak.LBorderRight = row["LBorderRight"]
+                    chromPeak.N_startRT = row.get("N_startRT", None)
+                    chromPeak.N_endRT = row.get("N_endRT", None)
+                    chromPeak.L_startRT = row.get("L_startRT", None)
+                    chromPeak.L_endRT = row.get("L_endRT", None)
                     chromPeak.peaksCorr = row["peaksCorr"]
                     chromPeak.tracer = row["tracer"]
                     chromPeak.tracerName = row["name"]
@@ -4470,7 +3975,7 @@ class RunIdentification:
                 for w in range(len(scans)):
                     curScan = scans[w]
                     scanid = scanIds[w]
-                    if not (scanid in newMZXMLData):
+                    if scanid not in newMZXMLData:
                         newMZXMLData[scanid] = Bunch(mzs=[], ints=[], rt=mzxml.getScanByID(scanid).retention_time)
                     for mz, inte in curScan:
                         newMZXMLData[scanid].mzs.append(mz)
@@ -4487,7 +3992,7 @@ class RunIdentification:
                 for w in range(len(scans)):
                     curScan = scans[w]
                     scanid = scanIds[w]
-                    if not (scanid in newMZXMLData):
+                    if scanid not in newMZXMLData:
                         newMZXMLData[scanid] = Bunch(mzs=[], ints=[], rt=mzxml.getScanByID(scanid).retention_time)
                     for mz, inte in curScan:
                         newMZXMLData[scanid].mzs.append(mz)
@@ -4504,7 +4009,7 @@ class RunIdentification:
                 for w in range(len(scans)):
                     curScan = scans[w]
                     scanid = scanIds[w]
-                    if not (scanid in newMZXMLData):
+                    if scanid not in newMZXMLData:
                         newMZXMLData[scanid] = Bunch(mzs=[], ints=[], rt=mzxml.getScanByID(scanid).retention_time)
                     for mz, inte in curScan:
                         newMZXMLData[scanid].mzs.append(mz)
@@ -4521,7 +4026,7 @@ class RunIdentification:
                 for w in range(len(scans)):
                     curScan = scans[w]
                     scanid = scanIds[w]
-                    if not (scanid in newMZXMLData):
+                    if scanid not in newMZXMLData:
                         newMZXMLData[scanid] = Bunch(mzs=[], ints=[], rt=mzxml.getScanByID(scanid).retention_time)
                     for mz, inte in curScan:
                         newMZXMLData[scanid].mzs.append(mz)
@@ -4582,47 +4087,10 @@ class RunIdentification:
             # region Initialize data processing pipeline
             ######################################################################################
 
-            self.printMessage("File: %s" % self.file, type="info")
-
             self.postMessageToProgressWrapper("start")
             self.postMessageToProgressWrapper("max", 100.0)
             self.postMessageToProgressWrapper("value", 0.0)
             self.postMessageToProgressWrapper("text", "Initialising")
-
-            if not USEGRADIENTDESCENDPEAKPICKING:
-                self.CP = MassSpecWavelet(
-                    self.chromPeakFile,
-                    scales=self.scales,
-                    snrTh=self.snrTh,
-                    minScans=self.hAMinScans,
-                )
-            else:
-                from .chromPeakPicking.GradientPeaks import GradientPeaks
-
-                self.CP = GradientPeaks()  ## generic gradient descend peak picking - do not use. Parameters need to be optimized
-                self.CP = GradientPeaks(minInt=1000, minIntFlanks=1, minIncreaseRatio=0.01)  ## LTQ Orbitrap XL
-                self.CP = GradientPeaks(
-                    minInt=10000,
-                    minIntFlanks=10,
-                    minIncreaseRatio=0.15,
-                    expTime=[10, 250],
-                )  ## Swiss Orbitrap HF data
-                self.CP = GradientPeaks(
-                    minInt=1000,
-                    minIntFlanks=10,
-                    minIncreaseRatio=0.05,
-                    minDelta=10000,
-                    expTime=[5, 150],
-                )  ## Bernhard HSS
-                self.CP = GradientPeaks(
-                    minInt=1000,
-                    minIntFlanks=100,
-                    minIncreaseRatio=0.5,
-                    minDelta=100,
-                    expTime=[5, 150],
-                )  ##Lin
-                # self.CP=GradientPeaks(minInt=5, minIntFlanks=2, minIncreaseRatio=.05, expTime=[15, 150], minDelta=1, minInflectionDelta=2) ## Roitinger
-                # self.CP=GradientPeaks(minInt=10000, minIntFlanks=10, minIncreaseRatio=.05, expTime=[5, 45])       ## RNA
 
             self.BL = Baseline.Baseline()
 
@@ -4880,18 +4348,6 @@ class RunIdentification:
                 self.writeResultsToFeatureML(self.file)
             # endregion
 
-            # region W.3 Write resutls to PDF
-            ##########################################################################################
-            if self.writePDF:
-                self.postMessageToProgressWrapper("text", "Writing results to PDF")
-
-                def reportFunction(curVal, text):
-                    self.postMessageToProgressWrapper("value", 90.0 + 5.0 * curVal)
-                    self.postMessageToProgressWrapper("text", "Writing results to PDF (%s)" % text)
-
-                self.writeResultsToPDF(mzxml, reportFunction=reportFunction)
-            # endregion
-
             # region W.4 Save all results to new MzXML file
             ##########################################################################################
             if self.writeMZXML:
@@ -4905,7 +4361,6 @@ class RunIdentification:
             self.postMessageToProgressWrapper("end")
 
         except Exception as ex:
-            traceback.print_exc()
-
             self.printMessage("Error in %s: %s" % (self.file, str(ex)), type="error")
             self.postMessageToProgressWrapper("failed")
+            traceback.print_exc()

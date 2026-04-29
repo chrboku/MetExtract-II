@@ -1,11 +1,11 @@
-from __future__ import print_function, division, absolute_import
+from __future__ import absolute_import, division, print_function
+
 import os
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from .groupEditor import Ui_GroupEditor
-
 from ..utils import natSort
+from .groupEditor import Ui_GroupEditor
 
 
 class groupEdit(QtWidgets.QDialog, Ui_GroupEditor):
@@ -32,12 +32,24 @@ class groupEdit(QtWidgets.QDialog, Ui_GroupEditor):
         self.addFolder.clicked.connect(self.selectFolder)
         self.removeSelected.clicked.connect(self.removeSel)
 
-        self.colors = []
-        for i in colors:
-            self.colors.append(i)
-        self.colorsComboBox.addItems(self.colors)
-        self.colorsComboBox.setCurrentIndex(activeColor)
-        self.col = self.colors[self.colorsComboBox.currentIndex()]
+        self.colors = list(colors)
+
+        # Replace color combo box with a color picker button
+        self.colorsComboBox.setVisible(False)
+
+        self._colorButton = QtWidgets.QPushButton()
+        self._colorButton.setToolTip("Click to choose a color")
+        self._colorButton.clicked.connect(self._pickColor)
+        self.gridLayout_3.addWidget(self._colorButton, 0, 2, 1, 2)
+
+        # Set initial color
+        if isinstance(activeColor, int) and 0 <= activeColor < len(self.colors):
+            self._selectedColor = self.colors[activeColor]
+        elif isinstance(activeColor, str):
+            self._selectedColor = activeColor
+        else:
+            self._selectedColor = self.colors[0] if self.colors else "Red"
+        self._styleColorButton()
 
         self.dialogFinished.setFocus()
 
@@ -100,7 +112,25 @@ class groupEdit(QtWidgets.QDialog, Ui_GroupEditor):
         return self.initDir
 
     def getGroupColor(self):
-        return self.colors[self.colorsComboBox.currentIndex()]
+        return self._selectedColor
+
+    def _pickColor(self):
+        """Open a QColorDialog and update the button."""
+        current = QtGui.QColor(self._selectedColor)
+        chosen = QtWidgets.QColorDialog.getColor(current, self, "Choose group color")
+        if chosen.isValid():
+            self._selectedColor = chosen.name()
+            self._styleColorButton()
+
+    def _styleColorButton(self):
+        """Update button appearance to show the current colour."""
+        qc = QtGui.QColor(self._selectedColor)
+        if not qc.isValid():
+            qc = QtGui.QColor("gray")
+        luminance = 0.299 * qc.red() + 0.587 * qc.green() + 0.114 * qc.blue()
+        fg = "black" if luminance > 128 else "white"
+        self._colorButton.setText(self._selectedColor)
+        self._colorButton.setStyleSheet("background-color: %s; color: %s; border: 1px solid gray; padding: 2px 8px;" % (qc.name(), fg))
 
     def getUseAsMSMSTarget(self):
         return bool(self.useAsMSMSTarget.checkState() == QtCore.Qt.Checked)
@@ -153,16 +183,9 @@ class groupEdit(QtWidgets.QDialog, Ui_GroupEditor):
             self.initDir = str(file).replace("\\", "/")
             self.initDir = self.initDir[: self.initDir.rfind("/")]
 
-            colInd = -1
-            for i, col in enumerate(self.colors):
-                if col == activeColor:
-                    colInd = i
-            if colInd == -1:
-                self.colors.append(activeColor)
-                self.colorsComboBox.clear()
-                self.colorsComboBox.addItems(self.colors)
-                colInd = len(self.colors) - 1
-            self.colorsComboBox.setCurrentIndex(colInd)
+        # Set color via the picker button
+        self._selectedColor = activeColor
+        self._styleColorButton()
 
         self.groupName.setText(groupName)
         self.groupMinimumFound.setValue(minimumGroupFound)

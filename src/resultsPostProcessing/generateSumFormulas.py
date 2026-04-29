@@ -1,21 +1,14 @@
-import sys
-
-# sys.path.append("C:/PyMetExtract/PyMetExtract")  # Removed hardcoded path
-
-from ..SGR import SGRGenerator
-
-from ..utils import Bunch
-
-from ..formulaTools import formulaTools
+import json
+import multiprocessing
+from copy import deepcopy
 
 import polars as pl
 
-from copy import deepcopy
+from ..formulaTools import formulaTools
 
-import multiprocessing
-
-import json
-
+# sys.path.append("C:/PyMetExtract/PyMetExtract")  # Removed hardcoded path
+from ..SGR import SGRGenerator
+from ..utils import Bunch
 
 exID = "Num"
 exMZ = "MZ"
@@ -26,10 +19,7 @@ exIonMode = "Ionisation_Mode"
 exCharge = "Charge"
 
 
-from ..SGR import SGRGenerator
 from ..ParquetCache import ParquetCache
-
-
 from ..utils import get_app_folder
 
 local_folder = get_app_folder()
@@ -406,8 +396,10 @@ import re
 # for a=[("1", 1), ("2", 2), ("10", 3), ("11", 4), ("3", 5)]
 # natSort(a, key=itemgetter(0))
 def natSort(l, key=lambda ent: ent):
-    convert = lambda text: int(text) if text.isdigit() else text
-    alphanum_key = lambda ent, key=key: [convert(c) for c in re.split("([0-9]+)", str(key(ent)))]
+    def convert(text):
+        return int(text) if text.isdigit() else text
+    def alphanum_key(ent, key=key):
+        return [convert(c) for c in re.split("([0-9]+)", str(key(ent)))]
     l.sort(key=alphanum_key)
     return l
 

@@ -102,10 +102,7 @@ class Ui_MainWindow(object):
         self.gridLayout_22.addWidget(self.label_42, 6, 0, 1, 1)
         self.groupsList = QtWidgets.QTableWidget(self.inputTab)
         self.groupsList.setColumnCount(8)
-        self.groupsList.setHorizontalHeaderLabels([
-            "Name", "Files", "Color", "Min Found",
-            "Omit Features", "Metabolite Grouping", "False Positive", "MSMS Target"
-        ])
+        self.groupsList.setHorizontalHeaderLabels(["Name", "Files", "Color", "Min Found", "Omit Features", "Metabolite Grouping", "False Positive", "MSMS Target"])
         self.groupsList.horizontalHeader().setStretchLastSection(False)
         self.groupsList.horizontalHeader().setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
         for col in range(1, 8):
@@ -554,6 +551,7 @@ class Ui_MainWindow(object):
         self.gridLayout_20.setObjectName(_fromUtf8("gridLayout_20"))
         self.groupBox_3 = QtWidgets.QGroupBox(self.frame_procIndFiles)
         self.groupBox_3.setObjectName(_fromUtf8("groupBox_3"))
+        self.groupBox_3.setVisible(False)
         self.gridLayout_39 = QtWidgets.QGridLayout(self.groupBox_3)
         self.gridLayout_39.setContentsMargins(3, 3, 3, 3)
         self.gridLayout_39.setSpacing(2)
@@ -589,11 +587,13 @@ class Ui_MainWindow(object):
         self.gridLayout_39.addWidget(self.savePDF, 0, 2, 1, 1)
         self.saveCSV = QtWidgets.QCheckBox(self.groupBox_3)
         self.saveCSV.setChecked(False)
+        self.saveCSV.setEnabled(False)
         self.saveCSV.setTristate(False)
         self.saveCSV.setObjectName(_fromUtf8("saveCSV"))
         self.gridLayout_39.addWidget(self.saveCSV, 0, 0, 1, 1)
         self.saveFeatureML = QtWidgets.QCheckBox(self.groupBox_3)
         self.saveFeatureML.setChecked(False)
+        self.saveFeatureML.setEnabled(False)
         self.saveFeatureML.setObjectName(_fromUtf8("saveFeatureML"))
         self.gridLayout_39.addWidget(self.saveFeatureML, 0, 1, 1, 1)
         self.gridLayout_20.addWidget(self.groupBox_3, 0, 0, 1, 1)
@@ -913,6 +913,66 @@ class Ui_MainWindow(object):
         self.label_78.setObjectName(_fromUtf8("label_78"))
         self.gridLayout_49.addWidget(self.label_78, 1, 0, 1, 1)
         self.verticalLayout_10.addWidget(self.checkBox_checkPeakRatio)
+
+        # -- Peak width / FWHM filter group --------------------------------
+        self.groupBox_peakWidthFilter = QtWidgets.QGroupBox(self.frame_procIndFiles)
+        self.groupBox_peakWidthFilter.setCheckable(True)
+        self.groupBox_peakWidthFilter.setChecked(False)
+        self.groupBox_peakWidthFilter.setObjectName(_fromUtf8("groupBox_peakWidthFilter"))
+        self.gridLayout_peakWidth = QtWidgets.QGridLayout(self.groupBox_peakWidthFilter)
+        self.gridLayout_peakWidth.setObjectName(_fromUtf8("gridLayout_peakWidth"))
+
+        self.label_peakWidthMin = QtWidgets.QLabel(self.groupBox_peakWidthFilter)
+        self.label_peakWidthMin.setObjectName(_fromUtf8("label_peakWidthMin"))
+        self.gridLayout_peakWidth.addWidget(self.label_peakWidthMin, 0, 0, 1, 1)
+        self.doubleSpinBox_minPeakWidth = QtWidgets.QDoubleSpinBox(self.groupBox_peakWidthFilter)
+        self.doubleSpinBox_minPeakWidth.setDecimals(2)
+        self.doubleSpinBox_minPeakWidth.setRange(0, 999999.0)
+        self.doubleSpinBox_minPeakWidth.setProperty("value", 0.0)
+        self.doubleSpinBox_minPeakWidth.setSuffix(" sec")
+        self.doubleSpinBox_minPeakWidth.setToolTip("Minimum chromatographic peak width (seconds). Peaks for M and M' narrower than this are filtered out.")
+        self.doubleSpinBox_minPeakWidth.setObjectName(_fromUtf8("doubleSpinBox_minPeakWidth"))
+        self.gridLayout_peakWidth.addWidget(self.doubleSpinBox_minPeakWidth, 0, 1, 1, 1)
+
+        self.label_peakWidthMax = QtWidgets.QLabel(self.groupBox_peakWidthFilter)
+        self.label_peakWidthMax.setObjectName(_fromUtf8("label_peakWidthMax"))
+        self.gridLayout_peakWidth.addWidget(self.label_peakWidthMax, 1, 0, 1, 1)
+        self.doubleSpinBox_maxPeakWidth = QtWidgets.QDoubleSpinBox(self.groupBox_peakWidthFilter)
+        self.doubleSpinBox_maxPeakWidth.setDecimals(2)
+        self.doubleSpinBox_maxPeakWidth.setRange(0, 999999.0)
+        self.doubleSpinBox_maxPeakWidth.setProperty("value", 9999.0)
+        self.doubleSpinBox_maxPeakWidth.setSuffix(" sec")
+        self.doubleSpinBox_maxPeakWidth.setToolTip("Maximum chromatographic peak width (seconds). Peaks for M and M' wider than this are filtered out.")
+        self.doubleSpinBox_maxPeakWidth.setObjectName(_fromUtf8("doubleSpinBox_maxPeakWidth"))
+        self.gridLayout_peakWidth.addWidget(self.doubleSpinBox_maxPeakWidth, 1, 1, 1, 1)
+
+        self.label_fwhmMin = QtWidgets.QLabel(self.groupBox_peakWidthFilter)
+        self.label_fwhmMin.setObjectName(_fromUtf8("label_fwhmMin"))
+        self.gridLayout_peakWidth.addWidget(self.label_fwhmMin, 2, 0, 1, 1)
+        self.doubleSpinBox_minFWHM = QtWidgets.QDoubleSpinBox(self.groupBox_peakWidthFilter)
+        self.doubleSpinBox_minFWHM.setDecimals(2)
+        self.doubleSpinBox_minFWHM.setRange(0, 999999.0)
+        self.doubleSpinBox_minFWHM.setProperty("value", 0.0)
+        self.doubleSpinBox_minFWHM.setSuffix(" sec")
+        self.doubleSpinBox_minFWHM.setToolTip("Minimum Full Width at Half Maximum (seconds). Peaks for M and M' with FWHM below this are filtered out.")
+        self.doubleSpinBox_minFWHM.setObjectName(_fromUtf8("doubleSpinBox_minFWHM"))
+        self.gridLayout_peakWidth.addWidget(self.doubleSpinBox_minFWHM, 2, 1, 1, 1)
+
+        self.label_fwhmMax = QtWidgets.QLabel(self.groupBox_peakWidthFilter)
+        self.label_fwhmMax.setObjectName(_fromUtf8("label_fwhmMax"))
+        self.gridLayout_peakWidth.addWidget(self.label_fwhmMax, 3, 0, 1, 1)
+        self.doubleSpinBox_maxFWHM = QtWidgets.QDoubleSpinBox(self.groupBox_peakWidthFilter)
+        self.doubleSpinBox_maxFWHM.setDecimals(2)
+        self.doubleSpinBox_maxFWHM.setRange(0, 999999.0)
+        self.doubleSpinBox_maxFWHM.setProperty("value", 9999.0)
+        self.doubleSpinBox_maxFWHM.setSuffix(" sec")
+        self.doubleSpinBox_maxFWHM.setToolTip("Maximum Full Width at Half Maximum (seconds). Peaks for M and M' with FWHM above this are filtered out.")
+        self.doubleSpinBox_maxFWHM.setObjectName(_fromUtf8("doubleSpinBox_maxFWHM"))
+        self.gridLayout_peakWidth.addWidget(self.doubleSpinBox_maxFWHM, 3, 1, 1, 1)
+
+        self.verticalLayout_10.addWidget(self.groupBox_peakWidthFilter)
+        # -- end peak width / FWHM filter -----------------------------------
+
         spacerItem29 = QtWidgets.QSpacerItem(20, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.MinimumExpanding)
         self.verticalLayout_10.addItem(spacerItem29)
         self.gridLayout_8.addLayout(self.verticalLayout_10, 0, 8, 1, 1)
@@ -1293,6 +1353,15 @@ class Ui_MainWindow(object):
         self.label_73 = QtWidgets.QLabel(self.groupBox_6)
         self.label_73.setObjectName(_fromUtf8("label_73"))
         self.gridLayout_16.addWidget(self.label_73, 3, 0, 1, 1)
+        self.label_scanIndexOffset = QtWidgets.QLabel(self.groupBox_6)
+        self.label_scanIndexOffset.setObjectName(_fromUtf8("label_scanIndexOffset"))
+        self.gridLayout_16.addWidget(self.label_scanIndexOffset, 6, 0, 1, 1)
+        self.scanIndexOffset = QtWidgets.QSpinBox(self.groupBox_6)
+        self.scanIndexOffset.setMinimum(-100)
+        self.scanIndexOffset.setMaximum(100)
+        self.scanIndexOffset.setProperty("value", 0)
+        self.scanIndexOffset.setObjectName(_fromUtf8("scanIndexOffset"))
+        self.gridLayout_16.addWidget(self.scanIndexOffset, 6, 1, 1, 1)
         self.verticalLayout_21.addWidget(self.groupBox_6)
         spacerItem35 = QtWidgets.QSpacerItem(20, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.verticalLayout_21.addItem(spacerItem35)
@@ -1492,6 +1561,9 @@ class Ui_MainWindow(object):
         spacerItem44 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self.gridLayout_55.addItem(spacerItem44, 1, 3, 1, 1)
         self.gridLayout_10.addWidget(self.frame_generateMSMSTargetLists, 17, 0, 1, 2)
+        # Hide "4th step: Generate MSMS target lists" section from Process tab
+        self.generateMSMSInfo_CheckBox.setVisible(False)
+        self.frame_generateMSMSTargetLists.setVisible(False)
         self.frame_annotateMetabolites = QtWidgets.QFrame(self.scrollAreaWidgetContents_5)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
         sizePolicy.setHorizontalStretch(0)
@@ -1752,22 +1824,26 @@ class Ui_MainWindow(object):
         self.horizontalLayout_14 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_14.setObjectName(_fromUtf8("horizontalLayout_14"))
         self.alignChromatograms = QtWidgets.QCheckBox(self.groupResults)
-        self.alignChromatograms.setChecked(True)
+        self.alignChromatograms.setChecked(False)
         self.alignChromatograms.setObjectName(_fromUtf8("alignChromatograms"))
+        self.alignChromatograms.setVisible(False)
         self.horizontalLayout_14.addWidget(self.alignChromatograms)
         self.line_24 = QtWidgets.QFrame(self.groupResults)
         self.line_24.setFrameShape(QtWidgets.QFrame.VLine)
         self.line_24.setFrameShadow(QtWidgets.QFrame.Sunken)
         self.line_24.setObjectName(_fromUtf8("line_24"))
+        self.line_24.setVisible(False)
         self.horizontalLayout_14.addWidget(self.line_24)
         self.polynomLabel = QtWidgets.QLabel(self.groupResults)
         self.polynomLabel.setObjectName(_fromUtf8("polynomLabel"))
+        self.polynomLabel.setVisible(False)
         self.horizontalLayout_14.addWidget(self.polynomLabel)
         self.polynomValue = QtWidgets.QSpinBox(self.groupResults)
         self.polynomValue.setMinimum(1)
         self.polynomValue.setMaximum(99)
         self.polynomValue.setProperty("value", 1)
         self.polynomValue.setObjectName(_fromUtf8("polynomValue"))
+        self.polynomValue.setVisible(False)
         self.horizontalLayout_14.addWidget(self.polynomValue)
         self.gridLayout_37.addLayout(self.horizontalLayout_14, 0, 2, 1, 1)
         self.horizontalLayout_17 = QtWidgets.QHBoxLayout()
@@ -2470,6 +2546,17 @@ class Ui_MainWindow(object):
         self.comboBox_separatePeaks.addItem(_fromUtf8(""))
         self.comboBox_separatePeaks.addItem(_fromUtf8(""))
         self.horizontalLayout_22.addWidget(self.comboBox_separatePeaks)
+        self.label_separatePeaksShift = QtWidgets.QLabel(self.tab_6)
+        self.label_separatePeaksShift.setObjectName(_fromUtf8("label_separatePeaksShift"))
+        self.horizontalLayout_22.addWidget(self.label_separatePeaksShift)
+        self.doubleSpinBox_separatePeaksShift = QtWidgets.QDoubleSpinBox(self.tab_6)
+        self.doubleSpinBox_separatePeaksShift.setDecimals(2)
+        self.doubleSpinBox_separatePeaksShift.setMinimum(0.0)
+        self.doubleSpinBox_separatePeaksShift.setMaximum(10.0)
+        self.doubleSpinBox_separatePeaksShift.setProperty("value", 1.0)
+        self.doubleSpinBox_separatePeaksShift.setSuffix(_fromUtf8(" min"))
+        self.doubleSpinBox_separatePeaksShift.setObjectName(_fromUtf8("doubleSpinBox_separatePeaksShift"))
+        self.horizontalLayout_22.addWidget(self.doubleSpinBox_separatePeaksShift)
         spacerItem65 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self.horizontalLayout_22.addItem(spacerItem65)
         self.gridLayout_43.addLayout(self.horizontalLayout_22, 0, 0, 1, 2)
@@ -2749,7 +2836,7 @@ class Ui_MainWindow(object):
         self.label_53.setText(
             _translate(
                 "MainWindow",
-                "<html><head/><body><p>Please specify the settings for your experiment</p><p>The section &quot;Labeling&quot; provides options for describing the experiment's stable isotopic labeling.</p><p>The section &quot;MZ picking&quot; and &quot;MZ clustering&quot; describe the parameters of your HRMS device</p><p>The section &quot;Chromatographic separation&quot; describes your LC device and are parameters used for peak picking</p><p>The results of each measurement is automatically saved in tabular format to &lt;FileName&gt;.tsv. Additionally the results can be saved as &lt;FileName&gt;.pdf with graphical illustrations. </p><p>For some LC-HRMS devices it is also possible to save &lt;FileName&gt;.mzXML files. These files only include those mass peaks originating from the labeling process</p></body></html>",
+                "<html><head/><body><p>Please specify the settings for your experiment</p><p>The section &quot;Labeling&quot; provides options for describing the experiment's stable isotopic labeling.</p><p>The section &quot;MZ picking&quot; and &quot;MZ clustering&quot; describe the parameters of your HRMS device</p><p>The section &quot;MZ processing&quot; describes your LC device and are parameters used for peak picking</p><p>The results of each measurement is automatically saved in tabular format to &lt;FileName&gt;.tsv. Additionally the results can be saved as &lt;FileName&gt;.pdf with graphical illustrations. </p><p>For some LC-HRMS devices it is also possible to save &lt;FileName&gt;.mzXML files. These files only include those mass peaks originating from the labeling process</p></body></html>",
                 None,
             )
         )
@@ -2786,7 +2873,7 @@ class Ui_MainWindow(object):
         self.minCorrelationConnections.setPrefix(_translate("MainWindow", "≥ ", None))
         self.minCorrelationConnections.setSuffix(_translate("MainWindow", " %", None))
         self.checkBox_simplifyInSourceFragments.setText(_translate("MainWindow", "Simplify in-source fragments", None))
-        self.label_51.setText(_translate("MainWindow", "Chromatographic separation", None))
+        self.label_51.setText(_translate("MainWindow", "MZ processing", None))
         self.groupBox_5.setTitle(_translate("MainWindow", "MZ clustering", None))
         self.minSpectraCount.setSuffix(_translate("MainWindow", " scans", None))
         self.minSpectraCount.setPrefix(_translate("MainWindow", "≥ ", None))
@@ -2843,6 +2930,11 @@ class Ui_MainWindow(object):
         self.doubleSpinBox_maxPeakRatio.setPrefix(_translate("MainWindow", "≤ ", None))
         self.label_77.setText(_translate("MainWindow", "Minimum ratio", None))
         self.label_78.setText(_translate("MainWindow", "Maximum ratio", None))
+        self.groupBox_peakWidthFilter.setTitle(_translate("MainWindow", "Filter by chromatographic peak width / FWHM", None))
+        self.label_peakWidthMin.setText(_translate("MainWindow", "Min peak width", None))
+        self.label_peakWidthMax.setText(_translate("MainWindow", "Max peak width", None))
+        self.label_fwhmMin.setText(_translate("MainWindow", "Min FWHM", None))
+        self.label_fwhmMax.setText(_translate("MainWindow", "Max FWHM", None))
         self.label_48.setToolTip(_translate("MainWindow", "Labeling options", None))
         self.label_48.setText(_translate("MainWindow", "Labeling", None))
         self.label_50.setText(_translate("MainWindow", "Labeling", None))
@@ -2942,10 +3034,15 @@ class Ui_MainWindow(object):
         self.label_15.setText(_translate("MainWindow", "Number of isotopologs native", None))
         self.label_29.setText(_translate("MainWindow", "Number of isotopologs labeled", None))
         self.isotopePatternCountB.setPrefix(_translate("MainWindow", "= ", None))
-        self.isoAbundance.setText(_translate("MainWindow", "Consider isotopolog abundance", None))
+        self.isoAbundance.setText(_translate("MainWindow", "Check M±1 / M'±1 isotopolog abundance", None))
+        self.isoAbundance.setToolTip(_translate("MainWindow", "When enabled, checks the abundance of the M+1/M-1 and M'+1/M'-1 isotopolog peaks to verify that the detected feature pair is consistent with expected isotope patterns.", None))
         self.isotopePatternCountA.setPrefix(_translate("MainWindow", "= ", None))
         self.intensityThresholdIsotopologs.setPrefix(_translate("MainWindow", "≥ ", None))
         self.label_73.setText(_translate("MainWindow", "Isotopolog threshold", None))
+        self.label_scanIndexOffset.setText(_translate("MainWindow", "Labeled scan offset", None))
+        self.label_scanIndexOffset.setToolTip(_translate("MainWindow", "Scan index offset for labeled signal search. 0 = same scan as native. Negative = labeled signal searched in earlier scans, positive = later scans.", None))
+        self.scanIndexOffset.setPrefix(_translate("MainWindow", "= ", None))
+        self.scanIndexOffset.setToolTip(_translate("MainWindow", "Scan index offset for labeled signal search. 0 = same scan as native. Negative = labeled signal searched in earlier scans, positive = later scans.", None))
         self.label_86.setText(
             _translate(
                 "MainWindow",
@@ -3157,6 +3254,7 @@ class Ui_MainWindow(object):
         self.label_5.setText(_translate("MainWindow", "Separate according to", None))
         self.comboBox_separatePeaks.setItemText(0, _translate("MainWindow", "Group", None))
         self.comboBox_separatePeaks.setItemText(1, _translate("MainWindow", "Sample", None))
+        self.label_separatePeaksShift.setText(_translate("MainWindow", "Shift", None))
         self.tabWidget_3.setTabText(
             self.tabWidget_3.indexOf(self.tab_6),
             _translate("MainWindow", "Raw XICs", None),
@@ -3195,11 +3293,10 @@ try:
     from .. import resources_rc
 except ImportError:
     # When run directly, use absolute imports
-    import sys
     import os
+    import sys
 
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    import resources_rc
 
 if __name__ == "__main__":
     import sys

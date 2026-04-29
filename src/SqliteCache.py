@@ -2,23 +2,25 @@
 ## original author leonjza
 
 
-import os
 import errno
+import os
 import sqlite3
 import sys
 from time import time
 
 try:
-    from cPickle import loads, dumps  # Python 2
+    from cPickle import dumps, loads  # Python 2
 
     try:
         buffer_func = buffer
     except NameError:
-        buffer_func = lambda x: x
+        def buffer_func(x):
+            return x
 except ImportError:
-    from pickle import loads, dumps  # Python 3
+    from pickle import dumps, loads  # Python 3
 
-    buffer_func = lambda x: x
+    def buffer_func(x):
+        return x
 
 import logging
 

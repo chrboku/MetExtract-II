@@ -1,8 +1,9 @@
-from __future__ import print_function, division, absolute_import
+from __future__ import absolute_import, division, print_function
+
 import csv
 import os
 
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6 import QtCore, QtWidgets
 
 from .TSVLoaderEditor import Ui_Dialog
 
@@ -87,7 +88,7 @@ class TSVLoaderEdit(QtWidgets.QDialog, Ui_Dialog):
                     i = 0
                     for row in tsvin:
                         if i == 0:
-                            if headers == None:
+                            if headers is None:
                                 headers = row
                             else:
                                 headers = list(set(headers) & set(row))

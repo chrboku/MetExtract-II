@@ -1,33 +1,19 @@
-from reportlab.graphics.shapes import Drawing
-from reportlab.graphics.charts.lineplots import LinePlot
-from reportlab.graphics.charts.lineplots import ScatterPlot
-from reportlab.graphics.charts.barcharts import VerticalBarChart
-from reportlab.graphics.widgets.markers import makeMarker
-from reportlab.lib import pagesizes
-from reportlab.lib.colors import Color, HexColor
-from reportlab.lib.units import mm
-from reportlab.platypus import Paragraph, Table
-from reportlab.pdfgen import canvas
-from reportlab.graphics import renderPDF
-from reportlab.lib.styles import getSampleStyleSheet
-
+# sys.path.append("D:/PyMetExtract/PyMetExtract")  # Removed hardcoded path
 import sqlite3
+from math import sqrt
 
 import matplotlib
+from reportlab.graphics import renderPDF
+from reportlab.graphics.charts.lineplots import LinePlot, ScatterPlot
+from reportlab.graphics.shapes import Drawing
+from reportlab.lib import pagesizes
+from reportlab.lib.colors import HexColor
+from reportlab.pdfgen import canvas
+from reportlab.platypus import Table
 
-
-from math import sqrt
-from os.path import join
-import sys
-
-# sys.path.append("D:/PyMetExtract/PyMetExtract")  # Removed hardcoded path
-import pickle
-import base64
-from .TableUtils import TableUtils
-from .utils import smoothDataSeries, Bunch
 from .Chromatogram import Chromatogram
-
-from .DesignPatterns.SingletonDecorator import Singleton
+from .TableUtils import TableUtils
+from .utils import Bunch
 
 
 def mean(x):
@@ -86,7 +72,7 @@ def generatePageFor(
     normEICs=False,
     showGroupRTShift=True,
 ):
-    totalFiles = sum([len(e.files) for e in experimentalGroups])
+    sum([len(e.files) for e in experimentalGroups])
     filesDone = 0
 
     pdf.drawString(
@@ -249,7 +235,6 @@ def generatePageFor(
 
                 scan = mzXMLs[file].getIthMS1Scan(index=bestScanIndex, filterLine=useFilterLine)
                 uInds = [j for j, mz in enumerate(scan.mz_list) if feature.mz - 3 <= mz <= feature.lmz + 3]
-                f = []
                 for uInd in uInds:
                     mz = scan.mz_list[uInd]
                     ab = scan.intensity_list[uInd]
@@ -529,7 +514,7 @@ def generatePDF(
 
     pdf = None
 
-    if pw != None:
+    if pw is not None:
         pw.setMax(sum([len(metabolite.features) for metabolite in metabolitesToPlot]))
         pw.setValue(0)
 
@@ -556,10 +541,10 @@ def generatePDF(
             )
             pdf.showPage()
 
-        if pw != None:
+        if pw is not None:
             pw.setText("   Metabolite: %s" % (metabolite.ogroup))
         for feature in metabolite.features:
-            if pw != None:
+            if pw is not None:
                 pw.setText(" Metabolite: %s      Num: %s, mz: %.5f, rt: %.2f" % (metabolite.ogroup, feature.num, feature.mz, feature.rt))
 
             try:
@@ -579,7 +564,7 @@ def generatePDF(
 
             pdf.showPage()
 
-            if pw != None:
+            if pw is not None:
                 pw.setValueu(f)
             f = f + 1
 

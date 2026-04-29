@@ -1,11 +1,9 @@
-from ..utils import Bunch
-from ..TableUtils import TableUtils
-
-from copy import deepcopy
 import random
 import time
+from copy import deepcopy
 
-from .. import exportAsFeatureML
+from ..TableUtils import TableUtils
+from ..utils import Bunch
 
 
 class OptimizeMSMSTargetList:
@@ -270,7 +268,7 @@ class OptimizeMSMSTargetList:
 
             # print("  Best offspring is", bestOffspringScore)
 
-            if bestOffspringScore > score and bestOffspring != None:
+            if bestOffspringScore > score and bestOffspring is not None:
                 mat = bestOffspring
 
             fig.canvas.draw()

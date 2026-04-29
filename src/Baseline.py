@@ -1,69 +1,59 @@
 if __name__ == "__main__":
-    import MExtract
+    pass
 
-try:
-    import rpy2
-
-    R_AVAILABLE = True
-except ImportError:
-    R_AVAILABLE = False
-    rpy2 = None
-try:
-    import rpy2.robjects as ro
-
-    R_AVAILABLE = True
-except ImportError:
-    R_AVAILABLE = False
-    ro = None
-
-from .utils import Bunch
-
-
-r = ro.r if R_AVAILABLE else None
+import numpy as np
+from scipy.ndimage import median_filter
 
 
 class Baseline:
-    def __init__(self):
-        r("suppressWarnings(suppressMessages(library(baseline))); getBaseline<-function(eic){  return(baseline(eic, method='medianWindow', hwm=20)@baseline[1,])  };")
+    """Median-window baseline estimation (pure Python replacement for R baseline package).
 
-    def getBaseline(self, eic, times):
-        import numpy as np
+    Uses a median filter with a configurable half-window size to estimate the
+    baseline of a chromatographic signal.
+    """
 
-        eic_arr = np.asarray(eic)
-        eicR = "c(" + ",".join(str(e) for e in eic_arr) + ")"
+    def __init__(self, hwm: int = 20):
+        """
+        Args:
+            hwm: Half-window size for the median filter.
+        """
+        self.hwm = hwm
 
-        try:
-            ret = r("getBaseline(t(" + eicR + "));")
+    def getBaseline(self, eic, times) -> np.ndarray:
+        """Estimate baseline using a rolling median window.
 
-            ret = np.array([float(i) for i in ret])
-            return ret
+        Args:
+            eic: 1-D intensity array.
+            times: 1-D retention time array (unused, kept for API compat).
 
-        except Exception as e:
-            raise Exception("Baseline could not be calculated successfully")
+        Returns:
+            1-D numpy array of estimated baseline values.
+        """
+        eic_arr = np.asarray(eic, dtype=np.float64)
+        if eic_arr.size == 0:
+            return eic_arr.copy()
+        window_size = 2 * self.hwm + 1
+        # scipy median_filter handles edge padding internally
+        baseline = median_filter(eic_arr, size=window_size, mode="reflect")
+        return np.asarray(baseline, dtype=np.float64)
 
 
 if __name__ == "__main__":
-    import matplotlib
     import matplotlib.pyplot as plt
 
     BL = Baseline()
 
     from . import Chromatogram
-    from .utils import getLastTimeBefore, smoothDataSeries
+    from .chromPeakPicking.peakpickers import PeakPickerAdapter, WaveletTransformPeakPicker
     from .utils import printObjectsAsTable
 
-    from .chromPeakPicking import MassSpecWavelet
-
-    from utils import get_main_dir
-
-    CP = MassSpecWavelet.MassSpecWavelet(get_main_dir() + "/src/chromPeakPicking/MassSpecWaveletIdentification.r")
+    CP = PeakPickerAdapter(WaveletTransformPeakPicker())
 
     chromatogram = Chromatogram.Chromatogram()
 
     if False:  # Disabled hardcoded test
         chromatogram.parse_file("C:/PyMetExtract/implTest/D-GEN_Warth/GEN_24h_5uM_supern_3_neg_079.mzXML")
         mz = 370.90112
-        # mz = 283.06069
         ppm = 10.0
         cn = 4
         z = 1
@@ -83,8 +73,6 @@ if __name__ == "__main__":
         eic, times, timesI, mzs = chromatogram.getEIC(mz, ppm, scanEvent)
         eicL, times, timesI, mzsL = chromatogram.getEIC(mz + cn * dmz / z, ppm, scanEvent)
 
-        import numpy as np
-
         ax.plot(times / 60.0, eic)
 
         eicBL = BL.getBaseline(eic, times)
@@ -93,7 +81,7 @@ if __name__ == "__main__":
 
         ax.plot(times / 60.0, -np.maximum(0, eic - eicBL))
 
-        ret = CP.getPeaksFor(times, eic, scales=scales, minScans=1)
+        ret = CP.getPeaksFor(times, eic)
         for peak in ret:
             peak.peakAtTime = times[peak.peakIndex] / 60.0
         print("Native")
@@ -114,8 +102,6 @@ if __name__ == "__main__":
         ret = CP.getPeaksFor(
             times,
             [max(0, eic[i] - eicBL[i]) for i in range(len(eic))],
-            scales=scales,
-            minScans=1,
         )
         for peak in ret:
             peak.peakAtTime = times[peak.peakIndex] / 60.0

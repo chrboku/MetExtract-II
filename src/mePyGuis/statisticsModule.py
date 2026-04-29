@@ -12,14 +12,15 @@ Copyright (C) 2015 MetExtract Team
 License: GNU General Public License v2 (GPLv2)
 """
 
+import logging
+from typing import Any, Callable, Dict, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import PCA
-from scipy.cluster.hierarchy import linkage, dendrogram
 from scipy import stats
-from typing import List, Dict, Tuple, Optional, Any, Callable
-import logging
+from scipy.cluster.hierarchy import linkage
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
 
 
 class StatisticsData:
@@ -525,7 +526,7 @@ class UnivariateAnalysis:
                         else:
                             feature_pair_ids.append(0)
                             feature_group_ids.append(0)
-                    except Exception as e:
+                    except Exception:
                         feature_pair_ids.append(0)
                         feature_group_ids.append(0)
             else:

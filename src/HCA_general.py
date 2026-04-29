@@ -1,10 +1,7 @@
+from abc import ABCMeta, abstractmethod
 from math import pow, sqrt
 
-from abc import ABCMeta, abstractmethod
-
 from .DesignPatterns.IDSingleton import IDProvider
-
-import logging
 
 
 class HCANode:

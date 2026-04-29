@@ -1,4 +1,5 @@
 import sys
+
 from PySide6 import QtGui, QtWidgets
 
 
@@ -20,8 +21,9 @@ class QScrollableMessageBox(QtWidgets.QDialog):
 
         self.scroll = QtWidgets.QScrollArea()
         self.scroll.setWidgetResizable(True)
-        self.res = QtWidgets.QPlainTextEdit(text)
-        self.res.setFont(QtGui.QFont("Consolas"))
+        self.res = QtWidgets.QPlainTextEdit()
+        self.res.setStyleSheet("QPlainTextEdit { font-family: Consolas, 'Courier New', monospace; font-size: 10pt; }")
+        self.res.setPlainText(text)
         self.res.setWordWrapMode(QtGui.QTextOption.WrapMode.NoWrap)
         self.scroll.setWidget(self.res)
         o.addWidget(self.scroll, 2, 1)

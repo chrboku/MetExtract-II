@@ -1,14 +1,10 @@
 import sys
-import os
-import pickle
-import base64
-from copy import copy, deepcopy
 
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6 import QtWidgets
 
-from .TracerEditor import Ui_Dialog
-from ..utils import getRatio, getXCombinations
 from ..formulaTools import formulaTools, getIsotopeMass
+from ..utils import getRatio
+from .TracerEditor import Ui_Dialog
 
 
 class ConfiguredTracer:

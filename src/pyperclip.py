@@ -42,7 +42,8 @@
 # 1.2 Use the platform module to help determine OS.
 # 1.3 Changed ctypes.windll.user32.OpenClipboard(None) to ctypes.windll.user32.OpenClipboard(0), after some people ran into some TypeError
 
-import platform, os
+import os
+import platform
 
 
 def winGetClipboard():
@@ -158,9 +159,6 @@ elif os.name == "posix" or platform.system() == "Linux":
             setcb = gtkSetClipboard
         except:
             try:
-                import PySide6.QtCore
-                import PySide6.QtGui
-
                 app = QApplication([])
                 cb = PyQt4.QtWidgets.QApplication.clipboard()
                 getcb = qtGetClipboard

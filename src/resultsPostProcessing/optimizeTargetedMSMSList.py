@@ -1,5 +1,6 @@
-from .utils import Bunch
 import csv
+
+from .utils import Bunch
 
 
 def getGreedyMSMSList():
