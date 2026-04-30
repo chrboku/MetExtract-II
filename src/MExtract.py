@@ -21,62 +21,17 @@ from __future__ import absolute_import, division, print_function
 import os
 import shutil
 import subprocess
-
-# Set up path for direct execution before any relative imports
 import sys
 import threading
 import time
-
 import psutil
-
-app = None
-
-# Set local folder for MetExtract II
-from .utils import get_app_folder
-
-local_folder = get_app_folder()
-if __name__ == "__main__":
-    print(f"Using local folder '{local_folder}'")
-
-
 import logging
-
-from . import LoggingSetup
-
-LoggingSetup.LoggingSetup.Instance().initLogging(location=local_folder)
-
-
-# experiment types
-
 import pprint
 import traceback
-
-sys.displayhook = pprint.pprint
-
-from .mePyGuis.adductsEdit import adductsEdit
-from .mePyGuis.calcIsoEnrichmentDialog import calcIsoEnrichmentDialog
-from .mePyGuis.groupEdit import groupEdit
-from .mePyGuis.heteroAtomEdit import heteroAtomEdit
-from .mePyGuis.PeakPickingSettingsDialog import PeakPickingSettingsDialog
-from .mePyGuis.ProgressWrapper import ProgressWrapper
-from .mePyGuis.RegExTestDialog import RegExTestDialog
-from .MetExtractII_Main import MetExtractVersion
-from .utils import get_main_dir, getDBFormat, getDBSuffix
-
-# experiment types
-TRACER = object()
-METABOLOME = object()
-
-
-# <editor-fold desc="### Python Standard Library imports">
 import base64
-
-# capture stdout and stderr
-# from hashlib import sha256
 import functools
 import json
 import re
-import sys
 from collections import defaultdict
 from copy import deepcopy
 from math import log10
@@ -88,7 +43,69 @@ from xml.parsers.expat import ExpatError
 
 import polars as pl
 
+import matplotlib
+from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import QCheckBox, QComboBox, QHBoxLayout, QPushButton, QTableWidgetItem, QWidget
+import matplotlib.patches as patches
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+from matplotlib.figure import Figure
+from matplotlib.ticker import ScalarFormatter
+
+from .utils import get_app_folder, get_main_dir, getDBFormat, getDBSuffix
+from . import LoggingSetup
+from .mePyGuis.adductsEdit import adductsEdit, ConfiguredAdduct, ConfiguredElement
+from .mePyGuis.calcIsoEnrichmentDialog import calcIsoEnrichmentDialog
+from .mePyGuis.groupEdit import groupEdit
+from .mePyGuis.heteroAtomEdit import heteroAtomEdit, ConfiguredHeteroAtom
+from .mePyGuis.PeakPickingSettingsDialog import PeakPickingSettingsDialog
+from .mePyGuis.ProgressWrapper import ProgressWrapper
+from .mePyGuis.RegExTestDialog import RegExTestDialog
+from .MetExtractII_Main import MetExtractVersion
+from .utils import (
+    Bunch,
+    CallBackMethod,
+    ChromPeakPair,
+    FuncProcess,
+    SampleGroup,
+    SQLInsert,
+    getNormRatio,
+    mean,
+    natSort,
+    sd,
+)
 from .PolarsDB import PolarsDB
+from .Chromatogram import Chromatogram
+from . import HCA_general, annotateResultMatrix, pyperclip
+from .annotateResultMatrix import addGroup as grpAdd
+from .annotateResultMatrix import addStatsColumnToResults
+from .annotateResultMatrix import performGroupOmit as grpOmit
+from .bracketResults import bracketResults, calculateMetaboliteGroups
+from .mePyGuis.mainWindow import Ui_MainWindow
+from .mePyGuis.QScrollableMessageBox import QScrollableMessageBox
+from .mePyGuis.TracerEdit import ConfiguredTracer, tracerEdit
+from .MSMS import optimizeMSMSTargets
+from .reIntegration import reIntegrateResultsFile
+from .resultsPostProcessing import searchDatabases as searchDatabases
+from .TableUtils import TableUtils
+
+
+app = None
+
+# Set local folder for MetExtract II
+local_folder = get_app_folder()
+if __name__ == "__main__":
+    print(f"Using local folder '{local_folder}'")
+
+LoggingSetup.LoggingSetup.Instance().initLogging(location=local_folder)
+
+sys.displayhook = pprint.pprint
+
+
+TRACER = object()
+METABOLOME = object()
 
 
 # Helper function to safely load pickled data with error handling for old cached data
@@ -119,18 +136,8 @@ def safe_pickle_loads(data, default_value=None, operation_name="loading data"):
 # <editor-fold desc="### PyQT 4 Imports">
 # </editor-fold>
 # <editor-fold desc="### MatPlotLib imports and setup">
-import matplotlib
-from PySide6 import QtCore, QtGui, QtWidgets
-from PySide6.QtGui import QColor
-from PySide6.QtWidgets import QCheckBox, QComboBox, QHBoxLayout, QPushButton, QTableWidgetItem, QWidget
 
 matplotlib.use("Qt5Agg")  # Use Qt5Agg backend for PySide6 compatibility
-import matplotlib.patches as patches
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
-from matplotlib.figure import Figure
-from matplotlib.ticker import ScalarFormatter
 
 # from mpldatacursor import datacursor, HighlightingDataCursor
 
@@ -205,7 +212,6 @@ def noaxis(ax):
 # </editor-fold>
 
 # <editor-fold desc="### MZXML">
-from .Chromatogram import Chromatogram
 
 # </editor-fold>
 # <editor-fold desc="### MassSpecWavelet Processing Class Import">
@@ -223,42 +229,16 @@ except Error as err:
         logging.error("Identification/Processing of new files is not available: %s" % (str(err)))
 # </editor-fold>
 # <editor-fold desc="### Group Results Import">
-from . import HCA_general, annotateResultMatrix, pyperclip
-from .annotateResultMatrix import addGroup as grpAdd
-from .annotateResultMatrix import addStatsColumnToResults
-from .annotateResultMatrix import performGroupOmit as grpOmit
-from .bracketResults import bracketResults, calculateMetaboliteGroups
 from .formulaTools import formulaTools, getElementOfIsotope, getIsotopeMass
-from .mePyGuis.adductsEdit import ConfiguredAdduct, ConfiguredElement
-from .mePyGuis.heteroAtomEdit import ConfiguredHeteroAtom
 
 # </editor-fold>
 # <editor-fold desc="### UI Window Imports">
-from .mePyGuis.mainWindow import Ui_MainWindow
-from .mePyGuis.QScrollableMessageBox import QScrollableMessageBox
-from .mePyGuis.TracerEdit import ConfiguredTracer, tracerEdit
-from .MSMS import optimizeMSMSTargets
 
 # </editor-fold>
 # <editor-fold desc="### Re-integration Import">
-from .reIntegration import reIntegrateResultsFile
-from .resultsPostProcessing import searchDatabases as searchDatabases
-from .TableUtils import TableUtils
 
 # </editor-fold>
 # <editor-fold desc="### Various Imports">
-from .utils import (
-    Bunch,
-    CallBackMethod,
-    ChromPeakPair,
-    FuncProcess,
-    SampleGroup,
-    SQLInsert,
-    getNormRatio,
-    mean,
-    natSort,
-    sd,
-)
 
 
 def memory_usage_psutil():
@@ -6258,7 +6238,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                                     drawArrowHead=True,
                                 )
 
-
                                 if self.ui.MSIsos.checkState() == QtCore.Qt.Checked:
                                     bml = (
                                         min(
@@ -7205,7 +7184,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         (cp.lmz, h * 1.1),
                         drawArrowHead=True,
                     )
-
 
                     if self.ui.MSIsos.checkState() == QtCore.Qt.Checked:
                         bml = (

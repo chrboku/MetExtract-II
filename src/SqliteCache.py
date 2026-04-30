@@ -14,6 +14,7 @@ try:
     try:
         buffer_func = buffer
     except NameError:
+
         def buffer_func(x):
             return x
 except ImportError:
@@ -21,6 +22,7 @@ except ImportError:
 
     def buffer_func(x):
         return x
+
 
 import logging
 

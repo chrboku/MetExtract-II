@@ -98,9 +98,12 @@ class AnnotatedMSMSSpectra:
         getInd = None
 
         if native:
+
             def getInd(x):
                 return x.NIndex
+
         if labelled:
+
             def getInd(x):
                 return x.LIndex
 
@@ -113,9 +116,12 @@ class AnnotatedMSMSSpectra:
             getInd = None
 
             if native:
+
                 def getInd(x):
                     return x.NIndex
+
             if labelled:
+
                 def getInd(x):
                     return x.LIndex
 
