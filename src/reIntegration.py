@@ -128,29 +128,16 @@ class ReIntegrationProcessor:
         best = None
 
         for ri, r in enumerate(ret):
-            if abs(times[r.peakIndex] / 60.0 - rt) <= maxRTShift and (best is None or abs(times[r.peakIndex] / 60.0 - rt) < abs(times[ret[best].peakIndex] / 60.0 - rt)):
+            if abs(r.apex_rt / 60.0 - rt) <= maxRTShift and (best is None or abs(r.apex_rt / 60.0 - rt) < abs(ret[best].apex_rt / 60.0 - rt)):
                 best = ri
 
         if best is not None:
-            lb = int(
-                min(
-                    ret[best].peakIndex - peakAbundanceUseSignalsSides,
-                    ret[best].peakIndex - peakAbundanceUseSignalsSides,
-                )
-            )
-            rb = (
-                int(
-                    max(
-                        ret[best].peakIndex + peakAbundanceUseSignalsSides,
-                        ret[best].peakIndex + peakAbundanceUseSignalsSides,
-                    )
-                )
-                + 1
-            )
+            lb = int(max(0, ret[best].apex_index - peakAbundanceUseSignalsSides))
+            rb = int(ret[best].apex_index + peakAbundanceUseSignalsSides) + 1
             peak = eic[lb:rb]
 
-            peakAbundance = max(peak)
-            return ret[best].peakArea, peakAbundance, ret[best].peakSNR
+            peakAbundance = max(peak) if len(peak) > 0 else 0.0
+            return ret[best].area, peakAbundance, ret[best].snr
 
         return None
 

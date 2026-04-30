@@ -83,19 +83,17 @@ if __name__ == "__main__":
 
         ret = CP.getPeaksFor(times, eic)
         for peak in ret:
-            peak.peakAtTime = times[peak.peakIndex] / 60.0
+            peak.peakAtTime = peak.apex_rt / 60.0
         print("Native")
         printObjectsAsTable(
             ret,
             [
                 "peakAtTime",
-                "peakIndex",
-                "peakScale",
-                "peakArea",
-                "peakLeftFlank",
-                "peakIndex",
-                "peakRightFlank",
-                "peakSNR",
+                "apex_index",
+                "snr",
+                "area",
+                "start_index",
+                "end_index",
             ],
         )
 
@@ -104,19 +102,17 @@ if __name__ == "__main__":
             [max(0, eic[i] - eicBL[i]) for i in range(len(eic))],
         )
         for peak in ret:
-            peak.peakAtTime = times[peak.peakIndex] / 60.0
+            peak.peakAtTime = peak.apex_rt / 60.0
         print("Native without baseline")
         printObjectsAsTable(
             ret,
             [
                 "peakAtTime",
-                "peakIndex",
-                "peakScale",
-                "peakArea",
-                "peakLeftFlank",
-                "peakIndex",
-                "peakRightFlank",
-                "peakSNR",
+                "apex_index",
+                "snr",
+                "area",
+                "start_index",
+                "end_index",
             ],
         )
 

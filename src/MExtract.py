@@ -221,9 +221,9 @@ except Error as err:
     if __name__ in ["__main__", "src.MExtract"]:
         logging.error("Peak-picking via MassSpecWavelet is not available: %s" % (str(err)))
 # </editor-fold>
-# <editor-fold desc="### RunIdentification Import">
+# <editor-fold desc="### FindIsoPairs Import">
 try:
-    from .runIdentification import RunIdentification
+    from .findIsoPairs import FindIsoPairs
 except Error as err:
     if __name__ in ["__main__", "src.MExtract"]:
         logging.error("Identification/Processing of new files is not available: %s" % (str(err)))
@@ -262,9 +262,9 @@ pp = pprint.PrettyPrinter(indent=1)
 # </editor-fold>
 
 
-# helper method for runIdentification and multiprocessing (multi core support)
+# helper method for findIsoPairs and multiprocessing (multi core support)
 def findSILFeatures(rI):
-    rI.identify()
+    rI.findIsoPairs()
 
 
 peakAbundanceUseSignals = 5
@@ -2176,7 +2176,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             ]
             intlim = [intlim[0] * 1.1, intlim[1] * 1.1]
             self.drawCanvas(self.ui.resultsExperiment_plot, xlim=rtlim, ylim=intlim)
-            self.drawCanvas(self.ui.resultsExperimentSeparatedPeaks_plot, showLegendOverwrite=False)
+            self.drawCanvas(self.ui.resultsExperimentSeparatedPeaks_plot, showLegendOverwrite=self.ui.showLegend_experiment.isChecked())
             lmz_val = plotItems[0].lmz if plotItems[0].lmz else plotItems[0].mz
             self.drawCanvas(
                 self.ui.resultsExperimentMSScanPeaks_plot,
@@ -2448,9 +2448,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 self.ui.wm_iap.setChecked(writeMZXMLOptions & 2)
                 self.ui.wm_imb.setChecked(writeMZXMLOptions & 4)
                 self.ui.wm_ib.setChecked(writeMZXMLOptions & 8)
-            if sett.contains("savePDF"):
-                self.ui.savePDF.setChecked(self.to_bool(sett.value("savePDF")))
-
             if sett.contains("minCorrelation"):
                 self.ui.minCorrelation.setValue(self.to_double(sett.value("minCorrelation")) * 100.0)
             if sett.contains("minCorrelationConnections"):
@@ -2698,8 +2695,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if self.ui.wm_ib.checkState() == QtCore.Qt.Checked:
                 writeMZXMLOptions |= 8
             sett.setValue("writeMZXMLOptions", writeMZXMLOptions)
-
-            sett.setValue("savePDF", self.ui.savePDF.checkState() == QtCore.Qt.Checked)
 
             sett.setValue("minCorrelation", self.ui.minCorrelation.value() / 100.0)
             sett.setValue(
@@ -3085,7 +3080,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
             # start the multiprocessing
             runObjects = [
-                RunIdentification(
+                FindIsoPairs(
                     files[i],
                     exOperator=str(self.ui.exOperator_LineEdit.text()),
                     exExperimentID=str(self.ui.exExperimentID_LineEdit.text()),
@@ -3220,6 +3215,20 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                                     logging.error('Progress bars do not work correctly, but files will be processed and "finished.." will be printed..')
 
                         for v in mess.values():
+                            for mes in v.values():
+                                if mes.mes == "log":
+                                    messages_to_print[mes.pid + 1].append(mes.val)
+                                elif mes.mes in ["text", "max", "value"]:
+                                    if mes.pid in assignedThreads:
+                                        pw.getCallingFunction(assignedThreads[mes.pid] + 1)(mes.mes)(mes.val)
+                                    else:
+                                        logging.error("Error in messaging pipeline of subprocess id %d" % mes.pid)
+                                elif mes.mes in ["end", "failed", "start"]:
+                                    pass
+                                else:
+                                    logging.error(f"Received unknown message {mes.mes} with payload {mes.__dict__}")
+
+                        for v in mess.values():
                             if "end" in v.keys() or "failed" in v.keys():
                                 mes = None
                                 if "end" in v.keys():
@@ -3231,7 +3240,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                                 pw.getCallingFunction(assignedThreads[mes.pid] + 1)("text")("")
                                 pw.getCallingFunction(assignedThreads[mes.pid] + 1)("value")(0)
 
-                                pw.getCallingFunction(assignedThreads[mes.pid] + 1)("log")("\n".join(messages_to_print[mes.pid + 1]))
+                                logging.info("\n##############################################################")
+                                logging.info("\n".join(messages_to_print[mes.pid + 1]))
+                                logging.info("##############################################################\n")
 
                                 pw.getCallingFunction()("statuscolor")(
                                     pIds[mes.pid],
@@ -3252,20 +3263,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                                 else:
                                     assignedThreads[mes.pid] = -1
                                     freeSlots.append(freeS)
-
-                        for v in mess.values():
-                            for mes in v.values():
-                                if mes.mes == "log":
-                                    messages_to_print[mes.pid + 1].append(mes.val)
-                                elif mes.mes in ["text", "max", "value"]:
-                                    if mes.pid in assignedThreads:
-                                        pw.getCallingFunction(assignedThreads[mes.pid] + 1)(mes.mes)(mes.val)
-                                    else:
-                                        logging.error("Error in messaging pipeline of subprocess id %d" % mes.pid)
-                                elif mes.mes in ["end", "failed", "start"]:
-                                    pass
-                                else:
-                                    logging.error(f"Received unknown message {mes.mes} with payload {mes.__dict__}")
 
                         elapsed = (time.time() - start) / 60.0
                         hours = ""
@@ -3522,7 +3519,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     pw.show()
                     pw.getCallingFunction()("text")("Convoluting feature pairs")
 
-                    runIdentificationInstance = RunIdentification(
+                    findIsoPairsInstance = FindIsoPairs(
                         files[0],
                         exOperator=str(self.ui.exOperator_LineEdit.text()),
                         exExperimentID=str(self.ui.exExperimentID_LineEdit.text()),
@@ -3597,16 +3594,16 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         cpus=min(len(files), cpus),
                     )
 
-                    # Create a shared Queue and Lock and attach to the RunIdentification instance
+                    # Create a shared Queue and Lock and attach to the FindIsoPairs instance
                     q = procProc.getQueue()
                     lock = Lock()
-                    runIdentificationInstance.queue = q
-                    runIdentificationInstance.lock = lock
+                    findIsoPairsInstance.queue = q
+                    findIsoPairsInstance.lock = lock
 
                     procProc.addKwd("pwMaxSet", q)
                     procProc.addKwd("pwValSet", q)
                     procProc.addKwd("pwTextSet", q)
-                    procProc.addKwd("runIdentificationInstance", runIdentificationInstance)
+                    procProc.addKwd("findIsoPairsInstance", findIsoPairsInstance)
                     procProc.start()
 
                     pw.setCloseCallback(
@@ -5926,12 +5923,12 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
                     if self.ui.showDiagnostics.isChecked():
                         for pa in allPeaks["peaksN"]:
-                            if pa.peakIndex != cp.NPeakCenter:
+                            if pa.apex_index != cp.NPeakCenter:
                                 self.addAnnotation(
                                     self.ui.pl1,
                                     "",
-                                    (times[pa.peakIndex], xic[pa.peakIndex]),
-                                    (times[pa.peakIndex], xic[pa.peakIndex]),
+                                    (times[pa.apex_index], xic[pa.apex_index]),
+                                    (times[pa.apex_index], xic[pa.apex_index]),
                                     0,
                                     fcColor="slategrey",
                                     ecColor="slategrey",
@@ -5943,8 +5940,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             self.addAnnotation(
                                 self.ui.pl1,
                                 "",
-                                (times[pa.peakIndex], xicL[pa.peakIndex]),
-                                (times[pa.peakIndex], xicL[pa.peakIndex]),
+                                (times[pa.apex_index], xicL[pa.apex_index]),
+                                (times[pa.apex_index], xicL[pa.apex_index]),
                                 0,
                                 fcColor="slategrey",
                                 ecColor="slategrey",
@@ -9613,7 +9610,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             ]
             intlim = [intlim[0] * 1.1, intlim[1] * 1.1]
             self.drawCanvas(self.ui.resultsExperiment_plot, xlim=rtlim, ylim=intlim)
-            self.drawCanvas(self.ui.resultsExperimentSeparatedPeaks_plot, showLegendOverwrite=False)
+            self.drawCanvas(self.ui.resultsExperimentSeparatedPeaks_plot, showLegendOverwrite=self.ui.showLegend_experiment.isChecked())
             self.drawCanvas(
                 self.ui.resultsExperimentMSScanPeaks_plot,
                 xlim=[pi.mz - 5, pi.lmz + 10],
@@ -10455,7 +10452,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.groupResults.setChecked(False)
         self.ui.annotateMetabolites_CheckBox.setChecked(False)
         self.ui.generateMSMSInfo_CheckBox.setChecked(False)
-        self.ui.frame_procIndFiles.setVisible(False)
+        self.ui.generateMSMSInfo_CheckBox.setEnabled(False)
         self.ui.frame_bracketResults.setVisible(False)
         self.ui.frame_annotateMetabolites.setVisible(False)
         self.ui.frame_generateMSMSTargetLists.setVisible(False)
@@ -10515,6 +10512,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.doubleSpinBox_separatePeaksShift.valueChanged.connect(self._refreshExperimentEICs)
         self.ui.resultsExperimentNormaliseXICs_checkBox.stateChanged.connect(self._refreshExperimentEICs)
         self.ui.resultsExperimentNormaliseXICsSeparately_checkBox.stateChanged.connect(self._refreshExperimentEICs)
+        self.ui.showLegend_experiment.stateChanged.connect(self._refreshExperimentEICs)
 
         self.ui.eicSmoothingWindow.currentIndexChanged.connect(self.smoothingWindowChanged)
         self.smoothingWindowChanged()

@@ -21,11 +21,10 @@ from . import HCA_general, exportAsFeatureML
 from .Chromatogram import Chromatogram
 from .MZHCA import HierarchicalClustering, cutTreeSized
 from .PolarsDB import PolarsDB
-from .runIdentification import ChromPeakPair
+from .utils import ChromPeakPair
 from .utils import (
     Bunch,
     CallBackMethod,
-    ChromPeakPair,
     corr,
     getDBSuffix,
     getSubGraphs,

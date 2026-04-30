@@ -1,5 +1,3 @@
-USEGRADIENTDESCENDPEAKPICKING = False
-
 import os
 import platform
 from math import factorial, sqrt
@@ -8,6 +6,21 @@ from operator import itemgetter
 import numpy
 import numpy as np
 from scipy.ndimage import gaussian_filter1d
+import importlib
+import sys
+import threading
+from multiprocessing import Process, Queue
+
+from sys import exc_info
+from traceback import format_tb
+
+import os
+
+import json
+
+import re
+
+import hashlib
 
 
 # get the operating system
@@ -223,8 +236,7 @@ def smoothDataSeries(x, y, windowLen=2, polynom=3, window="gaussian", removeNegI
 
 # HELPER METHOD
 # taken from http://www.py2exe.org/index.cgi/HowToDetermineIfRunningFromExe
-import importlib
-import sys
+
 
 
 def main_is_frozen():
@@ -251,7 +263,7 @@ def get_main_dir():
     return path.replace("\\", "/")
 
 
-import threading
+
 
 
 class FuncThread(threading.Thread):
@@ -290,15 +302,13 @@ if __name__ == "__main__" and False:
     t1.join()
 
 
-from multiprocessing import Process, Queue
+
 
 
 def process_func(q, _target, *args, **kwds):
     try:
         ret = _target(*args, **kwds)
     except Exception:
-        from sys import exc_info
-        from traceback import format_tb
 
         ex_type, ex_value, tb = exc_info()
         error = ex_type, ex_value, "".join(format_tb(tb))
@@ -370,7 +380,6 @@ def someOtherFunc(data, key):
 
 
 if __name__ == "__main__" and False:
-    import os
 
     # Example usage
     t1 = FuncProcess(_target=someOtherFunc, data=[1, 2], key=7)
@@ -440,7 +449,6 @@ class Bunch:
         return self.hasMember(var)
 
     def dumpAsJSon(self):
-        import json
 
         return json.dumps(self.__dict__)
 
@@ -807,7 +815,6 @@ def getSubGraphsFromDictDict(nodes):
 # natSort(a)
 # for a=[("1", 1), ("2", 2), ("10", 3), ("11", 4), ("3", 5)]
 # natSort(a, key=itemgetter(0))
-import re
 
 
 def natSort(l, key=lambda ent: ent):
@@ -928,7 +935,6 @@ class StdevFunc:
         return sqrt(self.S / (self.k - 2))
 
 
-import hashlib
 
 
 def getFileHash_sha1(filePath):
@@ -982,7 +988,7 @@ def readTSVFileAsBunch(
                 continue
 
             hs = line.split(delim_bytes)
-            hs = [h.strip().decode("utf-8") for h in hs]
+            hs = [h.strip().decode("utf-8", errors="replace") for h in hs]
             if curRowi == 0:
                 for j, h in enumerate(hs):
                     if h in renameRows.keys():
@@ -992,6 +998,8 @@ def readTSVFileAsBunch(
             else:
                 b = Bunch(_addFollowing=list(headers.values()), _addFollowingDefaultValue="")
                 for j, h in enumerate(hs):
+                    if j not in headers:
+                        continue
                     if useColumns is None or headers[j] in useColumns:
                         setattr(b, headers[j], h)
 

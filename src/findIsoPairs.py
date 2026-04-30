@@ -18,11 +18,9 @@
 from __future__ import absolute_import, division, print_function
 
 import base64
-import functools
 import logging
 import os
 import platform
-import re
 import time
 import traceback
 from . import HCA_general, Baseline, exportAsFeatureML
@@ -32,7 +30,7 @@ from .formulaTools import formulaTools, getIsotopeMass
 from .mePyGuis.TracerEdit import ConfiguredTracer
 from .MZHCA import HierarchicalClustering, cutTreeSized
 from .PolarsDB import PolarsDB
-from .runIdentification_matchPartners import matchPartners
+from .findIsoPairs_matchPartners import matchPartners
 from .SGR import SGRGenerator
 from .chromPeakPicking.peakpickers import filter_peaks
 
@@ -40,7 +38,7 @@ import numpy as np
 import polars as pl
 import scipy
 
-from pickle import dumps, loads
+from pickle import dumps
 from copy import copy
 from math import floor
 
@@ -193,7 +191,7 @@ peakAbundanceUseSignalsSides = int((peakAbundanceUseSignals - 1) / 2)
 
 # This class is used as a Command for each LC-HRMS file and is called by the multiprocessing module in MExtract.py
 # during the processing of each individual LC-HRMS data files
-class RunIdentification:
+class FindIsoPairs:
     # Constructor of the class, which stores the processing parameters
     # writeMZXML: 0001: 12C  0010: 12C-Iso  0100: 13C-Iso  1000: 13C
     def __init__(
@@ -410,22 +408,20 @@ class RunIdentification:
             self.heteroAtoms[heteroAtom.name] = heteroAtom
         self.simplifyInSourceFragments = simplifyInSourceFragments
 
+        self.printMessage(f"File: {file}")
+
     # Thread safe printing function
     def printMessage(self, message, type="info"):
         # Always print to stdout for debugging
         if self.lock is not None:
             self.lock.acquire()
             if type.lower() == "info":
-                # logging.info("   %d: %s" % (self.pID, message))
                 self.postMessageToProgressWrapper(mes="log", val=message)
             elif type.lower() == "warning":
-                # logging.warning("   %d: %s" % (self.pID, message))
                 self.postMessageToProgressWrapper(mes="log", val=message)
             elif type.lower() == "error":
-                # logging.error("   %d: %s" % (self.pID, message))
                 self.postMessageToProgressWrapper(mes="log", val=message)
             else:
-                # logging.debug("   %d: %s" % (self.pID, message))
                 self.postMessageToProgressWrapper(mes="log", val=message)
             self.lock.release()
 
@@ -440,7 +436,7 @@ class RunIdentification:
             elif mes == "start" or mes == "end" or mes == "failed":
                 self.queue.put(Bunch(pid=self.pID, mes=mes))
             elif mes == "log":
-                self.queue.put(Bunch(pid=self.pID, mes=mes, val=mes))
+                self.queue.put(Bunch(pid=self.pID, mes=mes, val=val))
 
     def getMostLikelyHeteroIsotope(self, foundIsotopes):
         if len(foundIsotopes) == 0:
@@ -705,7 +701,6 @@ class RunIdentification:
         db_con.insert_row("config", {"key": "simplifyInSourceFragments", "value": str(self.simplifyInSourceFragments)})
 
         import datetime
-        import platform
         import uuid
 
         self.processingUUID = "%s_%s_%s" % (
@@ -750,344 +745,8 @@ class RunIdentification:
         mzxml.parse_file(self.file, intensityCutoff=self.intensityCutoff)
         return mzxml
 
-    # creates a new PDF page which contains the used data processing parameters
-    def writeSettingsToPDF(self, pdf):
-        currentHeight = 800
-
-        pdf.drawString(50, currentHeight, "Experiment name")
-        pdf.drawString(240, currentHeight, self.experimentName)
-        pdf.line(50, currentHeight - 2, 540, currentHeight - 2)
-        currentHeight -= 20
-
-        pdf.drawString(70, currentHeight, "Operator")
-        pdf.drawString(240, currentHeight, self.experimentOperator)
-        currentHeight -= 15
-
-        pdf.drawString(70, currentHeight, "ID")
-        pdf.drawString(240, currentHeight, self.experimentID)
-        currentHeight -= 15
-
-        pdf.drawString(70, currentHeight, "Comments")
-        currentHeight -= 15
-
-        p = Paragraph(self.experimentComments, style=getSampleStyleSheet()["Normal"])
-        w, h = p.wrap(450, 120)
-        p.wrapOn(pdf, 450, 120)
-        p.drawOn(pdf, 60, currentHeight - h + 10)
-        pdf.showPage()
-
-        currentHeight = 800
-
-        pdf.drawString(50, currentHeight, "Parameters")
-        pdf.line(50, currentHeight - 2, 540, currentHeight - 2)
-        currentHeight -= 20
-
-        if self.metabolisationExperiment:
-            pdf.drawString(70, currentHeight, "Metabolisation Experiment")
-            pdf.drawString(240, currentHeight, "1 tracer")
-            currentHeight -= 25
-
-        else:
-            pdf.drawString(50, currentHeight, "Full Metabolome Experiment")
-            currentHeight -= 15
-            pdf.drawString(50, currentHeight, "Labelling")
-
-            pdf.drawString(
-                240,
-                currentHeight,
-                "%s (%s %s)" % (self.labellingElement, self.isotopeA, self.isotopeB),
-            )
-            currentHeight -= 15
-
-            pdf.drawString(
-                50,
-                currentHeight,
-                "Abundance %d%s" % (self.isotopeA, str(self.labellingElement)),
-            )
-            pdf.drawString(240, currentHeight, "%.2f%%" % self.purityN)
-            currentHeight -= 15
-
-            pdf.drawString(
-                70,
-                currentHeight,
-                "Abundance %d%s" % (self.isotopeB, str(self.labellingElement)),
-            )
-            pdf.drawString(240, currentHeight, "%.2f%%" % self.purityL)
-            currentHeight -= 35
-
-        pdf.drawString(50, currentHeight, "M/Z Picking")
-        pdf.line(50, currentHeight - 2, 540, currentHeight - 2)
-        currentHeight -= 15
-        pdf.drawString(70, currentHeight, "Scan event(s)")
-        currentHeight -= 15
-
-        if self.positiveScanEvent != "None":
-            pdf.drawString(90, currentHeight, "Positive mode")
-            pdf.drawString(240, currentHeight, "%s" % self.positiveScanEvent)
-            currentHeight -= 15
-        if self.negativeScanEvent != "None":
-            pdf.drawString(90, currentHeight, "Negative mode")
-            pdf.drawString(220, currentHeight, "%s" % self.negativeScanEvent)
-            currentHeight -= 15
-
-        pdf.drawString(70, currentHeight, "Intensity threshold")
-        pdf.drawString(
-            240,
-            currentHeight,
-            "%d%s"
-            % (
-                self.intensityThreshold,
-                " (Low abundance cutoff for isotopologues: %.0f)" % self.intensityThresholdIsotopologs if self.lowAbundanceIsotopeCutoff else "",
-            ),
-        )
-        currentHeight -= 15
-        pdf.drawString(70, currentHeight, "Intensity cutoff")
-        pdf.drawString(240, currentHeight, "%d" % (self.intensityCutoff))
-        currentHeight -= 15
-
-        pdf.drawString(70, currentHeight, "Time")
-        pdf.drawString(240, currentHeight, "%.1f-%.1f min" % (self.startTime, self.stopTime))
-        currentHeight -= 15
-
-        pdf.drawString(70, currentHeight, "Atom count")
-        pdf.drawString(240, currentHeight, "%s" % (",".join(str(x) for x in self.xCountsString)))
-        currentHeight -= 15
-
-        pdf.drawString(70, currentHeight, "Max. charge")
-        pdf.drawString(240, currentHeight, "%d" % self.maxLoading)
-        currentHeight -= 15
-
-        pdf.drawString(70, currentHeight, "Max. mass deviation ")
-        pdf.drawString(240, currentHeight, "%.2f" % self.ppm)
-        currentHeight -= 15
-
-        pdf.drawString(70, currentHeight, "Isotopic pattern count")
-        pdf.drawString(
-            240,
-            currentHeight,
-            "Native: %d Labelled: %d" % (self.isotopicPatternCountLeft, self.isotopicPatternCountRight),
-        )
-        currentHeight -= 15
-
-        pdf.drawString(70, currentHeight, "Intensity abundance error")
-        pdf.drawString(
-            240,
-            currentHeight,
-            "Native: %.1f%% Labelled: %.1f%%" % (self.intensityErrorN * 100.0, self.intensityErrorL * 100.0),
-        )
-        currentHeight -= 35
-
-        pdf.drawString(50, currentHeight, "Post Processing")
-        pdf.line(50, currentHeight - 2, 540, currentHeight - 2)
-        currentHeight -= 20
-
-        pdf.drawString(70, currentHeight, "Clustering PPM")
-        pdf.drawString(240, currentHeight, "%.2f" % self.clustPPM)
-        currentHeight -= 15
-
-        pdf.drawString(70, currentHeight, "EIC ppm")
-        pdf.drawString(240, currentHeight, "%.2f" % self.chromPeakPPM)
-        currentHeight -= 15
-
-        pdf.drawString(70, currentHeight, "EIC Smoothing Window")
-        pdf.drawString(240, currentHeight, self.eicSmoothingWindow)
-        currentHeight -= 15
-
-        pdf.drawString(70, currentHeight, "M' artificial shift")
-        pdf.drawString(
-            240,
-            currentHeight,
-            "%d - %d" % (self.artificialMPshift_start, self.artificialMPshift_stop),
-        )
-        currentHeight -= 15
-
-        if self.eicSmoothingWindow.lower() != "none":
-            pdf.drawString(70, currentHeight, "EIC Smoothing Window Size")
-            pdf.drawString(240, currentHeight, str(self.eicSmoothingWindowSize))
-            currentHeight -= 15
-
-        if self.eicSmoothingWindow.lower() == "SavitzkyGolay":
-            pdf.drawString(70, currentHeight, "EIC Smoothing Polynom")
-            pdf.drawString(240, currentHeight, str(self.eicSmoothingPolynom))
-            currentHeight -= 15
-
-        pdf.drawString(70, currentHeight, "Scales")
-        pdf.drawString(240, currentHeight, "%d - %d" % (self.scales[0], self.scales[1]))
-        currentHeight -= 15
-
-        pdf.drawString(70, currentHeight, "Peak matching")
-        # pdf.drawString(240, currentHeight, "Center: %d Scales: %d Min. Corr: %.2f" % (
-        #    self.peakCenterError, self.peakScaleError, self.minPeakCorr));
-        pdf.drawString(
-            240,
-            currentHeight,
-            "Center: %d, Min. Corr: %.2f" % (self.peakCenterError, self.minPeakCorr),
-        )
-        currentHeight -= 15
-
-        pdf.drawString(70, currentHeight, "Min. Corr:")
-        pdf.drawString(240, currentHeight, "%.2f" % self.minPeakCorr)
-        currentHeight -= 15
-
-        pdf.drawString(70, currentHeight, "Min. scans")
-        pdf.drawString(240, currentHeight, "%d" % self.minSpectraCount)
-        currentHeight -= 35
-
-        pdf.drawString(50, currentHeight, "Hetero atom annotation")
-        pdf.line(50, currentHeight - 2, 540, currentHeight - 2)
-        currentHeight -= 20
-
-        pdf.drawString(70, currentHeight, "Max. intensity error")
-        pdf.drawString(240, currentHeight, "%.1f%%" % (self.hAIntensityError * 100.0))
-        currentHeight -= 15
-
-        pdf.drawString(70, currentHeight, "Min. scans")
-        pdf.drawString(240, currentHeight, "%d" % self.hAMinScans)
-        currentHeight -= 15
-
-        pdf.drawString(70, currentHeight, "Hetero atom isotopes")
-        p = Paragraph(
-            str(
-                ", ".join(
-                    [
-                        "%s (m: %.4f, rel. ab. %.1f%%, min: %d, max: %d)"
-                        % (
-                            pIso,
-                            self.heteroAtoms[pIso].mzOffset,
-                            self.heteroAtoms[pIso].relativeAbundance * 100.0,
-                            self.heteroAtoms[pIso].minCount,
-                            self.heteroAtoms[pIso].maxCount,
-                        )
-                        for pIso in self.heteroAtoms
-                    ]
-                )
-            ),
-            style=getSampleStyleSheet()["Normal"],
-        )
-        w, h = p.wrap(300, 60)
-        p.wrapOn(pdf, 300, 60)
-        p.drawOn(pdf, 240, currentHeight - h + 10)
-        currentHeight -= max(35, h + 10)
-
-        pdf.drawString(50, currentHeight, "Non-targeted feature grouping")
-        pdf.line(50, currentHeight - 2, 540, currentHeight - 2)
-        currentHeight -= 20
-
-        pdf.drawString(70, currentHeight, "Min. correlation")
-        pdf.drawString(240, currentHeight, "%.2f" % self.minCorrelation)
-        currentHeight -= 15
-
-        pdf.drawString(70, currentHeight, "Min. correlation connections")
-        pdf.drawString(240, currentHeight, "%.2f" % self.minCorrelationConnections)
-        currentHeight -= 15
-
-        pdf.drawString(70, currentHeight, "Adducts")
-        currentHeight -= 15
-        p = Paragraph(
-            str(", ".join(["%s (m/z: %.4f, z:%d%s)" % (ad.name, ad.mzoffset, ad.charge, ad.polarity) for ad in self.adducts])),
-            style=getSampleStyleSheet()["Normal"],
-        )
-        w, h = p.wrap(460, 60)
-        p.wrapOn(pdf, 460, 60)
-        p.drawOn(pdf, 80, currentHeight - h + 10)
-        currentHeight -= max(20, h + 10)
-
-        pdf.drawString(70, currentHeight, "Elements")
-        currentHeight -= 15
-        p = Paragraph(
-            str(", ".join(["%s (m: %.4f)" % (el, self.elements[el].weight) for el in self.elements.keys()])),
-            style=getSampleStyleSheet()["Normal"],
-        )
-        w, h = p.wrap(460, 60)
-        p.wrapOn(pdf, 460, 60)
-        p.drawOn(pdf, 80, currentHeight - h + 10)
-        currentHeight -= max(35, h + 10)
-
-        pdf.drawString(
-            70,
-            currentHeight,
-            "Simplify in-source fragments: " + str(self.simplifyInSourceFragments),
-        )
-        currentHeight -= 15
-
-        pdf.drawString(50, currentHeight, "Software")
-        pdf.line(50, currentHeight - 2, 540, currentHeight - 2)
-        currentHeight -= 20
-
-        pdf.drawString(70, currentHeight, "MetExtract version")
-        pdf.drawString(240, currentHeight, str(self.meVersion))
-        currentHeight -= 15
-
-        p = Paragraph("UUID_ext: " + self.processingUUID, style=getSampleStyleSheet()["Normal"])
-        w, h = p.wrap(450, 120)
-        p.wrapOn(pdf, 450, 120)
-        p.drawOn(pdf, 60, currentHeight - h + 10)
-        currentHeight -= 15
-
-        pdf.showPage()
-
-    # creates a new PDF page which contains the tracer used in this experiment
-    def writeCurrentTracerToPDF(self, pdf, tracer):
-        currentHeight = 800
-        pdf.drawString(50, currentHeight, "Tracer: %s" % tracer.name)
-        pdf.line(50, currentHeight - 2, 540, currentHeight - 1)
-        currentHeight -= 20
-
-        pdf.drawString(70, currentHeight, "Labelling")
-        pdf.drawString(240, currentHeight, "%s, %s" % (tracer.isotopeA, tracer.isotopeB))
-        currentHeight -= 15
-
-        pdf.drawString(70, currentHeight, "Delta m/z")
-        pdf.drawString(240, currentHeight, "%.5f" % self.xOffset)
-        currentHeight -= 15
-
-        pdf.drawString(70, currentHeight, "Element count")
-        pdf.drawString(240, currentHeight, "%d" % tracer.elementCount)
-        currentHeight -= 15
-
-        pdf.drawString(70, currentHeight, "Purity %s" % tracer.isotopeA)
-        pdf.drawString(240, currentHeight, "%.2f%%" % (tracer.enrichmentA * 100.0))
-        currentHeight -= 15
-
-        pdf.drawString(70, currentHeight, "Purity %s" % tracer.isotopeB)
-        pdf.drawString(240, currentHeight, "%.2f%%" % (tracer.enrichmentB * 100.0))
-        currentHeight -= 15
-
-        if tracer.checkRatio:
-            pdf.drawString(
-                70,
-                currentHeight,
-                "Monoisotopic ratio (%s:%s)" % (tracer.isotopeA, tracer.isotopeB),
-            )
-            pdf.drawString(
-                240,
-                currentHeight,
-                "%.5f (%.2f:%.2f [v/v])" % (tracer.monoisotopicRatio, tracer.amountA, tracer.amountB),
-            )
-            currentHeight -= 15
-
-            pdf.drawString(70, currentHeight, "Max. intensity error")
-            pdf.drawString(
-                240,
-                currentHeight,
-                "%.1f%%, %.1f%% (%.3f - %.3f)"
-                % (
-                    tracer.maxRelNegBias * 100.0,
-                    tracer.maxRelPosBias * 100.0,
-                    tracer.monoisotopicRatio * tracer.maxRelNegBias,
-                    tracer.monoisotopicRatio * tracer.maxRelPosBias,
-                ),
-            )
-            currentHeight -= 15
-
-        else:
-            pdf.drawString(70, currentHeight, "Ratio was not checked")
-            currentHeight -= 15
-
-        pdf.showPage()
-
     # data processing step 1: searches each mass spectrum for isotope patterns of native and highly isotope enriched
-    # metabolite ions. The actual calculation and processing of the data is performed in the file runIdentification_matchPartners.py.
+    # metabolite ions. The actual calculation and processing of the data is performed in the file findIsoPairs_matchPartners.py.
     # The positive and negative ionisation modes are processed separately.
     def findSignalPairs(self, curProgress, mzxml, tracer, reportFunction=None):
         mzs = []
@@ -2282,7 +1941,7 @@ class RunIdentification:
                 db_con.tables["chromPeaks"] = db_con.tables["chromPeaks"].with_columns(pl.when(pl.col("id") == peak_id).then(pl.lit(value)).otherwise(pl.col(col_name)).alias(col_name))
                 db_con.tables["allChromPeaks"] = db_con.tables["allChromPeaks"].with_columns(pl.when(pl.col("id") == peak_id).then(pl.lit(value)).otherwise(pl.col(col_name)).alias(col_name))
 
-        self.printMessage("%s: Annotating feature pairs done." % tracer.name, type="info")
+        self.printMessage("Annotating feature pairs done.", type="info")
 
         db_con.commit()
         db_con.close()
@@ -3127,7 +2786,7 @@ class RunIdentification:
 
             db_con.commit()
             self.printMessage(
-                "%s: Feature grouping done. " % tracer.name + str(len(groups)) + " feature groups",
+                "Feature grouping done. " + str(len(groups)) + " feature groups",
                 type="info",
             )
 
@@ -3137,7 +2796,7 @@ class RunIdentification:
         except Exception as ex:
             traceback.print_exc()
 
-            self.printMessage("Error in %s: %s" % (self.file, str(ex)), type="error")
+            self.printMessage("Error: %s" % (str(ex)), type="error")
             self.postMessageToProgressWrapper("failed", self.pID)
 
     # store one MS scan for each detected feature pair in the database
@@ -3212,745 +2871,6 @@ class RunIdentification:
             features.append(b)
 
         exportAsFeatureML.writeFeatureListToFeatureML(features, forFile + ".featureML", ppmPM=self.ppm, rtPM=0.25 * 60)
-
-    # plot all detected feature pairs as the first results page in the PDF
-    def generateFeaturePairOverviewMap(self, chromPeaks, pdf):
-        drawing = Drawing(900, 450)
-        sc = ScatterPlot()
-        sc.x = 50
-        sc.x = 50
-        sc.height = 750
-        sc.width = 510
-        dd = []
-        for gi in set([peak.fGroupID for peak in chromPeaks]):
-            ddd = []
-            for peak in sorted(
-                [peak for peak in chromPeaks if peak.fGroupID == gi],
-                key=functools.cmp_to_key(lambda x, y: int(100 * (x.NPeakCenter - y.NPeakCenter)) if x.fGroupID == y.fGroupID else int(x.fGroupID - y.fGroupID)),
-            ):
-                ddd.append((peak.NPeakCenterMin, peak.mz))
-            dd.append(ddd)
-        sc.data = dd
-        sc.yLabel = "M/Z"
-        sc.xLabel = "Retention Time [min]"
-        sc.lineLabelFormat = noLabel
-        drawing.add(sc)
-        renderPDF.draw(drawing, pdf, 5, 5)
-        pdf.drawString(20, 810, "Plots with the same symbol/color belong to the same group.")
-        pdf.drawString(
-            20,
-            790,
-            "Every third group the symbols/colors are repeated but denote a different group.",
-        )
-        pdf.showPage()
-
-    # include the grouped feature pairs as a) an overlaid EIC plot and b) a list
-    # illustrating the relationships between the different feature pairs in a feature group
-    def createPDFGroupPages(self, db_con, pdf, gPeaks, lGroupID):
-        drawing = Drawing(500, 350)
-        lp = LinePlot()
-        lp.x = 50
-        lp.y = 50
-        lp.height = 330
-        lp.width = 500
-        dd = []
-        oMinDb = 1000000
-        oMaxDb = 0
-        for gPeakA in gPeaks:
-            gPeak = gPeakA[0]
-            eic = gPeakA[1]
-            eicN = gPeakA[2]
-            times = gPeakA[3]
-
-            minD = int(max(0, gPeak.NPeakCenter - 1 * gPeak.NBorderLeft))
-            maxD = int(min(len(eic) - 1, gPeak.NPeakCenter + 1 * gPeak.NBorderRight))
-            oMinDb = int(min(oMinDb, int(max(0, gPeak.NPeakCenter - 3 * gPeak.NBorderLeft))))
-            oMaxDb = int(
-                max(
-                    oMaxDb,
-                    int(min(len(eic) - 1, gPeak.NPeakCenter + 3 * gPeak.NBorderRight)),
-                )
-            )
-
-            maxPeakVal = max(eic[int(max(0, minD)) : int(min(len(eic) - 1, maxD))])
-
-            for i in range(0, len(eic)):
-                if i < minD or i > maxD:
-                    eicN[i] = 0
-
-            if maxPeakVal > 0:
-                eic = [e / maxPeakVal for e in eic]
-                eicN = [e / maxPeakVal for e in eicN]
-
-            dd.append([(times[i] / 60.0, eic[i]) for i in range(0, len(eic))])
-            dd.append([(times[i] / 60.0, eicN[i]) for i in range(0, len(eicN))])
-        ddd = []
-        for d in dd:
-            ddd.append(d[oMinDb:oMaxDb])
-        lp.data = ddd
-        for i in range(len(ddd)):
-            if (i % 2) > 0:
-                lp.lines[i].strokeColor = Color(178 / 255.0, 34 / 255.0, 34 / 255.0)
-                lp.lines[i].strokeWidth = 0.2
-            else:
-                lp.lines[i].strokeColor = Color(47 / 255.0, 79 / 255.0, 79 / 255.0)
-                lp.lines[i].strokeWidth = 0.1
-        lp.joinedLines = 1
-        drawing.add(lp)
-        renderPDF.draw(drawing, pdf, 5, 5)
-
-        frow = [""]
-        data = [frow]
-        idCols = {}
-        for i in range(len(gPeaks)):
-            te = "%.4f/%d" % (gPeaks[i][0].mz, gPeaks[i][0].xCount)
-            frow.append(TTR(te))
-            arow = [te]
-            for j in range(len(gPeaks)):
-                arow.append("")
-            data.append(arow)
-            idCols[gPeaks[i][0].id] = i + 1
-
-        style = [
-            ("INNERGRID", (0, 0), (-1, -1), 0.25, colors.white),
-            ("BOX", (0, 0), (-1, -1), 0.25, colors.lightslategray),
-            ("FONTSIZE", (0, 0), (-1, -1), 8),
-            ("LEFTPADDING", (0, 0), (-1, -1), 0),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-            ("TOPPADDING", (0, 0), (-1, -1), 0),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-        ]
-
-        ",".join(["%d" % f[0].id for f in gPeaks])
-        cIds_list = [f[0].id for f in gPeaks]
-
-        # Get featurefeatures data with joins using Polars
-        ff_df = db_con.tables.get("featurefeatures", pl.DataFrame())
-        chrom_df = db_con.tables.get("chromPeaks", pl.DataFrame())
-
-        if len(ff_df) > 0 and len(chrom_df) > 0:
-            # Filter for our feature IDs
-            filtered_ff = ff_df.filter(pl.col("fID1").is_in(cIds_list) & pl.col("fID2").is_in(cIds_list))
-            # Join with chromPeaks to get mz for sorting
-            result_df = filtered_ff.join(chrom_df, left_on="fID1", right_on="id", how="inner")
-            result_df = result_df.sort("mz")
-
-            for row in result_df.select(["fID1", "fID2", "corr"]).to_dicts():
-                fI1 = idCols[row["fID1"]]
-                fI2 = idCols[row["fID2"]]
-                correlation = row["corr"]
-                if fI1 > fI2:
-                    a = fI2
-                    fI2 = fI1
-                    fI1 = a
-
-            bgColor = colors.orange
-            if correlation >= self.minCorrelation:
-                bgColor = colors.Color(
-                    154 / 255.0,
-                    205 / 255.0,
-                    50 / 255.0,
-                    0.5 + 0.4 * (correlation - self.minCorrelation) / (1.0 - self.minCorrelation),
-                )  # olivedrab
-            elif correlation >= 0:
-                bgColor = colors.Color(
-                    178 / 255.0,
-                    34 / 255.0,
-                    34 / 255.0,
-                    0.05 + 0.15 * correlation / self.minCorrelation,
-                )  # slategrey
-            else:
-                bgColor = colors.Color(47 / 255.0, 79 / 255.0, 79 / 255.0, 0.2 - 0.5 * correlation)  # firebrick
-
-            style.append(("BACKGROUND", (fI1, fI2), (fI1, fI2), bgColor))
-            style.append(("BACKGROUND", (fI2, fI1), (fI2, fI1), bgColor))
-
-        for i in range(len(idCols)):
-            style.append(
-                (
-                    "BACKGROUND",
-                    (i + 1, i + 1),
-                    (i + 1, i + 1),
-                    colors.Color(154 / 255.0, 205 / 255.0, 50 / 255.0, 1),
-                )
-            )
-
-        style.append(("VALIGN", (0, 0), (-1, 0), "BOTTOM"))
-        style.append(("ALIGN", (0, 0), (-1, 0), "CENTER"))
-        style.append(("BOTTOMPADDING", (0, 0), (-1, 0), 4))
-        style.append(("LEFTPADDING", (0, 0), (-1, 0), 3))
-
-        awidth = 10
-        if len(data) > 36:
-            style.append(("FONTSIZE", (0, 0), (-1, -1), 5))
-            awidth = 5
-
-        widths = [50]
-        widths.extend([awidth] * (len(data) - 1))
-        table = Table(data, colWidths=widths, rowHeights=widths, style=style)
-
-        table.wrapOn(pdf, 2 * len(data), 2 * len(data))
-        table.drawOn(pdf, 60, 400)
-
-        pdf.drawString(
-            20,
-            810,
-            "Feature group %d. %d participating mzs (next page)" % (lGroupID, len(gPeaks)),
-        )
-        pdf.showPage()
-
-        ptext = ""
-        j = 0
-        for f in sorted(gPeaks, key=lambda x: x[0].mz):
-            gPeak = f[0]
-            fDesc = ", ".join(gPeak.fDesc)
-            fAdducts = ""
-            if len(gPeak.adducts) == 1:
-                fAdducts = gPeak.adducts[0]
-            elif len(gPeak.adducts) > 1:
-                fAdducts = ", ".join(gPeak.adducts)
-            ptext = ptext + "\u2022 %.6f (%s<sub>%d</sub>): <u>%s</u>  %s<br/>" % (
-                gPeak.mz,
-                self.labellingElement,
-                gPeak.xCount,
-                fAdducts,
-                fDesc,
-            )
-            j = j + 1
-        p = Paragraph(ptext, style=getSampleStyleSheet()["Normal"])
-        w, h = p.wrap(pagesizes.A4[0] * 0.9, pagesizes.A4[1] * 0.9)
-        p.wrapOn(pdf, pagesizes.A4[0] * 0.9, pagesizes.A4[1] * 0.9)
-        p.drawOn(pdf, *coord(10 * mm, pagesizes.A4[1] - h - 10 * mm))
-        pdf.showPage()
-
-    # plot the MS scan stored in the database for each detected feature pair
-    def plotMSScanForFeaturePair(self, peak, tracer, scanEvent, mzxml, pdf):
-        try:
-            mInt = 0
-            drawings = {}
-            lps = {}
-            iscans = [0]
-            for iscan in iscans:
-                drawing = Drawing(500, 350)
-                drawings[iscan] = drawing
-
-                lp = LinePlot()
-                lps[iscan] = lp
-
-                lp.x = 40
-                lp.y = 30
-                lp.height = 150
-                lp.width = 520
-
-                peak.mz + peak.xCount * tracer.mzDelta / peak.loading
-                scan = mzxml.getIthMS1Scan(peak.NPeakCenter + iscan, scanEvent)
-
-                dd = []
-                colors = []
-                strokes = []
-
-                for i in range(len(scan.mz_list)):
-                    cmz = scan.mz_list[i]
-                    cint = scan.intensity_list[i]
-                    dup = peak.mz + peak.xCount * tracer.mzDelta / peak.loading
-
-                    for o in [0, 1, peak.xCount - 1, peak.xCount, peak.xCount + 1]:
-                        dup = peak.mz + o * tracer.mzDelta / peak.loading
-                        if (dup * (1.0 - self.ppm / 1000000.0)) <= cmz <= (dup * (1.0 + self.ppm / 1000000.0)):
-                            dd.append([(cmz, 0), (cmz, cint)])
-                            colors.append(Color(178 / 255.0, 34 / 255.0, 34 / 255.0))  # firebrick
-                            strokes.append(1.2)
-
-                    if len(peak.heteroIsotopologues) > 0:
-                        for pIso in peak.heteroIsotopologues:
-                            himz = 0
-                            if self.heteroAtoms[pIso].mzOffset < 0:
-                                himz = peak.mz + self.heteroAtoms[pIso].mzOffset / peak.loading  # delta m/z is negative
-                            else:
-                                himz = peak.mz + peak.xCount * tracer.mzDelta / peak.loading + self.heteroAtoms[pIso].mzOffset / peak.loading  # delta m/z is positive
-
-                            if (himz * (1.0 - self.ppm / 1000000.0)) <= cmz <= (himz * (1.0 + self.ppm / 1000000.0)):
-                                dd.append([(cmz, 0), (cmz, cint)])
-                                colors.append(Color(154 / 255.0, 205 / 255.0, 50 / 255.0))  # olivedrab
-                                strokes.append(1.2)
-
-                dd.append([(peak.mz - 5, 0), (peak.mz - 5, 0)])
-                colors.append(Color(47 / 255.0, 79 / 255.0, 79 / 255.0))  # slategrey
-                strokes.append(0.1)
-                for i in range(len(scan.mz_list)):
-                    cmz = scan.mz_list[i]
-                    cint = scan.intensity_list[i]
-                    dup = peak.mz + peak.xCount * tracer.mzDelta / peak.loading
-
-                    if (peak.mz - 5) < cmz < (dup + 5):
-                        dd.append([(cmz, 0), (cmz, cint)])
-                        colors.append(Color(47 / 255.0, 79 / 255.0, 79 / 255.0))  # slategrey
-                        strokes.append(0.1)
-                        mInt = max(mInt, cint)
-
-                dd.append(
-                    [
-                        (peak.mz + peak.xCount * tracer.mzDelta / peak.loading + 5, 0),
-                        (peak.mz + peak.xCount * tracer.mzDelta / peak.loading + 5, 0),
-                    ]
-                )
-                colors.append(Color(47 / 255.0, 79 / 255.0, 79 / 255.0))  # slategrey
-                strokes.append(0.1)
-
-                assert len(dd) == len(colors) == len(strokes)
-
-                lp.data = dd
-                for i in range(len(dd)):
-                    lp.lines[i].strokeColor = colors[i]
-                    lp.lines[i].strokeWidth = strokes[i]
-
-                if iscan == 0:
-                    lp.xValueAxis.labelTextFormat = "%.4f"
-                    lp.xValueAxis.valueSteps = [
-                        peak.mz,
-                        peak.mz + peak.xCount * tracer.mzDelta / peak.loading,
-                    ]
-                else:
-                    lp.yValueAxis.valueSteps = [-1000000]
-                    lp.xValueAxis.valueSteps = [-100]
-                lp.joinedLines = 1
-
-                drawing.add(lp)
-            for iscan in iscans:
-                drawing = drawings[iscan]
-                lp = lps[iscan]
-
-                lp.yValueAxis.valueMin = 0
-                lp.yValueAxis.valueMax = mInt
-                lp.xValueAxis.valueMin = peak.mz - 5
-                lp.xValueAxis.valueMax = peak.mz + peak.xCount * tracer.mzDelta / peak.loading + 5
-
-                if iscan != 0:
-                    lp.xValueAxis.visible = False
-                    lp.yValueAxis.visible = False
-                renderPDF.draw(drawing, pdf, 15 + iscan * 2, 475 + iscan * 2)
-
-                if iscan == 0:
-                    p = Paragraph(
-                        "Mass spectrum at %.2f min" % (scan.retention_time / 60.0),
-                        style=getSampleStyleSheet()["Normal"],
-                    )
-                    w, h = p.wrap(pagesizes.A4[0] * 0.9, pagesizes.A4[1] * 0.9)
-                    p.wrapOn(pdf, pagesizes.A4[0] * 0.9, pagesizes.A4[1] * 0.9)
-                    p.drawOn(pdf, *coord(30, 660))
-        except Exception as ex:
-            traceback.print_exc()
-
-            self.printMessage("Error in %s: %s" % (self.file, str(ex)), type="error")
-            self.postMessageToProgressWrapper("failed", self.pID)
-
-    # plot the EIC stored in the database for each detected feature pair
-    def plotXICForFeature(
-        self,
-        center,
-        centerD,
-        eic,
-        eicIso,
-        leftFlank,
-        rightFlank,
-        leftFlankD,
-        rightFlankD,
-        times,
-        yPosPlot,
-        pdf,
-    ):
-        assert len(eic) == len(eicIso) == len(times)
-
-        drawing = Drawing(500, 350)
-        lp = LinePlot()
-        lp.x = 40
-        lp.y = 30
-        lp.height = 200
-        lp.width = 300
-        minD = int(center - 1 * leftFlank)
-        maxD = int(center + 1 * rightFlank)
-
-        dd = [
-            [(times[i] / 60.0, eicIso[i]) for i in range(0, len(eic))],
-            [(times[i] / 60.0, eic[i]) for i in range(0, len(eic))],
-            [(times[i] / 60.0, eic[i]) for i in range(minD, maxD + 1)],
-        ]
-
-        lp.data = dd
-        lp.lines[1].strokeColor = Color(47 / 255.0, 79 / 255.0, 79 / 255.0)
-        lp.lines[2].strokeColor = Color(178 / 255.0, 34 / 255.0, 34 / 255.0)
-        lp.lines[0].strokeColor = Color(193 / 255.0, 205 / 255.0, 193 / 255.0)
-        lp.lines[0].strokeWidth = 0.1
-        lp.lines[1].strokeWidth = 0.1
-        lp.lines[2].strokeWidth = 0.1
-        lp.joinedLines = 1
-        drawing.add(lp)
-        renderPDF.draw(drawing, pdf, 15, yPosPlot)
-        drawing = Drawing(500, 350)
-        lp = LinePlot()
-        lp.x = 40
-        lp.y = 30
-        lp.height = 200
-        lp.width = 200
-        minDsmall = int(max(0, min(int(centerD - 3 * leftFlankD), int(centerD - 3 * leftFlankD))))
-        maxDsmall = int(
-            min(
-                max(int(centerD + 3 * rightFlankD), int(centerD + 3 * rightFlankD)),
-                len(eic) - 1,
-            )
-        )
-        dd = [
-            [(times[i] / 60.0, eicIso[i]) for i in range(minDsmall, maxDsmall + 1)],
-            [(times[i] / 60.0, eic[i]) for i in range(minDsmall, maxDsmall + 1)],
-            [(times[i] / 60.0, eic[i]) for i in range(minD, maxD + 1)],
-        ]
-        lp.data = dd
-        lp.lines[1].strokeColor = Color(47 / 255.0, 79 / 255.0, 79 / 255.0)
-        lp.lines[2].strokeColor = Color(178 / 255.0, 34 / 255.0, 34 / 255.0)
-        lp.lines[0].strokeColor = Color(193 / 255.0, 205 / 255.0, 193 / 255.0)
-        lp.lines[0].strokeWidth = 0.1
-        lp.lines[1].strokeWidth = 0.1
-        lp.lines[2].strokeWidth = 0.2
-        lp.joinedLines = 1
-        drawing.add(lp)
-        renderPDF.draw(drawing, pdf, 330, yPosPlot)
-
-    # create a PDF file illustrating the detected feature pairs and convoluted feature groups
-    def writeResultsToPDF(self, mzxml, reportFunction=None):
-        db_con = PolarsDB(self.file + getDBSuffix(), format=getDBFormat())
-
-        allChromPeaks = []
-        configTracers = {}
-        try:
-            # Join chromPeaks with featureGroupFeatures and tracerConfiguration
-            chrom_df = db_con.tables.get("chromPeaks", pl.DataFrame())
-            fg_df = db_con.tables.get("featureGroupFeatures", pl.DataFrame())
-            tracer_df = db_con.tables.get("tracerConfiguration", pl.DataFrame())
-
-            if len(chrom_df) > 0 and len(fg_df) > 0 and len(tracer_df) > 0:
-                # Perform joins
-                joined_df = chrom_df.join(fg_df, left_on="id", right_on="fID", how="inner")
-                joined_df = joined_df.join(tracer_df, left_on="tracer", right_on="id", how="inner", suffix="_tracer")
-
-                for row in joined_df.to_dicts():
-                    chromPeak = ChromPeakPair()
-                    chromPeak.id = row["id"]
-                    chromPeak.fGroupID = row["fGroupID"]
-                    chromPeak.mz = row["mz"]
-                    chromPeak.lmz = row["lmz"]
-                    chromPeak.xCount = row["xcount"]
-                    chromPeak.loading = row["Loading"]
-                    chromPeak.ionMode = row["ionMode"]
-                    chromPeak.NPeakCenter = row["NPeakCenter"]
-                    chromPeak.NPeakCenterMin = row["NPeakCenterMin"] / 60.0
-                    chromPeak.NPeakScale = row["NPeakScale"]
-                    chromPeak.NPeakArea = row["NPeakArea"]
-                    chromPeak.LPeakCenter = row["LPeakCenter"]
-                    chromPeak.LPeakCenterMin = row["LPeakCenterMin"] / 60.0
-                    chromPeak.LPeakScale = row["LPeakScale"]
-                    chromPeak.LPeakArea = row["LPeakArea"]
-                    chromPeak.NBorderLeft = row["NBorderLeft"]
-                    chromPeak.NBorderRight = row["NBorderRight"]
-                    chromPeak.LBorderLeft = row["LBorderLeft"]
-                    chromPeak.LBorderRight = row["LBorderRight"]
-                    chromPeak.N_startRT = row.get("N_startRT", None)
-                    chromPeak.N_endRT = row.get("N_endRT", None)
-                    chromPeak.L_startRT = row.get("L_startRT", None)
-                    chromPeak.L_endRT = row.get("L_endRT", None)
-                    chromPeak.peaksCorr = row["peaksCorr"]
-                    chromPeak.tracer = row["tracer"]
-                    chromPeak.tracerName = row["name"]
-                    chromPeak.peaksRatio = row["peaksRatio"]
-                    chromPeak.peaksRatioMp1 = row["peaksRatioMp1"]
-                    chromPeak.peaksRatioMPm1 = row["peaksRatioMPm1"]
-
-                    setattr(chromPeak, "heteroIsotopologues", loads(base64.b64decode(row["heteroAtoms"])))
-                    setattr(chromPeak, "adducts", loads(base64.b64decode(row["adducts"])))
-                    setattr(chromPeak, "fDesc", loads(base64.b64decode(row["fDesc"])))
-                    setattr(chromPeak, "comments", loads(base64.b64decode(row["comments"])))
-                    chromPeak.assignedMZs = loads(base64.b64decode(row["assignedMZs"]))
-
-                    allChromPeaks.append(chromPeak)
-
-            if self.metabolisationExperiment:
-                for row in tracer_df.to_dicts():
-                    tracer = ConfiguredTracer()
-                    tracer.id = row["id"]
-                    tracer.name = row["name"]
-                    tracer.elementCount = row["elementCount"]
-                    tracer.isotopeA = row["natural"]
-                    tracer.isotopeB = row["labelling"]
-                    tracer.mzDelta = row["deltaMZ"]
-                    tracer.enrichmentA = row["purityN"]
-                    tracer.enrichmentB = row["purityL"]
-                    tracer.amountA = row["amountN"]
-                    tracer.amountB = row["amountL"]
-                    tracer.monoisotopicRatio = row["monoisotopicRatio"]
-                    tracer.maxRelNegBias = row["lowerError"]
-                    tracer.maxRelPosBias = row["higherError"]
-                    tracer.tracerType = row["tracertype"]
-                    configTracers[tracer.id] = tracer
-            else:
-                for row in tracer_df.to_dicts():
-                    tracer = ConfiguredTracer()
-                    tracer.id = row["id"]
-                    tracer.name = row["name"]
-                    configTracers[tracer.id] = tracer
-
-            self.postMessageToProgressWrapper("text", "Creating PDF")
-            pdf = canvas.Canvas(self.file + ".pdf", pagesize=pagesizes.A4)
-            self.writeSettingsToPDF(pdf)
-
-            for tracerID, tracer in configTracers.items():
-                chromPeaks = [c for c in allChromPeaks if c.tracer == tracerID]
-
-                self.writeCurrentTracerToPDF(pdf, tracer)
-                self.generateFeaturePairOverviewMap(chromPeaks, pdf)
-
-                lGroupID = -1
-                gPeaks = []
-
-                cpeak = 0
-                sortedChromPeaks = sorted(
-                    chromPeaks,
-                    key=functools.cmp_to_key(lambda x, y: int(100 * (x.NPeakCenter - y.NPeakCenter)) if x.fGroupID == y.fGroupID else int(x.fGroupID - y.fGroupID)),
-                )
-
-                for si in range(len(sortedChromPeaks)):
-                    peak = sortedChromPeaks[si]
-                    if reportFunction is not None:
-                        reportFunction(
-                            1.0 * si / len(sortedChromPeaks),
-                            "%d feature pairs remaining" % (len(sortedChromPeaks) - si),
-                        )
-
-                    scanEvent = ""
-                    if peak.ionMode == "+":
-                        scanEvent = self.positiveScanEvent
-                    elif peak.ionMode == "-":
-                        scanEvent = self.negativeScanEvent
-
-                    self.postMessageToProgressWrapper(
-                        "text",
-                        "%s: Creating PDF (%d features remaining)" % (tracer.name, len(chromPeaks) - cpeak),
-                    )
-                    cpeak += 1
-
-                    if lGroupID != -1 and lGroupID != peak.fGroupID and len(gPeaks) > 1 and platform.system() != "Darwin":
-                        self.createPDFGroupPages(db_con, pdf, gPeaks, lGroupID)
-
-                    if lGroupID != peak.fGroupID:
-                        lGroupID = peak.fGroupID
-                        gPeaks = []
-
-                    eicN, times, scanIds, mzsN = mzxml.getEIC(peak.mz, self.chromPeakPPM, filterLine=scanEvent)
-                    eicN = smoothDataSeries(
-                        times,
-                        eicN,
-                        windowLen=self.eicSmoothingWindowSize,
-                        window=self.eicSmoothingWindow,
-                        polynom=self.eicSmoothingPolynom,
-                    )
-                    eicN_cropped = copy(eicN)
-
-                    eicL, times, scanIds, mzsL = mzxml.getEIC(
-                        peak.mz + peak.xCount * tracer.mzDelta / peak.loading,
-                        self.chromPeakPPM,
-                        filterLine=scanEvent,
-                    )
-                    eicL = smoothDataSeries(
-                        times,
-                        eicL,
-                        windowLen=self.eicSmoothingWindowSize,
-                        window=self.eicSmoothingWindow,
-                        polynom=self.eicSmoothingPolynom,
-                    )
-
-                    eicNP1, times, scanIds, mzsNP1 = mzxml.getEIC(
-                        peak.mz + 1 * tracer.mzDelta / peak.loading,
-                        self.chromPeakPPM,
-                        filterLine=scanEvent,
-                    )
-                    eicNP1 = smoothDataSeries(
-                        times,
-                        eicNP1,
-                        windowLen=self.eicSmoothingWindowSize,
-                        window=self.eicSmoothingWindow,
-                        polynom=self.eicSmoothingPolynom,
-                    )
-
-                    eicLm1, times, scanIds, mzsLm1 = mzxml.getEIC(
-                        peak.mz + (peak.xCount - 1) * tracer.mzDelta / peak.loading,
-                        self.chromPeakPPM,
-                        filterLine=scanEvent,
-                    )
-                    eicLm1 = smoothDataSeries(
-                        times,
-                        eicLm1,
-                        windowLen=self.eicSmoothingWindowSize,
-                        window=self.eicSmoothingWindow,
-                        polynom=self.eicSmoothingPolynom,
-                    )
-
-                    gPeaks.append([peak, eicN, eicN_cropped, times, scanIds])
-
-                    if True:  # Plot of Mass spectra for the feature pair
-                        self.plotMSScanForFeaturePair(peak, tracer, scanEvent, mzxml, pdf)
-
-                    if True:  # Plots for the non-labelled XIC
-                        self.plotXICForFeature(
-                            peak.NPeakCenter,
-                            peak.NPeakCenter,
-                            eicN,
-                            eicNP1,
-                            peak.NBorderLeft,
-                            peak.NBorderRight,
-                            peak.NBorderLeft,
-                            peak.NBorderRight,
-                            times,
-                            240,
-                            pdf,
-                        )
-
-                        p = Paragraph(
-                            "XIC of non-labelled isotopologue",
-                            style=getSampleStyleSheet()["Normal"],
-                        )
-                        w, h = p.wrap(pagesizes.A4[0] * 0.9, pagesizes.A4[1] * 0.9)
-                        p.wrapOn(pdf, pagesizes.A4[0] * 0.9, pagesizes.A4[1] * 0.9)
-                        p.drawOn(pdf, *coord(30, 475))
-
-                    if True:  # Plots for the labelled XIC
-                        self.plotXICForFeature(
-                            peak.LPeakCenter,
-                            peak.NPeakCenter,
-                            eicL,
-                            eicLm1,
-                            peak.LBorderLeft,
-                            peak.LBorderRight,
-                            peak.LBorderLeft,
-                            peak.LBorderRight,
-                            times,
-                            5,
-                            pdf,
-                        )
-
-                        p = Paragraph(
-                            "XIC of labelled isotopologue",
-                            style=getSampleStyleSheet()["Normal"],
-                        )
-                        w, h = p.wrap(pagesizes.A4[0] * 0.9, pagesizes.A4[1] * 0.9)
-                        p.wrapOn(pdf, pagesizes.A4[0] * 0.9, pagesizes.A4[1] * 0.9)
-                        p.drawOn(pdf, *coord(30, 240))
-
-                    l = int(
-                        max(
-                            peak.NPeakCenter - peak.NBorderLeft,
-                            peak.LPeakCenter - peak.LBorderLeft,
-                        )
-                    )
-                    h = int(
-                        min(
-                            peak.NPeakCenter + peak.NBorderRight,
-                            peak.LPeakCenter + peak.LBorderRight,
-                        )
-                    )
-
-                    lines = []
-
-                    lines.append("<u>%s</u> Ion Mode: <u>%s</u>" % (scanEvent, peak.ionMode))
-                    lines.append(
-                        "Native: m/z: <u>%.6f</u> RT: <u>%.2f</u> Area: <u>%.2f</u> LeftBorder: <u>%.1f</u> RightBorder: <u>%.1f</u>"
-                        % (
-                            peak.mz,
-                            peak.NPeakCenterMin,
-                            peak.NPeakArea,
-                            peak.NBorderLeft,
-                            peak.NBorderRight,
-                        )
-                    )
-                    lines.append(
-                        "Labelled: m/z: <u>%.6f</u> (Error [ppm]: <u>%.2f</u>) RT: <u>%.2f</u> Area: <u>%.2f</u> LeftBorder: <u>%.1f</u> RightBorder: <u>%.1f</u>"
-                        % (
-                            peak.lmz,
-                            (peak.lmz - peak.mz - peak.xCount * tracer.mzDelta / peak.loading) * 1000000.0 / peak.mz,
-                            peak.LPeakCenterMin,
-                            peak.LPeakArea,
-                            peak.LBorderLeft,
-                            peak.LBorderRight,
-                        )
-                    )
-                    lines.append(
-                        "Scanratios M/M': <u>%.4f</u> (Area Ratio <u>%.4f</u>) M+1/M: <u>%.4f</u> M'-1/M': <u>%.4f</u>"
-                        % (
-                            peak.peaksRatio,
-                            peak.NPeakArea / peak.LPeakArea,
-                            peak.peaksRatioMp1,
-                            peak.peaksRatioMPm1,
-                        )
-                    )
-                    lines.append(
-                        "ID: <u>%d</u> %s<sub>n</sub>: <u>%d</u> Z: <u>%d</u> Correlation: <u>%.4f</u> (<u>%d</u> scans) valid SIL patterns: <u>%d</u> scans Feature group: <u>%d</u>"
-                        % (
-                            peak.id,
-                            self.labellingElement,
-                            peak.xCount,
-                            peak.loading,
-                            peak.peaksCorr,
-                            h - l + 1,
-                            len(peak.assignedMZs),
-                            peak.fGroupID,
-                        )
-                    )
-                    if peak.artificialEICLShift != 0:
-                        lines.append("Artificial EIC (M') shift: <u>%d</u> scans" % peak.artificialEICLShift)
-                    if len(peak.comments) > 0:
-                        lines.extend(peak.comments)
-
-                    lines.append("<br/>Putative hetero atoms: ")
-                    if len(peak.heteroIsotopologues) > 0:
-                        for hetAtom in peak.heteroIsotopologues:
-                            pIso = peak.heteroIsotopologues[hetAtom]
-                            for hetAtomCount in pIso:
-                                isotopeNumber, element = re.match(r"([0-9]+)([a-zA-Z]+)", hetAtom, re.I).groups()
-                                isotopeNumber = int(isotopeNumber)
-                                lines.append(
-                                    "<super>%d</super>%s<sub>%d</sub> (%s m/z: %.4f, scans: %d, obs: %.1f%%, exp: %.1f%%)"
-                                    % (
-                                        isotopeNumber,
-                                        element,
-                                        hetAtomCount,
-                                        "\u0394",
-                                        self.heteroAtoms[hetAtom].mzOffset,
-                                        len(pIso[hetAtomCount]),
-                                        100.0 * mean([d[1] for d in pIso[hetAtomCount]]),
-                                        100.0 * mean([d[2] for d in pIso[hetAtomCount]]),
-                                    )
-                                )
-                    else:
-                        lines.append("- (none detected)")
-
-                    p = Paragraph("<br/>".join(lines), style=getSampleStyleSheet()["Normal"])
-                    pw, ph = p.wrap(pagesizes.A4[0] * 0.9, pagesizes.A4[1] * 0.9)
-                    p.wrapOn(pdf, pagesizes.A4[0] * 0.9, -pagesizes.A4[1] * 0.15)
-                    p.drawOn(pdf, *coord(20, 820 - ph))
-
-                    pdf.showPage()
-
-                if lGroupID != -1 and len(gPeaks) > 1 and platform.system() != "Darwin":
-                    self.createPDFGroupPages(db_con, pdf, gPeaks, lGroupID)
-
-            pdf.save()
-
-            db_con.close()
-
-        except Exception as ex:
-            traceback.print_exc()
-
-            self.printMessage("Error in %s: %s" % (self.file, str(ex)), type="error")
-            self.postMessageToProgressWrapper("failed")
 
     # store the detected feature pairs in a new mzXML file. Only those MS peaks will be included, which contribute to
     # the chromatographic peaks of a valid feature pair
@@ -4080,7 +3000,7 @@ class RunIdentification:
         db_con.close()
 
     # method, which is called by the multiprocessing module to actually process the LC-HRMS data
-    def identify(self):
+    def findIsoPairs(self):
         try:
             start = time.time()
 
@@ -4166,20 +3086,20 @@ class RunIdentification:
             ######################################################################################
 
             self.postMessageToProgressWrapper("value", curTracerProgress + 0 * tracerProgressWidth)
-            self.postMessageToProgressWrapper("text", "%s: Extracting signal pairs" % tracer.name)
+            self.postMessageToProgressWrapper("text", "Extracting signal pairs")
 
             def reportFunction(curVal, text):
                 self.postMessageToProgressWrapper(
                     "value",
                     curTracerProgress + 0 * tracerProgressWidth + 0.25 * curVal * tracerProgressWidth,
                 )
-                self.postMessageToProgressWrapper("text", "%s: Extracting signal pairs (%s)" % (tracer.name, text))
+                self.postMessageToProgressWrapper("text", "Extracting signal pairs (%s)" % text)
 
             mzs, negFound, posFound = self.findSignalPairs(curTracerProgress, mzxml, tracer, reportFunction)
             self.writeSignalPairsToDB(mzs, mzxml, tracerID)
 
             self.printMessage(
-                "%s: Extracting signal pairs done. pos: %d neg: %d mzs (including mismatches)" % (tracer.name, posFound, negFound),
+                "Extracting signal pairs done. pos: %d neg: %d mzs (including mismatches)" % (posFound, negFound),
                 type="info",
             )
             # endregion
@@ -4188,7 +3108,7 @@ class RunIdentification:
             ######################################################################################
 
             self.postMessageToProgressWrapper("value", curTracerProgress + 0.25 * tracerProgressWidth)
-            self.postMessageToProgressWrapper("text", "%s: Clustering found signal pairs" % tracer.name)
+            self.postMessageToProgressWrapper("text", "Clustering found signal pairs")
 
             def reportFunction(curVal, text):
                 self.postMessageToProgressWrapper(
@@ -4197,7 +3117,7 @@ class RunIdentification:
                 )
                 self.postMessageToProgressWrapper(
                     "text",
-                    "%s: Clustering found signal pairs (%s)" % (tracer.name, text),
+                    "Clustering found signal pairs (%s)" % text,
                 )
 
             mzbins = self.clusterFeaturePairs(mzs, reportFunction)
@@ -4205,7 +3125,7 @@ class RunIdentification:
             mzbins = self.removeImpossibleFeaturePairClusters(mzbins)
 
             self.printMessage(
-                "%s: Clustering found signal pairs done. pos: %d neg: %d mz bins (including mismatches)" % (tracer.name, len(mzbins["+"]), len(mzbins["-"])),
+                "Clustering found signal pairs done. pos: %d neg: %d mz bins (including mismatches)" % (len(mzbins["+"]), len(mzbins["-"])),
                 type="info",
             )
             # endregion
@@ -4221,14 +3141,13 @@ class RunIdentification:
                     "value",
                     curTracerProgress + 0.35 * tracerProgressWidth + 0.3 * curVal * tracerProgressWidth,
                 )
-                self.postMessageToProgressWrapper("text", "%s: Separating feature pairs (%s)" % (tracer.name, text))
+                self.postMessageToProgressWrapper("text", "Separating feature pairs (%s)" % text)
 
             chromPeaks = self.findChromatographicPeaksAndWriteToDB(mzbins, mzxml, tracerID, reportFunction)
 
             self.printMessage(
-                "%s: Separating feature pairs done. pos: %d neg: %d chromatographic peaks (including mismatches)"
+                "Separating feature pairs done. pos: %d neg: %d chromatographic peaks (including mismatches)"
                 % (
-                    tracer.name,
                     len([c for c in chromPeaks if c.ionMode == "+"]),
                     len([c for c in chromPeaks if c.ionMode == "-"]),
                 ),
@@ -4240,7 +3159,7 @@ class RunIdentification:
             ######################################################################################
 
             self.postMessageToProgressWrapper("value", curTracerProgress + 0.65 * tracerProgressWidth)
-            self.postMessageToProgressWrapper("text", "%s: Removing false positive feature pairs" % tracer.name)
+            self.postMessageToProgressWrapper("text", "Removing false positive feature pairs")
 
             def reportFunction(curVal, text):
                 self.postMessageToProgressWrapper(
@@ -4249,13 +3168,13 @@ class RunIdentification:
                 )
                 self.postMessageToProgressWrapper(
                     "text",
-                    "%s: Removing false positive feature pairs (%s)" % (tracer.name, text),
+                    "Removing false positive feature pairs (%s)" % text,
                 )
 
             self.removeFalsePositiveFeaturePairsAndUpdateDB(chromPeaks, reportFunction)
 
             self.printMessage(
-                "%s: Removing false positive feature pairs done. %d chromatographic peaks" % (tracer.name, len(chromPeaks)),
+                "Removing false positive feature pairs done. %d chromatographic peaks" % len(chromPeaks),
                 type="info",
             )
             # endregion
@@ -4264,14 +3183,14 @@ class RunIdentification:
             ######################################################################################
 
             self.postMessageToProgressWrapper("value", curTracerProgress + 0.7 * tracerProgressWidth)
-            self.postMessageToProgressWrapper("text", "%s: Searching for hetero atoms" % tracer.name)
+            self.postMessageToProgressWrapper("text", "Searching for hetero atoms")
 
             def reportFunction(curVal, text):
                 self.postMessageToProgressWrapper(
                     "value",
                     curTracerProgress + 0.7 * tracerProgressWidth + 0.05 * curVal * tracerProgressWidth,
                 )
-                self.postMessageToProgressWrapper("text", "%s: Annotating feature pairs (%s)" % (tracer.name, text))
+                self.postMessageToProgressWrapper("text", "Annotating feature pairs (%s)" % text)
 
             self.annotateFeaturePairs(chromPeaks, mzxml, tracer, reportFunction)
             # endregion
@@ -4280,14 +3199,14 @@ class RunIdentification:
             ######################################################################################
 
             self.postMessageToProgressWrapper("value", curTracerProgress + 0.75 * tracerProgressWidth)
-            self.postMessageToProgressWrapper("text", "%s: Grouping feature pairs" % tracer.name)
+            self.postMessageToProgressWrapper("text", "Grouping feature pairs")
 
             def reportFunction(curVal, text):
                 self.postMessageToProgressWrapper(
                     "value",
                     curTracerProgress + 0.75 * tracerProgressWidth + 0.05 * curVal * tracerProgressWidth,
                 )
-                self.postMessageToProgressWrapper("text", "%s: Grouping feature pairs (%s)" % (tracer.name, text))
+                self.postMessageToProgressWrapper("text", "Grouping feature pairs (%s)" % text)
 
             self.groupFeaturePairsUntargetedAndWriteToDB(chromPeaks, mzxml, tracer, tracerID, reportFunction)
             # endregion
@@ -4296,7 +3215,7 @@ class RunIdentification:
             ######################################################################################
 
             self.postMessageToProgressWrapper("value", curTracerProgress + 0.8 * tracerProgressWidth)
-            self.postMessageToProgressWrapper("text", "%s: Extracting mass spectra to DB" % tracer.name)
+            self.postMessageToProgressWrapper("text", "Extracting mass spectra to DB")
 
             def reportFunction(curVal, text):
                 self.postMessageToProgressWrapper(
@@ -4305,7 +3224,7 @@ class RunIdentification:
                 )
                 self.postMessageToProgressWrapper(
                     "text",
-                    "%s: Extracting mass spectra to DB (%s)" % (tracer.name, text),
+                    "Extracting mass spectra to DB (%s)" % (text),
                 )
 
             self.writeMassSpectraToDB(chromPeaks, mzxml, reportFunction)
@@ -4321,7 +3240,7 @@ class RunIdentification:
             mins = "%.2f min(s)" % (elapsed % 60.0)
 
             self.printMessage(
-                "%s: Calculations finished (%s%s).." % (tracer.name, hours, mins),
+                "Calculations finished (%s%s).." % (hours, mins),
                 type="info",
             )
             # endregion
@@ -4331,9 +3250,9 @@ class RunIdentification:
 
             # W.1 Save results to new MzXML file (intermediate step) (95-100%)
 
-            if self.writeMZXML:
+            if False and self.writeMZXML:
                 self.postMessageToProgressWrapper("value", curTracerProgress + 0.95 * tracerProgressWidth)
-                self.postMessageToProgressWrapper("text", "%s: Writing results to mzXML.." % tracer.name)
+                self.postMessageToProgressWrapper("text", "Writing results to mzXML..")
 
                 self.writeResultsToNewMZXMLIntermediateObject(mzxml, newMZXMLData, chromPeaks)
             # endregion
@@ -4342,7 +3261,7 @@ class RunIdentification:
 
             # region W.2 Write results to TSV File
             ##########################################################################################
-            if self.writeFeatureML:
+            if False and self.writeFeatureML:
                 self.postMessageToProgressWrapper("text", "Writing results to featureML..")
 
                 self.writeResultsToFeatureML(self.file)
@@ -4350,17 +3269,16 @@ class RunIdentification:
 
             # region W.4 Save all results to new MzXML file
             ##########################################################################################
-            if self.writeMZXML:
+            if False and self.writeMZXML:
                 self.postMessageToProgressWrapper("text", "Writing results to new mzXML file")
 
                 self.writeIntermediateMZXMLDataToNewMZXMLFile(mzxml, newMZXMLData)
             # endregion
 
             mzxml.freeMe()
-            self.printMessage("%s done.." % self.file, type="info")
             self.postMessageToProgressWrapper("end")
 
         except Exception as ex:
-            self.printMessage("Error in %s: %s" % (self.file, str(ex)), type="error")
+            self.printMessage("Error: %s" % (str(ex)), type="error")
             self.postMessageToProgressWrapper("failed")
             traceback.print_exc()

@@ -69,14 +69,11 @@ class ModuleSelection(QtWidgets.QMainWindow, Ui_MainWindow):
         self.fragExtractLabel.setVisible(False)
         self.combineResultsButton.setVisible(False)
         self.label_2.setVisible(False)
-        self.fticrExtractIcon.setVisible(False)
-        self.label_3.setVisible(False)
 
         self.allExtractIcon.clicked.connect(self.openAllExtract)
         self.tracExtractIcon.clicked.connect(self.openTracExtract)
         self.fragExtractIcon.clicked.connect(self.openFragExtract)
         self.combineResultsButton.clicked.connect(self.openCombineResults)
-        self.fticrExtractIcon.clicked.connect(self.openFTICR)
         self.documentationIcon.clicked.connect(self.openDocumentation)
 
         self.actionCalculate_isotopic_enrichment.triggered.connect(self.openCalcIsotopologEnrichment)
@@ -91,8 +88,6 @@ class ModuleSelection(QtWidgets.QMainWindow, Ui_MainWindow):
                 args = ["uv", "run", "python", "-m", "src.FragExtract"]
             elif module == "combineResults":
                 args = ["uv", "run", "python", "-m", "src.combineResults"]
-            elif module == "FTICRExtract":
-                args = ["uv", "run", "python", "-m", "src.FTICRModule"]
             else:
                 QtWidgets.QMessageBox.warning(self, "MetExtract", "Unknown module", QtWidgets.QMessageBox.Ok)
             subprocess.Popen(args)
@@ -123,10 +118,6 @@ class ModuleSelection(QtWidgets.QMainWindow, Ui_MainWindow):
     def openCombineResults(self):
         print("starting combineResults")
         self.openMetExtractModule(module="combineResults")
-
-    def openFTICR(self):
-        print("starting FTICRExtract")
-        self.openMetExtractModule(module="FTICRExtract")
 
     def openDocumentation(self):
         import subprocess
