@@ -17,7 +17,6 @@
 
 
 from __future__ import absolute_import, division, print_function
-
 import os
 import shutil
 import subprocess
@@ -40,9 +39,7 @@ from operator import itemgetter
 from optparse import OptionParser
 from pickle import dumps, loads
 from xml.parsers.expat import ExpatError
-
 import polars as pl
-
 import matplotlib
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtGui import QColor
@@ -53,7 +50,6 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 from matplotlib.ticker import ScalarFormatter
-
 from .utils import get_app_folder, get_main_dir, getDBFormat, getDBSuffix
 from . import LoggingSetup
 from .mePyGuis.adductsEdit import adductsEdit, ConfiguredAdduct, ConfiguredElement
@@ -89,8 +85,7 @@ from .mePyGuis.TracerEdit import ConfiguredTracer, tracerEdit
 from .MSMS import optimizeMSMSTargets
 from .reIntegration import reIntegrateResultsFile
 from .resultsPostProcessing import searchDatabases as searchDatabases
-from .TableUtils import TableUtils
-
+from .formulaTools import formulaTools, getElementOfIsotope, getIsotopeMass
 
 app = None
 
@@ -214,22 +209,14 @@ def noaxis(ax):
 # <editor-fold desc="### MZXML">
 
 # </editor-fold>
-# <editor-fold desc="### MassSpecWavelet Processing Class Import">
-try:
-    pass
-except Error as err:
-    if __name__ in ["__main__", "src.MExtract"]:
-        logging.error("Peak-picking via MassSpecWavelet is not available: %s" % (str(err)))
-# </editor-fold>
 # <editor-fold desc="### FindIsoPairs Import">
 try:
     from .findIsoPairs import FindIsoPairs
-except Error as err:
+except Exception as err:
     if __name__ in ["__main__", "src.MExtract"]:
         logging.error("Identification/Processing of new files is not available: %s" % (str(err)))
 # </editor-fold>
 # <editor-fold desc="### Group Results Import">
-from .formulaTools import formulaTools, getElementOfIsotope, getIsotopeMass
 
 # </editor-fold>
 # <editor-fold desc="### UI Window Imports">
@@ -256,7 +243,6 @@ def memory_usage_psutil():
 # </editor-fold>
 
 # <editor-fold desc="### debug imports">
-import pprint
 
 pp = pprint.PrettyPrinter(indent=1)
 # </editor-fold>
@@ -769,11 +755,11 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             if db_con is not None:
                                 db_con.close()
                             db_con = None
-                        except:
+                        except Exception:
                             try:
                                 if db_con is not None:
                                     db_con.close()
-                            except:
+                            except Exception:
                                 logging.warning("Warning: Could not close intermediate (parquet) file")
                     else:
                         if len(inValidfiles) > 0:
@@ -1243,6 +1229,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         groupFile = str(groupFile).replace("\\", "/")
 
         doAsk = True
+        text = ""
         addWarning = False
 
         while doAsk:
@@ -1649,19 +1636,19 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     title = "%s" % (str(fp.id))
                     try:
                         title = "%s / %d rep." % (title, int(fp.N_found_Samples))
-                    except:
+                    except Exception:
                         pass
                     try:
                         title = "%s / %.1f%%" % (title, row_dict.get("Relative_peakarea_in_group", -1) * 100.0)
-                    except:
+                    except Exception:
                         pass
                     try:
                         title = "%s / %.4g" % (title, row_dict.get("Average_peakarea", -1))
-                    except:
+                    except Exception:
                         pass
                     try:
                         title = "%s / %s" % (title, row_dict.get("Ion", ""))
-                    except:
+                    except Exception:
                         pass
 
                     featurePair = QtWidgets.QTreeWidgetItem(
@@ -1824,9 +1811,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             area_n = 0.0
                         if area_l is None or area_l == "":
                             area_l = 0.0
-                        if type(area_n) == str:
+                        if type(area_n) is str:
                             area_n = float(area_n)
-                        if type(area_l) == str:
+                        if type(area_l) is str:
                             area_l = float(area_l)
                         row_n[sample] = area_n
                         row_l[sample] = area_l
@@ -3180,7 +3167,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
             # monitor processing of individual LC-HRMS files and report to the user
             loop = True
-            freeSlots = list(range(min(len(files), cpus)))
+            freeSlots = [1 + i for i in list(range(min(len(files), cpus)))]
             assignedThreads = {}
             messages_to_print = defaultdict(list)
             while loop and not self.terminateJobs:
@@ -3217,10 +3204,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         for v in mess.values():
                             for mes in v.values():
                                 if mes.mes == "log":
-                                    messages_to_print[mes.pid + 1].append(mes.val)
+                                    messages_to_print[mes.pid].append(mes.val)
                                 elif mes.mes in ["text", "max", "value"]:
                                     if mes.pid in assignedThreads:
-                                        pw.getCallingFunction(assignedThreads[mes.pid] + 1)(mes.mes)(mes.val)
+                                        pw.getCallingFunction(assignedThreads[mes.pid])(mes.mes)(mes.val)
                                     else:
                                         logging.error("Error in messaging pipeline of subprocess id %d" % mes.pid)
                                 elif mes.mes in ["end", "failed", "start"]:
@@ -3237,11 +3224,11 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                                     mes = v["failed"]
                                     failedFiles.append(pIds[mes.pid])
                                 freeS = assignedThreads[mes.pid]
-                                pw.getCallingFunction(assignedThreads[mes.pid] + 1)("text")("")
-                                pw.getCallingFunction(assignedThreads[mes.pid] + 1)("value")(0)
+                                pw.getCallingFunction(assignedThreads[mes.pid])("text")("")
+                                pw.getCallingFunction(assignedThreads[mes.pid])("value")(0)
 
                                 logging.info("\n##############################################################")
-                                logging.info("\n".join(messages_to_print[mes.pid + 1]))
+                                logging.info("\n".join(messages_to_print[mes.pid]))
                                 logging.info("##############################################################\n")
 
                                 pw.getCallingFunction()("statuscolor")(
@@ -3318,6 +3305,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
             # bracket/group results from individual LC-HRMS data
             if self.ui.groupResults.isChecked():
+                logging.info("\n\n##############################################################")
                 logging.info("Bracketing of individual LC-HRMS results..")
 
                 try:
@@ -3506,6 +3494,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     )
                     errorCount += 1
 
+                logging.info("##############################################################")
+
             pw.setSkipCallBack(True)
             pw.hide()
 
@@ -3514,6 +3504,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
             # Calculate metabolite groups
             if self.ui.convoluteResults.isChecked():
+                logging.info("\n\n##############################################################")
                 try:
                     pw = ProgressWrapper(1, parent=self)
                     pw.show()
@@ -3603,7 +3594,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     procProc.addKwd("pwMaxSet", q)
                     procProc.addKwd("pwValSet", q)
                     procProc.addKwd("pwTextSet", q)
-                    procProc.addKwd("findIsoPairsInstance", findIsoPairsInstance)
+                    procProc.addKwd("runIdentificationInstance", findIsoPairsInstance)
                     procProc.start()
 
                     pw.setCloseCallback(
@@ -3656,6 +3647,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     errorCount += 1
                 finally:
                     pw.setSkipCallBack(True)
+                logging.info("##############################################################")
 
             pw.setSkipCallBack(True)
             pw.hide()
@@ -3665,6 +3657,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
             # re-integrate missed peaks
             if self.ui.integratedMissedPeaks.isChecked():
+                logging.info("\n\n##############################################################")
                 logging.info("Re-integrating of individual LC-HRMS results..")
 
                 pw = ProgressWrapper(min(len(files), cpus) + 1, showLog=False, parent=self)
@@ -3729,6 +3722,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 finally:
                     pw.setSkipCallBack(True)
                     pw.hide()
+                logging.info("##############################################################")
 
             if self.terminateJobs:
                 pw.hide()
@@ -3737,6 +3731,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         annotationColumns = []
         ## annotate results
         if self.ui.annotateMetabolites_CheckBox.isChecked():
+            logging.info("\n\n##############################################################")
             logging.info("Annotation of detected metabolites..")
 
             useAdducts = []
@@ -3811,6 +3806,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         QtWidgets.QMessageBox.Ok,
                     )
                     errorCount += 1
+                logging.info("##############################################################\n\n")
 
             if self.ui.generateSumFormulas_CheckBox.isChecked():
                 pw.getCallingFunction()("text")("Generating sum formulas..")
@@ -3879,128 +3875,16 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         QtWidgets.QMessageBox.Ok,
                     )
                     errorCount += 1
+                logging.info("\n\n##############################################################")
 
+            print("\n\n")
             pw.hide()
 
-            ## Organize table a bit better
-            impCols = [
-                "Num",
-                "OGroup",
-                "Comment",
-                "MZ",
-                "RT",
-                "Xn",
-                "Charge",
-                "Ionisation_Mode",
-                "Ion",
-                "Loss",
-                "M",
-                "L_MZ",
-                "D_MZ",
-                "MZ_Range",
-                "RT_Range",
-                "PeakScalesNL",
-                "ScanEvent",
-                "Tracer",
-            ]
-            frontCols = []
-            endCols = []
-            table = TableUtils.readFile(resFileFull)
-            # table.addColumn("Average_N", "FLOAT", defaultValue=0.)
-            # table.addColumn("Average_L", "FLOAT", defaultValue=0.)
-            # table.addColumn("DetectedInNSamples_N", "INTEGER", defaultValue=0)
-            # table.addColumn("DetectedInNSamples_L", "INTEGER", defaultValue=0)
-            # table.addColumn("RelativeAbundance", "TEXT", defaultValue="")
-            for col in table.getColumns():
-                nam = str(col.name)
-
-                if nam in impCols:
-                    continue
-
-                if nam in annotationColumns or nam.startswith("DBs_") or nam.startswith("SFs_"):
-                    frontCols.append(nam)
-                    continue
-
-                if nam.endswith("_Stat") or nam == "doublePeak":
-                    continue
-
-                endCols.append(nam)
-
-            order = []
-            order.extend(impCols)
-            order.extend(frontCols)
-            order.extend(endCols)
-            table.addComment("## MetainformationColumns: [%s]" % (";".join(impCols)))
-            table.addComment("## AnnotationColumns: [%s]" % (";".join(annotationColumns)))
-
-            filesForConvolution = []
-            for group in definedGroups:
-                if group.useForMetaboliteGrouping:
-                    for fi in group.files:
-                        fi.replace("\\", "/")
-                        filesForConvolution.append(fi[fi.rfind("/") + 1 : fi.rfind(".")])
-
-            ogroups = set([ogroup for ogroup in table.getData(["OGroup"])])
-            for ogroup in ogroups:
-                numsInGroup = set([ogroup for ogroup in table.getData(["Num"], where="OGroup=%d" % ogroup)])
-
-                if False:
-                    abu = {}
-                    sum = 0
-                    for num in numsInGroup:
-                        abundances = table.getData(
-                            [fi + "_Area_N" for fi in filesForConvolution],
-                            where="Num=%d" % num,
-                        )[0]
-                        if len(filesForConvolution) == 1:
-                            table.setData(
-                                ["Average_N", "DetectedInNSamples_N"],
-                                [abundances, 1],
-                                where="Num=%d" % num,
-                            )
-                        else:
-                            av = mean([ab for ab in abundances if ab != ""])
-                            table.setData(
-                                ["Average_N", "DetectedInNSamples_N"],
-                                [av, len([ab for ab in abundances if ab != ""])],
-                                where="Num=%d" % num,
-                            )
-
-                        abundances = table.getData(
-                            [fi + "_Area_L" for fi in filesForConvolution],
-                            where="Num=%d" % num,
-                        )[0]
-                        if len(filesForConvolution) == 1:
-                            table.setData(
-                                ["Average_L", "DetectedInNSamples_L"],
-                                [abundances, 1],
-                                where="Num=%d" % num,
-                            )
-                            abu[num] = abundances
-                            sum = sum + abundances
-                        else:
-                            av = mean([ab for ab in abundances if ab != ""])
-                            table.setData(
-                                ["Average_L", "DetectedInNSamples_L"],
-                                [av, len([ab for ab in abundances if ab != ""])],
-                                where="Num=%d" % num,
-                            )
-
-                            abu[num] = av
-                            sum = sum + av
-
-                    if len(numsInGroup) > 1:
-                        for num in numsInGroup:
-                            table.setData(
-                                ["Relative"],
-                                ["%.1f%%" % (abu[num] / sum * 100.0)],
-                                where="Num=%d" % num,
-                            )
-
-            TableUtils.saveFile(table, resFileFull, cols=order)
+            logging.info("##############################################################")
 
         ## Process MSMS info
         if self.ui.generateMSMSInfo_CheckBox.isChecked():
+            logging.info("\n\n##############################################################")
             pw = ProgressWrapper(1, parent=self)
             pw.show()
             pw.getCallingFunction()("text")("Preparing MSMS import and list generation")
@@ -4058,6 +3942,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 )
 
             pw.hide()
+            logging.info("##############################################################")
 
         self.updateLCMSSampleSettings()
 
@@ -4145,72 +4030,76 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     indGroups[grName].append(str(file))
 
                     if os.path.exists(file + getDBSuffix()):
-                        file_db_con = PolarsDB(file + getDBSuffix(), format=getDBFormat())
+                        try:
+                            file_db_con = PolarsDB(file + getDBSuffix(), format=getDBFormat())
 
-                        # Count MZs for this ionMode
-                        nMZs = len(file_db_con.tables["MZs"].filter(pl.col("ionMode") == ionMode))
-                        nMZsPPMDelta = file_db_con.tables["MZs"].filter(pl.col("ionMode") == ionMode).with_columns(((pl.col("lmz") - pl.col("mz") - pl.col("tmz")) * 1_000_000 / pl.col("mz")).alias("ppm_delta"))["ppm_delta"].mean()
+                            # Count MZs for this ionMode
+                            nMZs = len(file_db_con.tables["MZs"].filter(pl.col("ionMode") == ionMode))
+                            nMZsPPMDelta = file_db_con.tables["MZs"].filter(pl.col("ionMode") == ionMode).with_columns(((pl.col("lmz") - pl.col("mz") - pl.col("tmz")) * 1_000_000 / pl.col("mz")).alias("ppm_delta"))["ppm_delta"].mean()
 
-                        nMZsPPMDeltaStd = file_db_con.tables["MZs"].filter(pl.col("ionMode") == ionMode).with_columns(((pl.col("lmz") - pl.col("mz") - pl.col("tmz")) * 1_000_000 / pl.col("mz")).alias("ppm_delta"))["ppm_delta"].std()
+                            nMZsPPMDeltaStd = file_db_con.tables["MZs"].filter(pl.col("ionMode") == ionMode).with_columns(((pl.col("lmz") - pl.col("mz") - pl.col("tmz")) * 1_000_000 / pl.col("mz")).alias("ppm_delta"))["ppm_delta"].std()
 
-                        nMZBins = file_db_con.tables["MZBins"].filter(pl.col("ionMode") == ionMode).shape[0]
+                            nMZBins = file_db_con.tables["MZBins"].filter(pl.col("ionMode") == ionMode).shape[0]
 
-                        nFeatures = file_db_con.tables["chromPeaks"].filter(pl.col("ionMode") == ionMode).shape[0]
+                            nFeatures = file_db_con.tables["chromPeaks"].filter(pl.col("ionMode") == ionMode).shape[0]
 
-                        nMetabolites = file_db_con.tables["featureGroups"].shape[0]
+                            nMetabolites = file_db_con.tables["featureGroups"].shape[0]
 
-                        avgRatioSignals = file_db_con.tables["MZs"].filter(pl.col("ionMode") == ionMode).select((pl.col("intensity") / pl.col("intensityL")).alias("ratio"))["ratio"].mean()
+                            avgRatioSignals = file_db_con.tables["MZs"].filter(pl.col("ionMode") == ionMode).select((pl.col("intensity") / pl.col("intensityL")).alias("ratio"))["ratio"].mean()
 
-                        avgRatioSignalsStd = file_db_con.tables["MZs"].filter(pl.col("ionMode") == ionMode).select((pl.col("intensity") / pl.col("intensityL")).alias("ratio"))["ratio"].std()
+                            avgRatioSignalsStd = file_db_con.tables["MZs"].filter(pl.col("ionMode") == ionMode).select((pl.col("intensity") / pl.col("intensityL")).alias("ratio"))["ratio"].std()
 
-                        avgRatioFeaturesArea = file_db_con.tables["chromPeaks"].filter(pl.col("ionMode") == ionMode).select((pl.col("NPeakArea") / pl.col("LPeakArea")).alias("area_ratio"))["area_ratio"].mean()
+                            avgRatioFeaturesArea = file_db_con.tables["chromPeaks"].filter(pl.col("ionMode") == ionMode).select((pl.col("NPeakArea") / pl.col("LPeakArea")).alias("area_ratio"))["area_ratio"].mean()
 
-                        avgRatioFeaturesAbundance = file_db_con.tables["chromPeaks"].filter(pl.col("ionMode") == ionMode).select((pl.col("NPeakAbundance") / pl.col("LPeakAbundance")).alias("abundance_ratio"))["abundance_ratio"].mean()
+                            avgRatioFeaturesAbundance = file_db_con.tables["chromPeaks"].filter(pl.col("ionMode") == ionMode).select((pl.col("NPeakAbundance") / pl.col("LPeakAbundance")).alias("abundance_ratio"))["abundance_ratio"].mean()
 
-                        avgEnrichmentL = file_db_con.tables["chromPeaks"].filter((pl.col("peaksRatioMPm1") > 0) & (pl.col("ionMode") == ionMode)).select((pl.col("xcount") / (pl.col("xcount") + pl.col("peaksRatioMPm1"))).alias("enrichment"))["enrichment"].mean()
+                            avgEnrichmentL = file_db_con.tables["chromPeaks"].filter((pl.col("peaksRatioMPm1") > 0) & (pl.col("ionMode") == ionMode)).select((pl.col("xcount") / (pl.col("xcount") + pl.col("peaksRatioMPm1"))).alias("enrichment"))["enrichment"].mean()
 
-                        avgEnrichmentLStd = file_db_con.tables["chromPeaks"].filter((pl.col("peaksRatioMPm1") > 0) & (pl.col("ionMode") == ionMode)).select((pl.col("xcount") / (pl.col("xcount") + pl.col("peaksRatioMPm1"))).alias("enrichment"))["enrichment"].std()
+                            avgEnrichmentLStd = file_db_con.tables["chromPeaks"].filter((pl.col("peaksRatioMPm1") > 0) & (pl.col("ionMode") == ionMode)).select((pl.col("xcount") / (pl.col("xcount") + pl.col("peaksRatioMPm1"))).alias("enrichment"))["enrichment"].std()
 
-                        texts.append(
-                            ("%%%ds       %%s   %%12s %%12s %%12s %%12s      %%20s %%40s %%25s\n" % (maxFileNameLength))
-                            % (
-                                file if showFileName else "",
-                                ionMode,
-                                nMZs if nMZs > 0 else "",
-                                nMZBins if nMZBins > 0 else "",
-                                nFeatures if nFeatures > 0 else "",
-                                nMetabolites if nMetabolites > 0 else "",
-                                "%s (+/- %s)"
+                            texts.append(
+                                ("%%%ds       %%s   %%12s %%12s %%12s %%12s      %%20s %%40s %%25s\n" % (maxFileNameLength))
                                 % (
-                                    "%.2f" % nMZsPPMDelta if nMZsPPMDelta is not None else "",
-                                    "%.2f" % nMZsPPMDeltaStd if nMZsPPMDeltaStd is not None else "",
-                                )
-                                if nMZsPPMDelta is not None
-                                else "",
-                                "%s; %s; %s"
-                                % (
-                                    "%6.2f (+/- %s)"
+                                    file if showFileName else "",
+                                    ionMode,
+                                    nMZs if nMZs > 0 else "",
+                                    nMZBins if nMZBins > 0 else "",
+                                    nFeatures if nFeatures > 0 else "",
+                                    nMetabolites if nMetabolites > 0 else "",
+                                    "%s (+/- %s)"
                                     % (
-                                        avgRatioSignals,
-                                        "%.2f" % avgRatioSignalsStd if avgRatioSignalsStd is not None else "",
+                                        "%.2f" % nMZsPPMDelta if nMZsPPMDelta is not None else "",
+                                        "%.2f" % nMZsPPMDeltaStd if nMZsPPMDeltaStd is not None else "",
                                     )
-                                    if avgRatioSignals is not None
-                                    else "-",
-                                    "%6.2f" % avgRatioFeaturesArea if avgRatioFeaturesArea is not None else "-",
-                                    "%6.2f" % avgRatioFeaturesAbundance if avgRatioFeaturesAbundance is not None else "-",
+                                    if nMZsPPMDelta is not None
+                                    else "",
+                                    "%s; %s; %s"
+                                    % (
+                                        "%6.2f (+/- %s)"
+                                        % (
+                                            avgRatioSignals,
+                                            "%.2f" % avgRatioSignalsStd if avgRatioSignalsStd is not None else "",
+                                        )
+                                        if avgRatioSignals is not None
+                                        else "-",
+                                        "%6.2f" % avgRatioFeaturesArea if avgRatioFeaturesArea is not None else "-",
+                                        "%6.2f" % avgRatioFeaturesAbundance if avgRatioFeaturesAbundance is not None else "-",
+                                    )
+                                    if avgRatioSignalsStd is not None or avgRatioFeaturesArea is not None or avgRatioFeaturesAbundance is not None
+                                    else "",
+                                    "%.2f%% (+/- %s%%)"
+                                    % (
+                                        100 * avgEnrichmentL,
+                                        "%.2f" % (100 * avgEnrichmentLStd) if avgEnrichmentLStd is not None else "",
+                                    )
+                                    if avgEnrichmentL is not None
+                                    else "",
                                 )
-                                if avgRatioSignalsStd is not None or avgRatioFeaturesArea is not None or avgRatioFeaturesAbundance is not None
-                                else "",
-                                "%.2f%% (+/- %s%%)"
-                                % (
-                                    100 * avgEnrichmentL,
-                                    "%.2f" % (100 * avgEnrichmentLStd) if avgEnrichmentLStd is not None else "",
-                                )
-                                if avgEnrichmentL is not None
-                                else "",
                             )
-                        )
-                        showFileName = False
+                            showFileName = False
+                        except Exception as ex:
+                            texts.append(("%%%ds       %%s   Error reading file: %%s\n" % (maxFileNameLength)) % (file if showFileName else "", ionMode, str(ex)))
+                            showFileName = False
                     else:
                         texts.append(("%%%ds   File not processed\n" % (maxFileNameLength)) % file)
 
@@ -4219,75 +4108,80 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         resFileFull = str(self.ui.groupsSave.text())
         if os.path.exists(resFileFull):
             texts.append("Convoluted results\n-=-=-=-=-=-=-=-=-=-\n\n")
+            try:
+                res_db = PolarsDB(resFileFull, format="xlsx", load_all_tables=True)
 
-            from .utils import readTSVFileAsBunch
+                convoluted_sheet = None
+                for candidate in ("3_Convoluted", "2_StatColumns"):
+                    if candidate in res_db.tables:
+                        convoluted_sheet = candidate
+                        break
 
-            headers, table = readTSVFileAsBunch(
-                resFileFull,
-                delim="\t",
-                parseToNumbers=True,
-                useColumns=None,
-                omitFirstNRows=0,
-                renameRows=None,
-            )
+                if convoluted_sheet is None:
+                    raise ValueError("No convoluted results sheet found in results file")
 
-            features = set()
-            negMode = set()
-            posMode = set()
-            metabolites = {}
-            metabolitesIonMode = {}
+                table_df = res_db.tables[convoluted_sheet]
 
-            for row in table:
-                features.add(row.Num)
-                if row.Ionisation_Mode == "-":
-                    negMode.add(row.Num)
-                else:
-                    posMode.add(row.Num)
-                if row.OGroup not in metabolites.keys():
-                    metabolites[row.OGroup] = []
-                metabolites[row.OGroup].append(row.Num)
-                if row.OGroup not in metabolitesIonMode.keys():
-                    metabolitesIonMode[row.OGroup] = set()
-                metabolitesIonMode[row.OGroup].add(row.Ionisation_Mode)
+                features = set()
+                negMode = set()
+                posMode = set()
+                metabolites = {}
+                metabolitesIonMode = {}
 
-            texts.append(" Features    %12d\n Metabolites %12d\n" % (len(features), len(metabolites)))
-            texts.append("\n")
-            texts.append(" %12d metabolites with a     single feature\n" % (len([1 for key in metabolites.keys() if len(metabolites[key]) == 1])))
-            texts.append(" %12d metabolites with          two features\n" % (len([1 for key in metabolites.keys() if len(metabolites[key]) == 2])))
-            texts.append(" %12d metabolites with        three features\n" % (len([1 for key in metabolites.keys() if len(metabolites[key]) == 3])))
-            texts.append(" %12d metabolites with         four features\n" % (len([1 for key in metabolites.keys() if len(metabolites[key]) == 4])))
-            texts.append(" %12d metabolites with         five features\n" % (len([1 for key in metabolites.keys() if len(metabolites[key]) == 5])))
-            texts.append(" %12d metabolites with   >5 and <11 features\n" % (len([1 for key in metabolites.keys() if 5 < len(metabolites[key]) < 11])))
-            texts.append(" %12d metabolites with  >10 and <21 features\n" % (len([1 for key in metabolites.keys() if 10 < len(metabolites[key]) < 21])))
-            texts.append(" %12d metabolites with          >20 features\n" % (len([1 for key in metabolites.keys() if 20 < len(metabolites[key])])))
-            texts.append("\n")
-            texts.append(" %12d metabolites with only ions in the positive ionization mode\n" % (len([1 for key in metabolitesIonMode.keys() if str(metabolitesIonMode[key]) == "set(['+'])"])))
-            texts.append(" %12d metabolites with only ions in the negative ionization mode\n" % (len([1 for key in metabolitesIonMode.keys() if str(metabolitesIonMode[key]) == "set(['-'])"])))
-            texts.append(" %12d metabolites with      ions in         both ionization modes\n" % (len([1 for key in metabolitesIonMode.keys() if str(metabolitesIonMode[key]) == "set(['+', '-'])"])))
-            texts.append("\n")
-            texts.append("\n")
+                for row in table_df.iter_rows(named=True):
+                    num = row["Num"]
+                    features.add(num)
+                    if row["Ionisation_Mode"] == "-":
+                        negMode.add(num)
+                    else:
+                        posMode.add(num)
+                    ogroup = row["OGroup"]
+                    if ogroup not in metabolites:
+                        metabolites[ogroup] = []
+                    metabolites[ogroup].append(num)
+                    if ogroup not in metabolitesIonMode:
+                        metabolitesIonMode[ogroup] = set()
+                    metabolitesIonMode[ogroup].add(row["Ionisation_Mode"])
 
-        resFileFullOmitted = str(self.ui.groupsSave.text()).replace(".tsv", ".omittedFPs.tsv")
-        if os.path.exists(resFileFullOmitted):
+                texts.append(" Features    %12d\n Metabolites %12d\n" % (len(features), len(metabolites)))
+                texts.append("\n")
+                texts.append(" %12d metabolites with a     single feature\n" % (len([1 for key in metabolites.keys() if len(metabolites[key]) == 1])))
+                texts.append(" %12d metabolites with          two features\n" % (len([1 for key in metabolites.keys() if len(metabolites[key]) == 2])))
+                texts.append(" %12d metabolites with        three features\n" % (len([1 for key in metabolites.keys() if len(metabolites[key]) == 3])))
+                texts.append(" %12d metabolites with         four features\n" % (len([1 for key in metabolites.keys() if len(metabolites[key]) == 4])))
+                texts.append(" %12d metabolites with         five features\n" % (len([1 for key in metabolites.keys() if len(metabolites[key]) == 5])))
+                texts.append(" %12d metabolites with   >5 and <11 features\n" % (len([1 for key in metabolites.keys() if 5 < len(metabolites[key]) < 11])))
+                texts.append(" %12d metabolites with  >10 and <21 features\n" % (len([1 for key in metabolites.keys() if 10 < len(metabolites[key]) < 21])))
+                texts.append(" %12d metabolites with          >20 features\n" % (len([1 for key in metabolites.keys() if 20 < len(metabolites[key])])))
+                texts.append("\n")
+                texts.append(" %12d metabolites with only ions in the positive ionization mode\n" % (len([1 for key in metabolitesIonMode.keys() if metabolitesIonMode[key] == {"+"}])))
+                texts.append(" %12d metabolites with only ions in the negative ionization mode\n" % (len([1 for key in metabolitesIonMode.keys() if metabolitesIonMode[key] == {"-"}])))
+                texts.append(" %12d metabolites with      ions in         both ionization modes\n" % (len([1 for key in metabolitesIonMode.keys() if {"+", "-"}.issubset(metabolitesIonMode[key])])))
+                texts.append("\n")
+                texts.append("\n")
+            except Exception as ex:
+                import traceback as _tb
+
+                texts.append(f" Error reading convoluted results: {ex}\n")
+                texts.append(f" {_tb.format_exc()}\n\n")
+
+        resFileFull = str(self.ui.groupsSave.text())
+        if os.path.exists(resFileFull):
             texts.append("Omitted features\n-=-=-=-=-=-=-=-=-\n\n")
+            try:
+                res_db = PolarsDB(resFileFull, format="xlsx", load_all_tables=True)
+                omitted_sheet = "2_StatColumns_Omitted"
+                if omitted_sheet in res_db.tables:
+                    omitted_df = res_db.tables[omitted_sheet]
+                    features = set(omitted_df["Num"].to_list())
+                    texts.append(" Features    %12d\n" % len(features))
+                else:
+                    texts.append(" No omitted features found\n")
+            except Exception as ex:
+                import traceback as _tb
 
-            from .utils import readTSVFileAsBunch
-
-            headers, table = readTSVFileAsBunch(
-                resFileFullOmitted,
-                delim="\t",
-                parseToNumbers=True,
-                useColumns=None,
-                omitFirstNRows=0,
-                renameRows=None,
-            )
-
-            features = set()
-
-            for row in table:
-                features.add(row.Num)
-
-            texts.append(" Features    %12d\n" % (len(features)))
+                texts.append(f" Error reading omitted features: {ex}\n")
+                texts.append(f" {_tb.format_exc()}\n\n")
 
         # logging.info("".join(texts))
 
@@ -4306,19 +4200,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.alignChromatograms.setEnabled(sta)
         self.ui.label_18.setEnabled(sta)
         self.ui.groupingRT.setEnabled(sta)
-
-    def processMultipleFilesChanged(self, sta):
-        self.ui.groupResults.setEnabled(sta)
-        self.ui.label_26.setEnabled(sta)
-        self.ui.groupPpm.setEnabled(sta)
-        self.ui.alignChromatograms.setEnabled(sta)
-        self.ui.label_18.setEnabled(sta)
-        self.ui.groupingRT.setEnabled(sta)
-        self.ui.integratedMissedPeaks.setEnabled(sta)
-        self.ui.convoluteResults.setEnabled(sta)
-        self.ui.label_20.setEnabled(sta)
-        self.ui.groupsSave.setEnabled(sta)
-        self.ui.groupsSelectFile.setEnabled(sta)
 
     def saveMZXMLChanged(self, sta):
         self.ui.wm_ia.setEnabled(sta)
@@ -4450,8 +4331,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 it.addChildren(children)
                 it.setText(1, "%d" % numberOfMZs)
 
-            except:
-                pass
+            except Exception:
+                logging.warning("Error loading MZs for sample results", exc_info=True)
 
             try:
                 it = QtWidgets.QTreeWidgetItem(["MZ bins"])
@@ -4527,8 +4408,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 it.addChildren(children)
                 it.setText(1, "%d" % len(mzbins))
 
-            except:
-                pass
+            except Exception:
+                logging.warning("Error loading MZBins for sample results", exc_info=True)
 
             try:
                 ## Load feature pairs
@@ -4651,7 +4532,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         # Check if MSMS spectra exist for this feature
                         try:
                             ppm = float(self.getParametersFromCurrentRes("Mass deviation (+/- ppm)"))
-                        except:
+                        except Exception:
                             ppm = 5.0
                         rt_min = xp.NPeakCenterMin - xp.NPeakScale
                         rt_max = xp.NPeakCenterMin + xp.NPeakScale
@@ -4697,7 +4578,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 it.setExpanded(False)
                 it.setText(1, "%d" % count)
 
-            except:
+            except Exception:
                 traceback.print_exc()
 
             try:
@@ -4849,7 +4730,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                                 # Check if MSMS spectra exist for this feature
                                 try:
                                     ppm = float(self.getParametersFromCurrentRes("Mass deviation (+/- ppm)"))
-                                except:
+                                except Exception:
                                     ppm = 5.0
                                 rt_min = xp.NPeakCenterMin - xp.NPeakScale
                                 rt_max = xp.NPeakCenterMin + xp.NPeakScale
@@ -4912,7 +4793,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
                 pw.hide()
 
-            except:
+            except Exception:
                 pass
 
             try:
@@ -5235,7 +5116,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         itle.addChild(itlee)
                         itlee.myType = "parameter"
 
-            except:
+            except Exception:
                 pass
 
             self.sortTreeChildren(self.ui.res_ExtractedData.topLevelItem(3), 1)
@@ -5606,8 +5487,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     x_vals.append(x)
                     y_vals.append(y)
                 if len(x_vals) > 0:
-                    maxIntX = max(max(x_vals), maxIntX)
-                    maxIntY = max(max(y_vals), maxIntY)
+                    maxIntX = max(max(v) for v in x_vals if v)
+                    maxIntY = max(max(v) for v in y_vals if v)
                 else:
                     maxIntX = 1
                     maxIntY = 1
@@ -5745,7 +5626,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             minIntY,
                             min(xicL[int(cp.LPeakCenter - cp.LPeakScale * 1) : int(cp.LPeakCenter + cp.LPeakScale * 1)]),
                         )
-                    except:
+                    except Exception:
                         pass
 
                     item.setBackground(0, QColor(predefinedColors[useColi % len(predefinedColors)]))
@@ -5953,10 +5834,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
                         for row_dict in (
                             self.currentOpenResultsFile.db_con.tables["chromPeaks"]
-                            .join(self.currentOpenResultsFile.db_con.tables["FeatureGroupFeatures"], left_on="fID", right_on="fGroupID", how="left")
-                            .join(self.currentOpenResultsFile.db_con.tables["FeatureGroups"], left_on="fGroupID", right_on="id", how="left")
-                            .filter((pl.col("mz") >= cp.mz * (1 - 15 / 1000000.0)) & (pl.col("mz") <= cp.mz * (1 + 15 / 1000000.0)) & (pl.col("loading") == cp.loading) & (pl.col("xcount") == str(cp.xcount)))
-                            .select([pl.col("id").alias("c_id"), pl.col("eicID"), pl.col("NPeakCenterMin"), pl.col("NPeakCenter"), pl.col("mz"), pl.col("xcount"), pl.col("loading"), pl.col("featureName").alias("FGroupID")])
+                            .join(self.currentOpenResultsFile.db_con.tables["featureGroupFeatures"], left_on="id", right_on="fID", how="left")
+                            .join(self.currentOpenResultsFile.db_con.tables["featureGroups"], left_on="fGroupID", right_on="id", how="left")
+                            .filter((pl.col("mz") >= cp.mz * (1 - 15 / 1000000.0)) & (pl.col("mz") <= cp.mz * (1 + 15 / 1000000.0)) & (pl.col("Loading") == cp.loading) & (pl.col("xcount") == str(cp.xCount)))
+                            .select([pl.col("id").alias("c_id"), pl.col("eicID"), pl.col("NPeakCenterMin"), pl.col("NPeakCenter"), pl.col("mz"), pl.col("xcount"), pl.col("Loading").alias("loading"), pl.col("featureName").alias("FGroupID")])
                             .to_dicts()
                         ):
                             row = (row_dict["c_id"], row_dict["eicID"], row_dict["NPeakCenterMin"], row_dict["NPeakCenter"], row_dict["mz"], row_dict["xcount"], row_dict["loading"], row_dict["FGroupID"])
@@ -6091,7 +5972,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             mzs[ionMode] = [float(u) for u in str(row_dict["mzs"]).split(";")]
                             intensities[ionMode] = [float(u) for u in str(row_dict["intensities"]).split(";")]
                             mstime[ionMode] = float(row_dict["time"])
-                    except:
+                    except Exception:
                         pass
 
                     hasPos = "+" in mzs.keys()
@@ -8072,7 +7953,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     # Get m/z range with tolerance
                     try:
                         ppm = float(self.getParametersFromCurrentRes("Mass deviation (+/- ppm)"))
-                    except:
+                    except Exception:
                         ppm = 5.0
 
                     # Store native (M) and labeled (M') ranges separately
@@ -8203,12 +8084,12 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # Get ppm tolerance and RT border offset from UI
         try:
             ppm = self.ui.doubleSpinBox_resultsExperiment_EICppm.value()
-        except:
+        except Exception:
             ppm = 5.0
 
         try:
             borderOffset = self.ui.doubleSpinBox_resultsExperiment_PeakWidth.value()
-        except:
+        except Exception:
             borderOffset = 0.5  # Default 0.5 minutes
 
         # Collect RT and m/z ranges from selected features
@@ -8715,7 +8596,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             text = text.split(" ")
             textl = []
             for w in range(len(text)):
-                textl.append(lambda x: x.contains(text[w]))
+                textl.append(lambda x, _w=w: text[_w] in x)
 
             if "+-" in text[0]:
                 h = text[0][0 : text[0].rfind("+")]
@@ -8758,6 +8639,25 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     dd.setHidden(not show)
                     allShow = allShow or show
                 fg.setHidden(not allShow)
+
+    def expFilterEdited(self, text):
+        text = str(text).strip()
+        tree = self.ui.resultsExperiment_TreeWidget
+        for i in range(tree.topLevelItemCount()):
+            top = tree.topLevelItem(i)
+            if not text:
+                top.setHidden(False)
+                for c in range(top.childCount()):
+                    top.child(c).setHidden(False)
+                continue
+            any_child_shown = False
+            for c in range(top.childCount()):
+                child = top.child(c)
+                match = any(text in child.text(col) for col in range(tree.columnCount()))
+                child.setHidden(not match)
+                if match:
+                    any_child_shown = True
+            top.setHidden(not any_child_shown)
 
     def setChromPeakName(self):
         cpName = str(self.ui.chromPeakName.text())
@@ -9116,7 +9016,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         startMemory = 0
         try:
             startMemory = memory_usage_psutil()
-        except:
+        except Exception:
             pass
         res = RunImapUnordered.runImapUnordered(
             loadMZXMLFile,
@@ -9128,12 +9028,12 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         usedMemory = -1
         try:
             usedMemory = memory_usage_psutil() - startMemory
-        except:
+        except Exception:
             pass
 
-        for re in res:
-            self.loadedMZXMLs[re["File"]] = re["mzXMLFile"]
-            self.loadedMZXMLs[re["Group"]] = re["mzXMLFile"]
+        for x in res:
+            self.loadedMZXMLs[x["File"]] = x["mzXMLFile"]
+            self.loadedMZXMLs[x["Group"]] = x["mzXMLFile"]
 
         logging.info(
             "Loading (%s, intensity threshold %d counts) took %.1f minutes and used %s of Memory"
@@ -9180,11 +9080,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         mzs.append(item.bunchData.lmz)
                 for mz in mzs:
                     selectedMZs.append(mz)
-                    if False:
-                        for i in range(1, 10):
-                            selectedMZs.append(mz + i * 1.00335 // 2)
-                            if i != 0:
-                                selectedMZs.append(lmz - i * 1.00335 // 2)
 
             self.loadAllSamples(selectedMZs=selectedMZs, ppm=25.0)
 
@@ -9214,6 +9109,26 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             dlg.setMinimumWidth(400)
             form = QtWidgets.QFormLayout(dlg)
 
+            # --- Sum formula helper ---
+            formula_layout = QtWidgets.QHBoxLayout()
+            native_formula_edit = QtWidgets.QLineEdit()
+            native_formula_edit.setPlaceholderText("e.g. C15H20O6")
+            labeled_formula_edit = QtWidgets.QLineEdit()
+            labeled_formula_edit.setPlaceholderText("e.g. C15H20O6 (labeled)")
+            formula_layout.addWidget(native_formula_edit)
+            formula_layout.addWidget(QtWidgets.QLabel("→ labeled:"))
+            formula_layout.addWidget(labeled_formula_edit)
+            form.addRow("Sum formula (N / L):", formula_layout)
+
+            adduct_combo = QtWidgets.QComboBox()
+            _adduct_list = list(self.adducts) if hasattr(self, "adducts") and self.adducts else []
+            adduct_combo.addItems([a.name for a in _adduct_list])
+            form.addRow("Adduct:", adduct_combo)
+
+            sep = QtWidgets.QFrame()
+            sep.setFrameShape(QtWidgets.QFrame.HLine)
+            form.addRow(sep)
+
             mz_spin = QtWidgets.QDoubleSpinBox()
             mz_spin.setDecimals(8)
             mz_spin.setRange(0, 100000)
@@ -9225,6 +9140,33 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             lmz_spin.setRange(0, 100000)
             lmz_spin.setValue(0)
             form.addRow("Labeled m/z:", lmz_spin)
+
+            def _calc_mz_from_formula():
+                try:
+                    fT = formulaTools()
+                    idx = adduct_combo.currentIndex()
+                    if idx < 0 or idx >= len(_adduct_list):
+                        return
+                    adduct = _adduct_list[idx]
+                    nf = native_formula_edit.text().strip()
+                    lf = labeled_formula_edit.text().strip()
+                    if nf:
+                        elems_n = fT.parseFormula(nf)
+                        mass_n = fT.calcMolWeight(elems_n)
+                        mz_n = (mass_n * adduct.mCount + adduct.mzoffset) / adduct.charge
+                        mz_spin.setValue(mz_n)
+                    if lf:
+                        elems_l = fT.parseFormula(lf)
+                        mass_l = fT.calcMolWeight(elems_l)
+                        mz_l = (mass_l * adduct.mCount + adduct.mzoffset) / adduct.charge
+                        lmz_spin.setValue(mz_l)
+                except Exception as ex:
+                    QtWidgets.QMessageBox.warning(dlg, "Formula error", str(ex))
+
+            # calcuate on button click and on change of formulas/adducts
+            native_formula_edit.textEdited.connect(_calc_mz_from_formula)
+            labeled_formula_edit.textEdited.connect(_calc_mz_from_formula)
+            adduct_combo.currentIndexChanged.connect(_calc_mz_from_formula)
 
             rt_spin = QtWidgets.QDoubleSpinBox()
             rt_spin.setDecimals(3)
@@ -10745,6 +10687,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         matplotlib.rc("font", **font)
 
         self.ui.dataFilter.textChanged.connect(self.filterEdited)
+        self.ui.expDataFilter.textChanged.connect(self.expFilterEdited)
         self.ui.res_ExtractedData.itemDoubleClicked.connect(self.res_doubleClick)
         self.ui.msms_SpectraList.itemSelectionChanged.connect(self.plotSelectedMSMSSpectra)
 
@@ -10791,7 +10734,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # resultsExperimentChangedNew is used only by showCustomFeature (loads raw mzXML);
         # normal tree selection uses resultsExperimentChanged (reads pre-computed per-file DBs)
         self.ui.msms_SpectraList_exp.itemSelectionChanged.connect(self.plotSelectedMSMSSpectra_exp)
-        self.ui.pushButton_exportAllAsPDF.clicked.connect(self.exportAsPDF)
 
         self.ui.showCustomFeature_pushButton.clicked.connect(self.showCustomFeature)
 
@@ -10934,7 +10876,7 @@ def main():
         if mainWin._contMemoryWatcher:
             try:
                 mainWin.ui.version.setText("%.2f MB memory // %s" % (memory_usage_psutil(), mainWin.ui.version.versionText))
-            except:
+            except Exception:
                 mainWin.ui.version.setText("%s" % (mainWin.ui.version.versionText))
             if mainWin._contMemoryWatcher:
                 threading.Timer(1, updateMemoryInfo).start()

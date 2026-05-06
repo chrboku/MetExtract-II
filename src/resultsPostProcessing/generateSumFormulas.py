@@ -1,14 +1,15 @@
 import json
 import multiprocessing
 from copy import deepcopy
-
 import polars as pl
-
 from ..formulaTools import formulaTools
-
-# sys.path.append("C:/PyMetExtract/PyMetExtract")  # Removed hardcoded path
 from ..SGR import SGRGenerator
 from ..utils import Bunch
+from ..ParquetCache import ParquetCache
+from ..utils import get_app_folder
+import re
+
+# sys.path.append("C:/PyMetExtract/PyMetExtract")  # Removed hardcoded path
 
 exID = "Num"
 exMZ = "MZ"
@@ -18,9 +19,6 @@ exXCount = "Xn"
 exIonMode = "Ionisation_Mode"
 exCharge = "Charge"
 
-
-from ..ParquetCache import ParquetCache
-from ..utils import get_app_folder
 
 local_folder = get_app_folder()
 sfCache = ParquetCache(local_folder + "/sfcache.pqts")
@@ -386,8 +384,6 @@ adductsN = [
     ("+Hac-H", 59.013851, "-", 1, 1),
     ("+Br", 78.918885, "-", 1, 1),
 ]
-
-import re
 
 
 # taken from http://www.codinghorror.com/blog/2007/12/sorting-for-humans-natural-sort-order.html

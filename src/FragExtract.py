@@ -16,14 +16,8 @@
 #    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 from __future__ import absolute_import, division, print_function
-
 import logging
-
 from . import LoggingSetup
-
-LoggingSetup.LoggingSetup.Instance().initLogging()
-
-
 import base64
 import os
 import os.path
@@ -33,14 +27,11 @@ import sqlite3
 import time
 from copy import deepcopy
 from multiprocessing import Manager, Pool, cpu_count, freeze_support
-
-# <editor-fold desc="### MatPlotLib imports and setup">
 import matplotlib
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 from PySide6 import QtCore, QtGui, QtWidgets
-
 from . import formulaTools, pyperclip
 from .Chromatogram import Chromatogram
 from .FragExtract_processTarget import ProcessTarget
@@ -49,6 +40,12 @@ from .mePyGuis.FE_mainWindow import Ui_MainWindow
 from .mePyGuis.ProgressWrapper import ProgressWrapper
 from .MExtract import MetExtractVersion
 from .utils import Bunch, CallBackMethod, SQLSelectAsObject, get_main_dir, is_float, is_int
+
+LoggingSetup.LoggingSetup.Instance().initLogging()
+
+
+# <editor-fold desc="### MatPlotLib imports and setup">
+
 
 matplotlib.rcParams["savefig.dpi"] = 300
 font = {"size": 16}
@@ -241,7 +238,7 @@ class MSMSTargetModel(QtCore.QAbstractTableModel):
                             if ppm <= 10:
                                 self._data[index.row()].scanEventIndexM = sei
                                 update = True
-                        except:
+                        except Exception:
                             pass
 
                 if self._data[index.row()].scanEventIndexMp <= 0:
@@ -252,7 +249,7 @@ class MSMSTargetModel(QtCore.QAbstractTableModel):
                             if ppm <= 10:
                                 self._data[index.row()].scanEventIndexMp = sei
                                 update = True
-                        except:
+                        except Exception:
                             pass
 
                 if update:
@@ -2136,7 +2133,7 @@ class FEMainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 linewidth = 1
 
                 self.pl2.twinxs[0].plot(times, intensities, color=col, linewidth=linewidth)
-        except:
+        except Exception:
             print(eic.timesList, eic.intensityList)
 
         try:
@@ -2158,7 +2155,7 @@ class FEMainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     col = (148 / 255.0, 32 / 255.0, 146 / 255.0)
                     linewidth = 2
                     self.pl2.twinxs[0].plot(times, intensities, color=col, linewidth=linewidth)
-        except:
+        except Exception:
             print(eic.timesList, eic.intensityList)
 
         ma = max(target.eicFS)

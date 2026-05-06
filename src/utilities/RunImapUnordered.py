@@ -1,6 +1,5 @@
 import time
 from multiprocessing import Pool
-
 from PySide6 import QtWidgets
 
 

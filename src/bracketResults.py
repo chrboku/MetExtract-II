@@ -1,5 +1,4 @@
 from __future__ import absolute_import, division, print_function
-
 import datetime
 import logging
 import os
@@ -9,14 +8,12 @@ from collections import OrderedDict, defaultdict
 from math import isnan
 from multiprocessing import Manager, Pool
 from operator import itemgetter
-
 import polars as pl
 from reportlab.graphics import renderPDF
 from reportlab.graphics.charts.lineplots import LinePlot
 from reportlab.graphics.shapes import Drawing
 from reportlab.lib import colors
 from reportlab.pdfgen import canvas
-
 from . import HCA_general, exportAsFeatureML
 from .Chromatogram import Chromatogram
 from .MZHCA import HierarchicalClustering, cutTreeSized
@@ -33,6 +30,7 @@ from .utils import (
     sd,
 )
 from .XICAlignment import XICAlignment
+from .utils import mapArrayToRefTimes
 
 
 # HELPER METHOD for writing first page of PDF (unused)
@@ -442,7 +440,7 @@ def bracketResults(
                                             ),
                                             str(err),
                                         )
-                                    except:
+                                    except Exception:
                                         print(
                                             "  some general error in file %s, id %s, (Ionmode: %s, XCount: %s, Charge: %d)"
                                             % (
@@ -1141,11 +1139,8 @@ def calculateMetaboliteGroups(
         assert "doublePeak" in cols
 
         # find double peaks as non nan and greater than 0
-        res = (
-            table_df.with_columns(_z=pl.when(pl.col("doublePeak").is_not_null() & ((pl.col("doublePeak") != pl.lit("")) | (pl.col("doublePeak").str.to_integer() > 0))).then(pl.lit("b__doublePeak")).otherwise(pl.lit("a__normal")))
-            .sort("_z")
-            .partition_by("_z", maintain_order=True, include_key=False, as_dict=True)
-        )
+        # cast to Int64 first to handle both Utf8 and Int64 column types
+        res = table_df.with_columns(_z=pl.when(pl.col("doublePeak").is_not_null() & (pl.col("doublePeak").cast(pl.Int64, strict=False).fill_null(0) > 0)).then(pl.lit("b__doublePeak")).otherwise(pl.lit("a__normal"))).sort("_z").partition_by("_z", maintain_order=True, include_key=False, as_dict=True)
 
         table_df = None
         double_peaks_df = None
@@ -1468,9 +1463,6 @@ def calculateMetaboliteGroups(
         resDB.conn.close()
 
 
-from .utils import mapArrayToRefTimes
-
-
 class ConvoluteFPsInFile:
     def __init__(self, eicPPM, fi, maxAnnotationTimeWindow, nodes, borders):
         self.eicPPM = eicPPM
@@ -1613,7 +1605,7 @@ class ConvoluteFPsInFile:
                                 if not (isnan(co)) and co is not None:
                                     fileCorrelations[fpNumA][fpNumB] = co
                             except Exception as err:
-                                logging.error("  Error during convolution of feature pairs (Peak-correlation, Nums: %s and %s, message: %s).." % (fpNumA, fpNumB, err.message))
+                                logging.error("  Error during convolution of feature pairs (Peak-correlation, Nums: %s and %s, message: %s).." % (fpNumA, fpNumB, str(err)))
 
                             ## B) Test similarity of native:labeled ratio
                             try:
@@ -1656,7 +1648,7 @@ class ConvoluteFPsInFile:
 
                                     # print(fiName, nodeA.mz, nodeB.mz, meanRT, silRatioFold, co)
                             except Exception as err:
-                                logging.error("  Error during convolution of feature pairs (SIL-ratio, Nums: %s and %s, message: %s).." % (fpNumA, fpNumB, err.message))
+                                logging.error("  Error during convolution of feature pairs (SIL-ratio, Nums: %s and %s, message: %s).." % (fpNumA, fpNumB, str(err)))
 
         logging.info("  Finished convoluting feature pairs in file %s (%.1f minutes)" % (fi, (time.time() - startProc) / 60.0))
         return (fileCorrelations, fileSILRatios)

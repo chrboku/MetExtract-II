@@ -35,11 +35,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-
-matplotlib.use("Qt5Agg")
 import logging
 from typing import Any, Dict, List, Optional, Tuple
-
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -47,8 +44,9 @@ from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as Navigatio
 from matplotlib.figure import Figure
 from matplotlib.widgets import RectangleSelector
 from scipy.cluster.hierarchy import dendrogram
-
 from .statisticsModule import DataQualityAnalysis, MultivariateAnalysis, SelectionManager, StatisticsData, UnivariateAnalysis
+
+matplotlib.use("Qt5Agg")
 
 
 class AddComparisonDialog(QDialog):

@@ -7,6 +7,7 @@ import os
 import sqlite3
 import sys
 from time import time
+import logging
 
 try:
     from cPickle import dumps, loads  # Python 2
@@ -23,8 +24,6 @@ except ImportError:
     def buffer_func(x):
         return x
 
-
-import logging
 
 logger = logging.getLogger(__name__)
 

@@ -2,9 +2,7 @@ import base64
 import pickle
 import sys
 from copy import deepcopy
-
 from PySide6 import QtCore, QtWidgets
-
 from ..formulaTools import formulaTools
 from .heteroAtomEditor import Ui_Dialog
 
@@ -130,7 +128,7 @@ class HeteroAtomsTableModel(QtCore.QAbstractTableModel):
                 if index.column() == 2:
                     self.arraydata[index.row()].relativeAbundance = f
                 return True
-            except:
+            except Exception:
                 return False
         elif index.column() in [3, 4]:
             try:
@@ -142,7 +140,7 @@ class HeteroAtomsTableModel(QtCore.QAbstractTableModel):
                 if index.column() == 4:
                     self.arraydata[index.row()].maxCount = f
                 return True
-            except:
+            except Exception:
                 return False
         elif index.column() == 0:
             val = str(value.toString())

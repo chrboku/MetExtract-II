@@ -7,16 +7,15 @@ import errno
 import os
 import sys
 from time import time
-
 import polars as pl
+import base64
+import logging
 
 try:
     from cPickle import dumps, loads  # Python 2
 except ImportError:
     from pickle import dumps, loads  # Python 3
 
-import base64
-import logging
 
 logger = logging.getLogger(__name__)
 

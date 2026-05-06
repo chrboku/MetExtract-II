@@ -1,7 +1,5 @@
 from math import factorial
-
 from PySide6 import QtWidgets
-
 from .calcIsotopeEnrichmentDialog import Ui_Dialog
 
 

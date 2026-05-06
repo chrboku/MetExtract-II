@@ -1,10 +1,7 @@
 from __future__ import absolute_import, division, print_function
-
 import csv
 import os
-
 from PySide6 import QtCore, QtWidgets
-
 from .TSVLoaderEditor import Ui_Dialog
 
 

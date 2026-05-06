@@ -16,7 +16,6 @@
 #    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 from __future__ import absolute_import, division, print_function
-
 import base64
 import logging
 import os
@@ -33,15 +32,12 @@ from .PolarsDB import PolarsDB
 from .findIsoPairs_matchPartners import matchPartners
 from .SGR import SGRGenerator
 from .chromPeakPicking.peakpickers import filter_peaks
-
 import numpy as np
 import polars as pl
 import scipy
-
 from pickle import dumps
 from copy import copy
 from math import floor
-
 from .utils import (
     Bunch,
     ChromPeakPair,
@@ -410,6 +406,9 @@ class FindIsoPairs:
 
         self.printMessage(f"File: {file}")
 
+        self.last_message_sent = time.time()
+        self.last_value_sent = time.time()
+
     # Thread safe printing function
     def printMessage(self, message, type="info"):
         # Always print to stdout for debugging
@@ -426,17 +425,28 @@ class FindIsoPairs:
             self.lock.release()
 
     # helper function used to update the status of the current processing in the Process Dialog
-    def postMessageToProgressWrapper(self, mes, val=""):
+    def postMessageToProgressWrapper(self, mes, val="", force=False):
         # Always print to stdout for debugging
         if self.pID != -1 and self.queue is not None:
             if mes.lower() == "text":
-                self.queue.put(Bunch(pid=self.pID, mes="text", val="%d: %s" % (self.pID, val)))
-            elif mes == "value" or mes == "max":
+                cur = time.time()
+                if cur - self.last_message_sent > 3 or force:
+                    self.queue.put(Bunch(pid=self.pID, mes="text", val="%d: %s" % (self.pID, val)))
+                    self.last_message_sent = cur
+            elif mes == "value":
+                cur = time.time()
+                if cur - self.last_value_sent > 3 or force:
+                    self.queue.put(Bunch(pid=self.pID, mes=mes, val=val))
+                    self.last_value_sent = cur
+            elif mes == "max":
                 self.queue.put(Bunch(pid=self.pID, mes=mes, val=val))
+                self.last_value_sent = time.time()
             elif mes == "start" or mes == "end" or mes == "failed":
                 self.queue.put(Bunch(pid=self.pID, mes=mes))
+                self.last_message_sent = time.time()
             elif mes == "log":
                 self.queue.put(Bunch(pid=self.pID, mes=mes, val=val))
+                self.last_message_sent = time.time()
 
     def getMostLikelyHeteroIsotope(self, foundIsotopes):
         if len(foundIsotopes) == 0:
@@ -854,35 +864,15 @@ class FindIsoPairs:
     def writeSignalPairsToDB(self, mzs, mzxml, tracerID):
         db_con = PolarsDB(self.file + getDBSuffix(), format=getDBFormat())
 
-        for mz in mzs:
-            mz.id = self.curMZId
-            mz.tid = tracerID
+        pdata = {}
+        for slot in ["id", "mz", "lmz", "tmz", "xCount", "scanid", "scantime", "loading", "ionMode"]:
+            pdata[slot] = [cmz.__dict__[slot] for cmz in mzs]
+        pdata["tracer"] = [tracerID for cmz in mzs]
+        pdata["xcount"] = [cmz.__dict__["xCount"] for cmz in mzs]
+        pdata["intensity"] = [cmz.__dict__["nIntensity"] for cmz in mzs]
+        pdata["intensityL"] = [cmz.__dict__["lIntensity"] for cmz in mzs]
 
-            scanEvent = ""
-            if mz.ionMode == "+":
-                scanEvent = self.positiveScanEvent
-            elif mz.ionMode == "-":
-                scanEvent = self.negativeScanEvent
-
-            db_con.insert_row(
-                "MZs",
-                {
-                    "id": mz.id,
-                    "tracer": mz.tid,
-                    "mz": mz.mz,
-                    "lmz": mz.lmz,
-                    "tmz": mz.tmz,
-                    "xcount": mz.xCount,
-                    "scanid": mzxml.getIthMS1Scan(mz.scanIndex, scanEvent).id,
-                    "scanTime": mzxml.getIthMS1Scan(mz.scanIndex, scanEvent).retention_time,
-                    "loading": mz.loading,
-                    "intensity": mz.nIntensity,
-                    "intensityL": mz.lIntensity,
-                    "ionMode": mz.ionMode,
-                },
-            )
-
-            self.curMZId = self.curMZId + 1
+        db_con.set_table("MZs", pl.DataFrame(pdata))
 
         db_con.commit()
         db_con.close()
@@ -972,12 +962,22 @@ class FindIsoPairs:
     def writeFeaturePairClustersToDB(self, mzbins):
         db_con = PolarsDB(self.file + getDBSuffix(), format=getDBFormat())
 
+        mzbins = {"id": [], "mz": [], "ionMode": []}
+        mzbinskids = {"mzbinID": [], "mzID": []}
+
         for ionMode in ["+", "-"]:
-            for mzbin in mzbins[ionMode]:
-                db_con.insert_row("MZBins", {"id": self.curMZBinId, "mz": mzbin.getValue(), "ionMode": ionMode})
-                for kid in mzbin.getKids():
-                    db_con.insert_row("MZBinsKids", {"mzbinID": self.curMZBinId, "mzID": kid.getObject().id})
-                self.curMZBinId = self.curMZBinId + 1
+            if ionMode in mzbins.keys():
+                for mzbin in mzbins[ionMode]:
+                    mzbins["id"].append(self.curMZBinId)
+                    mzbins["mz"].append(mzbin.getValue())
+                    mzbins["ionMode"].append(ionMode)
+                    for kid in mzbin.getKids():
+                        mzbinskids["mzbinID"].append(self.curMZBinId)
+                        mzbinskids["mzID"].append(kid.getObject().id)
+                    self.curMZBinId = self.curMZBinId + 1
+
+        db_con.set_table("MZBins", pl.DataFrame(mzbins))
+        db_con.set_table("MZBinsKids", pl.DataFrame(mzbinskids))
 
         db_con.commit()
         db_con.close()
@@ -1232,7 +1232,7 @@ class FindIsoPairs:
                                                 int(len(peakN) * 0.25),
                                                 int(len(peakN) * 0.75) + 1,
                                             )
-                                            if peakL[i] > 0 and peakN[i] > 0
+                                            if i < len(peakL) and peakL[i] > 0 and peakN[i] > 0
                                         ]
                                         correlations.append(
                                             Bunch(
@@ -1245,7 +1245,7 @@ class FindIsoPairs:
                                                         int(len(peakN) * 0.25),
                                                         int(len(peakN) * 0.75) + 1,
                                                     )
-                                                    if peakL[i] > 0 and peakN[i] > 0
+                                                    if i < len(peakL) and peakL[i] > 0 and peakN[i] > 0
                                                 ],
                                                 peakLInts=[
                                                     peakL[i]
@@ -1253,7 +1253,7 @@ class FindIsoPairs:
                                                         int(len(peakN) * 0.25),
                                                         int(len(peakN) * 0.75) + 1,
                                                     )
-                                                    if peakL[i] > 0 and peakN[i] > 0
+                                                    if i < len(peakL) and peakL[i] > 0 and peakN[i] > 0
                                                 ],
                                             )
                                         )
@@ -1633,7 +1633,6 @@ class FindIsoPairs:
         for dele in delet:
             cp = chromPeaks.pop(dele)
             # Delete from chromPeaks
-            print(f"Type of cp.id {type(cp.id)}")
             db_con.tables["chromPeaks"] = db_con.tables["chromPeaks"].filter(pl.col("id") != cp.id)
             # Update allChromPeaks comment
             db_con.tables["allChromPeaks"] = db_con.tables["allChromPeaks"].with_columns(pl.when(pl.col("id") == cp.id).then(pl.lit(",".join(todel[dele]))).otherwise(pl.col("comment")).alias("comment"))
@@ -3102,6 +3101,7 @@ class FindIsoPairs:
                 "Extracting signal pairs done. pos: %d neg: %d mzs (including mismatches)" % (posFound, negFound),
                 type="info",
             )
+            self.postMessageToProgressWrapper("text", "Extracting signal pairs done. pos: %d neg: %d mzs (including mismatches)" % (posFound, negFound), force=True)
             # endregion
 
             # region 2. Cluster found mz values according to mz value and number of x atoms (25-35%)

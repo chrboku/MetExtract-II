@@ -1,11 +1,8 @@
 from __future__ import absolute_import, division, print_function
-
 import json
 import logging
 import pprint
-
 import polars as pl
-
 from .formulaTools import formulaTools
 from .PolarsDB import PolarsDB
 from .resultsPostProcessing import generateSumFormulas as sumFormulaGeneration
@@ -280,7 +277,7 @@ def annotateWithDatabases(
             if mass is not None:
                 try:
                     mass = float(mass)
-                except:
+                except Exception:
                     mass = None
 
             mz = float(row["MZ"])
@@ -291,7 +288,7 @@ def annotateWithDatabases(
             xn = 0
             try:
                 xn = int(row["Xn"])
-            except:
+            except Exception:
                 pass
 
             # Apply mass correction

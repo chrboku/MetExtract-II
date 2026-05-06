@@ -1,12 +1,13 @@
 import sys
-
-sys.path.append("C:/development/PyMetExtract")
-
 import csv
 from copy import deepcopy
 from math import ceil
-
 from ..formulaTools import formulaTools
+import logging
+from .. import LoggingSetup
+
+sys.path.append("C:/development/PyMetExtract")
+
 
 exID = "Num"
 exMZ = "MZ"
@@ -16,10 +17,6 @@ exXCount = "Xn"
 exIonMode = "Ionisation_Mode"
 exCharge = "Charge"
 
-
-import logging
-
-from .. import LoggingSetup
 
 LoggingSetup.LoggingSetup.Instance().initLogging()
 

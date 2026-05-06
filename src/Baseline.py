@@ -1,8 +1,8 @@
-if __name__ == "__main__":
-    pass
-
 import numpy as np
 from scipy.ndimage import median_filter
+
+if __name__ == "__main__":
+    pass
 
 
 class Baseline:

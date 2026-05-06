@@ -16,6 +16,10 @@
 #    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 # current MetExtract version
+import os
+import subprocess
+from PySide6 import QtWidgets
+
 MetExtractVersion = "v3.1.0"
 
 
@@ -32,7 +36,6 @@ def get_version_from_toml(file_path):
 
 
 # Update MetExtractVersion from the TOML file
-import os
 
 MetExtractVersion = get_version_from_toml(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "pyproject.toml"))
 
@@ -52,10 +55,6 @@ except ImportError:
         sys.path.insert(0, os.path.dirname(os.path.abspath(os.getcwd() + "/src")))
     from mePyGuis import calcIsoEnrichmentDialog
     from mePyGuis.ModuleSelectionWindow import Ui_MainWindow
-
-import subprocess
-
-from PySide6 import QtWidgets
 
 
 class ModuleSelection(QtWidgets.QMainWindow, Ui_MainWindow):

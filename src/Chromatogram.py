@@ -1,15 +1,12 @@
 from __future__ import absolute_import, division, print_function
-
 import base64
 import struct
 import sys
 import xml.parsers.expat
 import zlib
 from xml.dom.minidom import parse
-
 import numpy as np
 import pymzml
-
 from .MSScan import MS1Scan, MS2Scan
 from .utils import Bunch
 

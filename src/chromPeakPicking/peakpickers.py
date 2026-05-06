@@ -15,16 +15,13 @@ Classes:
 """
 
 from __future__ import annotations
-
 from abc import ABC, abstractmethod
 from enum import Enum
 from dataclasses import dataclass
 from typing import Optional, Sequence
-
 import numpy as np
 from scipy import optimize, signal
 from scipy.ndimage import gaussian_filter1d, uniform_filter1d
-
 from ..utils import Bunch
 
 # ---------------------------------------------------------------------------

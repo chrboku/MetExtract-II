@@ -1,5 +1,4 @@
 import csv
-
 from .utils import Bunch
 
 

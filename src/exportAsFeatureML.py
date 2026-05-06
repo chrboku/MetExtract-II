@@ -1,6 +1,5 @@
 import csv
 from time import gmtime, strftime
-
 from .MetExtractII_Main import MetExtractVersion
 from .utils import Bunch
 

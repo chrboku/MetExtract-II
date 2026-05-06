@@ -1,6 +1,6 @@
 # generic hierarchical clustering algorithm (HCA)
-
-import functools
+import numpy as np
+from scipy.cluster.hierarchy import linkage
 
 
 # Generic HCA object used to store a component the tree that is either a leaf or a composite
@@ -103,6 +103,8 @@ def distCmp(x, y, dist):
 
 
 # performs the hierarchical clustering analysis and stores the results using HCLeaf and HCComposite
+# uses scipy linkage (average linkage, Euclidean distance) for performance; dist parameter is kept
+# for API compatibility but is not used internally
 class HierarchicalClustering:
     def __init__(self, dataP, dist, val=lambda x: x, mean=None, add=None):
         assert mean is not None and add is not None
@@ -111,20 +113,25 @@ class HierarchicalClustering:
             raise Exception("HC needs more than zero elements")
 
         # create a HCLeaf object for each provided data
-        data = [HCLeaf(d, val=val) for d in dataP]
+        leaves = [HCLeaf(d, val=val) for d in dataP]
 
-        # iteratively merge the two closest two HCNode objects, merge them into a new HCComposite object
-        # and place it back to the clustering. Stop, if only one HCNode object remains
-        while len(data) > 1:
-            data.sort(key=functools.cmp_to_key(lambda x, y: distCmp(x, y, dist)))
-            diff = [dist(data[x + 1], data[x]) for x in range(0, len(data) - 1)]
-            minindex, minvalue = min(enumerate(diff), key=lambda x: x[1])
-            d = HCComposite(data[minindex], data[minindex + 1], val=val, mean=mean, add=add)
-            data.pop(minindex)
-            data.pop(minindex)
-            data.append(d)
+        if len(leaves) == 1:
+            self.tree = leaves[0]
+            return
 
-        self.tree = data[0]
+        # build linkage matrix using average linkage and Euclidean distance
+        values = np.array([[float(leaf.getValue())] for leaf in leaves])
+        Z = linkage(values, method="average", metric="euclidean")
+
+        # reconstruct HCComposite/HCLeaf tree from the linkage matrix
+        # rows of Z: [left_idx, right_idx, distance, count]; indices >= len(leaves) refer to new nodes
+        nodes = list(leaves)
+        for row in Z:
+            left = nodes[int(row[0])]
+            right = nodes[int(row[1])]
+            nodes.append(HCComposite(left, right, val=val, mean=mean, add=add))
+
+        self.tree = nodes[-1]
 
     def getTree(self):
         return self.tree

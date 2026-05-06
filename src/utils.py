@@ -2,7 +2,6 @@ import os
 import platform
 from math import factorial, sqrt
 from operator import itemgetter
-
 import numpy
 import numpy as np
 from scipy.ndimage import gaussian_filter1d
@@ -10,17 +9,15 @@ import importlib
 import sys
 import threading
 from multiprocessing import Process, Queue
-
 from sys import exc_info
 from traceback import format_tb
-
-import os
-
 import json
-
 import re
-
 import hashlib
+from xlrd import open_workbook
+from . import PolarsDB
+import contextlib
+import logging
 
 
 # get the operating system
@@ -238,7 +235,6 @@ def smoothDataSeries(x, y, windowLen=2, polynom=3, window="gaussian", removeNegI
 # taken from http://www.py2exe.org/index.cgi/HowToDetermineIfRunningFromExe
 
 
-
 def main_is_frozen():
     return (
         hasattr(sys, "frozen")  # new py2exe
@@ -261,9 +257,6 @@ def get_main_dir():
         path = os.path.dirname(path)
 
     return path.replace("\\", "/")
-
-
-
 
 
 class FuncThread(threading.Thread):
@@ -302,14 +295,10 @@ if __name__ == "__main__" and False:
     t1.join()
 
 
-
-
-
 def process_func(q, _target, *args, **kwds):
     try:
         ret = _target(*args, **kwds)
     except Exception:
-
         ex_type, ex_value, tb = exc_info()
         error = ex_type, ex_value, "".join(format_tb(tb))
         ret = None
@@ -380,7 +369,6 @@ def someOtherFunc(data, key):
 
 
 if __name__ == "__main__" and False:
-
     # Example usage
     t1 = FuncProcess(_target=someOtherFunc, data=[1, 2], key=7)
     t1.start()
@@ -449,7 +437,6 @@ class Bunch:
         return self.hasMember(var)
 
     def dumpAsJSon(self):
-
         return json.dumps(self.__dict__)
 
     @staticmethod
@@ -935,8 +922,6 @@ class StdevFunc:
         return sqrt(self.S / (self.k - 2))
 
 
-
-
 def getFileHash_sha1(filePath):
     BLOCKSIZE = 65536
     hasher = hashlib.sha1()
@@ -1036,9 +1021,6 @@ def readTSVFileAsBunch(
     return headTypes, bunchs
 
 
-from xlrd import open_workbook
-
-
 def readXLSXFileAsBunch(file, sheetName="", useColumns=None, omitFirstNRows=0):
     if sheetName == "":
         bn = "Sheet1"
@@ -1071,7 +1053,7 @@ def readXLSXFileAsBunch(file, sheetName="", useColumns=None, omitFirstNRows=0):
             if sh.cell(row, col).value is None or str(sh.cell(row, col).value) == "":
                 remainingCols = False
                 continue
-        except:
+        except Exception:
             remainingCols = False
             continue
 
@@ -1095,7 +1077,7 @@ def readXLSXFileAsBunch(file, sheetName="", useColumns=None, omitFirstNRows=0):
                     rowValues.append("")
                     j = j + 1
                     continue
-            except:
+            except Exception:
                 rowValues.append("")
                 j = j + 1
                 continue
@@ -1519,9 +1501,6 @@ def getDBFormat():
     return "parquet"
 
 
-from . import PolarsDB
-
-
 def add_sheet_to_excel(file, polars_df, sheet_name, overwrite=False):
     """
     Add a new sheet to an existing Excel file while preserving all other sheets.
@@ -1542,10 +1521,6 @@ def add_sheet_to_excel(file, polars_df, sheet_name, overwrite=False):
         raise RuntimeError(f"Sheet '{sheet_name}' already exists in the Excel file. Use overwrite=True to replace it.")
 
     db.close()
-
-
-import contextlib
-import logging
 
 
 @contextlib.contextmanager

@@ -16,18 +16,17 @@
 #    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 from __future__ import absolute_import, division, print_function
-
 import io
-
-# Disable polars dtype warnings
-# copied from https://github.com/ToucanToco/fastexcel/issues/326#issuecomment-2615748271
 import logging
 import os
 import zipfile
 from json import dumps, loads
-
 import polars as pl
 import xlsxwriter
+
+# Disable polars dtype warnings
+# copied from https://github.com/ToucanToco/fastexcel/issues/326#issuecomment-2615748271
+
 
 # This will disable all messages with a level <= WARNING
 logging.getLogger("fastexcel.types.dtype").setLevel(logging.ERROR)
@@ -97,7 +96,7 @@ class PolarsDB:
                             return "parquet"
                         elif any(f.endswith(".tsv") or f.endswith(".txt") for f in filenames):
                             return "tsv"
-                except:
+                except Exception:
                     pass
             # Default to parquet
             return "parquet"
@@ -149,7 +148,12 @@ class PolarsDB:
                     if dTypes_row.height > 0:
                         schema_str = dTypes_row[0, "schema"]
                         schema = self.__convert_json_to_polarsSchema(schema_str)  # Convert string back to dict
-                df = pl.read_excel(self.filepath, sheet_name=sheet_name, schema_overrides=schema)
+                try:
+                    df = pl.read_excel(self.filepath, sheet_name=sheet_name, schema_overrides=schema)
+                except (KeyError, Exception):
+                    # schema_overrides may reference columns not present in this sheet
+                    # (e.g. annotation step added columns not stored in __dTypes__); retry without it
+                    df = pl.read_excel(self.filepath, sheet_name=sheet_name)
                 self.tables[sheet_name] = df
 
     def _load_tsv_tables(self):

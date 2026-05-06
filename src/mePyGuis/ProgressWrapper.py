@@ -1,8 +1,6 @@
 import sys
-
 from PySide6 import QtGui, QtWidgets
 from PySide6.QtCore import Qt
-
 from ..utils import CallBackMethod, natSort
 from .ColoredProgressBar import ColoredProgressBar
 

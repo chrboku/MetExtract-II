@@ -4,13 +4,11 @@
 import csv
 import os
 import sys
-
 from PySide6 import QtWidgets
-
 from ..mePyGuis import combineResultsDialog
+from ..utils import Bunch
 
 # sys.path.append("C:/PyMetExtract/PyMetExtract")  # Removed hardcoded path
-from ..utils import Bunch
 
 ########################################################################################################################
 ########################################################################################################################
@@ -49,12 +47,12 @@ def readDataMatrixToTable(matFile):
             if type == "int":
                 try:
                     int(cell)
-                except:
+                except Exception:
                     type = "float"
             if type == "float":
                 try:
                     float(cell)
-                except:
+                except Exception:
                     type = "str"
         for irow, row in enumerate(res.data):
             if type == "int":

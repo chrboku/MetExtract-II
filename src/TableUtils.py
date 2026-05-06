@@ -1,14 +1,12 @@
 from __future__ import absolute_import, division, print_function
-
 import random
 import string
 import time
 from copy import deepcopy
 from os.path import basename
-
 import polars as pl
-
 from .utils import Bunch
+from openpyxl import Workbook, load_workbook
 
 # functionality to store / read a table using polars DataFrames
 # methods to insert / alter / delete data are provided (including bulk-update)
@@ -96,11 +94,11 @@ class Table:
             try:
                 # Try integer first
                 self.df = self.df.with_columns(pl.col(col).cast(pl.Int64, strict=False))
-            except:
+            except Exception:
                 try:
                     # Try float next
                     self.df = self.df.with_columns(pl.col(col).cast(pl.Float64, strict=False))
-                except:
+                except Exception:
                     # Keep as string
                     self.df = self.df.with_columns(pl.col(col).cast(pl.Utf8, strict=False))
 
@@ -252,7 +250,7 @@ class Table:
             try:
                 ctx = pl.SQLContext(tables={"tbl": df})
                 df = ctx.execute(f"SELECT * FROM tbl WHERE {where}")
-            except:
+            except Exception:
                 # Fallback: assume it's a simple expression
                 pass
 
@@ -310,7 +308,7 @@ class Table:
                 filtered_df = ctx.execute(f"SELECT __internalID FROM tbl WHERE {where}")
                 filtered_ids = filtered_df["__internalID"].to_list()
                 mask = pl.col("__internalID").is_in(filtered_ids)
-            except:
+            except Exception:
                 mask = pl.lit(True)
         else:
             mask = pl.lit(True)
@@ -372,12 +370,12 @@ class Table:
             if col_dtype in [pl.Int8, pl.Int16, pl.Int32, pl.Int64]:
                 try:
                     value = int(value) if value != "" else None
-                except:
+                except Exception:
                     value = None
             elif col_dtype in [pl.Float32, pl.Float64]:
                 try:
                     value = float(value) if value != "" else None
-                except:
+                except Exception:
                     value = None
 
             row_data[col] = [value]
@@ -607,7 +605,7 @@ class TableUtilsCSV:
             try:
                 ctx = pl.SQLContext(tables={"tbl": df})
                 df = ctx.execute(f"SELECT * FROM tbl WHERE {where}")
-            except:
+            except Exception:
                 pass
 
         # Apply ordering (before selecting columns, so __internalID is available)
@@ -634,9 +632,6 @@ class TableUtilsCSV:
                 for comment in table.getComments():
                     fo.write(str(comment).replace(delim, "-DELIM-"))
                     fo.write(newLine)
-
-
-from openpyxl import Workbook, load_workbook
 
 
 # read / write data table from / to an excel file
@@ -690,7 +685,7 @@ class TableUtilsXLS:
                     if cell_val is None or str(cell_val) == "":
                         remainingCols = False
                         continue
-                except:
+                except Exception:
                     remainingCols = False
                     continue
 
@@ -719,7 +714,7 @@ class TableUtilsXLS:
                     if cell_val is None or str(cell_val) == "":
                         rowValues.append("")
                         continue
-                except:
+                except Exception:
                     rowValues.append("")
                     continue
                 rowValues.append(str(cell_val))
@@ -762,7 +757,7 @@ class TableUtilsXLS:
             try:
                 ctx = pl.SQLContext(tables={"tbl": df})
                 df = ctx.execute(f"SELECT * FROM tbl WHERE {where}")
-            except:
+            except Exception:
                 pass
 
         # Apply ordering (before selecting columns, so __internalID is available)
@@ -786,8 +781,9 @@ class TableUtilsXLS:
 
         if os.path.isfile(file):
             rb = load_workbook(file)
-            sheet = rb.create_sheet()
-            sheet.title = sheetName
+            if sheetName in rb.sheetnames:
+                del rb[sheetName]
+            sheet = rb.create_sheet(title=sheetName)
         else:
             rb = Workbook()
             sheet = rb.active

@@ -16,15 +16,12 @@
 #    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 from __future__ import absolute_import, division, print_function
-
 import gc
 import logging
 import time
 import traceback
 from multiprocessing import Manager, Pool
-
 import polars as pl
-
 from .Chromatogram import Chromatogram
 from .chromPeakPicking.MassSpecWavelet import MassSpecWavelet
 from .PolarsDB import PolarsDB
@@ -499,7 +496,7 @@ def reIntegrateResultsFile(
                     if mes.pid not in mess:
                         mess[mes.pid] = {}
                     mess[mes.pid][mes.mes] = mes
-                except:
+                except Exception:
                     break
 
             # Handle thread assignment
@@ -546,7 +543,7 @@ def reIntegrateResultsFile(
                 from PySide6 import QtWidgets
 
                 QtWidgets.QApplication.processEvents()
-            except:
+            except Exception:
                 pass
 
             time.sleep(0.5)
@@ -636,7 +633,7 @@ def reIntegrateResultsFile(
     p.close()
     try:
         p.terminate()
-    except:
+    except Exception:
         pass
     p.join()
 
@@ -677,6 +674,6 @@ def interruptReIntegrationProcessing(pool, selfObj):
             return True
         else:
             return False
-    except:
+    except Exception:
         # If GUI not available, just return False
         return False

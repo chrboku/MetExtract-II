@@ -1,7 +1,6 @@
 # sys.path.append("D:/PyMetExtract/PyMetExtract")  # Removed hardcoded path
 import sqlite3
 from math import sqrt
-
 import matplotlib
 from reportlab.graphics import renderPDF
 from reportlab.graphics.charts.lineplots import LinePlot, ScatterPlot
@@ -10,7 +9,6 @@ from reportlab.lib import pagesizes
 from reportlab.lib.colors import HexColor
 from reportlab.pdfgen import canvas
 from reportlab.platypus import Table
-
 from .Chromatogram import Chromatogram
 from .TableUtils import TableUtils
 from .utils import Bunch
@@ -1332,7 +1330,7 @@ if __name__ == "__main__" and True:
             border = 0.33
             try:
                 row.Rt_min = float(row.Rt_min)
-            except:
+            except Exception:
                 row.Rt_min = 7
                 border = 7
 
@@ -1589,7 +1587,7 @@ if __name__ == "__main__" and True:
             border = 1.5
             try:
                 row.Rt_min = float(row.Rt_min)
-            except:
+            except Exception:
                 row.Rt_min = 7
                 border = 7
 
@@ -1868,7 +1866,7 @@ if __name__ == "__main__" and True:
             border = 1.5
             try:
                 row.Rt_min = float(row.Rt_min)
-            except:
+            except Exception:
                 row.Rt_min = 7
                 border = 7
 
@@ -1977,7 +1975,7 @@ if __name__ == "__main__" and True:
             border = 3
             try:
                 row.Rt_min = float(row.Rt_min)
-            except:
+            except Exception:
                 row.Rt_min = 7
                 border = 7
 

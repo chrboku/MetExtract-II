@@ -1,3 +1,7 @@
+from matplotlib import pyplot as plt
+from .Chromatogram import Chromatogram
+from time import gmtime, strftime
+
 version = 0.1
 
 #################################################################################
@@ -6,9 +10,6 @@ version = 0.1
 ##
 #
 
-from matplotlib import pyplot as plt
-
-from .Chromatogram import Chromatogram
 
 #################################################################################
 ################################################################################
@@ -73,7 +74,6 @@ for bini, bin in enumerate(bins):
 fileLineArray = []
 
 fileLineArray.append('<?xml version="1.0" encoding="ISO-8859-1"?>')
-from time import gmtime, strftime
 
 fileLineArray.append('<featureMap version="1.4" id="fm_16311276685788915066" xsi:noNamespaceSchemaLocation="http://open-ms.sourceforge.net/schemas/FeatureXML_1_4.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">')
 fileLineArray.append('	<dataProcessing completion_time="%s">' % (strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime())))

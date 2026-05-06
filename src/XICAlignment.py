@@ -6,10 +6,8 @@ proximity using scipy hierarchical clustering, without performing any warping.
 """
 
 from copy import deepcopy
-
 import numpy as np
 from scipy.cluster.hierarchy import fcluster, linkage
-
 from .utils import mapArrayToRefTimes
 
 

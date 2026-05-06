@@ -1,8 +1,6 @@
 import re
 import sys
-
 from PySide6 import QtWidgets
-
 from ..utils import natSort
 
 

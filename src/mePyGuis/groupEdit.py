@@ -1,9 +1,6 @@
 from __future__ import absolute_import, division, print_function
-
 import os
-
 from PySide6 import QtCore, QtGui, QtWidgets
-
 from ..utils import natSort
 from .groupEditor import Ui_GroupEditor
 

@@ -16,13 +16,10 @@
 #    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 from __future__ import absolute_import, division, print_function
-
 import base64
-import functools
 import logging
 import os
 import platform
-import re
 import time
 import traceback
 from . import HCA_general, Baseline, exportAsFeatureML
@@ -35,15 +32,12 @@ from .PolarsDB import PolarsDB
 from .runIdentification_matchPartners import matchPartners
 from .SGR import SGRGenerator
 from .chromPeakPicking.peakpickers import filter_peaks
-
 import numpy as np
 import polars as pl
 import scipy
-
-from pickle import dumps, loads
+from pickle import dumps
 from copy import copy
 from math import floor
-
 from .utils import (
     Bunch,
     ChromPeakPair,
@@ -705,7 +699,6 @@ class FindIsoPairs:
         db_con.insert_row("config", {"key": "simplifyInSourceFragments", "value": str(self.simplifyInSourceFragments)})
 
         import datetime
-        import platform
         import uuid
 
         self.processingUUID = "%s_%s_%s" % (
@@ -1638,7 +1631,6 @@ class FindIsoPairs:
         for dele in delet:
             cp = chromPeaks.pop(dele)
             # Delete from chromPeaks
-            print(f"Type of cp.id {type(cp.id)}")
             db_con.tables["chromPeaks"] = db_con.tables["chromPeaks"].filter(pl.col("id") != cp.id)
             # Update allChromPeaks comment
             db_con.tables["allChromPeaks"] = db_con.tables["allChromPeaks"].with_columns(pl.when(pl.col("id") == cp.id).then(pl.lit(",".join(todel[dele]))).otherwise(pl.col("comment")).alias("comment"))
@@ -2876,7 +2868,6 @@ class FindIsoPairs:
             features.append(b)
 
         exportAsFeatureML.writeFeatureListToFeatureML(features, forFile + ".featureML", ppmPM=self.ppm, rtPM=0.25 * 60)
-
 
     # store the detected feature pairs in a new mzXML file. Only those MS peaks will be included, which contribute to
     # the chromatographic peaks of a valid feature pair

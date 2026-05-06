@@ -1,18 +1,11 @@
 import logging
-
 from . import LoggingSetup
-
-LoggingSetup.LoggingSetup.Instance().initLogging()
-
 import base64
 import pickle
 import sqlite3
 from copy import deepcopy
 from math import floor
-
 import matplotlib.pyplot as plt
-
-# from PyMassBankSearchTool import PyMassBankSearchTool
 import numpy as np
 from reportlab.graphics import renderPDF
 from reportlab.graphics.charts.lineplots import LinePlot
@@ -22,7 +15,6 @@ from reportlab.lib.colors import Color
 from reportlab.pdfgen import canvas
 from reportlab.platypus import Table
 from reportlab.platypus.flowables import Flowable
-
 from .Chromatogram import Chromatogram
 from .formulaTools import formulaTools
 from .MSScan import MS2Scan
@@ -33,6 +25,11 @@ from .utils import (
     createTableFromBunch,
     writeObjectAsSQLInsert,
 )
+
+LoggingSetup.LoggingSetup.Instance().initLogging()
+
+
+# from PyMassBankSearchTool import PyMassBankSearchTool
 
 
 def cropEICs(eic, times, scanIDs, startRT, stopRT):
@@ -416,7 +413,7 @@ class ProcessTarget:
                     linewidth=2,
                     color="green",
                 )
-            except:
+            except Exception:
                 pass
 
             plt.show()
@@ -1268,7 +1265,7 @@ class ProcessTarget:
                 dd.append(zip(times, intensities))
                 colors.append(Color(47 / 255.0, 79 / 255.0, 79 / 255.0))
                 strokeWidth.append(0.35)
-        except:
+        except Exception:
             print(eic.timesList, eic.intensityList)
 
         lp.data = dd
@@ -1481,7 +1478,7 @@ class ProcessTarget:
 
                     drawing.add(lp)
                     renderPDF.draw(drawing, pdf, 30, 400)
-                except:
+                except Exception:
                     currentHeight -= 20
                     pdf.drawString(
                         50,
@@ -2065,7 +2062,7 @@ class ProcessTarget:
                             ],
                         )
                 target.matches = matches
-            except:
+            except Exception:
                 target.matches = Bunch(numResults=0)
         else:
             target.matches = Bunch(numResults=0)

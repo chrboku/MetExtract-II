@@ -17,7 +17,6 @@
 
 
 from copy import deepcopy
-
 from .formulaTools import formulaTools
 from .utils import Bunch, getNormRatio
 
@@ -37,12 +36,15 @@ def getSubstitutionArray(purity, xMax, maxSub):
 
 # results object (ion signal pairs)
 class mzFeature:
-    def __init__(self, mz, lmz, tmz, xCount, scanIndex, loading, nIntensity, lIntensity, ionMode):
+    def __init__(self, id, mz, lmz, tmz, xCount, scanIndex, scanid, scantime, loading, nIntensity, lIntensity, ionMode):
+        self.id = id
         self.mz = mz
         self.lmz = lmz
         self.tmz = tmz
         self.xCount = xCount
         self.scanIndex = scanIndex
+        self.scanid = scanid
+        self.scantime = scantime
         self.loading = loading
         self.nIntensity = nIntensity
         self.lIntensity = lIntensity
@@ -217,7 +219,7 @@ def matchPartners(
                     if reportFunction is not None:
                         reportFunction(
                             (curScan.retention_time / 60.0 - startTime) / scanRTRange,
-                            "RT %.2f" % (curScan.retention_time / 60.0),
+                            "RT %.2f, found patterns: %d" % (curScan.retention_time / 60.0, len(detectedIonPairs)),
                         )
                     # Compute the scan used to search for labeled signals; may be offset relative to the native scan.
                     # Falls back to curScan when the offset puts the index out of bounds or on a different filter line.
@@ -365,11 +367,14 @@ def matchPartners(
                                                         if peakCountLeft == 1 and peakCountRight == 1:
                                                             curPeakDetectedIonPairs.append(
                                                                 mzFeature(
+                                                                    id=len(curPeakDetectedIonPairs),
                                                                     mz=curPeakmz,
                                                                     lmz=labPeakmz,
                                                                     tmz=xCount * xOffset,
                                                                     xCount=xCount,
                                                                     scanIndex=curScanIndex,
+                                                                    scanid=curScan.id,
+                                                                    scantime=curScan.retention_time,
                                                                     loading=curLoading,
                                                                     nIntensity=curPeakIntensity,
                                                                     lIntensity=labPeakIntensity,
@@ -411,11 +416,14 @@ def matchPartners(
                                                         if (ratioN is not None and ratioL is not None) and abs(ratioN - ratioL) <= intensityErrorL:
                                                             curPeakDetectedIonPairs.append(
                                                                 mzFeature(
+                                                                    id=len(curPeakDetectedIonPairs),
                                                                     mz=curPeakmz,
                                                                     lmz=labPeakmz,
                                                                     tmz=xCount * xOffset,
                                                                     xCount=xCount,
                                                                     scanIndex=curScanIndex,
+                                                                    scanid=curScan.id,
+                                                                    scantime=curScan.retention_time,
                                                                     loading=curLoading,
                                                                     nIntensity=curPeakIntensity,
                                                                     lIntensity=labPeakIntensity,
@@ -428,11 +436,14 @@ def matchPartners(
                                                         elif lowAbundanceIsotopeCutoff and (ratioN is None or ratioL is None):
                                                             curPeakDetectedIonPairs.append(
                                                                 mzFeature(
+                                                                    id=len(curPeakDetectedIonPairs),
                                                                     mz=curPeakmz,
                                                                     lmz=labPeakmz,
                                                                     tmz=xCount * xOffset,
                                                                     xCount=xCount,
                                                                     scanIndex=curScanIndex,
+                                                                    scanid=curScan.id,
+                                                                    scantime=curScan.retention_time,
                                                                     loading=curLoading,
                                                                     nIntensity=curPeakIntensity,
                                                                     lIntensity=labPeakIntensity,
@@ -523,11 +534,14 @@ def matchPartners(
                                                         if peakCountLeft == 1 and peakCountRight == 1:
                                                             curPeakDetectedIonPairs.append(
                                                                 mzFeature(
+                                                                    id=len(curPeakDetectedIonPairs),
                                                                     mz=curPeakmz,
                                                                     lmz=labPeakmz,
                                                                     tmz=xCount * cValidationOffset,
                                                                     xCount=xCount,
                                                                     scanIndex=curScanIndex,
+                                                                    scanid=curScan.id,
+                                                                    scantime=curScan.retention_time,
                                                                     loading=curLoading,
                                                                     nIntensity=curPeakIntensity,
                                                                     lIntensity=labPeakIntensity,
@@ -594,11 +608,14 @@ def matchPartners(
                                                         # for further processing
                                                         curPeakDetectedIonPairs.append(
                                                             mzFeature(
+                                                                id=len(curPeakDetectedIonPairs),
                                                                 mz=curPeakmz,
                                                                 lmz=labPeakmz,
                                                                 tmz=xCount * cValidationOffset,
                                                                 xCount=xCount,
                                                                 scanIndex=curScanIndex,
+                                                                scanid=curScan.id,
+                                                                scantime=curScan.retention_time,
                                                                 loading=curLoading,
                                                                 nIntensity=curPeakIntensity,
                                                                 lIntensity=labPeakIntensity,
@@ -706,11 +723,14 @@ def matchPartners(
                                                         # for further processing
                                                         curPeakDetectedIonPairs.append(
                                                             mzFeature(
+                                                                id=len(curPeakDetectedIonPairs),
                                                                 mz=curPeakmz,
                                                                 lmz=labScan.mz_list[isoM_pX],
                                                                 tmz=comb.mzdelta / curLoading,
                                                                 xCount=fT.flatToString(comb.atoms),
                                                                 scanIndex=curScanIndex,
+                                                                scanid=curScan.id,
+                                                                scantime=curScan.retention_time,
                                                                 loading=curLoading,
                                                                 nIntensity=curPeakIntensity,
                                                                 lIntensity=labPeakIntensity,

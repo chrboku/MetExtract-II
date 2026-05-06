@@ -14,7 +14,6 @@ License: GNU General Public License v2 (GPLv2)
 
 import logging
 from typing import Any, Callable, Dict, List, Optional, Tuple
-
 import numpy as np
 import pandas as pd
 from scipy import stats
