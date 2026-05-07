@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from src.chromPeakPicking.peakpickers import (
+from chromPeakPicking.peakpickers import (
     BasePeakPicker,
     ChromatographicPeak,
     DistributionType,

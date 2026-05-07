@@ -595,6 +595,19 @@ class ChromPeakPair:
             self.L_endRT = args["L_endRT"]
             argsUsed += 1
 
+        if "N_FWHM" in args:
+            self.N_FWHM = args["N_FWHM"]
+            argsUsed += 1
+        if "L_FWHM" in args:
+            self.L_FWHM = args["L_FWHM"]
+            argsUsed += 1
+        if "N_Baseline" in args:
+            self.N_Baseline = args["N_Baseline"]
+            argsUsed += 1
+        if "L_Baseline" in args:
+            self.L_Baseline = args["L_Baseline"]
+            argsUsed += 1
+
         if "isotopeRatios" in args:
             self.isotopeRatios = args["isotopeRatios"]
             argsUsed += 1

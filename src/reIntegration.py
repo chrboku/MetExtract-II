@@ -95,6 +95,7 @@ class ReIntegrationProcessor:
         smoothingWindow,
         smoothingWindowSize,
         smoothingWindowPolynom,
+        peak_filter_config=None,
     ):
         """
         Find chromatographic peak for one detected feature.
@@ -108,10 +109,14 @@ class ReIntegrationProcessor:
             smoothingWindow: smoothing method
             smoothingWindowSize: window size for smoothing
             smoothingWindowPolynom: polynomial order for smoothing
+            peak_filter_config: optional PeakFilterConfig for consistent filtering
 
         Returns:
-            Tuple of (area, abundance, SNR) or None if no peak found
+            Tuple of (area, abundance, SNR, fwhm_min, peak_width_min, apex_to_flank_factor, apex_to_flank_increase)
+            or None if no peak found
         """
+        from .chromPeakPicking.peakpickers import filter_peaks
+
         eic, times, scanids, mzs = self.chromatogram.getEIC(mz, ppm, filterLine=scanEvent)
         eicSmoothed = smoothDataSeries(
             times,
@@ -122,6 +127,9 @@ class ReIntegrationProcessor:
         )
         ret = self.peakPicker.getPeaksFor(times, eicSmoothed)
 
+        if peak_filter_config is not None:
+            ret = filter_peaks(ret, config=peak_filter_config)
+
         best = None
 
         for ri, r in enumerate(ret):
@@ -129,12 +137,21 @@ class ReIntegrationProcessor:
                 best = ri
 
         if best is not None:
-            lb = int(max(0, ret[best].apex_index - peakAbundanceUseSignalsSides))
-            rb = int(ret[best].apex_index + peakAbundanceUseSignalsSides) + 1
-            peak = eic[lb:rb]
+            pk = ret[best]
+            lb = int(max(0, pk.apex_index - peakAbundanceUseSignalsSides))
+            rb = int(pk.apex_index + peakAbundanceUseSignalsSides) + 1
+            peak_slice = eic[lb:rb]
 
-            peakAbundance = max(peak) if len(peak) > 0 else 0.0
-            return ret[best].area, peakAbundance, ret[best].snr
+            peakAbundance = max(peak_slice) if len(peak_slice) > 0 else 0.0
+            fwhm_min = pk.fwhm / 60.0
+            peak_width_min = (pk.end_rt - pk.start_rt) / 60.0
+            baseline = max(pk.baseline, 1.0)
+            apex_to_flank_factor = peakAbundance / baseline
+            apex_to_flank_increase = peakAbundance - pk.baseline
+            start_rt_min = pk.start_rt / 60.0
+            apex_rt_min = pk.apex_rt / 60.0
+            end_rt_min = pk.end_rt / 60.0
+            return pk.area, peakAbundance, pk.snr, fwhm_min, peak_width_min, apex_to_flank_factor, apex_to_flank_increase, start_rt_min, apex_rt_min, end_rt_min
 
         return None
 
@@ -156,6 +173,7 @@ class ReIntegrationProcessor:
         addPeakArea,
         addPeakAbundance,
         addPeakSNR,
+        peak_filter_config=None,
     ):
         """
         Re-integrate one detected feature pair.
@@ -189,17 +207,25 @@ class ReIntegrationProcessor:
                 smoothingWindow,
                 smoothingWindowSize,
                 smoothingWindowPolynom,
+                peak_filter_config=peak_filter_config,
             )
         except Exception as exc:
             logging.error(f"   - Reintegration failed for feature pair (N) {self.forFile} ({mz} {rt}) [{exc}]")
 
         nFound = False
         if r is not None:
-            area, abundance, snr = r
+            area, abundance, snr, fwhm_min, peak_width_min, apex_factor, apex_increase, start_rt_min, apex_rt_min, end_rt_min = r
             result[f"{fileName}_Found"] = "Reintegrated"
             result[f"{fileName}_Area_N"] = area
             result[f"{fileName}_Abundance_N"] = abundance
             result[f"{fileName}_SNR_N"] = snr
+            result[f"{fileName}_N_FWHM"] = fwhm_min
+            result[f"{fileName}_N_PeakWidth"] = peak_width_min
+            result[f"{fileName}_N_ApexToFlankFactor"] = apex_factor
+            result[f"{fileName}_N_ApexToFlankIncrease"] = apex_increase
+            result[f"{fileName}_N_startRT"] = start_rt_min
+            result[f"{fileName}_N_apexRT"] = apex_rt_min
+            result[f"{fileName}_N_endRT"] = end_rt_min
             nFound = True
 
         # Re-integrate L (labeled) peak
@@ -214,17 +240,25 @@ class ReIntegrationProcessor:
                 smoothingWindow,
                 smoothingWindowSize,
                 smoothingWindowPolynom,
+                peak_filter_config=peak_filter_config,
             )
         except Exception as exc:
             logging.error(f"   - Reintegration failed for feature pair (L) {self.forFile} ({lmz} {rt}) [{exc}]")
 
         lFound = False
         if r is not None:
-            area, abundance, snr = r
+            area, abundance, snr, fwhm_min, peak_width_min, apex_factor, apex_increase, start_rt_min, apex_rt_min, end_rt_min = r
             result[f"{fileName}_Found"] = "Reintegrated"
             result[f"{fileName}_Area_L"] = area
             result[f"{fileName}_Abundance_L"] = abundance
             result[f"{fileName}_SNR_L"] = snr
+            result[f"{fileName}_L_FWHM"] = fwhm_min
+            result[f"{fileName}_L_PeakWidth"] = peak_width_min
+            result[f"{fileName}_L_ApexToFlankFactor"] = apex_factor
+            result[f"{fileName}_L_ApexToFlankIncrease"] = apex_increase
+            result[f"{fileName}_L_startRT"] = start_rt_min
+            result[f"{fileName}_L_apexRT"] = apex_rt_min
+            result[f"{fileName}_L_endRT"] = end_rt_min
             lFound = True
 
         # Track for database if found
@@ -297,6 +331,7 @@ class ReIntegrationProcessor:
                             addPeakArea=params.addPeakArea,
                             addPeakAbundance=params.addPeakAbundance,
                             addPeakSNR=params.addPeakSNR,
+                            peak_filter_config=getattr(params, "peak_filter_config", None),
                         )
                         if result and result.get("found", False):
                             del result["found"]
@@ -363,6 +398,7 @@ def reIntegrateResultsFile(
     selfObj=None,
     cpus=1,
     start=0,
+    peak_filter_config=None,
 ):
     """
     Re-integrate all LC-HRMS data files with the grouped feature pairs results using PolarsDB.
@@ -456,6 +492,7 @@ def reIntegrateResultsFile(
             addPeakArea=addPeakArea,
             addPeakAbundance=addPeakAbundance,
             addPeakSNR=addPeakSNR,
+            peak_filter_config=peak_filter_config,
         )
         processor.params = params
 
@@ -586,6 +623,35 @@ def reIntegrateResultsFile(
                 new_columns[f"{fileName}_SNR_N"] = [None] * len(results_df)
             if f"{fileName}_SNR_L" not in results_df.columns:
                 new_columns[f"{fileName}_SNR_L"] = [None] * len(results_df)
+
+        if f"{fileName}_N_FWHM" not in results_df.columns:
+            new_columns[f"{fileName}_N_FWHM"] = [None] * len(results_df)
+        if f"{fileName}_L_FWHM" not in results_df.columns:
+            new_columns[f"{fileName}_L_FWHM"] = [None] * len(results_df)
+        if f"{fileName}_N_PeakWidth" not in results_df.columns:
+            new_columns[f"{fileName}_N_PeakWidth"] = [None] * len(results_df)
+        if f"{fileName}_L_PeakWidth" not in results_df.columns:
+            new_columns[f"{fileName}_L_PeakWidth"] = [None] * len(results_df)
+        if f"{fileName}_N_ApexToFlankFactor" not in results_df.columns:
+            new_columns[f"{fileName}_N_ApexToFlankFactor"] = [None] * len(results_df)
+        if f"{fileName}_L_ApexToFlankFactor" not in results_df.columns:
+            new_columns[f"{fileName}_L_ApexToFlankFactor"] = [None] * len(results_df)
+        if f"{fileName}_N_ApexToFlankIncrease" not in results_df.columns:
+            new_columns[f"{fileName}_N_ApexToFlankIncrease"] = [None] * len(results_df)
+        if f"{fileName}_L_ApexToFlankIncrease" not in results_df.columns:
+            new_columns[f"{fileName}_L_ApexToFlankIncrease"] = [None] * len(results_df)
+        if f"{fileName}_N_startRT" not in results_df.columns:
+            new_columns[f"{fileName}_N_startRT"] = [None] * len(results_df)
+        if f"{fileName}_N_apexRT" not in results_df.columns:
+            new_columns[f"{fileName}_N_apexRT"] = [None] * len(results_df)
+        if f"{fileName}_N_endRT" not in results_df.columns:
+            new_columns[f"{fileName}_N_endRT"] = [None] * len(results_df)
+        if f"{fileName}_L_startRT" not in results_df.columns:
+            new_columns[f"{fileName}_L_startRT"] = [None] * len(results_df)
+        if f"{fileName}_L_apexRT" not in results_df.columns:
+            new_columns[f"{fileName}_L_apexRT"] = [None] * len(results_df)
+        if f"{fileName}_L_endRT" not in results_df.columns:
+            new_columns[f"{fileName}_L_endRT"] = [None] * len(results_df)
 
     # Add new columns to dataframe
     for col_name, col_data in new_columns.items():

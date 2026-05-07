@@ -569,6 +569,10 @@ class FindIsoPairs:
                 "N_endRT": pl.Float64,
                 "L_startRT": pl.Float64,
                 "L_endRT": pl.Float64,
+                "N_FWHM": pl.Float64,
+                "L_FWHM": pl.Float64,
+                "N_Baseline": pl.Float64,
+                "L_Baseline": pl.Float64,
                 "adducts": pl.Utf8,
                 "heteroAtomsFeaturePairs": pl.Utf8,
                 "massSpectrumID": pl.Int64,
@@ -622,6 +626,10 @@ class FindIsoPairs:
                 "N_endRT": pl.Float64,
                 "L_startRT": pl.Float64,
                 "L_endRT": pl.Float64,
+                "N_FWHM": pl.Float64,
+                "L_FWHM": pl.Float64,
+                "N_Baseline": pl.Float64,
+                "L_Baseline": pl.Float64,
                 "adducts": pl.Utf8,
                 "heteroAtomsFeaturePairs": pl.Utf8,
                 "ionMode": pl.Utf8,
@@ -1192,6 +1200,10 @@ class FindIsoPairs:
                                     N_endRT=peakN.end_rt,
                                     L_startRT=peakL.start_rt,
                                     L_endRT=peakL.end_rt,
+                                    N_FWHM=peakN.fwhm,
+                                    L_FWHM=peakL.fwhm,
+                                    N_Baseline=peakN.baseline,
+                                    L_Baseline=peakL.baseline,
                                     isotopeRatios=[],
                                     mzDiffErrors=Bunch(),
                                     comments=[],
@@ -1234,29 +1246,34 @@ class FindIsoPairs:
                                             )
                                             if i < len(peakL) and peakL[i] > 0 and peakN[i] > 0
                                         ]
-                                        correlations.append(
-                                            Bunch(
-                                                correlation=corr(peakN, peakL),
-                                                artificialShift=artShift,
-                                                silRatios=silRatios,
-                                                peakNInts=[
-                                                    peakN[i]
-                                                    for i in range(
-                                                        int(len(peakN) * 0.25),
-                                                        int(len(peakN) * 0.75) + 1,
-                                                    )
-                                                    if i < len(peakL) and peakL[i] > 0 and peakN[i] > 0
-                                                ],
-                                                peakLInts=[
-                                                    peakL[i]
-                                                    for i in range(
-                                                        int(len(peakN) * 0.25),
-                                                        int(len(peakN) * 0.75) + 1,
-                                                    )
-                                                    if i < len(peakL) and peakL[i] > 0 and peakN[i] > 0
-                                                ],
+                                        try:
+                                            correlations.append(
+                                                Bunch(
+                                                    correlation=corr(peakN, peakL),
+                                                    artificialShift=artShift,
+                                                    silRatios=silRatios,
+                                                    peakNInts=[
+                                                        peakN[i]
+                                                        for i in range(
+                                                            int(len(peakN) * 0.25),
+                                                            int(len(peakN) * 0.75) + 1,
+                                                        )
+                                                        if i < len(peakL) and peakL[i] > 0 and peakN[i] > 0
+                                                    ],
+                                                    peakLInts=[
+                                                        peakL[i]
+                                                        for i in range(
+                                                            int(len(peakN) * 0.25),
+                                                            int(len(peakN) * 0.75) + 1,
+                                                        )
+                                                        if i < len(peakL) and peakL[i] > 0 and peakN[i] > 0
+                                                    ],
+                                                )
                                             )
-                                        )
+                                        except AssertionError:
+                                            print(
+                                                f"Warning: Could not calculate correlation for peak at RT {times[peak.NPeakCenter]} with artShift {artShift}. This is likely due to too close proximity of the EIC with its the start/end. This is a bug of the software and will be resolved in a future version"
+                                            )
                                     if not correlations:
                                         return None
                                     bestFit = max(correlations, key=lambda x: x.correlation)
@@ -1460,6 +1477,10 @@ class FindIsoPairs:
                                         "N_endRT": peak.N_endRT,
                                         "L_startRT": peak.L_startRT,
                                         "L_endRT": peak.L_endRT,
+                                        "N_FWHM": getattr(peak, "N_FWHM", 0.0),
+                                        "L_FWHM": getattr(peak, "L_FWHM", 0.0),
+                                        "N_Baseline": getattr(peak, "N_Baseline", 0.0),
+                                        "L_Baseline": getattr(peak, "L_Baseline", 0.0),
                                         "peaksCorr": peak.peaksCorr,
                                         "heteroAtoms": "",
                                         "adducts": "",
@@ -1509,6 +1530,10 @@ class FindIsoPairs:
                                         "N_endRT": peak.N_endRT,
                                         "L_startRT": peak.L_startRT,
                                         "L_endRT": peak.L_endRT,
+                                        "N_FWHM": getattr(peak, "N_FWHM", 0.0),
+                                        "L_FWHM": getattr(peak, "L_FWHM", 0.0),
+                                        "N_Baseline": getattr(peak, "N_Baseline", 0.0),
+                                        "L_Baseline": getattr(peak, "L_Baseline", 0.0),
                                         "peaksCorr": peak.peaksCorr,
                                         "heteroAtoms": "",
                                         "adducts": "",

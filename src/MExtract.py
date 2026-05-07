@@ -1614,7 +1614,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         for col_name in row_dict.keys():
                             if col_name.endswith("_Found") and row_dict[col_name] is not None:
                                 found_val = str(row_dict[col_name])
-                                if "Direct" in found_val:
+                                if "Direct" in found_val or "Reintegrated" in found_val:
                                     n_found_samples += 1
 
                     fp = Bunch(
@@ -2178,6 +2178,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # Update MSMS spectra list for selected features
         selectedItems = self.ui.resultsExperiment_TreeWidget.selectedItems()
         self.updateMSMSList_exp(selectedItems)
+
+        # Update peak details tab
+        self.updatePeakDetailsTab(plotItems)
 
     def _refreshExperimentEICs(self, *args):
         """Re-draw experiment EICs when separation/normalisation controls change, but only if raw data is already loaded."""
@@ -3699,6 +3702,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         selfObj=self,
                         cpus=min(len(files), cpus),
                         start=start,
+                        peak_filter_config=filter_config,
                     )
                     # Log time used for bracketing
                     elapsed = (time.time() - start) / 60.0
@@ -8153,6 +8157,376 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         total_items = self.ui.msms_SpectraList_exp.count()
         if total_items > 0:
             self.ui.msms_SpectraList_exp.item(total_items - 1).setSelected(True)
+
+    def updatePeakDetailsTab(self, plotItems):
+        """Populate the peak details tab tables for the selected features."""
+
+        class _SortableItem(QtWidgets.QTableWidgetItem):
+            """QTableWidgetItem that sorts numerically when the cell contains a number.
+            For scientific-notation and semicolon-separated cells the first numeric
+            value is used as the sort key."""
+
+            def __lt__(self, other):
+                def _key(text):
+                    # Take the first semicolon-separated token
+                    token = str(text).split(";")[0].strip()
+                    try:
+                        return (0, float(token))
+                    except (ValueError, TypeError):
+                        return (1, str(text).lower())
+
+                return _key(self.text()) < _key(other.text())
+
+        def _make_item(text):
+            return _SortableItem(text)
+
+        per_sample_table = self.ui.tableWidget_peakDetails_perSample
+        per_group_table = self.ui.tableWidget_peakDetails_perGroup
+
+        per_sample_table.clear()
+        per_group_table.clear()
+
+        if not plotItems or not hasattr(self, "experimentResults") or self.experimentResults is None:
+            per_sample_table.setRowCount(0)
+            per_group_table.setRowCount(0)
+            return
+
+        # Get sample file names from defined groups
+        definedGroups = self.getAllSampleGroups()
+
+        # Collect file names in order
+        file_entries = []  # list of (group_name, file_path, file_name)
+        for group in definedGroups:
+            for fi in group.files:
+                fi = str(fi)
+                fname = fi[max(fi.rfind("/") + 1, fi.rfind("\\") + 1) :]
+                for ext in [".mzxml", ".mzml", ".mzXML", ".mzML"]:
+                    if fname.lower().endswith(ext.lower()):
+                        fname = fname[: -len(ext)]
+                        break
+                file_entries.append((str(group.name), fi, fname))
+
+        # Try to get results dataframe
+        # Use cached DataFrame to avoid re-reading the Excel file on every feature selection change
+        results_df = getattr(self.experimentResults, "_peak_details_df", None)
+        if results_df is None:
+            sheet_candidates = ["4_Reintegrated", "3_Convoluted", "1_Bracketed"]
+            for sheet_name in sheet_candidates:
+                try:
+                    tbl = self.experimentResults.db_con.get_table(sheet_name)
+                    if tbl is not None and not tbl.is_empty():
+                        results_df = tbl
+                        self.experimentResults._peak_details_df = results_df
+                        break
+                except Exception:
+                    continue
+
+        if results_df is None:
+            per_sample_table.setRowCount(0)
+            per_group_table.setRowCount(0)
+            return
+
+        # Per-sample columns to show
+        per_sample_col_suffixes = [
+            "_Found",
+            "_Area_N",
+            "_Area_L",
+            "_SNR_N",
+            "_SNR_L",
+            "_N_startRT",
+            "_N_apexRT",
+            "_N_endRT",
+            "_L_startRT",
+            "_L_apexRT",
+            "_L_endRT",
+            "_N_FWHM",
+            "_L_FWHM",
+            "_N_PeakWidth",
+            "_L_PeakWidth",
+            "_N_ApexToFlankFactor",
+            "_L_ApexToFlankFactor",
+            "_N_ApexToFlankIncrease",
+            "_L_ApexToFlankIncrease",
+        ]
+        per_sample_col_labels = [
+            "Found",
+            "Area (N)",
+            "Area (L)",
+            "SNR (N)",
+            "SNR (L)",
+            "Start RT (N) [min]",
+            "Apex RT (N) [min]",
+            "End RT (N) [min]",
+            "Start RT (L) [min]",
+            "Apex RT (L) [min]",
+            "End RT (L) [min]",
+            "FWHM (N) [min]",
+            "FWHM (L) [min]",
+            "PeakWidth (N) [min]",
+            "PeakWidth (L) [min]",
+            "ApexFlankFactor (N)",
+            "ApexFlankFactor (L)",
+            "ApexFlankIncrease (N)",
+            "ApexFlankIncrease (L)",
+        ]
+
+        # Build group-name → semi-transparent QColor map (30% opacity = alpha 77)
+        group_color_map = {}
+        for grp in definedGroups:
+            qc = QtGui.QColor(str(grp.color))
+            if qc.isValid():
+                qc.setAlpha(77)
+                group_color_map[str(grp.name)] = qc
+
+        # Filter the DataFrame ONCE for all selected feature IDs so we never call
+        # results_df.filter() inside the per-file / per-column loops.
+        selected_ids = [getattr(pi, "id", None) for pi in plotItems]
+        selected_ids_known = [i for i in selected_ids if i is not None]
+        if selected_ids_known:
+            selected_df = results_df.filter(pl.col("Num").is_in(selected_ids_known))
+        else:
+            # Fall back to MZ-based filter for items without an id
+            mz_vals = [pi.mz for pi in plotItems if getattr(pi, "id", None) is None]
+            if mz_vals:
+                expr = pl.lit(False)
+                for mz in mz_vals:
+                    expr = expr | ((pl.col("MZ").cast(pl.Float64) - mz).abs() < 0.001)
+                selected_df = results_df.filter(expr)
+            else:
+                selected_df = results_df.clear()
+        # Build a dict keyed by Num → row dict for O(1) access later
+        selected_rows_by_num = {row["Num"]: row for row in selected_df.to_dicts()}
+
+        # Build per-sample table
+        all_sample_headers = ["Sample", "Group"] + per_sample_col_labels
+        per_sample_table.setColumnCount(len(all_sample_headers))
+        per_sample_table.setHorizontalHeaderLabels(all_sample_headers)
+
+        sample_rows = []
+        for group_name, fi, fname in file_entries:
+            row_data = {"sample": fname, "group": group_name}
+            for suffix, label in zip(per_sample_col_suffixes, per_sample_col_labels):
+                col_name = fname + suffix
+                if col_name in results_df.columns:
+                    values = []
+                    for pi in plotItems:
+                        num = getattr(pi, "id", None)
+                        row = selected_rows_by_num.get(num) if num is not None else None
+                        if row is not None:
+                            val = row.get(col_name)
+                            if val is not None:
+                                values.append(str(val))
+                    row_data[label] = "; ".join(values) if values else None
+                else:
+                    row_data[label] = None
+            sample_rows.append(row_data)
+
+        # Labels that should be formatted in scientific notation
+        sci_notation_labels = {
+            "Area (N)",
+            "Area (L)",
+            "SNR (N)",
+            "SNR (L)",
+            "ApexFlankFactor (N)",
+            "ApexFlankFactor (L)",
+            "ApexFlankIncrease (N)",
+            "ApexFlankIncrease (L)",
+        }
+
+        per_sample_table.setSortingEnabled(False)  # disable while populating
+        per_sample_table.setRowCount(len(sample_rows))
+        for row_idx, row_data in enumerate(sample_rows):
+            row_color = group_color_map.get(row_data["group"])
+
+            def _cell(text, color=row_color):
+                item = _make_item(text)
+                if color is not None:
+                    item.setBackground(color)
+                return item
+
+            per_sample_table.setItem(row_idx, 0, _cell(str(row_data["sample"])))
+            per_sample_table.setItem(row_idx, 1, _cell(str(row_data["group"])))
+            for col_idx, label in enumerate(per_sample_col_labels):
+                val = row_data.get(label)
+                if val is not None and label in sci_notation_labels:
+                    # Format each semicolon-separated value in scientific notation
+                    parts = []
+                    for part in str(val).split("; "):
+                        try:
+                            parts.append(f"{float(part):.3e}")
+                        except ValueError:
+                            parts.append(part)
+                    display = "; ".join(parts)
+                else:
+                    display = str(val) if val is not None else ""
+                per_sample_table.setItem(row_idx, col_idx + 2, _cell(display))
+        per_sample_table.setSortingEnabled(True)
+        per_sample_table.horizontalHeader().setSectionsMovable(True)
+        per_sample_table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Interactive)
+        per_sample_table.resizeColumnsToContents()
+
+        # Build per-group aggregation table
+        import statistics as stats_mod
+
+        numeric_suffixes = [
+            "_Area_N",
+            "_Area_L",
+            "_SNR_N",
+            "_SNR_L",
+            "_N_startRT",
+            "_N_apexRT",
+            "_N_endRT",
+            "_L_startRT",
+            "_L_apexRT",
+            "_L_endRT",
+            "_N_FWHM",
+            "_L_FWHM",
+            "_N_PeakWidth",
+            "_L_PeakWidth",
+            "_N_ApexToFlankFactor",
+            "_L_ApexToFlankFactor",
+            "_N_ApexToFlankIncrease",
+            "_L_ApexToFlankIncrease",
+        ]
+        numeric_labels = [
+            "Area (N)",
+            "Area (L)",
+            "SNR (N)",
+            "SNR (L)",
+            "Start RT (N) [min]",
+            "Apex RT (N) [min]",
+            "End RT (N) [min]",
+            "Start RT (L) [min]",
+            "Apex RT (L) [min]",
+            "End RT (L) [min]",
+            "FWHM (N) [min]",
+            "FWHM (L) [min]",
+            "PeakWidth (N) [min]",
+            "PeakWidth (L) [min]",
+            "ApexFlankFactor (N)",
+            "ApexFlankFactor (L)",
+            "ApexFlankIncrease (N)",
+            "ApexFlankIncrease (L)",
+        ]
+
+        # Collect values per group per metric
+        group_metric_values = {}
+        group_detection_counts = {}
+        for group_name, fi, fname in file_entries:
+            if group_name not in group_metric_values:
+                group_metric_values[group_name] = {lbl: [] for lbl in numeric_labels}
+                group_detection_counts[group_name] = 0
+            # Count detections
+            found_col = fname + "_Found"
+            if found_col in results_df.columns:
+                for pi in plotItems:
+                    num = getattr(pi, "id", None)
+                    row = selected_rows_by_num.get(num) if num is not None else None
+                    if row is not None:
+                        val = row.get(found_col)
+                        if val is not None:
+                            group_detection_counts[group_name] += 1
+            for suffix, label in zip(numeric_suffixes, numeric_labels):
+                col_name = fname + suffix
+                if col_name in results_df.columns:
+                    for pi in plotItems:
+                        num = getattr(pi, "id", None)
+                        row = selected_rows_by_num.get(num) if num is not None else None
+                        if row is not None:
+                            val = row.get(col_name)
+                            if val is not None:
+                                try:
+                                    for v in str(val).split(";"):
+                                        group_metric_values[group_name][label].append(float(v.strip()))
+                                except Exception:
+                                    pass
+
+        group_names = list(group_metric_values.keys())
+
+        def _rsd(vals):
+            if len(vals) < 2:
+                return None
+            m = stats_mod.mean(vals)
+            if m == 0:
+                return None
+            return stats_mod.stdev(vals) / abs(m) * 100.0
+
+        # Labels shown in scientific notation in the aggregated table
+        sci_agg_labels = {
+            "Area (N)",
+            "Area (L)",
+            "SNR (N)",
+            "SNR (L)",
+            "ApexFlankFactor (N)",
+            "ApexFlankFactor (L)",
+            "ApexFlankIncrease (N)",
+            "ApexFlankIncrease (L)",
+        }
+
+        def _fmt(label, val):
+            if val is None:
+                return ""
+            if label in sci_agg_labels:
+                return f"{val:.3e}"
+            return f"{val:.4g}"
+
+        # Build ordered column layout:
+        # Group | N detections | Mean Area N | RSD Area N | Mean Area L | RSD Area L | then mean/min/max for rest
+        remaining_labels = [lbl for lbl in numeric_labels if lbl not in ("Area (N)", "Area (L)")]
+        agg_headers = ["Group", "N detections", "Area (N) mean", "Area (N) RSD%", "Area (L) mean", "Area (L) RSD%"] + [f"{lbl} mean" for lbl in remaining_labels] + [f"{lbl} min" for lbl in remaining_labels] + [f"{lbl} max" for lbl in remaining_labels]
+        per_group_table.setColumnCount(len(agg_headers))
+        per_group_table.setHorizontalHeaderLabels(agg_headers)
+        per_group_table.setSortingEnabled(False)  # disable while populating
+        per_group_table.setRowCount(len(group_names))
+
+        for row_idx, group_name in enumerate(group_names):
+            grp_color = group_color_map.get(group_name)
+
+            def _grp_cell(text, color=grp_color):
+                item = _make_item(text)
+                if color is not None:
+                    item.setBackground(color)
+                return item
+
+            per_group_table.setItem(row_idx, 0, _grp_cell(group_name))
+            per_group_table.setItem(row_idx, 1, _grp_cell(str(group_detection_counts[group_name])))
+            col_offset = 2
+            # Area N mean + RSD
+            area_n_vals = group_metric_values[group_name]["Area (N)"]
+            area_n_mean = stats_mod.mean(area_n_vals) if area_n_vals else None
+            area_n_rsd = _rsd(area_n_vals)
+            per_group_table.setItem(row_idx, col_offset, _grp_cell(_fmt("Area (N)", area_n_mean)))
+            per_group_table.setItem(row_idx, col_offset + 1, _grp_cell(f"{area_n_rsd:.2f}" if area_n_rsd is not None else ""))
+            col_offset += 2
+            # Area L mean + RSD
+            area_l_vals = group_metric_values[group_name]["Area (L)"]
+            area_l_mean = stats_mod.mean(area_l_vals) if area_l_vals else None
+            area_l_rsd = _rsd(area_l_vals)
+            per_group_table.setItem(row_idx, col_offset, _grp_cell(_fmt("Area (L)", area_l_mean)))
+            per_group_table.setItem(row_idx, col_offset + 1, _grp_cell(f"{area_l_rsd:.2f}" if area_l_rsd is not None else ""))
+            col_offset += 2
+            # Mean for remaining labels
+            for label in remaining_labels:
+                vals = group_metric_values[group_name][label]
+                mean_val = stats_mod.mean(vals) if vals else None
+                per_group_table.setItem(row_idx, col_offset, _grp_cell(_fmt(label, mean_val)))
+                col_offset += 1
+            # Min for remaining labels
+            for label in remaining_labels:
+                vals = group_metric_values[group_name][label]
+                min_val = min(vals) if vals else None
+                per_group_table.setItem(row_idx, col_offset, _grp_cell(_fmt(label, min_val)))
+                col_offset += 1
+            # Max for remaining labels
+            for label in remaining_labels:
+                vals = group_metric_values[group_name][label]
+                max_val = max(vals) if vals else None
+                per_group_table.setItem(row_idx, col_offset, _grp_cell(_fmt(label, max_val)))
+                col_offset += 1
+        per_group_table.setSortingEnabled(True)
+        per_group_table.horizontalHeader().setSectionsMovable(True)
+        per_group_table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Interactive)
+        per_group_table.resizeColumnsToContents()
 
     def plotSelectedMSMSSpectra_exp(self):
         """Plot selected MSMS spectra from experimental results panel"""

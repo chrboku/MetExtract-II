@@ -461,7 +461,7 @@ class PeakPickingSettingsDialog(QtWidgets.QDialog):
         """Build the post-processing peak filter group box."""
         grp = QtWidgets.QGroupBox("Post-processing peak filters (applied to all algorithms)")
         grp.setCheckable(True)
-        grp.setChecked(False)
+        grp.setChecked(True)
         grp.setToolTip("When enabled, peaks outside the given criteria are discarded after peak picking (applied to all algorithms).")
         self.grp_peak_filter = grp
         form = QtWidgets.QFormLayout(grp)
@@ -469,7 +469,7 @@ class PeakPickingSettingsDialog(QtWidgets.QDialog):
 
         self.pf_min_peak_width = QtWidgets.QDoubleSpinBox()
         self.pf_min_peak_width.setRange(0.0, 999999.0)
-        self.pf_min_peak_width.setValue(0.0)
+        self.pf_min_peak_width.setValue(3.0)
         self.pf_min_peak_width.setDecimals(2)
         self.pf_min_peak_width.setSuffix(" sec")
         self.pf_min_peak_width.setToolTip("Minimum chromatographic peak width (seconds). Peaks narrower than this are discarded.")
@@ -479,7 +479,7 @@ class PeakPickingSettingsDialog(QtWidgets.QDialog):
 
         self.pf_max_peak_width = QtWidgets.QDoubleSpinBox()
         self.pf_max_peak_width.setRange(0.0, 999999.0)
-        self.pf_max_peak_width.setValue(9999.0)
+        self.pf_max_peak_width.setValue(50.0)
         self.pf_max_peak_width.setDecimals(2)
         self.pf_max_peak_width.setSuffix(" sec")
         self.pf_max_peak_width.setToolTip("Maximum chromatographic peak width (seconds). Peaks wider than this are discarded.")
@@ -489,7 +489,7 @@ class PeakPickingSettingsDialog(QtWidgets.QDialog):
 
         self.pf_min_fwhm = QtWidgets.QDoubleSpinBox()
         self.pf_min_fwhm.setRange(0.0, 999999.0)
-        self.pf_min_fwhm.setValue(0.0)
+        self.pf_min_fwhm.setValue(2.0)
         self.pf_min_fwhm.setDecimals(2)
         self.pf_min_fwhm.setSuffix(" sec")
         self.pf_min_fwhm.setToolTip("Minimum Full Width at Half Maximum (seconds). Peaks with FWHM below this are discarded.")
@@ -499,7 +499,7 @@ class PeakPickingSettingsDialog(QtWidgets.QDialog):
 
         self.pf_max_fwhm = QtWidgets.QDoubleSpinBox()
         self.pf_max_fwhm.setRange(0.0, 999999.0)
-        self.pf_max_fwhm.setValue(9999.0)
+        self.pf_max_fwhm.setValue(10.0)
         self.pf_max_fwhm.setDecimals(2)
         self.pf_max_fwhm.setSuffix(" sec")
         self.pf_max_fwhm.setToolTip("Maximum Full Width at Half Maximum (seconds). Peaks with FWHM above this are discarded.")
@@ -509,7 +509,7 @@ class PeakPickingSettingsDialog(QtWidgets.QDialog):
 
         self.pf_min_apex_to_flank_factor = QtWidgets.QDoubleSpinBox()
         self.pf_min_apex_to_flank_factor.setRange(0.0, 10000.0)
-        self.pf_min_apex_to_flank_factor.setValue(0.0)
+        self.pf_min_apex_to_flank_factor.setValue(3.0)
         self.pf_min_apex_to_flank_factor.setDecimals(2)
         self.pf_min_apex_to_flank_factor.setSingleStep(0.5)
         self.pf_min_apex_to_flank_factor.setToolTip("Minimum ratio of apex intensity to the lowest flank intensity. Peaks where apex / min(left boundary, right boundary) is below this factor are discarded. Set to 0 to disable.")
@@ -519,7 +519,7 @@ class PeakPickingSettingsDialog(QtWidgets.QDialog):
 
         self.pf_min_apex_to_flank_increase = QtWidgets.QDoubleSpinBox()
         self.pf_min_apex_to_flank_increase.setRange(0.0, 1e12)
-        self.pf_min_apex_to_flank_increase.setValue(0.0)
+        self.pf_min_apex_to_flank_increase.setValue(100000.0)
         self.pf_min_apex_to_flank_increase.setDecimals(1)
         self.pf_min_apex_to_flank_increase.setSingleStep(100.0)
         self.pf_min_apex_to_flank_increase.setToolTip("Minimum absolute intensity difference between the apex and the lowest flank. Peaks where apex \u2212 min(left boundary, right boundary) is below this value are discarded. Set to 0 to disable.")
@@ -529,7 +529,7 @@ class PeakPickingSettingsDialog(QtWidgets.QDialog):
 
         self.pf_min_snr = QtWidgets.QDoubleSpinBox()
         self.pf_min_snr.setRange(0.0, 10000.0)
-        self.pf_min_snr.setValue(0.0)
+        self.pf_min_snr.setValue(3.0)
         self.pf_min_snr.setDecimals(2)
         self.pf_min_snr.setSingleStep(0.5)
         self.pf_min_snr.setToolTip("Minimum signal-to-noise ratio for accepting a peak. Peaks with SNR below this threshold are discarded. Set to 0 to disable.")
@@ -867,14 +867,14 @@ class PeakPickingSettingsDialog(QtWidgets.QDialog):
         self.mf_min_distance.setValue(s.get("mf_min_distance", 5))
 
         # Peak width / FWHM filter
-        self.grp_peak_filter.setChecked(s.get("pf_enabled", False))
-        self.pf_min_peak_width.setValue(s.get("pf_min_peak_width", 0.0))
-        self.pf_max_peak_width.setValue(s.get("pf_max_peak_width", 9999.0))
-        self.pf_min_fwhm.setValue(s.get("pf_min_fwhm", 0.0))
-        self.pf_max_fwhm.setValue(s.get("pf_max_fwhm", 9999.0))
-        self.pf_min_apex_to_flank_factor.setValue(s.get("pf_min_apex_to_flank_factor", 0.0))
-        self.pf_min_apex_to_flank_increase.setValue(s.get("pf_min_apex_to_flank_increase", 0.0))
-        self.pf_min_snr.setValue(s.get("pf_min_snr", 0.0))
+        self.grp_peak_filter.setChecked(s.get("pf_enabled", True))
+        self.pf_min_peak_width.setValue(s.get("pf_min_peak_width", 3.0))
+        self.pf_max_peak_width.setValue(s.get("pf_max_peak_width", 50.0))
+        self.pf_min_fwhm.setValue(s.get("pf_min_fwhm", 2.0))
+        self.pf_max_fwhm.setValue(s.get("pf_max_fwhm", 10.0))
+        self.pf_min_apex_to_flank_factor.setValue(s.get("pf_min_apex_to_flank_factor", 3.0))
+        self.pf_min_apex_to_flank_increase.setValue(s.get("pf_min_apex_to_flank_increase", 100000.0))
+        self.pf_min_snr.setValue(s.get("pf_min_snr", 3.0))
 
     def _collect_settings(self) -> dict:
         """Read all controls and return a flat settings dict."""
@@ -935,7 +935,7 @@ class PeakPickingSettingsDialog(QtWidgets.QDialog):
         self.accept()
 
     def _restore_defaults(self):
-        self._load_settings({})
+        self._load_settings(self.get_default_settings())
 
     def get_settings(self) -> dict:
         """Return the last accepted settings dict."""
@@ -945,19 +945,24 @@ class PeakPickingSettingsDialog(QtWidgets.QDialog):
     def get_default_settings() -> dict:
         """Return default settings."""
         return {
-            "algorithm": "wavelettransform",
+            "algorithm": "gradientdescent",
+            "gd_smoothing_method": "gaussian",
+            "gd_smoothing_window": 5,
+            "gd_smoothing_iterations": 1,
+            "gd_min_increase_ratio": 0.05,
+            "gd_consecutive_scans": 3,
             "wt_min_scale": 11,
             "wt_max_scale": 19,
             "wt_num_scales": 8,
             "wt_min_ridge_length": 4,
             "wt_gap_threshold": 2,
             "pf_enabled": True,
-            "pf_min_peak_width": 1.0,
-            "pf_max_peak_width": 10.0,
-            "pf_min_fwhm": 1.0,
-            "pf_max_fwhm": 3.0,
-            "pf_min_apex_to_flank_factor": 10.0,
-            "pf_min_apex_to_flank_increase": 10000.0,
+            "pf_min_peak_width": 3.0,
+            "pf_max_peak_width": 50.0,
+            "pf_min_fwhm": 2.0,
+            "pf_max_fwhm": 10.0,
+            "pf_min_apex_to_flank_factor": 3.0,
+            "pf_min_apex_to_flank_increase": 100000.0,
             "pf_min_snr": 3.0,
         }
 

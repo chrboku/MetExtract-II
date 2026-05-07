@@ -215,6 +215,14 @@ def bracketResults(
             excel_data[fname + "_L_startRT"] = []
             excel_data[fname + "_L_apexRT"] = []
             excel_data[fname + "_L_endRT"] = []
+            excel_data[fname + "_N_FWHM"] = []
+            excel_data[fname + "_L_FWHM"] = []
+            excel_data[fname + "_N_PeakWidth"] = []
+            excel_data[fname + "_L_PeakWidth"] = []
+            excel_data[fname + "_N_ApexToFlankFactor"] = []
+            excel_data[fname + "_L_ApexToFlankFactor"] = []
+            excel_data[fname + "_N_ApexToFlankIncrease"] = []
+            excel_data[fname + "_L_ApexToFlankIncrease"] = []
             excel_data[fname + "_peaksRatio"] = []
             excel_data[fname + "_artificialEICLShift"] = []
             excel_data[fname + "_FID"] = []
@@ -234,6 +242,14 @@ def bracketResults(
             excel_data_dTypes[fname + "_L_startRT"] = pl.Utf8
             excel_data_dTypes[fname + "_L_apexRT"] = pl.Utf8
             excel_data_dTypes[fname + "_L_endRT"] = pl.Utf8
+            excel_data_dTypes[fname + "_N_FWHM"] = pl.Utf8
+            excel_data_dTypes[fname + "_L_FWHM"] = pl.Utf8
+            excel_data_dTypes[fname + "_N_PeakWidth"] = pl.Utf8
+            excel_data_dTypes[fname + "_L_PeakWidth"] = pl.Utf8
+            excel_data_dTypes[fname + "_N_ApexToFlankFactor"] = pl.Utf8
+            excel_data_dTypes[fname + "_L_ApexToFlankFactor"] = pl.Utf8
+            excel_data_dTypes[fname + "_N_ApexToFlankIncrease"] = pl.Utf8
+            excel_data_dTypes[fname + "_L_ApexToFlankIncrease"] = pl.Utf8
             excel_data_dTypes[fname + "_peaksRatio"] = pl.Utf8
             excel_data_dTypes[fname + "_artificialEICLShift"] = pl.Utf8
             excel_data_dTypes[fname + "_FID"] = pl.Utf8
@@ -421,6 +437,10 @@ def bracketResults(
                                             N_endRT=float(row["N_endRT"]) if row.get("N_endRT") is not None else float(row["NPeakCenterMin"]),
                                             L_startRT=float(row["L_startRT"]) if row.get("L_startRT") is not None else float(row["LPeakCenterMin"]),
                                             L_endRT=float(row["L_endRT"]) if row.get("L_endRT") is not None else float(row["LPeakCenterMin"]),
+                                            N_FWHM=float(row["N_FWHM"]) if row.get("N_FWHM") is not None else 0.0,
+                                            L_FWHM=float(row["L_FWHM"]) if row.get("L_FWHM") is not None else 0.0,
+                                            N_Baseline=float(row["N_Baseline"]) if row.get("N_Baseline") is not None else 0.0,
+                                            L_Baseline=float(row["L_Baseline"]) if row.get("L_Baseline") is not None else 0.0,
                                             artificialEICLShift=int(row["artificialEICLShift"]),
                                             peaksRatio=float(row["peaksRatio"]),
                                             peaksCorr=float(row["peaksCorr"]),
@@ -860,6 +880,14 @@ def bracketResults(
                                                             excel_data[fname + "_L_startRT"].append(";".join([str(getattr(peak[1], "L_startRT", peak[1].LPeakCenterMin) / 60.0) for peak in groupedChromPeaks[i][res]]))
                                                             excel_data[fname + "_L_apexRT"].append(";".join([str(peak[1].LPeakCenterMin / 60.0) for peak in groupedChromPeaks[i][res]]))
                                                             excel_data[fname + "_L_endRT"].append(";".join([str(getattr(peak[1], "L_endRT", peak[1].LPeakCenterMin) / 60.0) for peak in groupedChromPeaks[i][res]]))
+                                                            excel_data[fname + "_N_FWHM"].append(";".join([str(getattr(peak[1], "N_FWHM", 0.0) / 60.0) for peak in groupedChromPeaks[i][res]]))
+                                                            excel_data[fname + "_L_FWHM"].append(";".join([str(getattr(peak[1], "L_FWHM", 0.0) / 60.0) for peak in groupedChromPeaks[i][res]]))
+                                                            excel_data[fname + "_N_PeakWidth"].append(";".join([str((getattr(peak[1], "N_endRT", peak[1].NPeakCenterMin) - getattr(peak[1], "N_startRT", peak[1].NPeakCenterMin)) / 60.0) for peak in groupedChromPeaks[i][res]]))
+                                                            excel_data[fname + "_L_PeakWidth"].append(";".join([str((getattr(peak[1], "L_endRT", peak[1].LPeakCenterMin) - getattr(peak[1], "L_startRT", peak[1].LPeakCenterMin)) / 60.0) for peak in groupedChromPeaks[i][res]]))
+                                                            excel_data[fname + "_N_ApexToFlankFactor"].append(";".join([str(float(peak[1].NPeakAbundance) / max(getattr(peak[1], "N_Baseline", 0.0), 1.0)) for peak in groupedChromPeaks[i][res]]))
+                                                            excel_data[fname + "_L_ApexToFlankFactor"].append(";".join([str(float(peak[1].LPeakAbundance) / max(getattr(peak[1], "L_Baseline", 0.0), 1.0)) for peak in groupedChromPeaks[i][res]]))
+                                                            excel_data[fname + "_N_ApexToFlankIncrease"].append(";".join([str(float(peak[1].NPeakAbundance) - getattr(peak[1], "N_Baseline", 0.0)) for peak in groupedChromPeaks[i][res]]))
+                                                            excel_data[fname + "_L_ApexToFlankIncrease"].append(";".join([str(float(peak[1].LPeakAbundance) - getattr(peak[1], "L_Baseline", 0.0)) for peak in groupedChromPeaks[i][res]]))
                                                             excel_data[fname + "_peaksRatio"].append(";".join([str(peak[1].peaksRatio) for peak in groupedChromPeaks[i][res]]))
                                                             excel_data[fname + "_artificialEICLShift"].append(";".join([str(peak[1].artificialEICLShift) for peak in groupedChromPeaks[i][res]]))
                                                             excel_data[fname + "_FID"].append(";".join([str(peak[1].id) for peak in groupedChromPeaks[i][res]]))
@@ -880,6 +908,14 @@ def bracketResults(
                                                             excel_data[fname + "_L_startRT"].append(None)
                                                             excel_data[fname + "_L_apexRT"].append(None)
                                                             excel_data[fname + "_L_endRT"].append(None)
+                                                            excel_data[fname + "_N_FWHM"].append(None)
+                                                            excel_data[fname + "_L_FWHM"].append(None)
+                                                            excel_data[fname + "_N_PeakWidth"].append(None)
+                                                            excel_data[fname + "_L_PeakWidth"].append(None)
+                                                            excel_data[fname + "_N_ApexToFlankFactor"].append(None)
+                                                            excel_data[fname + "_L_ApexToFlankFactor"].append(None)
+                                                            excel_data[fname + "_N_ApexToFlankIncrease"].append(None)
+                                                            excel_data[fname + "_L_ApexToFlankIncrease"].append(None)
                                                             excel_data[fname + "_peaksRatio"].append(None)
                                                             excel_data[fname + "_artificialEICLShift"].append(None)
                                                             excel_data[fname + "_FID"].append(None)

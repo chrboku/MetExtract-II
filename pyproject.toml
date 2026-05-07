@@ -84,3 +84,8 @@ disallow_untyped_defs = true
 [tool.ruff]
 # Allow lines to be as long as 120.
 line-length = 300
+
+[tool.pytest.ini_options]
+pythonpath = [
+  "src"
+]

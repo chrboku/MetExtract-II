@@ -2608,6 +2608,25 @@ class Ui_MainWindow(object):
         self.plMSMSWidget_exp.setObjectName(_fromUtf8("plMSMSWidget_exp"))
         self.gridLayout_msms_exp.addWidget(self.splitter_msms_exp, 0, 0, 1, 1)
         self.tabWidget_3.addTab(self.tab_msms_exp, _fromUtf8(""))
+
+        # Peak details tab
+        self.tab_peak_details = QtWidgets.QWidget()
+        self.tab_peak_details.setObjectName(_fromUtf8("tab_peak_details"))
+        self.gridLayout_peak_details = QtWidgets.QGridLayout(self.tab_peak_details)
+        self.gridLayout_peak_details.setObjectName(_fromUtf8("gridLayout_peak_details"))
+        self.splitter_peak_details = QtWidgets.QSplitter(self.tab_peak_details)
+        self.splitter_peak_details.setOrientation(QtCore.Qt.Vertical)
+        self.splitter_peak_details.setObjectName(_fromUtf8("splitter_peak_details"))
+        self.tableWidget_peakDetails_perSample = QtWidgets.QTableWidget(self.splitter_peak_details)
+        self.tableWidget_peakDetails_perSample.setObjectName(_fromUtf8("tableWidget_peakDetails_perSample"))
+        self.tableWidget_peakDetails_perSample.setAlternatingRowColors(True)
+        self.tableWidget_peakDetails_perSample.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        self.tableWidget_peakDetails_perGroup = QtWidgets.QTableWidget(self.splitter_peak_details)
+        self.tableWidget_peakDetails_perGroup.setObjectName(_fromUtf8("tableWidget_peakDetails_perGroup"))
+        self.tableWidget_peakDetails_perGroup.setAlternatingRowColors(True)
+        self.tableWidget_peakDetails_perGroup.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        self.gridLayout_peak_details.addWidget(self.splitter_peak_details, 0, 0, 1, 1)
+        self.tabWidget_3.addTab(self.tab_peak_details, _fromUtf8(""))
         self.gridLayout_40.addWidget(self.tabWidget_3, 3, 1, 1, 1)
         self.scrollArea.setWidget(self.scrollAreaWidgetContents)
         self.gridLayout_2.addWidget(self.scrollArea, 0, 0, 1, 1)
@@ -3281,6 +3300,10 @@ class Ui_MainWindow(object):
         self.tabWidget_3.setTabText(
             self.tabWidget_3.indexOf(self.tab_msms_exp),
             _translate("MainWindow", "MS/MS", None),
+        )
+        self.tabWidget_3.setTabText(
+            self.tabWidget_3.indexOf(self.tab_peak_details),
+            _translate("MainWindow", "Peak details", None),
         )
         self.tabWidget.setTabText(
             self.tabWidget.indexOf(self.bracketedResultsTab),
