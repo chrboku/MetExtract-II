@@ -28,6 +28,7 @@ class groupEdit(QtWidgets.QDialog, Ui_GroupEditor):
         self.addFolder.setVisible(False)
         self.addFolder.clicked.connect(self.selectFolder)
         self.removeSelected.clicked.connect(self.removeSel)
+        self.useAsMSMSTarget.setVisible(False)
 
         self.colors = list(colors)
 
@@ -130,7 +131,7 @@ class groupEdit(QtWidgets.QDialog, Ui_GroupEditor):
         self._colorButton.setStyleSheet("background-color: %s; color: %s; border: 1px solid gray; padding: 2px 8px;" % (qc.name(), fg))
 
     def getUseAsMSMSTarget(self):
-        return bool(self.useAsMSMSTarget.checkState() == QtCore.Qt.Checked)
+        return False
 
     def selectFiles(self):
         filenames = QtWidgets.QFileDialog.getOpenFileNames(
@@ -199,10 +200,7 @@ class groupEdit(QtWidgets.QDialog, Ui_GroupEditor):
         else:
             self.removeAsFalsePositive.setCheckState(QtCore.Qt.Unchecked)
 
-        if useAsMSMSTarget:
-            self.useAsMSMSTarget.setCheckState(QtCore.Qt.Checked)
-        else:
-            self.useAsMSMSTarget.setCheckState(QtCore.Qt.Unchecked)
+        self.useAsMSMSTarget.setCheckState(QtCore.Qt.Unchecked)
 
         self.dialogFinished.setFocus()
         return self.exec()

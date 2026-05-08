@@ -13,7 +13,7 @@ License: GNU General Public License v2 (GPLv2)
 """
 
 import matplotlib
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6 import QtGui, QtWidgets
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -28,7 +28,6 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSplitter,
-    QTableWidget,
     QTableWidgetItem,
     QTreeWidget,
     QTreeWidgetItem,
@@ -44,9 +43,12 @@ from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as Navigatio
 from matplotlib.figure import Figure
 from matplotlib.widgets import RectangleSelector
 from scipy.cluster.hierarchy import dendrogram
+from .wheel_safe_widgets import CtrlWheelComboBox
 from .statisticsModule import DataQualityAnalysis, MultivariateAnalysis, SelectionManager, StatisticsData, UnivariateAnalysis
 
 matplotlib.use("Qt5Agg")
+
+QComboBox = CtrlWheelComboBox
 
 
 class AddComparisonDialog(QDialog):
@@ -248,12 +250,18 @@ class InteractiveVolcanoCanvas(FigureCanvas):
     def set_volcano_data(self, data: Dict[str, Any]):
         """Set the volcano plot data and redraw."""
         self.volcano_data = data
-        self.draw_volcano()
+        self.draw_volcano(preserve_view=False)
 
-    def draw_volcano(self):
+    def draw_volcano(self, preserve_view: bool = False):
         """Draw the volcano plot."""
         if self.volcano_data is None:
             return
+
+        old_xlim = None
+        old_ylim = None
+        if preserve_view and self.axes.has_data():
+            old_xlim = self.axes.get_xlim()
+            old_ylim = self.axes.get_ylim()
 
         if not self.volcano_data.get("success", False):
             # Show error message
@@ -320,6 +328,10 @@ class InteractiveVolcanoCanvas(FigureCanvas):
         self.axes.set_ylabel("-log₁₀(p-value)")
         self.axes.set_title("Volcano Plot")
 
+        if old_xlim is not None and old_ylim is not None:
+            self.axes.set_xlim(old_xlim)
+            self.axes.set_ylim(old_ylim)
+
         self.fig.tight_layout()
         self.draw()
 
@@ -327,12 +339,12 @@ class InteractiveVolcanoCanvas(FigureCanvas):
         """Update highlighted points."""
         if indices is not None:
             self.highlighted_indices = indices
-        self.draw_volcano()
+        self.draw_volcano(preserve_view=True)
 
     def clear_highlighting(self):
         """Clear all highlighting."""
         self.highlighted_indices = []
-        self.draw_volcano()
+        self.draw_volcano(preserve_view=True)
 
 
 class MultiVolcanoWidget(QWidget):
@@ -434,168 +446,182 @@ class NumericTableWidgetItem(QTableWidgetItem):
         return super().__lt__(other)
 
 
-class SelectedFeaturesTable(QTableWidget):
-    """Table widget for displaying selected features."""
+class SelectedFeaturesTable(QTreeWidget):
+    """Tree-like view for selected features, grouped by Group ID."""
 
     viewFeatureRequested = Signal(int, str)  # Signal to view feature in experiment results
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setColumnCount(13)
-        self.setHorizontalHeaderLabels(["Feature ID", "Group ID", "m/z", "RT", "Log2 FC", "p-value", "G1 Mean", "G1 Median", "G1 SD", "G2 Mean", "G2 Median", "G2 SD", "Index"])
-        self.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.setHeaderLabels(["Feature ID", "Group ID", "m/z (Total)", "RT (Sig ↑)", "Log2 FC (Sig ↓)", "p-value", "G1 Mean", "G1 Median", "G1 SD", "G2 Mean", "G2 Median", "G2 SD", "Index"])
+        self.header().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.setSelectionMode(QAbstractItemView.ExtendedSelection)
-        self.setStyleSheet("QTableWidget::item:selected { background-color: rgba(80, 200, 80, 120); color: black; }")
-        self.setSortingEnabled(True)
+        self.setStyleSheet("QTreeWidget::item:selected { background-color: rgba(80, 200, 80, 120); color: black; }")
+        self.setSortingEnabled(False)
         self.feature_data = []
+        self._feature_item_by_id = {}
+
+    @staticmethod
+    def _format_numeric(value, fmt):
+        if value == "N/A":
+            return "N/A"
+        try:
+            return fmt.format(float(value))
+        except (ValueError, TypeError):
+            return str(value)
+
+    @staticmethod
+    def _group_sort_key(group_id):
+        try:
+            return (0, int(float(group_id)))
+        except (ValueError, TypeError):
+            return (1, str(group_id))
+
+    def _make_feature_item(self, idx, feature_metadata, group_stats):
+        feature_pair_id = "N/A"
+        feature_group_id = "N/A"
+        mz = "N/A"
+        rt = "N/A"
+        fc = "N/A"
+        pval = "N/A"
+
+        if feature_metadata:
+            feature_pair_id = feature_metadata.get("featurePairID", {}).get(idx, "N/A")
+            feature_group_id = feature_metadata.get("featureGroupID", {}).get(idx, "N/A")
+            mz = feature_metadata.get("mz", {}).get(idx, "N/A")
+            rt = feature_metadata.get("rt", {}).get(idx, "N/A")
+            fc = feature_metadata.get("log2_fc", {}).get(idx, "N/A")
+            pval = feature_metadata.get("pvalue", {}).get(idx, "N/A")
+
+        if group_stats and idx in group_stats.get("g1_mean", {}):
+            g1_mean = group_stats["g1_mean"][idx]
+            g1_median = group_stats["g1_median"][idx]
+            g1_sd = group_stats["g1_sd"][idx]
+        else:
+            g1_mean, g1_median, g1_sd = "N/A", "N/A", "N/A"
+
+        if group_stats and idx in group_stats.get("g2_mean", {}):
+            g2_mean = group_stats["g2_mean"][idx]
+            g2_median = group_stats["g2_median"][idx]
+            g2_sd = group_stats["g2_sd"][idx]
+        else:
+            g2_mean, g2_median, g2_sd = "N/A", "N/A", "N/A"
+
+        texts = [
+            str(feature_pair_id),
+            str(feature_group_id),
+            self._format_numeric(mz, "{:.4f}"),
+            self._format_numeric(rt, "{:.2f}"),
+            self._format_numeric(fc, "{:.3f}"),
+            self._format_numeric(pval, "{:.2e}"),
+            self._format_numeric(g1_mean, "{:.2e}"),
+            self._format_numeric(g1_median, "{:.2e}"),
+            self._format_numeric(g1_sd, "{:.2e}"),
+            self._format_numeric(g2_mean, "{:.2e}"),
+            self._format_numeric(g2_median, "{:.2e}"),
+            self._format_numeric(g2_sd, "{:.2e}"),
+            str(idx),
+        ]
+
+        item = QTreeWidgetItem(texts)
+        item.setData(0, Qt.UserRole, idx)
+        item.setData(1, Qt.UserRole, feature_group_id)
+        item.setData(0, Qt.UserRole + 1, feature_pair_id)
+        return item
 
     def update_features(self, indices: List[int], feature_metadata: Optional[Dict[str, Any]] = None, group_stats: Optional[Dict[str, Any]] = None, row_colors: Optional[Dict[int, Any]] = None):
-        """Update table with selected features."""
-        # Disable sorting during update to prevent issues
-        self.setSortingEnabled(False)
-
-        self.setRowCount(len(indices))
+        """Update grouped tree with selected features."""
+        self.clear()
         self.feature_data = []
+        self._feature_item_by_id = {}
 
-        for row, idx in enumerate(indices):
-            col = 0
-
+        grouped = {}
+        for idx in indices:
+            group_id = "N/A"
             if feature_metadata:
-                # Database IDs
-                feature_pair_id = feature_metadata.get("featurePairID", {}).get(idx, "N/A")
-                feature_group_id = feature_metadata.get("featureGroupID", {}).get(idx, "N/A")
+                group_id = feature_metadata.get("featureGroupID", {}).get(idx, "N/A")
+            grouped.setdefault(group_id, []).append(idx)
 
-                # Feature properties
-                mz = feature_metadata.get("mz", {}).get(idx, "N/A")
-                rt = feature_metadata.get("rt", {}).get(idx, "N/A")
-                fc = feature_metadata.get("log2_fc", {}).get(idx, "N/A")
-                pval = feature_metadata.get("pvalue", {}).get(idx, "N/A")
+        for group_id in sorted(grouped.keys(), key=self._group_sort_key):
+            group_label = f"Group {group_id}"
+            group_indices = grouped[group_id]
+            total = len(group_indices)
+            sig_higher = 0
+            sig_lower = 0
+            if row_colors:
+                for idx in group_indices:
+                    c = row_colors.get(idx)
+                    if c is not None:
+                        if c.red() > c.blue():
+                            sig_higher += 1
+                        elif c.blue() > c.red():
+                            sig_lower += 1
 
-                # Debug logging if metadata lookup fails
-                if mz == "N/A" or rt == "N/A":
-                    import logging
+            group_item = QTreeWidgetItem([group_label, str(group_id), str(total), str(sig_higher), str(sig_lower), "", "", "", "", "", "", "", ""])
+            group_item.setFlags(group_item.flags() & ~Qt.ItemIsSelectable)
+            self.addTopLevelItem(group_item)
 
-                    logging.debug(f"Feature {idx}: mz={mz}, rt={rt}")
-                    if feature_metadata.get("mz"):
-                        logging.debug(f"Available mz keys (first 5): {list(feature_metadata.get('mz', {}).keys())[:5]}")
-            else:
-                feature_pair_id, feature_group_id = "N/A", "N/A"
-                mz, rt, fc, pval = "N/A", "N/A", "N/A", "N/A"
+            for idx in group_indices:
+                feature_item = self._make_feature_item(idx, feature_metadata, group_stats)
+                group_item.addChild(feature_item)
+                self._feature_item_by_id[idx] = feature_item
 
-            # Column 0: Feature ID (featurePairID) - Numeric
-            self.setItem(row, col, NumericTableWidgetItem(feature_pair_id))
-            col += 1
+                if row_colors and idx in row_colors:
+                    brush = QtGui.QBrush(row_colors[idx])
+                    for c in range(self.columnCount()):
+                        feature_item.setBackground(c, brush)
 
-            # Column 1: Group ID (featureGroupID) - Numeric
-            self.setItem(row, col, NumericTableWidgetItem(feature_group_id))
-            col += 1
+                self.feature_data.append({"index": idx, "mz": feature_item.text(2), "rt": feature_item.text(3)})
 
-            # Column 2: m/z - Numeric
-            item = NumericTableWidgetItem(mz)
-            if mz != "N/A":
-                item.setText(f"{mz:.4f}")
-            self.setItem(row, col, item)
-            col += 1
+        self.expandAll()
 
-            # Column 3: RT - Numeric
-            item = NumericTableWidgetItem(rt)
-            if rt != "N/A":
-                item.setText(f"{rt:.2f}")
-            self.setItem(row, col, item)
-            col += 1
+    def select_feature_ids(self, feature_ids: List[int]):
+        self.clearSelection()
+        first_item = None
+        for fid in feature_ids:
+            item = self._feature_item_by_id.get(fid)
+            if item is None:
+                continue
+            item.setSelected(True)
+            if first_item is None:
+                first_item = item
 
-            # Column 4: Log2 FC - Numeric
-            item = NumericTableWidgetItem(fc)
-            if fc != "N/A":
-                item.setText(f"{fc:.3f}")
-            self.setItem(row, col, item)
-            col += 1
+        if first_item is not None:
+            self.scrollToItem(first_item)
+            self.setCurrentItem(first_item)
 
-            # Column 5: p-value - Numeric
-            item = NumericTableWidgetItem(pval)
-            if pval != "N/A":
-                item.setText(f"{pval:.2e}")
-            self.setItem(row, col, item)
-            col += 1
+    def get_selected_feature_ids(self) -> List[int]:
+        feature_ids = []
+        for item in self.selectedItems():
+            if item.childCount() > 0:
+                continue
+            fid = item.data(0, Qt.UserRole)
+            if fid is None:
+                continue
+            try:
+                feature_ids.append(int(fid))
+            except (ValueError, TypeError):
+                continue
+        return feature_ids
 
-            # Group 1 statistics (columns 6-8)
-            if group_stats and idx in group_stats.get("g1_mean", {}):
-                g1_mean = group_stats["g1_mean"][idx]
-                g1_median = group_stats["g1_median"][idx]
-                g1_sd = group_stats["g1_sd"][idx]
+    def get_current_feature_pair_id(self) -> Optional[int]:
+        item = self.currentItem()
+        if item is None or item.childCount() > 0:
+            selected = self.selectedItems()
+            item = selected[0] if selected else None
 
-                item = NumericTableWidgetItem(g1_mean)
-                if g1_mean != "N/A":
-                    item.setText(f"{g1_mean:.2e}")
-                self.setItem(row, col, item)
-                col += 1
+        if item is None or item.childCount() > 0:
+            return None
 
-                item = NumericTableWidgetItem(g1_median)
-                if g1_median != "N/A":
-                    item.setText(f"{g1_median:.2e}")
-                self.setItem(row, col, item)
-                col += 1
-
-                item = NumericTableWidgetItem(g1_sd)
-                if g1_sd != "N/A":
-                    item.setText(f"{g1_sd:.2e}")
-                self.setItem(row, col, item)
-                col += 1
-            else:
-                self.setItem(row, col, NumericTableWidgetItem("N/A"))
-                col += 1
-                self.setItem(row, col, NumericTableWidgetItem("N/A"))
-                col += 1
-                self.setItem(row, col, NumericTableWidgetItem("N/A"))
-                col += 1
-
-            # Group 2 statistics (columns 9-11)
-            if group_stats and idx in group_stats.get("g2_mean", {}):
-                g2_mean = group_stats["g2_mean"][idx]
-                g2_median = group_stats["g2_median"][idx]
-                g2_sd = group_stats["g2_sd"][idx]
-
-                item = NumericTableWidgetItem(g2_mean)
-                if g2_mean != "N/A":
-                    item.setText(f"{g2_mean:.2e}")
-                self.setItem(row, col, item)
-                col += 1
-
-                item = NumericTableWidgetItem(g2_median)
-                if g2_median != "N/A":
-                    item.setText(f"{g2_median:.2e}")
-                self.setItem(row, col, item)
-                col += 1
-
-                item = NumericTableWidgetItem(g2_sd)
-                if g2_sd != "N/A":
-                    item.setText(f"{g2_sd:.2e}")
-                self.setItem(row, col, item)
-                col += 1
-            else:
-                self.setItem(row, col, NumericTableWidgetItem("N/A"))
-                col += 1
-                self.setItem(row, col, NumericTableWidgetItem("N/A"))
-                col += 1
-                self.setItem(row, col, NumericTableWidgetItem("N/A"))
-                col += 1
-
-            # Column 12: Index (for internal reference) - Numeric
-            self.setItem(row, col, NumericTableWidgetItem(idx))
-
-            self.feature_data.append({"index": idx, "mz": mz, "rt": rt})
-
-            # Apply row background color
-            if row_colors and idx in row_colors:
-                brush = QtGui.QBrush(row_colors[idx])
-                for c in range(self.columnCount()):
-                    cell = self.item(row, c)
-                    if cell is not None:
-                        cell.setBackground(brush)
-
-        # Re-enable sorting after data is loaded
-        self.setSortingEnabled(True)
+        pair_id = item.data(0, Qt.UserRole + 1)
+        try:
+            if pair_id == "N/A":
+                return None
+            return int(float(pair_id))
+        except (ValueError, TypeError):
+            return None
 
 
 class StatisticsCanvas(FigureCanvas):
@@ -900,6 +926,27 @@ class StatisticsTabWidget(QWidget):
         self.current_canvas = canvas
         self.current_toolbar = toolbar
 
+    def _add_percentile_lines(self, ax, values: np.ndarray, percent_unit: bool = False):
+        """Add 10/25/50/75/90 percentile reference lines to a histogram axis."""
+        if values is None or len(values) == 0:
+            return
+
+        line_specs = [
+            (10, "P10", "#4C78A8", "--"),
+            (25, "P25", "#59A14F", "-."),
+            (50, "Median", "#E15759", "-"),
+            (75, "P75", "#F28E2B", "-."),
+            (90, "P90", "#B07AA1", "--"),
+        ]
+
+        for percentile, label, color, linestyle in line_specs:
+            val = float(np.percentile(values, percentile))
+            if percent_unit:
+                legend_label = f"{label}: {val:.1f}%"
+            else:
+                legend_label = f"{label}: {val:.2f}"
+            ax.axvline(val, color=color, linestyle=linestyle, linewidth=1.5, label=legend_label)
+
     def _show_rsd_plot(self):
         """Show RSD (Relative Standard Deviation) plot."""
         self._clear_visualization()
@@ -946,9 +993,7 @@ class StatisticsTabWidget(QWidget):
                 ax.tick_params(labelsize=7)
                 ax.grid(True, alpha=0.3, axis="y")
 
-                # Add median value as text
-                median_val = np.median(rsd_clean)
-                ax.axvline(median_val, color="red", linestyle="--", linewidth=2, label=f"Median: {median_val:.1f}%")
+                self._add_percentile_lines(ax, rsd_clean, percent_unit=True)
                 ax.legend(fontsize=7)
 
         # Hide unused subplots
@@ -1009,6 +1054,13 @@ class StatisticsTabWidget(QWidget):
                     ax.set_title(f"{group_name}", fontsize=9)
                     ax.tick_params(labelsize=7)
                     ax.grid(True, alpha=0.3, axis="y")
+
+                    all_values = group_data.values.flatten()
+                    positive_values = all_values[all_values > 0]
+                    if len(positive_values) > 0:
+                        log_values = np.log10(positive_values)
+                        self._add_percentile_lines(ax, log_values, percent_unit=False)
+                        ax.legend(fontsize=7)
 
         # Hide unused subplots
         for idx in range(n_groups, n_rows * n_cols):
@@ -1409,30 +1461,10 @@ class StatisticsTabWidget(QWidget):
             self._updating_from_volcano = False
 
     def _select_table_rows(self, feature_ids: List[int]):
-        """Select the table rows whose feature index matches one of feature_ids."""
+        """Select tree rows whose feature index matches one of feature_ids."""
         self._updating_from_volcano = True
         try:
-            feature_id_set = set(feature_ids)
-            sel_model = self.features_table.selectionModel()
-            sel_model.clearSelection()
-            first_row = None
-            for row in range(self.features_table.rowCount()):
-                idx_item = self.features_table.item(row, 12)
-                if idx_item is None:
-                    continue
-                try:
-                    row_fid = int(float(idx_item.text()))
-                except (ValueError, TypeError):
-                    continue
-                if row_fid in feature_id_set:
-                    sel_model.select(
-                        self.features_table.model().index(row, 0),
-                        QtCore.QItemSelectionModel.Select | QtCore.QItemSelectionModel.Rows,
-                    )
-                    if first_row is None:
-                        first_row = row
-            if first_row is not None:
-                self.features_table.scrollTo(self.features_table.model().index(first_row, 0))
+            self.features_table.select_feature_ids(feature_ids)
         finally:
             self._updating_from_volcano = False
 
@@ -1461,21 +1493,9 @@ class StatisticsTabWidget(QWidget):
             return
         # Build a reverse map: feature_id -> positional index
         feature_id_to_pos = {fid: pos for pos, fid in enumerate(feature_names)}
-        selected_rows = self.features_table.selectedItems()
-        seen_rows = set()
+        selected_feature_ids = self.features_table.get_selected_feature_ids()
         pos_indices = []
-        for item in selected_rows:
-            r = item.row()
-            if r in seen_rows:
-                continue
-            seen_rows.add(r)
-            idx_item = self.features_table.item(r, 12)  # Column 12 = Index (feature_id)
-            if idx_item is None:
-                continue
-            try:
-                feature_id = int(float(idx_item.text()))
-            except (ValueError, TypeError):
-                continue
+        for feature_id in selected_feature_ids:
             pos = feature_id_to_pos.get(feature_id)
             if pos is not None:
                 pos_indices.append(pos)
@@ -1492,21 +1512,11 @@ class StatisticsTabWidget(QWidget):
 
     def _view_selected_feature(self):
         """View the currently selected feature in experiment results."""
-        # Get the currently selected row in the features table
-        current_row = self.features_table.currentRow()
-        if current_row >= 0 and current_row < self.features_table.rowCount():
-            # Get the Feature ID from column 0 (featurePairID)
-            feature_id_item = self.features_table.item(current_row, 0)
-            if feature_id_item and feature_id_item.text() != "N/A":
-                try:
-                    feature_id = int(feature_id_item.text())
-                    self.showFeatureInExperiment.emit(feature_id)
-                except ValueError:
-                    QtWidgets.QMessageBox.warning(self, "Invalid Feature ID", "Could not parse Feature ID from table.")
-            else:
-                QtWidgets.QMessageBox.information(self, "No Feature ID", "Selected feature does not have a valid Feature ID.")
-        else:
+        feature_id = self.features_table.get_current_feature_pair_id()
+        if feature_id is None:
             QtWidgets.QMessageBox.information(self, "No Selection", "Please select a feature in the table first.")
+            return
+        self.showFeatureInExperiment.emit(feature_id)
 
     def _calculate_group_statistics(self, feature_ids: List[int], feature_names: List[int]) -> Dict[str, Dict[int, float]]:
         """Calculate mean, median, and SD for both groups in the current volcano comparison."""

@@ -33,6 +33,7 @@ from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as Navigatio
 from matplotlib.figure import Figure
 from PySide6 import QtCore, QtGui, QtWidgets
 from . import formulaTools, pyperclip
+from .utilities.AboutDialog import AboutDialog
 from .Chromatogram import Chromatogram
 from .FragExtract_processTarget import ProcessTarget
 from .mePyGuis.adductsEdit import ConfiguredAdduct, ConfiguredElement, adductsEdit
@@ -1187,13 +1188,13 @@ class FEMainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             webbrowser.open_new_tab(url)
 
     def showAbout(self):
-        lic = 'THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.'
-        QtWidgets.QMessageBox.information(
-            self,
-            "MetExtract",
-            "FragExtract %s\n\n(c) Centre for Analytical Chemistry, IFA Tulln\nUniversity of Natural Resources and Life Sciences, Vienna\n\n%s" % (MetExtractVersion, lic),
-            QtWidgets.QMessageBox.Ok,
+        dialog = AboutDialog(
+            parent=self,
+            app_name="FragExtract",
+            version=MetExtractVersion,
+            institute_name="CAC",
         )
+        dialog.exec()
 
     def saveCompilationHandler(self):
         groupFile = QtWidgets.QFileDialog.getSaveFileName(caption="Specify group file", filter="Group file (*.grp)")

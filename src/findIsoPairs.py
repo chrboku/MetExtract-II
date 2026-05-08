@@ -584,6 +584,7 @@ class FindIsoPairs:
                 "peaksRatioMPm1": pl.Float64,
                 "isotopesRatios": pl.Utf8,
                 "mzDiffErrors": pl.Utf8,
+                "isotopologRatios": pl.Utf8,
                 "peakType": pl.Utf8,
                 "assignedName": pl.Utf8,
                 "correlationsToOthers": pl.Utf8,
@@ -640,6 +641,7 @@ class FindIsoPairs:
                 "peaksRatioMPm1": pl.Float64,
                 "isotopesRatios": pl.Utf8,
                 "mzDiffErrors": pl.Utf8,
+                "isotopologRatios": pl.Utf8,
                 "peakType": pl.Utf8,
                 "assignedName": pl.Utf8,
                 "comment": pl.Utf8,
@@ -872,15 +874,46 @@ class FindIsoPairs:
     def writeSignalPairsToDB(self, mzs, mzxml, tracerID):
         db_con = PolarsDB(self.file + getDBSuffix(), format=getDBFormat())
 
-        pdata = {}
-        for slot in ["id", "mz", "lmz", "tmz", "xCount", "scanid", "scantime", "loading", "ionMode"]:
-            pdata[slot] = [cmz.__dict__[slot] for cmz in mzs]
-        pdata["tracer"] = [tracerID for cmz in mzs]
-        pdata["xcount"] = [cmz.__dict__["xCount"] for cmz in mzs]
-        pdata["intensity"] = [cmz.__dict__["nIntensity"] for cmz in mzs]
-        pdata["intensityL"] = [cmz.__dict__["lIntensity"] for cmz in mzs]
+        pdata = {
+            "id": [],
+            "tracer": [],
+            "mz": [],
+            "lmz": [],
+            "tmz": [],
+            "xcount": [],
+            "scanid": [],
+            "scantime": [],
+            "loading": [],
+            "intensity": [],
+            "intensityL": [],
+            "ionMode": [],
+        }
 
-        db_con.set_table("MZs", pl.DataFrame(pdata))
+        for mz in mzs:
+            mz.id = self.curMZId
+            mz.tid = tracerID
+
+            pdata["id"].append(mz.id)
+            pdata["tracer"].append(mz.tid)
+            pdata["mz"].append(mz.mz)
+            pdata["lmz"].append(mz.lmz)
+            pdata["tmz"].append(mz.tmz)
+            pdata["xcount"].append(mz.xCount)
+            pdata["scanid"].append(mz.scanid)
+            pdata["scantime"].append(mz.scantime)
+            pdata["loading"].append(mz.loading)
+            pdata["intensity"].append(mz.nIntensity)
+            pdata["intensityL"].append(mz.lIntensity)
+            pdata["ionMode"].append(mz.ionMode)
+
+            self.curMZId = self.curMZId + 1
+
+        new_mzs_df = pl.DataFrame(pdata)
+        existing_mzs_df = db_con.tables.get("MZs", pl.DataFrame())
+        if len(existing_mzs_df) > 0 and len(new_mzs_df) > 0:
+            db_con.set_table("MZs", pl.concat([existing_mzs_df, new_mzs_df], how="vertical_relaxed"))
+        elif len(new_mzs_df) > 0:
+            db_con.set_table("MZs", new_mzs_df)
 
         db_con.commit()
         db_con.close()
@@ -970,22 +1003,34 @@ class FindIsoPairs:
     def writeFeaturePairClustersToDB(self, mzbins):
         db_con = PolarsDB(self.file + getDBSuffix(), format=getDBFormat())
 
-        mzbins = {"id": [], "mz": [], "ionMode": []}
+        mzbins_data = {"id": [], "mz": [], "ionMode": []}
         mzbinskids = {"mzbinID": [], "mzID": []}
 
         for ionMode in ["+", "-"]:
             if ionMode in mzbins.keys():
                 for mzbin in mzbins[ionMode]:
-                    mzbins["id"].append(self.curMZBinId)
-                    mzbins["mz"].append(mzbin.getValue())
-                    mzbins["ionMode"].append(ionMode)
+                    mzbins_data["id"].append(self.curMZBinId)
+                    mzbins_data["mz"].append(mzbin.getValue())
+                    mzbins_data["ionMode"].append(ionMode)
                     for kid in mzbin.getKids():
                         mzbinskids["mzbinID"].append(self.curMZBinId)
                         mzbinskids["mzID"].append(kid.getObject().id)
                     self.curMZBinId = self.curMZBinId + 1
 
-        db_con.set_table("MZBins", pl.DataFrame(mzbins))
-        db_con.set_table("MZBinsKids", pl.DataFrame(mzbinskids))
+        new_mzbins_df = pl.DataFrame(mzbins_data)
+        new_mzbinskids_df = pl.DataFrame(mzbinskids)
+
+        existing_mzbins_df = db_con.tables.get("MZBins", pl.DataFrame())
+        if len(existing_mzbins_df) > 0 and len(new_mzbins_df) > 0:
+            db_con.set_table("MZBins", pl.concat([existing_mzbins_df, new_mzbins_df], how="vertical_relaxed"))
+        elif len(new_mzbins_df) > 0:
+            db_con.set_table("MZBins", new_mzbins_df)
+
+        existing_mzbinskids_df = db_con.tables.get("MZBinsKids", pl.DataFrame())
+        if len(existing_mzbinskids_df) > 0 and len(new_mzbinskids_df) > 0:
+            db_con.set_table("MZBinsKids", pl.concat([existing_mzbinskids_df, new_mzbinskids_df], how="vertical_relaxed"))
+        elif len(new_mzbinskids_df) > 0:
+            db_con.set_table("MZBinsKids", new_mzbinskids_df)
 
         db_con.commit()
         db_con.close()
@@ -1666,6 +1711,118 @@ class FindIsoPairs:
         valid_eic_ids = db_con.tables["chromPeaks"]["eicID"].unique().to_list()
         db_con.tables["XICs"] = db_con.tables["XICs"].filter(pl.col("id").is_in(valid_eic_ids))
 
+        db_con.commit()
+        db_con.close()
+
+    def _get_isotopolog_mass_diffs_from_formula_tools(self):
+        elem_details = formulaTools().elemDetails
+
+        required_isotopes = ["12C", "13C", "14N", "15N", "32S", "34S", "56Fe", "54Fe", "35Cl", "37Cl", "1H", "D", "16O", "18O"]
+        missing = [iso for iso in required_isotopes if iso not in elem_details]
+        if missing:
+            raise RuntimeError("Missing isotope definitions in formulaTools dictionary: %s" % ", ".join(missing))
+
+        return {
+            "13C": elem_details["13C"][3] - elem_details["12C"][3],
+            "15N": elem_details["15N"][3] - elem_details["14N"][3],
+            "34S": elem_details["34S"][3] - elem_details["32S"][3],
+            "54Fe": elem_details["54Fe"][3] - elem_details["56Fe"][3],
+            "37Cl": elem_details["37Cl"][3] - elem_details["35Cl"][3],
+            "D": elem_details["D"][3] - elem_details["1H"][3],
+            "18O": elem_details["18O"][3] - elem_details["16O"][3],
+        }
+
+    def calculateIsotopologRatiosForFeaturePairs(self, chromPeaks, mzxml, reportFunction=None):
+        """For each detected feature pair, extract EICs for isotopologs of M and M',
+        calculate peak area ratios within the respective peak boundaries, and store
+        the results as a dictionary in peak.isotopologRatios.
+
+        All M-based ratios are relative to the M peak area; all M'-based ratios are
+        relative to the M' peak area.
+        """
+        db_con = PolarsDB(self.file + getDBSuffix(), format=getDBFormat())
+
+        def _peak_area(eic, times, lb, rb):
+            rb = min(rb, len(eic) - 1)
+            lb = max(lb, 0)
+            if lb >= rb:
+                return 0.0
+            return float(np.trapz(eic[lb : rb + 1], times[lb : rb + 1]))
+
+        mass_diffs = self._get_isotopolog_mass_diffs_from_formula_tools()
+        m_isotopolog_offsets = [
+            ("M-13C2", -2 * mass_diffs["13C"]),
+            ("M-13C", -1 * mass_diffs["13C"]),
+            ("M+13C", +1 * mass_diffs["13C"]),
+            ("M+13C2", +2 * mass_diffs["13C"]),
+            ("M+15N", +1 * mass_diffs["15N"]),
+            ("M+34S", +1 * mass_diffs["34S"]),
+            ("M-54Fe", +1 * mass_diffs["54Fe"]),
+            ("M+37Cl", +1 * mass_diffs["37Cl"]),
+        ]
+        mp_isotopolog_offsets = [
+            ("Mp-13C2", -2 * mass_diffs["13C"]),
+            ("Mp-13C", -1 * mass_diffs["13C"]),
+            ("Mp+13C", +1 * mass_diffs["13C"]),
+            ("Mp+13C2", +2 * mass_diffs["13C"]),
+            ("Mp+15N", +1 * mass_diffs["15N"]),
+            ("Mp+34S", +1 * mass_diffs["34S"]),
+            ("Mp-54Fe", +1 * mass_diffs["54Fe"]),
+            ("Mp+37Cl", +1 * mass_diffs["37Cl"]),
+            ("Mp+D", +1 * mass_diffs["D"]),
+            ("Mp+18O", +1 * mass_diffs["18O"]),
+        ]
+
+        for i, peak in enumerate(chromPeaks):
+            if reportFunction is not None:
+                reportFunction(1.0 * i / len(chromPeaks), "%d features remaining" % (len(chromPeaks) - i))
+
+            scanEvent = self.positiveScanEvent if peak.ionMode == "+" else self.negativeScanEvent
+            loading = peak.loading
+
+            lb_N = max(0, peak.NPeakCenter - int(peak.NBorderLeft))
+            rb_N = peak.NPeakCenter + int(peak.NBorderRight)
+            lb_L = max(0, peak.LPeakCenter - int(peak.LBorderLeft))
+            rb_L = peak.LPeakCenter + int(peak.LBorderRight)
+
+            # Extract reference EICs for M and M'
+            eic_M, times_M, _, _ = mzxml.getEIC(peak.mz, self.chromPeakPPM, filterLine=scanEvent)
+            eic_Mp, times_Mp, _, _ = mzxml.getEIC(peak.lmz, self.chromPeakPPM, filterLine=scanEvent)
+            eic_M = np.asarray(eic_M, dtype=np.float64)
+            eic_Mp = np.asarray(eic_Mp, dtype=np.float64)
+            times_M = np.asarray(times_M, dtype=np.float64)
+            times_Mp = np.asarray(times_Mp, dtype=np.float64)
+
+            area_M = _peak_area(eic_M, times_M, lb_N, rb_N)
+            area_Mp = _peak_area(eic_Mp, times_Mp, lb_L, rb_L)
+
+            isotopolog_ratios = {}
+
+            for label, offset in m_isotopolog_offsets:
+                target_mz = peak.mz + offset / loading
+                eic_iso, times_iso, _, _ = mzxml.getEIC(target_mz, self.chromPeakPPM, filterLine=scanEvent)
+                eic_iso = np.asarray(eic_iso, dtype=np.float64)
+                times_iso = np.asarray(times_iso, dtype=np.float64)
+                area_iso = _peak_area(eic_iso, times_iso, lb_N, rb_N)
+                isotopolog_ratios[label] = area_iso / area_M if area_M > 0 else 0.0
+
+            for label, offset in mp_isotopolog_offsets:
+                target_mz = peak.lmz + offset / loading
+                eic_iso, times_iso, _, _ = mzxml.getEIC(target_mz, self.chromPeakPPM, filterLine=scanEvent)
+                eic_iso = np.asarray(eic_iso, dtype=np.float64)
+                times_iso = np.asarray(times_iso, dtype=np.float64)
+                area_iso = _peak_area(eic_iso, times_iso, lb_L, rb_L)
+                isotopolog_ratios[label] = area_iso / area_Mp if area_Mp > 0 else 0.0
+
+            peak.isotopologRatios = isotopolog_ratios
+
+        # Persist to DB
+        for peak in chromPeaks:
+            encoded = base64.b64encode(dumps(peak.isotopologRatios)).decode("utf-8")
+            db_con.tables["chromPeaks"] = db_con.tables["chromPeaks"].with_columns(pl.when(pl.col("id") == peak.id).then(pl.lit(encoded)).otherwise(pl.col("isotopologRatios")).alias("isotopologRatios"))
+            db_con.tables["allChromPeaks"] = db_con.tables["allChromPeaks"].with_columns(pl.when(pl.col("id") == peak.id).then(pl.lit(encoded)).otherwise(pl.col("isotopologRatios")).alias("isotopologRatios"))
+
+        self.printMessage("Isotopolog ratio calculation done.", type="info")
         db_con.commit()
         db_con.close()
 
@@ -3266,6 +3423,22 @@ class FindIsoPairs:
 
             self.printMessage(
                 "Calculations finished (%s%s).." % (hours, mins),
+                type="info",
+            )
+            # endregion
+
+            # region 7b. Calculate isotopolog ratios for each feature pair
+            ######################################################################################
+
+            self.postMessageToProgressWrapper("text", "Calculating isotopolog ratios")
+
+            def reportFunction(curVal, text):
+                self.postMessageToProgressWrapper("text", "Calculating isotopolog ratios (%s)" % text)
+
+            self.calculateIsotopologRatiosForFeaturePairs(chromPeaks, mzxml, reportFunction)
+
+            self.printMessage(
+                "Isotopolog ratio calculation done.",
                 type="info",
             )
             # endregion

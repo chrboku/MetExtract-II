@@ -102,7 +102,7 @@ class Ui_MainWindow(object):
         self.gridLayout_22.addWidget(self.label_42, 6, 0, 1, 1)
         self.groupsList = QtWidgets.QTableWidget(self.inputTab)
         self.groupsList.setColumnCount(8)
-        self.groupsList.setHorizontalHeaderLabels(["Name", "Files", "Color", "Min Found", "Omit Features", "Metabolite Grouping", "False Positive", "MSMS Target"])
+        self.groupsList.setHorizontalHeaderLabels(["Name", "Files", "Color", "Min Found", "Omit", "Grouping", "False Positive", "MSMS Target"])
         self.groupsList.horizontalHeader().setStretchLastSection(False)
         self.groupsList.horizontalHeader().setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
         for col in range(1, 8):
@@ -313,7 +313,7 @@ class Ui_MainWindow(object):
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.label_52.sizePolicy().hasHeightForWidth())
         self.label_52.setSizePolicy(sizePolicy)
-        self.label_52.setMaximumSize(QtCore.QSize(200, 16777215))
+        self.label_52.setMaximumSize(QtCore.QSize(140, 16777215))
         self.label_52.setStyleSheet(_fromUtf8("color: rgb(90, 90, 90);\nfont: 7pt;"))
         self.label_52.setAlignment(QtCore.Qt.AlignJustify | QtCore.Qt.AlignVCenter)
         self.label_52.setWordWrap(True)
@@ -392,7 +392,7 @@ class Ui_MainWindow(object):
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.label_58.sizePolicy().hasHeightForWidth())
         self.label_58.setSizePolicy(sizePolicy)
-        self.label_58.setMaximumSize(QtCore.QSize(200, 16777215))
+        self.label_58.setMaximumSize(QtCore.QSize(140, 16777215))
         self.label_58.setMouseTracking(True)
         self.label_58.setStyleSheet(_fromUtf8("color: rgb(90, 90, 90);\nfont: 7pt;"))
         self.label_58.setWordWrap(True)
@@ -414,8 +414,9 @@ class Ui_MainWindow(object):
         self.inputSplitter.setChildrenCollapsible(False)
         self.inputSplitter.addWidget(self.leftPanel)
         self.inputSplitter.addWidget(self.ticVisualisationWidget)
-        self.inputSplitter.setStretchFactor(0, 2)
-        self.inputSplitter.setStretchFactor(1, 3)
+        self.inputSplitter.setStretchFactor(0, 1)
+        self.inputSplitter.setStretchFactor(1, 4)
+        self.inputSplitter.setSizes([850, 1250])
         self.gridLayout_21.addWidget(self.inputSplitter, 0, 0, 2, 1)
         self.tabWidget.addTab(self.inputTab, _fromUtf8(""))
         self.pickingTab = QtWidgets.QWidget()
@@ -2685,6 +2686,8 @@ class Ui_MainWindow(object):
         self.actionIsotopic_enrichment.setObjectName(_fromUtf8("actionIsotopic_enrichment"))
         self.actionSet_working_directory = QtGui.QAction(MainWindow)
         self.actionSet_working_directory.setObjectName(_fromUtf8("actionSet_working_directory"))
+        self.actionDownload_OBO_files = QtGui.QAction(MainWindow)
+        self.actionDownload_OBO_files.setObjectName(_fromUtf8("actionDownload_OBO_files"))
         self.openTempDir = QtGui.QAction(MainWindow)
         self.openTempDir.setObjectName(_fromUtf8("openTempDir"))
         self.actionShow_summary_of_previous_current_results = QtGui.QAction(MainWindow)
@@ -2701,6 +2704,7 @@ class Ui_MainWindow(object):
         self.menuTools.addAction(self.actionIsotopic_enrichment)
         self.menuTools.addSeparator()
         self.menuTools.addAction(self.actionSet_working_directory)
+        self.menuTools.addAction(self.actionDownload_OBO_files)
         self.menuTools.addSeparator()
         self.menuTools.addAction(self.openTempDir)
         self.menuTools.addSeparator()
@@ -2871,7 +2875,7 @@ class Ui_MainWindow(object):
         self.label_53.setText(
             _translate(
                 "MainWindow",
-                "<html><head/><body><p>Please specify the settings for your experiment</p><p>The section &quot;Labeling&quot; provides options for describing the experiment's stable isotopic labeling.</p><p>The section &quot;MZ picking&quot; and &quot;MZ clustering&quot; describe the parameters of your HRMS device</p><p>The section &quot;MZ processing&quot; describes your LC device and are parameters used for peak picking</p><p>The results of each measurement is automatically saved in tabular format to &lt;FileName&gt;.tsv. Additionally the results can be saved as &lt;FileName&gt;.pdf with graphical illustrations. </p><p>For some LC-HRMS devices it is also possible to save &lt;FileName&gt;.mzXML files. These files only include those mass peaks originating from the labeling process</p></body></html>",
+                "<html><head/><body><p>Please specify the settings for your experiment</p><p>The section &quot;Labeling&quot; provides options for describing the experiment's stable isotopic labeling.</p><p>The section &quot;MZ picking&quot; and &quot;MZ clustering&quot; describe the parameters of your HRMS device</p><p>The section &quot;MZ processing&quot; describes your LC device and are parameters used for peak picking</p><p>The results of each measurement is automatically saved in tabular format to &lt;FileName&gt;.xlsx. Additionally the results can be saved as &lt;FileName&gt;.pdf with graphical illustrations. </p><p>For some LC-HRMS devices it is also possible to save &lt;FileName&gt;.mzXML files. These files only include those mass peaks originating from the labeling process</p></body></html>",
                 None,
             )
         )
@@ -3325,6 +3329,7 @@ class Ui_MainWindow(object):
         self.helpMenue.setText(_translate("MainWindow", "Help", None))
         self.actionIsotopic_enrichment.setText(_translate("MainWindow", "Isotopic enrichment", None))
         self.actionSet_working_directory.setText(_translate("MainWindow", "Set working directory", None))
+        self.actionDownload_OBO_files.setText(_translate("MainWindow", "Download OBO files", None))
         self.openTempDir.setText(_translate("MainWindow", "Open temporary directory (logfile and caches)", None))
         self.actionShow_summary_of_previous_current_results.setText(_translate("MainWindow", "Show overview of results", None))
 

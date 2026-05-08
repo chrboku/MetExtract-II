@@ -611,6 +611,9 @@ class ChromPeakPair:
         if "isotopeRatios" in args:
             self.isotopeRatios = args["isotopeRatios"]
             argsUsed += 1
+        if "isotopologRatios" in args:
+            self.isotopologRatios = args["isotopologRatios"]
+            argsUsed += 1
         if "mzDiffErrors" in args:
             self.mzDiffErrors = args["mzDiffErrors"]
             argsUsed += 1

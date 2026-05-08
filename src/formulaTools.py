@@ -191,6 +191,8 @@ class formulaTools:
             self.elemDetails["15N"] = ["Nitrogen", "N", 15, 15.0001088982, 0.00364]
             self.elemDetails["Os"] = ["Osmium", "Os", 192, 191.961487, 0.41]
             self.elemDetails["O"] = ["Oxygen", "O", 16, 15.994915, 0.9976]
+            self.elemDetails["16O"] = ["Oxygen", "O", 16, 15.994915, 0.9976]
+            self.elemDetails["18O"] = ["Oxygen", "O", 18, 17.99915961286, 0.00205]  # 2.004245
             self.elemDetails["Pd"] = ["Palladium", "Pd", 106, 105.903475, 0.2733]
             self.elemDetails["P"] = ["Phosphorus", "P", 31, 30.973763, 1.00]
             self.elemDetails["Pt"] = ["Platinum", "Pt", 195, 194.964785, 0.338]
@@ -216,6 +218,7 @@ class formulaTools:
             self.elemDetails["Na"] = ["Sodium", "Na", 23, 22.98977, 1.00]
             self.elemDetails["Sr"] = ["Strontium", "Sr", 88, 87.905625, 0.8258]
             self.elemDetails["S"] = ["Sulfur", "S", 32, 31.972072, 0.9502]
+            self.elemDetails["32S"] = ["Sulfur", "S", 32, 31.972072, 0.9502]
             self.elemDetails["34S"] = ["Sulfur", "S", 34, 33.967868, 0.0421]  # 1.995796
 
             self.elemDetails["Ta"] = ["Tantalum", "Ta", 181, 180.948014, 0.9999]

@@ -17,6 +17,7 @@
 
 
 from __future__ import absolute_import, division, print_function
+import asyncio
 import os
 import shutil
 import subprocess
@@ -52,6 +53,7 @@ from matplotlib.figure import Figure
 from matplotlib.ticker import ScalarFormatter
 from .utils import get_app_folder, get_main_dir, getDBFormat, getDBSuffix
 from . import LoggingSetup
+from .utilities.AboutDialog import AboutDialog
 from .mePyGuis.adductsEdit import adductsEdit, ConfiguredAdduct, ConfiguredElement
 from .mePyGuis.calcIsoEnrichmentDialog import calcIsoEnrichmentDialog
 from .mePyGuis.groupEdit import groupEdit
@@ -91,6 +93,7 @@ app = None
 
 # Set local folder for MetExtract II
 local_folder = get_app_folder()
+OBO_DOWNLOAD_URL = "https://bioportal.bioontology.org/ontologies/MS"
 if __name__ == "__main__":
     print(f"Using local folder '{local_folder}'")
 
@@ -369,6 +372,36 @@ def loadMZXMLFile(params):
     ret["mzXMLFile"] = mzXML
 
     return ret
+
+
+# Custom data role used to store the relative intensity ratio (float 0.0–1.0) on tree items.
+_RELATIVE_BAR_ROLE = QtCore.Qt.ItemDataRole.UserRole + 50
+
+
+class _RelativeBarDelegate(QtWidgets.QStyledItemDelegate):
+    """Paints a faint green bar filling the left portion of the cell proportional to the stored ratio."""
+
+    _COLOR_FILL = QtGui.QColor(80, 180, 80, 120)  # green bar
+    _COLOR_BG = QtGui.QColor(200, 240, 200, 50)  # very faint green background tint
+
+    def paint(self, painter, option, index):
+        super().paint(painter, option, index)
+
+        ratio = index.data(_RELATIVE_BAR_ROLE)
+        try:
+            ratio = float(ratio)
+        except (TypeError, ValueError):
+            ratio = 0.0
+
+        if ratio > 0.0:
+            ratio = min(ratio, 1.0)
+            painter.save()
+            rect = option.rect
+            # Draw after default painting so it also remains visible on selected rows.
+            painter.fillRect(rect, self._COLOR_BG)
+            bar = QtCore.QRect(rect.x(), rect.y(), max(1, int(rect.width() * ratio)), rect.height())
+            painter.fillRect(bar, self._COLOR_FILL)
+            painter.restore()
 
 
 class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
@@ -850,8 +883,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         fpWidget = tbl.cellWidget(row, 6)
         removeAsFalsePositive = fpWidget.findChild(QCheckBox).isChecked() if fpWidget else False
 
-        msmsWidget = tbl.cellWidget(row, 7)
-        useAsMSMSTarget = msmsWidget.findChild(QCheckBox).isChecked() if msmsWidget else False
+        # MSMS target selection is intentionally disabled in the UI.
+        useAsMSMSTarget = False
 
         return SampleGroup(name, files, minFound, omitFeatures, useForMetaboliteGrouping, removeAsFalsePositive, color, useAsMSMSTarget)
 
@@ -969,8 +1002,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         cb6.stateChanged.connect(lambda state, cb=cb6: self._propagateCheckboxChange(cb, 6))
         tbl.setCellWidget(row, 6, container6)
 
-        # Col 7 – useAsMSMSTarget
-        container7, cb7 = self._makeCenteredCheckbox(useAsMSMSTarget)
+        # Col 7 – useAsMSMSTarget (kept for backward compatibility, hidden in UI)
+        container7, cb7 = self._makeCenteredCheckbox(False)
         cb7.stateChanged.connect(lambda state, cb=cb7: self._propagateCheckboxChange(cb, 7))
         tbl.setCellWidget(row, 7, container7)
 
@@ -1020,6 +1053,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         atPos=None,
         useAsMSMSTarget=False,
     ):
+        useAsMSMSTarget = False
         self.loadedMZXMLs = None
 
         failed = defaultdict(list)
@@ -1157,9 +1191,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.updateLCMSSampleSettings()
         self.grpFileEdited = True
 
-    # Double-click on name column opens file-edit dialog; other columns are inline-editable
+    # Double-click on files column opens group-edit dialog; name/minFound remain inline-editable
     def editGroup(self, index):
-        if index.column() != 0:
+        if index.column() != 1:
             return
         self.loadedMZXMLs = None
         row = index.row()
@@ -1181,7 +1215,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             == QtWidgets.QDialog.Accepted
         ):
             self.ui.groupsList.removeRow(row)
-            self.ui.groupsList.insertRow(row)
             self.addGroup(
                 name=t.getGroupName(),
                 files=t.getGroupFiles(),
@@ -1190,7 +1223,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 useForMetaboliteGrouping=t.getUseForMetaboliteGrouping(),
                 removeAsFalsePositive=t.getRemoveAsFalsePositive(),
                 color=str(t.getGroupColor()),
-                useAsMSMSTarget=t.getUseAsMSMSTarget(),
+                useAsMSMSTarget=False,
                 atPos=row,
             )
             self.updateLCMSSampleSettings()
@@ -1606,6 +1639,19 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     fp_with_counts = group_results_df.join(found_counts, left_on="id", right_on="resID", how="left")
                     fp_with_counts = fp_with_counts.sort("mz")
 
+                # Build max-normalized abundance ratios per group: ratio = Average_peakarea / group max.
+                exp_ratio_by_num = {}
+                if "Average_peakarea" in group_results_df.columns and "OGroup" in group_results_df.columns and "Num" in group_results_df.columns:
+                    _grp_max = {row["OGroup"]: float(row["_max"]) for row in group_results_df.group_by("OGroup").agg(pl.col("Average_peakarea").max().alias("_max")).to_dicts() if row.get("_max") is not None and float(row["_max"]) > 0.0}
+                    for row in group_results_df.select(["Num", "OGroup", "Average_peakarea"]).to_dicts():
+                        gmax = _grp_max.get(row["OGroup"])
+                        avg_area = row.get("Average_peakarea")
+                        if gmax is not None and avg_area is not None:
+                            exp_ratio_by_num[row["Num"]] = float(avg_area) / gmax
+                elif "Relative_peakarea_in_group" in group_results_df.columns and "Num" in group_results_df.columns:
+                    # Fallback only when average peak area is unavailable.
+                    exp_ratio_by_num = {row["Num"]: float(row["Relative_peakarea_in_group"]) for row in group_results_df.select(["Num", "Relative_peakarea_in_group"]).to_dicts() if row.get("Relative_peakarea_in_group") is not None}
+
                 for row_dict in group_results_df.to_dicts():
                     # Count N_found_Samples from per-file _Found columns or use pre-computed value
                     n_found_samples = row_dict.get("N_found_Samples")
@@ -1639,7 +1685,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     except Exception:
                         pass
                     try:
-                        title = "%s / %.1f%%" % (title, row_dict.get("Relative_peakarea_in_group", -1) * 100.0)
+                        rel_ratio = exp_ratio_by_num.get(fp.id)
+                        if rel_ratio is not None:
+                            title = "%s / %.1f%%" % (title, rel_ratio * 100.0)
                     except Exception:
                         pass
                     try:
@@ -1691,6 +1739,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
                     kids.append((featurePair, -1, fp.metaboliteGroupID))
 
+                # Build a lookup {Num -> relative_ratio} for the bar delegate.
+                # Reuse the same max-normalized lookup for delegate bars.
+                _exp_bar_ratio = exp_ratio_by_num
+
                 for fg in set([k[2] for k in kids]):
                     ckids = sorted(
                         [k for k in kids if k[2] == fg],
@@ -1698,6 +1750,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         reverse=True,
                     )
                     for kid in ckids:
+                        ratio = _exp_bar_ratio.get(kid[0].bunchData.id)
+                        if ratio is not None:
+                            kid[0].setData(0, _RELATIVE_BAR_ROLE, float(ratio))
                         metaboliteGroupTreeItems[kid[2]].addChild(kid[0])
 
                 for grpID in metaboliteGroupTreeItems.keys():
@@ -1721,8 +1776,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def closeLoadedGroupsResultsFile(self):
         if hasattr(self, "experimentResults"):
             self.ui.resultsExperiment_TreeWidget.clear()
-            if self.experimentResults.db_con is not None:
-                self.experimentResults.db_con.close()
+            self.experimentResults.db_con = None
             delattr(self, "experimentResults")
 
     def _showFeatureInExperimentResults(self, feature_index: int):
@@ -2827,7 +2881,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         grpFile = QtWidgets.QFileDialog.getSaveFileName(
             caption="Select groups file",
             dir=self.lastOpenDir,
-            filter="TSV file (*.tsv);;CSV file (*.csv);;All files (*.*)",
+            filter="Excel file(*.xlsx);;TSV file (*.tsv);;CSV file (*.csv);;All files (*.*)",
         )
         if len(grpFile) > 0:
             self.lastOpenDir = str(grpFile).replace("\\", "/")
@@ -2842,7 +2896,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         msmsTargetFile = QtWidgets.QFileDialog.getSaveFileName(
             caption="Select MSMS target file",
             dir=self.lastOpenDir,
-            filter="TSV file (*.tsv);;CSV file (*.csv);;All files (*.*)",
+            filter="Excel file(*.xlsx);;TSV file (*.tsv);;CSV file (*.csv);;All files (*.*)",
         )
         if len(msmsTargetFile) > 0:
             self.lastOpenDir = str(msmsTargetFile).replace("\\", "/")
@@ -2876,13 +2930,13 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         subprocess.Popen('explorer "' + local_folder)
 
     def aboutMe(self):
-        lic = 'THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.'
-        QtWidgets.QMessageBox.information(
-            self,
-            "MetExtract",
-            "MetExtract %s\n\n(c) Institute for Bioanalytics and Agrometabolomics (iBAM), IFA-Tulln\nUniversity of Natural Resources and Life Sciences, Vienna\n\n%s" % (MetExtractVersion, lic),
-            QtWidgets.QMessageBox.Ok,
+        dialog = AboutDialog(
+            parent=self,
+            app_name="MetExtract",
+            version=MetExtractVersion,
+            institute_name="iBAM",
         )
+        dialog.exec()
 
     # open local MetExtract documentation
     # taken from http://stackoverflow.com/questions/4216985/call-to-operating-system-to-open-url
@@ -2896,7 +2950,40 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         else:
             webbrowser.open_new_tab(url)
 
+    def openOboDownloadPage(self):
+        import webbrowser
+
+        webbrowser.open_new_tab(OBO_DOWNLOAD_URL)
+
     # helper method for multiprocessing module of LC-HRMS file processing
+    def _send_desktop_notification(self, title, message):
+        """Send a non-blocking desktop notification using desktop-notifier."""
+
+        def _runner():
+            try:
+                from desktop_notifier import DesktopNotifier
+            except Exception as ex:
+                logging.warning(f"desktop-notifier import failed: {ex}")
+                return
+
+            async def _send_async():
+                notifier = DesktopNotifier(app_name="MetExtract II")
+                await notifier.send(title=title, message=message)
+
+            try:
+                asyncio.run(_send_async())
+            except RuntimeError:
+                # Fallback for environments where an event loop is already running.
+                loop = asyncio.new_event_loop()
+                try:
+                    loop.run_until_complete(_send_async())
+                finally:
+                    loop.close()
+            except Exception as ex:
+                logging.warning(f"Failed to send desktop notification: {ex}")
+
+        threading.Thread(target=_runner, daemon=True).start()
+
     def runProcess(self, dontSave=False, askStarting=True):
         self.terminateJobs = False
 
@@ -3033,7 +3120,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         if self.terminateJobs:
             return
-
         overallStart = time.time()
 
         writeMZXMLOptions = 0
@@ -3962,13 +4048,17 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         else:
             logging.warning("Processing finished with %d errors (%s%s)..\n" % (errorCount, hours, mins))
 
+        notification_msg = "Processing finished in %s%s" % (hours, mins)
+        if errorCount > 0:
+            notification_msg = "Processing finished with %d errors in %s%s" % (errorCount, hours, mins)
+        self._send_desktop_notification("MetExtract II", notification_msg)
+
         QtWidgets.QMessageBox.information(
             self,
             "MetExtract II",
             "Processing finished %sin %s%s" % ("(%d errors) " % errorCount if errorCount > 0 else "", hours, mins),
             QtWidgets.QMessageBox.Ok,
         )
-
         self.loadGroupsResultsFile(str(self.ui.groupsSave.text()))
 
     def showResultsSummary(self):
@@ -4205,6 +4295,29 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.label_18.setEnabled(sta)
         self.ui.groupingRT.setEnabled(sta)
 
+    def _configureExperimentalGroupsTableColumns(self):
+        header = self.ui.groupsList.horizontalHeader()
+        header.setStretchLastSection(False)
+        header.setMinimumSectionSize(55)
+        header.setSectionsMovable(False)
+
+        # Keep MSMS target column for backward compatibility but hide it from the UI.
+        self.ui.groupsList.setColumnHidden(7, True)
+
+        # Keep all columns user-resizable and apply sensible defaults:
+        # Name much wider, other metadata columns compact.
+        for col in range(self.ui.groupsList.columnCount()):
+            header.setSectionResizeMode(col, QtWidgets.QHeaderView.Interactive)
+
+        self.ui.groupsList.setColumnWidth(0, 160)  # Name
+        self.ui.groupsList.setColumnWidth(1, 50)  # Files
+        self.ui.groupsList.setColumnWidth(2, 50)  # Color
+        self.ui.groupsList.setColumnWidth(3, 70)  # Min Found
+        self.ui.groupsList.setColumnWidth(4, 60)  # Omit Features
+        self.ui.groupsList.setColumnWidth(5, 60)  # Metabolite Grouping
+        self.ui.groupsList.setColumnWidth(6, 80)  # False Positive
+        self.ui.groupsList.setColumnWidth(7, 90)  # MSMS Target (hidden)
+
     def saveMZXMLChanged(self, sta):
         self.ui.wm_ia.setEnabled(sta)
         self.ui.wm_iap.setEnabled(sta)
@@ -4226,8 +4339,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     # <editor-fold desc="### visualisation of results of single sample">
     def closeCurrentOpenResultsFile(self):
         if hasattr(self, "currentOpenResultsFile") and self.currentOpenResultsFile is not None:
-            if hasattr(self.currentOpenResultsFile, "db_con") and self.currentOpenResultsFile.db_con is not None:
-                self.currentOpenResultsFile.db_con.close()
             self.currentOpenResultsFile.file = None
             self.currentOpenResultsFile = None
         if hasattr(self, "currentOpenRawFile") and self.currentOpenRawFile is not None:
@@ -4342,75 +4453,110 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 it = QtWidgets.QTreeWidgetItem(["MZ bins"])
                 it.myType = "MZBins"
                 self.ui.res_ExtractedData.addTopLevelItem(it)
-                mzbins = []
-
-                mzbins_df = self.currentOpenResultsFile.db_con.tables.get("MZBins", pl.DataFrame())
-                if len(mzbins_df) > 0:
-                    mzbins_sorted = mzbins_df.sort("mz")
-                    for row_dict in mzbins_sorted.to_dicts():
-                        mzbins.append(Bunch(**row_dict))
+                mzbins_df = self._get_result_table("MZBins", "mzbins")
 
                 count = 0
                 children = []
 
-                ## Load mz bins
-                pw.setText("Fetching MZBins (%d)" % len(mzbins), i=2)
-                pw.setMax(len(mzbins), i=2)
-                if numberOfMZs < maxMZsFetch:
-                    mzbins_kids_df = self.currentOpenResultsFile.db_con.tables.get("MZBinsKids", pl.DataFrame())
+                ## Load mz bins — build all Qt items first, then add them to the tree in one shot.
+                pw.setText("Fetching MZBins (%d)" % len(mzbins_df), i=2)
+                pw.setMax(len(mzbins_df), i=2)
 
-                    for mzbin in mzbins:
-                        d = QtWidgets.QTreeWidgetItem([str(mzbin.mz)])
-                        d.myType = "mzbin"
-                        d.myID = int(mzbin.id)
-                        children.append(d)
-                        countinner = 0
-                        minInner = 1000000.0
-                        maxInner = 0.0
+                mzbins_kids_df = self._get_result_table("MZBinsKids", "mzbinskids")
+                mzbin_id_col = self._resolve_col_name(mzbins_kids_df, "mzbinID", "mzbinid")
+                mz_id_col = self._resolve_col_name(mzbins_kids_df, "mzID", "mzid")
+                mz_id_join_col = self._resolve_col_name(mzs_df, "id")
+                can_load_child_mzs = numberOfMZs < maxMZsFetch
+
+                # Build lookup dictionaries in Python using foreign keys.
+                mzbins_rows = mzbins_df.sort("mz").to_dicts() if len(mzbins_df) > 0 else []
+                kids_rows = []
+                if len(mzbins_kids_df) > 0 and mzbin_id_col is not None:
+                    if mz_id_col is not None:
+                        kids_rows = mzbins_kids_df.select([mzbin_id_col, mz_id_col]).to_dicts()
+                    else:
+                        kids_rows = mzbins_kids_df.select([mzbin_id_col]).to_dicts()
+
+                mzs_by_bin = {}
+                kids_count_by_bin = {}
+                kids_by_bin = {}
+                for kid in kids_rows:
+                    bid = kid[mzbin_id_col]
+                    kids_by_bin.setdefault(bid, []).append(kid)
+                for bid, bid_kids in kids_by_bin.items():
+                    kids_count_by_bin[bid] = len(bid_kids)
+
+                if can_load_child_mzs and len(mzs_df) > 0 and mz_id_col is not None and mz_id_join_col is not None:
+                    mz_rows = mzs_df.select([mz_id_join_col, "mz", "xcount", "scanid", "scantime", "loading", "intensity"]).to_dicts()
+                    mz_by_id = {row[mz_id_join_col]: row for row in mz_rows}
+                    for bid, bid_kids in kids_by_bin.items():
+                        mapped_rows = []
+                        for kid in bid_kids:
+                            mz_row = mz_by_id.get(kid[mz_id_col])
+                            if mz_row is not None:
+                                mapped_rows.append(mz_row)
+                        if mapped_rows:
+                            mapped_rows.sort(key=lambda row: row["scanid"])
+                            mzs_by_bin[bid] = mapped_rows
+
+                self.ui.res_ExtractedData.setUpdatesEnabled(False)
+                try:
+                    for mzbin_row in mzbins_rows:
+                        mzbin_id = mzbin_row.get("id") or mzbin_row.get("ID")
+                        mzbin_mz = mzbin_row.get("mz") or mzbin_row.get("MZ") or 0.0
+                        if mzbin_id is None:
+                            continue
+
+                        mz_rows = mzs_by_bin.get(mzbin_id, [])
+                        countinner = kids_count_by_bin.get(mzbin_id, len(mz_rows))
+                        min_inner = 1000000.0
+                        max_inner = 0.0
                         xcount = 0
 
-                        # Join MZs with MZBinsKids to get MZs for this bin
-                        if len(mzbins_kids_df) > 0 and len(mzs_df) > 0:
-                            kids_for_bin = mzbins_kids_df.filter(pl.col("mzbinID") == mzbin.id)
-                            if len(kids_for_bin) > 0:
-                                mz_ids = kids_for_bin["mzID"].to_list()
-                                mzs_in_bin = mzs_df.filter(pl.col("id").is_in(mz_ids)).sort("scanid")
+                        d = QtWidgets.QTreeWidgetItem()
+                        d.myType = "mzbin"
+                        d.myID = int(mzbin_id)
+                        children.append(d)
 
-                                for mz_row in mzs_in_bin.to_dicts():
-                                    minInner = min(float(mz_row["mz"]), minInner)
-                                    maxInner = max(maxInner, mz_row["mz"])
-                                    xcount = mz_row["xcount"]
-                                    if numberOfMZs < maxMZsFetch:
-                                        dd = QtWidgets.QTreeWidgetItem(
-                                            [
-                                                str(s)
-                                                for s in [
-                                                    mz_row["mz"],
-                                                    mz_row["xcount"],
-                                                    mz_row["scanid"],
-                                                    "%.2f min / %.2f sec" % (mz_row["scantime"] / 60.0, mz_row["scantime"]),
-                                                    mz_row["loading"],
-                                                    "%.1f" % mz_row["intensity"],
-                                                ]
-                                            ]
-                                        )
-                                        dd.myType = "mz"
-                                        dd.myData = Bunch(**mz_row)
-                                        dd.myID = int(mz_row["id"])
-                                        d.addChild(dd)
-                                    countinner += 1
+                        if mz_rows:
+                            child_items = []
+                            for mz_row in mz_rows:
+                                mz_mz = mz_row["mz"]
+                                if mz_mz < min_inner:
+                                    min_inner = mz_mz
+                                if mz_mz > max_inner:
+                                    max_inner = mz_mz
+                                xcount = mz_row["xcount"]
+                                dd = QtWidgets.QTreeWidgetItem(
+                                    [
+                                        str(mz_mz),
+                                        str(xcount),
+                                        str(mz_row["scanid"]),
+                                        "%.2f min / %.2f sec" % (mz_row["scantime"] / 60.0, mz_row["scantime"]),
+                                        str(mz_row["loading"]),
+                                        "%.1f" % mz_row["intensity"],
+                                    ]
+                                )
+                                dd.myType = "mz"
+                                dd.myData = Bunch(mz=mz_mz, scantime=mz_row["scantime"], id=mz_row[mz_id_join_col])
+                                dd.myID = int(mz_row[mz_id_join_col])
+                                child_items.append(dd)
+                            d.addChildren(child_items)
 
-                        d.setText(0, "%.5f (%d)" % (mzbin.mz, countinner))
-                        d.setText(1, "%.4f" % ((maxInner - minInner) * 1000000.0 / minInner) if minInner > 0 else "0.0")
+                        d.setText(0, "%.5f (%d)" % (mzbin_mz, countinner))
+                        d.setText(1, "%.4f" % ((max_inner - min_inner) * 1000000.0 / min_inner) if min_inner < 1000000.0 else "0.0")
                         d.setText(2, "%s" % xcount)
                         count += 1
-                        pw.setValueu(count, i=2)
+                finally:
+                    self.ui.res_ExtractedData.setUpdatesEnabled(True)
+
+                if can_load_child_mzs:
                     pw.setText("%d MZBins fetched" % count, i=2)
                 else:
-                    pw.setTextu("MZBins not fetched (too many; %d)" % len(mzbins), i=2)
+                    pw.setTextu("%d MZBins fetched (child MZ details skipped; too many MZs: %d)" % (count, numberOfMZs), i=2)
 
                 it.addChildren(children)
-                it.setText(1, "%d" % len(mzbins))
+                it.setText(1, "%d" % len(mzbins_df))
 
             except Exception:
                 logging.warning("Error loading MZBins for sample results", exc_info=True)
@@ -4644,19 +4790,11 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             # INNER JOIN with tracerConfiguration
                             cp_fg_tracer = cp_fg_join.join(tracer_df.select(["id", "name"]), left_on="tracer", right_on="id", how="inner", suffix="_tracer")
 
-                            # Sort based on sortOrder
-                            sort_map = {
-                                "M/Z": "mz",
-                                "RT": "mz",
-                                "Intensity": "NPeakArea",
-                                "Peaks correlation": "peaksCorr",
-                            }
-                            sort_col = sort_map.get(sortOrder, "mz")
+                            # Always sort feature pairs in feature groups by Area_N abundance.
+                            cp_fg_tracer = cp_fg_tracer.sort(["NPeakArea", "mz", "xcount"], descending=[True, False, False])
 
-                            if sortOrder in ["Intensity", "Peaks correlation"]:
-                                cp_fg_tracer = cp_fg_tracer.sort([sort_col, "mz", "xcount"], descending=[True, False, False])
-                            else:
-                                cp_fg_tracer = cp_fg_tracer.sort([sort_col, "mz", "xcount"])
+                            # Pre-compute max NPeakArea so we can set relative bar ratios below
+                            group_max_area = cp_fg_tracer["NPeakArea"].max() or 0.0
 
                             for row_dict in cp_fg_tracer.to_dicts():
                                 row = Bunch(**row_dict)
@@ -4774,6 +4912,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                                 g.myType = "feature"
                                 g.myID = int(row.cpID)
                                 g.myData = xp
+                                if group_max_area > 0.0:
+                                    g.setData(0, _RELATIVE_BAR_ROLE, float(row.NPeakArea) / group_max_area)
                                 d.addChild(g)
 
                                 sumRt = sumRt + xp.NPeakCenterMin
@@ -5317,6 +5457,36 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
             return dmz, purN, purL
 
+    def _get_result_table(self, *table_names):
+        """Return the first matching results table, case-insensitive, or an empty DataFrame."""
+        tables = self.currentOpenResultsFile.db_con.tables
+        for table_name in table_names:
+            if table_name in tables:
+                return tables[table_name]
+
+        lowered = {str(name).lower(): name for name in tables.keys()}
+        for table_name in table_names:
+            match = lowered.get(str(table_name).lower())
+            if match is not None:
+                return tables[match]
+
+        return pl.DataFrame()
+
+    def _resolve_col_name(self, df, *candidate_names):
+        """Resolve a column name in a DataFrame, case-insensitive."""
+        if len(df) == 0:
+            return None
+
+        col_map = {str(col).lower(): col for col in df.columns}
+        for name in candidate_names:
+            if name in df.columns:
+                return name
+            match = col_map.get(str(name).lower())
+            if match is not None:
+                return match
+
+        return None
+
     def selectedResChanged(self):
         annotationPPM = self.ui.doubleSpinBox_isotopologAnnotationPPM.value()
 
@@ -5836,11 +6006,14 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                                 add=30,
                             )
 
+                        cp_loading = int(cp.loading)
+                        cp_xcount = int(cp.xCount)
+
                         for row_dict in (
                             self.currentOpenResultsFile.db_con.tables["chromPeaks"]
                             .join(self.currentOpenResultsFile.db_con.tables["featureGroupFeatures"], left_on="id", right_on="fID", how="left")
                             .join(self.currentOpenResultsFile.db_con.tables["featureGroups"], left_on="fGroupID", right_on="id", how="left")
-                            .filter((pl.col("mz") >= cp.mz * (1 - 15 / 1000000.0)) & (pl.col("mz") <= cp.mz * (1 + 15 / 1000000.0)) & (pl.col("Loading") == cp.loading) & (pl.col("xcount") == str(cp.xCount)))
+                            .filter((pl.col("mz") >= cp.mz * (1 - 15 / 1000000.0)) & (pl.col("mz") <= cp.mz * (1 + 15 / 1000000.0)) & (pl.col("Loading").cast(pl.Int64, strict=False) == cp_loading) & (pl.col("xcount").cast(pl.Int64, strict=False) == cp_xcount))
                             .select([pl.col("id").alias("c_id"), pl.col("eicID"), pl.col("NPeakCenterMin"), pl.col("NPeakCenter"), pl.col("mz"), pl.col("xcount"), pl.col("Loading").alias("loading"), pl.col("featureName").alias("FGroupID")])
                             .to_dicts()
                         ):
@@ -10380,6 +10553,13 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
         self.setWindowTitle("MetExtract II - %s" % module)
+
+        # Install relative-intensity bar delegate on column 0 of both result trees
+        self._relative_bar_delegate_sample = _RelativeBarDelegate(self)
+        self.ui.res_ExtractedData.setItemDelegateForColumn(0, self._relative_bar_delegate_sample)
+        self._relative_bar_delegate_experiment = _RelativeBarDelegate(self)
+        self.ui.resultsExperiment_TreeWidget.setItemDelegateForColumn(0, self._relative_bar_delegate_experiment)
+
         self.checkedLCMSFiles = {}
 
         self.silent = silent
@@ -10786,7 +10966,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.alignChromatograms.setToolTip("RT alignment has been removed")
         self.ui.alignChromatograms.toggled.connect(self.alignToggled)
 
-        self.ui.groupsSave.setText("./results.tsv")
+        self.ui.groupsSave.setText("./results.xlsx")
         self.ui.msms_fileLocation.setText("./MSMStargets.tsv")
 
         self.ui.addGroup.clicked.connect(self.showAddGroupDialogClicked)
@@ -10796,6 +10976,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.ui.groupsList.doubleClicked.connect(self.editGroup)
         self.ui.groupsList.itemChanged.connect(self._onGroupTableItemChanged)
+        self._configureExperimentalGroupsTableColumns()
 
         self.ui.startIdentification.clicked.connect(self.runProcess)
 
@@ -10810,6 +10991,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.ui.actionIsotopic_enrichment.triggered.connect(self.showCalcIsoEnrichmentDialog)
         self.ui.actionSet_working_directory.triggered.connect(self.setWorkingDirectoryDialog)
+        self.ui.actionDownload_OBO_files.triggered.connect(self.openOboDownloadPage)
 
         self.ui.aboutMenue.triggered.connect(self.aboutMe)
         self.ui.actionShow_summary_of_previous_current_results.triggered.connect(self.showResultsSummary)
@@ -11229,19 +11411,16 @@ def main():
         QtWidgets.QMessageBox.information(
             None,
             "MetExtract",
-            "When you start a new experiment, please change the working directory to your experimental folder.\nYou can set the working directory via the menu ('Tools'->'Set working directory')\n\nPlease also consider copying any databases or other resources to that folder for documentation",
-            QtWidgets.QMessageBox.Ok,
-        )
-        QtWidgets.QMessageBox.warning(
-            None,
-            "MetExtract",
-            "WARNING\n\nPlease be careful to not accidently change parameters with your mouse wheel when hovering over a parameter setting (e.g. ppm value). \n\nThis bug is currently not fixed in MetExtract II.",
-            QtWidgets.QMessageBox.Ok,
-        )
-        QtWidgets.QMessageBox.warning(
-            None,
-            "MetExtract",
-            "NOTE\n\nIf you try to import mzML files and get the error that an OBO file is missing, please find the correct version at \nhttps://bioportal.bioontology.org/ontologies/MS.\nPlease download the corresponding obo-file and save it to the folder in the error message",
+            "When you start a new experiment, please <b>change the<br>working directory</b> to your experimental folder.<br>"
+            + "You can set the working directory via the menu<br>('Tools'->'Set working directory').<br>"
+            + "<br>"
+            + "Please also consider <b>copying</b> any databases or<br>other resources to your working directory.<br>"
+            + "<br>"
+            + "To quickly change the values of drop-down and<br>integer/float spinner controls, <b>hold the CTRL-key<br>and use the mouse-wheel</b>.<br>"
+            + "<br>"
+            + f"If importing mzML files results in the error<br>of missing files, please find the correct version at<br><b>{OBO_DOWNLOAD_URL}</b>.<br>"
+            + "Please download the corresponding obo-file and<br>save it to the folder in the error message.<br>"
+            + "You can also open this page via the menu<br>(<b>'Tools'->'Download OBO files'</b>).",
             QtWidgets.QMessageBox.Ok,
         )
 

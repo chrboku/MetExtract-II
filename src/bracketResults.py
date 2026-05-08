@@ -1,13 +1,17 @@
 from __future__ import absolute_import, division, print_function
+import base64
 import datetime
+import json
 import logging
 import os
+import statistics
 import time
 import uuid
 from collections import OrderedDict, defaultdict
 from math import isnan
 from multiprocessing import Manager, Pool
 from operator import itemgetter
+from pickle import loads as pickle_loads
 import polars as pl
 from reportlab.graphics import renderPDF
 from reportlab.graphics.charts.lineplots import LinePlot
@@ -55,6 +59,36 @@ def _writeFirstPage(pdf, groupSizePPM, maxTimeDeviation, align, nPolynom):
         curHeight -= 20
 
     pdf.showPage()
+
+
+def _aggregate_isotopolog_ratios(grouped_peaks):
+    aggregated = defaultdict(list)
+
+    for _, chrom_peak in grouped_peaks:
+        for isotopolog, value in getattr(chrom_peak, "isotopologRatios", {}).items():
+            try:
+                numeric_value = float(value)
+            except (TypeError, ValueError):
+                continue
+            aggregated[isotopolog].append(numeric_value)
+
+    if not aggregated:
+        return None
+
+    summary = OrderedDict()
+    for isotopolog in sorted(aggregated):
+        values = aggregated[isotopolog]
+        mean_value = mean(values)
+        summary[isotopolog] = {
+            "mean": mean_value,
+            "rsd": (sd(values) / mean_value) if len(values) > 1 and mean_value != 0 else None,
+            "median": statistics.median(values),
+            "min": min(values),
+            "max": max(values),
+            "n": len(values),
+        }
+
+    return json.dumps(summary)
 
 
 # store used configuration to DB file
@@ -161,6 +195,7 @@ def bracketResults(
         excel_data["Ion"] = []
         excel_data["Loss"] = []
         excel_data["M"] = []
+        excel_data["Other_Isotopologs"] = []
         excel_data["L_MZ"] = []
         excel_data["D_MZ"] = []
         excel_data["RT_Range"] = []
@@ -192,6 +227,7 @@ def bracketResults(
         excel_data_dTypes["Ion"] = pl.Utf8
         excel_data_dTypes["Loss"] = pl.Utf8
         excel_data_dTypes["M"] = pl.Utf8
+        excel_data_dTypes["Other_Isotopologs"] = pl.Utf8
 
         # Add file-specific columns
         for res in results:
@@ -227,6 +263,7 @@ def bracketResults(
             excel_data[fname + "_artificialEICLShift"] = []
             excel_data[fname + "_FID"] = []
             excel_data[fname + "_GroupID"] = []
+            excel_data[fname + "_isotopologRatios"] = []
 
             excel_data_dTypes[fname + "_Found"] = pl.Utf8
             excel_data_dTypes[fname + "_Area_N"] = pl.Utf8
@@ -254,6 +291,7 @@ def bracketResults(
             excel_data_dTypes[fname + "_artificialEICLShift"] = pl.Utf8
             excel_data_dTypes[fname + "_FID"] = pl.Utf8
             excel_data_dTypes[fname + "_GroupID"] = pl.Utf8
+            excel_data_dTypes[fname + "_isotopologRatios"] = pl.Utf8
 
         excel_data["doublePeak"] = []
         excel_data_dTypes["doublePeak"] = pl.Int64
@@ -444,6 +482,7 @@ def bracketResults(
                                             artificialEICLShift=int(row["artificialEICLShift"]),
                                             peaksRatio=float(row["peaksRatio"]),
                                             peaksCorr=float(row["peaksCorr"]),
+                                            isotopologRatios=pickle_loads(base64.b64decode(row["isotopologRatios"])) if row.get("isotopologRatios") else {},
                                         )
 
                                         assert cp.ionMode in ionModes.keys()
@@ -851,6 +890,10 @@ def bracketResults(
                                                     excel_data["Ion"].append(None)
                                                     excel_data["Loss"].append(None)
                                                     excel_data["M"].append(None)
+                                                    aggregated_isotopologs = []
+                                                    for sample_peaks in groupedChromPeaks[i].values():
+                                                        aggregated_isotopologs.extend(sample_peaks)
+                                                    excel_data["Other_Isotopologs"].append(_aggregate_isotopolog_ratios(aggregated_isotopologs))
 
                                                     doublePeak = 0
                                                     nFoundSamples = 0
@@ -892,6 +935,7 @@ def bracketResults(
                                                             excel_data[fname + "_artificialEICLShift"].append(";".join([str(peak[1].artificialEICLShift) for peak in groupedChromPeaks[i][res]]))
                                                             excel_data[fname + "_FID"].append(";".join([str(peak[1].id) for peak in groupedChromPeaks[i][res]]))
                                                             excel_data[fname + "_GroupID"].append(";".join([str(peak[1].fGroupID) for peak in groupedChromPeaks[i][res]]))
+                                                            excel_data[fname + "_isotopologRatios"].append(";".join([json.dumps(getattr(peak[1], "isotopologRatios", {})) for peak in groupedChromPeaks[i][res]]))
 
                                                         else:
                                                             excel_data[fname + "_Found"].append(None)
@@ -920,6 +964,7 @@ def bracketResults(
                                                             excel_data[fname + "_artificialEICLShift"].append(None)
                                                             excel_data[fname + "_FID"].append(None)
                                                             excel_data[fname + "_GroupID"].append(None)
+                                                            excel_data[fname + "_isotopologRatios"].append(None)
 
                                                     excel_data["N_found_Samples"].append(nFoundSamples)
 

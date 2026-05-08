@@ -568,6 +568,7 @@ class FindIsoPairs:
                 "peaksRatioMPm1": pl.Float64,
                 "isotopesRatios": pl.Utf8,
                 "mzDiffErrors": pl.Utf8,
+                "isotopologRatios": pl.Utf8,
                 "peakType": pl.Utf8,
                 "assignedName": pl.Utf8,
                 "correlationsToOthers": pl.Utf8,
@@ -620,6 +621,7 @@ class FindIsoPairs:
                 "peaksRatioMPm1": pl.Float64,
                 "isotopesRatios": pl.Utf8,
                 "mzDiffErrors": pl.Utf8,
+                "isotopologRatios": pl.Utf8,
                 "peakType": pl.Utf8,
                 "assignedName": pl.Utf8,
                 "comment": pl.Utf8,
@@ -1639,6 +1641,109 @@ class FindIsoPairs:
         valid_eic_ids = db_con.tables["chromPeaks"]["eicID"].unique().to_list()
         db_con.tables["XICs"] = db_con.tables["XICs"].filter(pl.col("id").is_in(valid_eic_ids))
 
+        db_con.commit()
+        db_con.close()
+
+    # Isotopolog mass differences (monoisotopic, in Da) for natural isotopes
+    _ISOTOPOLOG_MASS_DIFFS = {
+        "13C": 1.003355,
+        "15N": 0.997035,
+        "34S": 1.995796,
+        "54Fe": -1.995328,
+        "37Cl": 1.997050,
+        "D": 1.006277,
+        "18O": 2.004244,
+    }
+
+    _M_ISOTOPOLOG_OFFSETS = [
+        ("M-13C2", -2 * 1.003355),
+        ("M-13C", -1 * 1.003355),
+        ("M+13C", +1 * 1.003355),
+        ("M+13C2", +2 * 1.003355),
+        ("M+15N", +0.997035),
+        ("M+34S", +1.995796),
+        ("M-54Fe", -1.995328),
+        ("M+37Cl", +1.997050),
+    ]
+
+    _MP_ISOTOPOLOG_OFFSETS = [
+        ("Mp-13C2", -2 * 1.003355),
+        ("Mp-13C", -1 * 1.003355),
+        ("Mp+13C", +1 * 1.003355),
+        ("Mp+13C2", +2 * 1.003355),
+        ("Mp+15N", +0.997035),
+        ("Mp+34S", +1.995796),
+        ("Mp-54Fe", -1.995328),
+        ("Mp+37Cl", +1.997050),
+        ("Mp+D", +1.006277),
+        ("Mp+18O", +2.004244),
+    ]
+
+    def calculateIsotopologRatiosForFeaturePairs(self, chromPeaks, mzxml, reportFunction=None):
+        """For each detected feature pair, extract EICs for isotopologs of M and M',
+        calculate peak area ratios within the respective peak boundaries, and store
+        the results as a dictionary in peak.isotopologRatios.
+
+        All M-based ratios are relative to the M peak area; all M'-based ratios are
+        relative to the M' peak area.
+        """
+        db_con = PolarsDB(self.file + getDBSuffix(), format=getDBFormat())
+
+        def _peak_area(eic, times, lb, rb):
+            rb = min(rb, len(eic) - 1)
+            lb = max(lb, 0)
+            if lb >= rb:
+                return 0.0
+            return float(np.trapz(eic[lb : rb + 1], times[lb : rb + 1]))
+
+        for i, peak in enumerate(chromPeaks):
+            if reportFunction is not None:
+                reportFunction(1.0 * i / len(chromPeaks), "%d features remaining" % (len(chromPeaks) - i))
+
+            scanEvent = self.positiveScanEvent if peak.ionMode == "+" else self.negativeScanEvent
+            loading = peak.loading
+
+            lb_N = max(0, peak.NPeakCenter - int(peak.NBorderLeft))
+            rb_N = peak.NPeakCenter + int(peak.NBorderRight)
+            lb_L = max(0, peak.LPeakCenter - int(peak.LBorderLeft))
+            rb_L = peak.LPeakCenter + int(peak.LBorderRight)
+
+            eic_M, times_M, _, _ = mzxml.getEIC(peak.mz, self.chromPeakPPM, filterLine=scanEvent)
+            eic_Mp, times_Mp, _, _ = mzxml.getEIC(peak.lmz, self.chromPeakPPM, filterLine=scanEvent)
+            eic_M = np.asarray(eic_M, dtype=np.float64)
+            eic_Mp = np.asarray(eic_Mp, dtype=np.float64)
+            times_M = np.asarray(times_M, dtype=np.float64)
+            times_Mp = np.asarray(times_Mp, dtype=np.float64)
+
+            area_M = _peak_area(eic_M, times_M, lb_N, rb_N)
+            area_Mp = _peak_area(eic_Mp, times_Mp, lb_L, rb_L)
+
+            isotopolog_ratios = {}
+
+            for label, offset in self._M_ISOTOPOLOG_OFFSETS:
+                target_mz = peak.mz + offset / loading
+                eic_iso, times_iso, _, _ = mzxml.getEIC(target_mz, self.chromPeakPPM, filterLine=scanEvent)
+                eic_iso = np.asarray(eic_iso, dtype=np.float64)
+                times_iso = np.asarray(times_iso, dtype=np.float64)
+                area_iso = _peak_area(eic_iso, times_iso, lb_N, rb_N)
+                isotopolog_ratios[label] = area_iso / area_M if area_M > 0 else 0.0
+
+            for label, offset in self._MP_ISOTOPOLOG_OFFSETS:
+                target_mz = peak.lmz + offset / loading
+                eic_iso, times_iso, _, _ = mzxml.getEIC(target_mz, self.chromPeakPPM, filterLine=scanEvent)
+                eic_iso = np.asarray(eic_iso, dtype=np.float64)
+                times_iso = np.asarray(times_iso, dtype=np.float64)
+                area_iso = _peak_area(eic_iso, times_iso, lb_L, rb_L)
+                isotopolog_ratios[label] = area_iso / area_Mp if area_Mp > 0 else 0.0
+
+            peak.isotopologRatios = isotopolog_ratios
+
+        for peak in chromPeaks:
+            encoded = base64.b64encode(dumps(peak.isotopologRatios)).decode("utf-8")
+            db_con.tables["chromPeaks"] = db_con.tables["chromPeaks"].with_columns(pl.when(pl.col("id") == peak.id).then(pl.lit(encoded)).otherwise(pl.col("isotopologRatios")).alias("isotopologRatios"))
+            db_con.tables["allChromPeaks"] = db_con.tables["allChromPeaks"].with_columns(pl.when(pl.col("id") == peak.id).then(pl.lit(encoded)).otherwise(pl.col("isotopologRatios")).alias("isotopologRatios"))
+
+        self.printMessage("Isotopolog ratio calculation done.", type="info")
         db_con.commit()
         db_con.close()
 
@@ -3239,6 +3344,22 @@ class FindIsoPairs:
 
             self.printMessage(
                 "%s: Calculations finished (%s%s).." % (tracer.name, hours, mins),
+                type="info",
+            )
+            # endregion
+
+            # region 7b. Calculate isotopolog ratios for each feature pair
+            ######################################################################################
+
+            self.postMessageToProgressWrapper("text", "%s: Calculating isotopolog ratios" % tracer.name)
+
+            def reportFunction(curVal, text):
+                self.postMessageToProgressWrapper("text", "%s: Calculating isotopolog ratios (%s)" % (tracer.name, text))
+
+            self.calculateIsotopologRatiosForFeaturePairs(chromPeaks, mzxml, reportFunction)
+
+            self.printMessage(
+                "%s: Isotopolog ratio calculation done." % tracer.name,
                 type="info",
             )
             # endregion
