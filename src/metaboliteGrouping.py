@@ -29,8 +29,9 @@ def split_group_with_hca(group_ids, similarities, min_peak_correlation, min_conn
             inds = hca.getIndsFor(tree)
             if len(inds) == 0:
                 return False
+            inds_set = set(inds)
 
-            above_threshold = sum([corr > corr_threshold for i, corr in enumerate(corrs) if i in inds])
+            above_threshold = sum([corr > corr_threshold for i, corr in enumerate(corrs) if i in inds_set])
             return not (above_threshold * 1.0 / len(inds)) >= cut_off_min_ratio
         else:
             raise RuntimeError("Unknown if-branch")
@@ -81,7 +82,8 @@ def split_group_by_relative_abundance(group_ids, abundance_vectors, min_peak_cor
 
     if len(profiles) < len(group_ids):
         return [group_ids]
-    if len(set([len(profile) for profile in profiles.values()])) != 1:
+    profile_lengths = {len(profile) for profile in profiles.values()}
+    if len(profile_lengths) != 1:
         return [group_ids]
 
     similarities = {feature_id: {} for feature_id in group_ids}
