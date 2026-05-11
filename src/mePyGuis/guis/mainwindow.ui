@@ -5825,6 +5825,32 @@ font: 7pt;</string>
                    </widget>
                   </item>
                   <item>
+                   <widget class="QLabel" name="label_abundance_scaling">
+                    <property name="text">
+                     <string>Normalization</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QComboBox" name="comboBox_abundanceScalingMode">
+                    <item>
+                     <property name="text">
+                      <string>None</string>
+                     </property>
+                    </item>
+                    <item>
+                     <property name="text">
+                      <string>Scale to max sample</string>
+                     </property>
+                    </item>
+                    <item>
+                     <property name="text">
+                      <string>Scale to max experimental group</string>
+                     </property>
+                    </item>
+                   </widget>
+                  </item>
+                  <item>
                    <spacer name="horizontalSpacer_abundance">
                     <property name="orientation">
                      <enum>Qt::Horizontal</enum>

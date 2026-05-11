@@ -2278,55 +2278,91 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if not any(f"{entry[1]}{abundance_suffix}" in table_df.columns for entry in sample_entries):
             abundance_suffix = "_Area_N"
 
-        color_map = {}
-        for grp in self.getAllSampleGroups():
-            color_map[str(grp.name)] = str(grp.color) if grp.color else "gray"
-
         plot_type = self.ui.comboBox_abundancePlotType.currentText()
         log_scale = self.ui.comboBox_abundanceScale.currentText() == "Logarithmic"
+        scaling_mode = self.ui.comboBox_abundanceScalingMode.currentText()
+
+        group_names = sorted({entry[0] for entry in sample_entries}, key=lambda x: x.lower())
+        samples_by_group = {group_name: [sample for grp, sample in sample_entries if grp == group_name] for group_name in group_names}
+
+        feature_sample_values = {}
+        for feature_id in sorted(set(selected_ids)):
+            row = rows_by_num.get(feature_id)
+            if row is None:
+                continue
+            values = {}
+            for group_name, sample_name in sample_entries:
+                col = sample_name + abundance_suffix
+                if col not in table_df.columns:
+                    continue
+                val = row.get(col)
+                if val in [None, ""]:
+                    continue
+                try:
+                    values[(group_name, sample_name)] = float(val)
+                except Exception:
+                    continue
+            if values:
+                feature_sample_values[feature_id] = values
+
+        if scaling_mode != "None":
+            for feature_id, values in feature_sample_values.items():
+                if scaling_mode == "Scale to max sample":
+                    ref = max(values.values()) if values else 0.0
+                else:
+                    group_means = []
+                    for group_name in group_names:
+                        group_vals = [values[(group_name, sample)] for sample in samples_by_group.get(group_name, []) if (group_name, sample) in values]
+                        if group_vals:
+                            group_means.append(mean(group_vals))
+                    ref = max(group_means) if group_means else 0.0
+                if ref > 0:
+                    for key in list(values.keys()):
+                        values[key] = values[key] / ref
 
         ax = self.ui.resultsExperimentAbundance_plot.axes
         ax.set_title("Abundance profiles of selected features")
-        ax.set_xlabel("Sample")
         ax.set_ylabel(f"Abundance ({'log' if log_scale else 'linear'} scale)")
+        if scaling_mode != "None":
+            ax.set_ylabel(f"Relative abundance ({'log' if log_scale else 'linear'} scale)")
 
         if "Boxplot" in plot_type:
+            feature_ids = sorted(feature_sample_values.keys())
             box_data = []
-            box_labels = []
+            positions = []
             box_colors = []
-            for feature_id in sorted(set(selected_ids)):
-                row = rows_by_num.get(feature_id)
-                if row is None:
-                    continue
-                for group_name in sorted(set([entry[0] for entry in sample_entries]), key=lambda x: x.lower()):
-                    vals = []
-                    for grp_name, sample_name in sample_entries:
-                        if grp_name != group_name:
-                            continue
-                        col = sample_name + abundance_suffix
-                        if col not in table_df.columns:
-                            continue
-                        val = row.get(col)
-                        if val in [None, ""]:
-                            continue
-                        try:
-                            val = float(val)
-                        except Exception:
-                            continue
-                        if log_scale and val <= 0:
-                            continue
-                        vals.append(val)
-                    if vals:
-                        box_data.append(vals)
-                        box_labels.append(f"{feature_id}\n{group_name}")
-                        box_colors.append(color_map.get(group_name, "gray"))
+            legend_handles = []
+            if len(feature_ids) > 0 and len(group_names) > 0:
+                box_width = 0.8 / max(1, len(feature_ids))
+                for feature_index, feature_id in enumerate(feature_ids):
+                    color = f"C{feature_index % 10}"
+                    legend_handles.append(patches.Patch(facecolor=color, alpha=0.35, label=f"Feature {feature_id}"))
+                    offset = (feature_index - (len(feature_ids) - 1) / 2.0) * box_width
+                    for group_index, group_name in enumerate(group_names):
+                        vals = []
+                        for sample_name in samples_by_group.get(group_name, []):
+                            key = (group_name, sample_name)
+                            if key not in feature_sample_values[feature_id]:
+                                continue
+                            value = feature_sample_values[feature_id][key]
+                            if log_scale and value <= 0:
+                                continue
+                            vals.append(value)
+                        if vals:
+                            box_data.append(vals)
+                            positions.append(group_index + offset)
+                            box_colors.append(color)
 
             if box_data:
-                bp = ax.boxplot(box_data, patch_artist=True, labels=box_labels)
+                bp = ax.boxplot(box_data, positions=positions, widths=0.8 / max(1, len(feature_sample_values)), patch_artist=True)
                 for patch, c in zip(bp["boxes"], box_colors):
                     patch.set_facecolor(c)
                     patch.set_alpha(0.35)
-                ax.set_xticklabels(box_labels, rotation=45, ha="right")
+                ax.set_xticks(list(range(len(group_names))))
+                ax.set_xticklabels(group_names, rotation=25, ha="right")
+                ax.set_xlabel("Experimental group")
+                if legend_handles:
+                    ax.legend(handles=legend_handles, loc="best")
             else:
                 ax.text(0.5, 0.5, "No abundance values available", transform=ax.transAxes, ha="center", va="center")
         else:
@@ -2339,22 +2375,15 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     group_changes.append(i - 0.5)
                 last_group = grp
 
-            for feature_id in sorted(set(selected_ids)):
-                row = rows_by_num.get(feature_id)
-                if row is None:
-                    continue
+            ax.set_xlabel("Sample")
+            for feature_id in sorted(feature_sample_values.keys()):
                 y_vals = []
                 for grp, sample in sample_entries:
-                    col = sample + abundance_suffix
-                    val = row.get(col) if col in table_df.columns else None
-                    if val in [None, ""]:
+                    key = (grp, sample)
+                    if key not in feature_sample_values[feature_id]:
                         y_vals.append(float("nan"))
                         continue
-                    try:
-                        val = float(val)
-                    except Exception:
-                        y_vals.append(float("nan"))
-                        continue
+                    val = feature_sample_values[feature_id][key]
                     if log_scale and val <= 0:
                         y_vals.append(float("nan"))
                     else:
@@ -11163,6 +11192,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.showLegend_experiment.stateChanged.connect(self._refreshExperimentEICs)
         self.ui.comboBox_abundancePlotType.currentIndexChanged.connect(self._refreshExperimentAbundancePlot)
         self.ui.comboBox_abundanceScale.currentIndexChanged.connect(self._refreshExperimentAbundancePlot)
+        self.ui.comboBox_abundanceScalingMode.currentIndexChanged.connect(self._refreshExperimentAbundancePlot)
 
         self.ui.eicSmoothingWindow.currentIndexChanged.connect(self.smoothingWindowChanged)
         self.smoothingWindowChanged()

@@ -2662,6 +2662,15 @@ class Ui_MainWindow(object):
         self.comboBox_abundanceScale.addItem(_fromUtf8(""))
         self.comboBox_abundanceScale.addItem(_fromUtf8(""))
         self.horizontalLayout_abundance_controls.addWidget(self.comboBox_abundanceScale)
+        self.label_abundance_scaling = QtWidgets.QLabel(self.tab_abundance_profiles)
+        self.label_abundance_scaling.setObjectName(_fromUtf8("label_abundance_scaling"))
+        self.horizontalLayout_abundance_controls.addWidget(self.label_abundance_scaling)
+        self.comboBox_abundanceScalingMode = QtWidgets.QComboBox(self.tab_abundance_profiles)
+        self.comboBox_abundanceScalingMode.setObjectName(_fromUtf8("comboBox_abundanceScalingMode"))
+        self.comboBox_abundanceScalingMode.addItem(_fromUtf8(""))
+        self.comboBox_abundanceScalingMode.addItem(_fromUtf8(""))
+        self.comboBox_abundanceScalingMode.addItem(_fromUtf8(""))
+        self.horizontalLayout_abundance_controls.addWidget(self.comboBox_abundanceScalingMode)
         spacerItem74 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self.horizontalLayout_abundance_controls.addItem(spacerItem74)
         self.gridLayout_abundance_profiles.addLayout(self.horizontalLayout_abundance_controls, 0, 0, 1, 1)
@@ -3368,6 +3377,10 @@ class Ui_MainWindow(object):
         self.label_abundance_scale.setText(_translate("MainWindow", "Scale", None))
         self.comboBox_abundanceScale.setItemText(0, _translate("MainWindow", "Linear", None))
         self.comboBox_abundanceScale.setItemText(1, _translate("MainWindow", "Logarithmic", None))
+        self.label_abundance_scaling.setText(_translate("MainWindow", "Normalization", None))
+        self.comboBox_abundanceScalingMode.setItemText(0, _translate("MainWindow", "None", None))
+        self.comboBox_abundanceScalingMode.setItemText(1, _translate("MainWindow", "Scale to max sample", None))
+        self.comboBox_abundanceScalingMode.setItemText(2, _translate("MainWindow", "Scale to max experimental group", None))
         self.tabWidget_3.setTabText(
             self.tabWidget_3.indexOf(self.tab_abundance_profiles),
             _translate("MainWindow", "Abundance profiles", None),

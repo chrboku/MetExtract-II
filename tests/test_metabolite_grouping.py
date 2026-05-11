@@ -57,3 +57,18 @@ def test_split_group_by_relative_abundance_respects_similarity_threshold():
 
     assert _normalize_groups(relaxed_groups) == [[1, 2, 3]]
     assert _normalize_groups(strict_groups) == [[1, 2], [3]]
+
+
+def test_split_group_by_relative_abundance_ignores_mismatched_zero_presence():
+    groups = split_group_by_relative_abundance(
+        [1, 2, 3],
+        {
+            1: [10, 0, 11, 0],
+            2: [9, 0, 12, 0],
+            3: [0, 20, 0, 18],
+        },
+        min_peak_correlation=0.7,
+        min_connection_rate=0.6,
+    )
+
+    assert _normalize_groups(groups) == [[1, 2], [3]]
