@@ -1160,6 +1160,8 @@ def calculateMetaboliteGroups(
     minConnectionsInFiles=1,
     minConnectionRate=0.4,
     minPeakCorrelation=0.85,
+    useAbundanceSimilarity=True,
+    abundanceSimilarityThreshold=None,
     useRatio=False,
     runIdentificationInstance=None,
     pwMaxSet=None,
@@ -1449,25 +1451,27 @@ def calculateMetaboliteGroups(
 
             done = done + 1
 
-        logging.info("Refining feature groups by abundance profile similarity")
-        # use per-file native peak abundances to compare feature profile similarity across samples
-        abundance_cols = [col for col in table_df.columns if col.endswith("_Abundance_N")]
-        abundance_vectors = {}
-        if len(abundance_cols) > 0:
-            for row in table_df.select(["Num"] + abundance_cols).iter_rows(named=True):
-                abundance_vectors[row["Num"]] = [row.get(col) for col in abundance_cols]
+        if useAbundanceSimilarity:
+            logging.info("Refining feature groups by abundance profile similarity")
+            # use per-file native peak abundances to compare feature profile similarity across samples
+            abundance_cols = [col for col in table_df.columns if col.endswith("_Abundance_N")]
+            abundance_vectors = {}
+            if len(abundance_cols) > 0:
+                for row in table_df.select(["Num"] + abundance_cols).iter_rows(named=True):
+                    abundance_vectors[row["Num"]] = [row.get(col) for col in abundance_cols]
 
-        refined_groups = []
-        for tGroup in groups:
-            refined_groups.extend(
-                split_group_by_relative_abundance(
-                    tGroup,
-                    abundance_vectors,
-                    min_peak_correlation=minPeakCorrelation,
-                    min_connection_rate=minConnectionRate,
+            abundance_threshold = minPeakCorrelation if abundanceSimilarityThreshold is None else abundanceSimilarityThreshold
+            refined_groups = []
+            for tGroup in groups:
+                refined_groups.extend(
+                    split_group_by_relative_abundance(
+                        tGroup,
+                        abundance_vectors,
+                        min_peak_correlation=abundance_threshold,
+                        min_connection_rate=minConnectionRate,
+                    )
                 )
-            )
-        groups = refined_groups
+            groups = refined_groups
 
         # Separate feature pair clusters; softer
         curGroup = 1
@@ -1545,6 +1549,14 @@ def calculateMetaboliteGroups(
         resDB.conn.insert_row("Parameters", {"Parameter": "MEConvoluting_minConnectionsInFiles", "Value": f"{minConnectionsInFiles}"})
         resDB.conn.insert_row("Parameters", {"Parameter": "MEConvoluting_minConnectionRate", "Value": f"{minConnectionRate}"})
         resDB.conn.insert_row("Parameters", {"Parameter": "MEConvoluting_minPeakCorrelation", "Value": f"{minPeakCorrelation}"})
+        resDB.conn.insert_row("Parameters", {"Parameter": "MEConvoluting_useAbundanceSimilarity", "Value": f"{useAbundanceSimilarity}"})
+        resDB.conn.insert_row(
+            "Parameters",
+            {
+                "Parameter": "MEConvoluting_abundanceSimilarityThreshold",
+                "Value": f"{minPeakCorrelation if abundanceSimilarityThreshold is None else abundanceSimilarityThreshold}",
+            },
+        )
         resDB.conn.set_table(new_sheet_name, table_df)
         if double_peaks_df is not None and len(double_peaks_df) > 0:
             resDB.conn.insert_table(new_sheet_name + "_doublePeaks", double_peaks_df)

@@ -4343,6 +4343,39 @@ font: 7pt;</string>
                         </property>
                        </widget>
                       </item>
+                      <item>
+                       <widget class="QCheckBox" name="useAbundanceSimilarityForConvolution">
+                        <property name="text">
+                         <string>Use abundance similarity</string>
+                        </property>
+                        <property name="checked">
+                         <bool>true</bool>
+                        </property>
+                       </widget>
+                      </item>
+                      <item>
+                       <widget class="QLabel" name="label_122">
+                        <property name="text">
+                         <string>Abundance similarity threshold</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item>
+                       <widget class="QDoubleSpinBox" name="abundanceSimilarityThreshold">
+                        <property name="prefix">
+                         <string>≥ </string>
+                        </property>
+                        <property name="suffix">
+                         <string> %</string>
+                        </property>
+                        <property name="maximum">
+                         <double>100.000000000000000</double>
+                        </property>
+                        <property name="value">
+                         <double>85.000000000000000</double>
+                        </property>
+                       </widget>
+                      </item>
                      </layout>
                     </item>
                    </layout>
@@ -5926,6 +5959,8 @@ font: 7pt;</string>
   <tabstop>polynomValue</tabstop>
   <tabstop>minConnectionRate</tabstop>
   <tabstop>metaboliteClusterMinConnections</tabstop>
+  <tabstop>useAbundanceSimilarityForConvolution</tabstop>
+  <tabstop>abundanceSimilarityThreshold</tabstop>
   <tabstop>integratedMissedPeaks</tabstop>
   <tabstop>integrationMaxTimeDifference</tabstop>
   <tabstop>reintegrateIntensityCutoff</tabstop>

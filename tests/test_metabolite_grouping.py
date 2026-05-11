@@ -33,3 +33,27 @@ def test_split_group_by_relative_abundance_keeps_group_for_missing_vectors():
     )
 
     assert groups == [[10, 11, 12]]
+
+
+def test_split_group_by_relative_abundance_respects_similarity_threshold():
+    abundance_vectors = {
+        1: [100, 200, 300, 400],
+        2: [90, 210, 280, 420],
+        3: [400, 300, 200, 100],
+    }
+
+    relaxed_groups = split_group_by_relative_abundance(
+        [1, 2, 3],
+        abundance_vectors,
+        min_peak_correlation=-1.0,
+        min_connection_rate=0.6,
+    )
+    strict_groups = split_group_by_relative_abundance(
+        [1, 2, 3],
+        abundance_vectors,
+        min_peak_correlation=0.8,
+        min_connection_rate=0.6,
+    )
+
+    assert _normalize_groups(relaxed_groups) == [[1, 2, 3]]
+    assert _normalize_groups(strict_groups) == [[1, 2], [3]]

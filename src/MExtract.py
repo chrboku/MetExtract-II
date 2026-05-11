@@ -2555,6 +2555,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 self.ui.useSILRatioForConvolution.setChecked(self.to_bool(sett.value("useSILRatioForConvolution")))
             if sett.contains("minConnectionRate"):
                 self.ui.minConnectionRate.setValue(self.to_double(sett.value("minConnectionRate")) * 100.0)
+            if sett.contains("useAbundanceSimilarityForConvolution"):
+                self.ui.useAbundanceSimilarityForConvolution.setChecked(self.to_bool(sett.value("useAbundanceSimilarityForConvolution")))
+            if sett.contains("abundanceSimilarityThreshold"):
+                self.ui.abundanceSimilarityThreshold.setValue(self.to_double(sett.value("abundanceSimilarityThreshold")) * 100.0)
 
             if sett.contains("GroupIntegrateMissedPeaks"):
                 self.ui.integratedMissedPeaks.setChecked(self.to_bool(sett.value("GroupIntegrateMissedPeaks")))
@@ -2780,6 +2784,11 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 self.ui.useSILRatioForConvolution.checkState() == QtCore.Qt.Checked,
             )
             sett.setValue("minConnectionRate", self.ui.minConnectionRate.value() / 100.0)
+            sett.setValue(
+                "useAbundanceSimilarityForConvolution",
+                self.ui.useAbundanceSimilarityForConvolution.checkState() == QtCore.Qt.Checked,
+            )
+            sett.setValue("abundanceSimilarityThreshold", self.ui.abundanceSimilarityThreshold.value() / 100.0)
 
             sett.setValue("GroupIntegrateMissedPeaks", self.ui.integratedMissedPeaks.isChecked())
             sett.setValue(
@@ -3670,6 +3679,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         minConnectionsInFiles=self.ui.metaboliteClusterMinConnections.value(),
                         minConnectionRate=self.ui.minConnectionRate.value() / 100.0,
                         minPeakCorrelation=self.ui.minCorrelation.value() / 100.0,
+                        useAbundanceSimilarity=self.ui.useAbundanceSimilarityForConvolution.checkState() == QtCore.Qt.Checked,
+                        abundanceSimilarityThreshold=self.ui.abundanceSimilarityThreshold.value() / 100.0,
                         useRatio=self.ui.useSILRatioForConvolution.checkState() == QtCore.Qt.Checked,
                         cpus=min(len(files), cpus),
                     )
