@@ -72,3 +72,18 @@ def test_split_group_by_relative_abundance_ignores_mismatched_zero_presence():
     )
 
     assert _normalize_groups(groups) == [[1, 2], [3]]
+
+
+def test_split_group_by_relative_abundance_keeps_constant_proportional_profiles_together():
+    groups = split_group_by_relative_abundance(
+        [1, 2, 3],
+        {
+            1: [10, 10, 0, 0],
+            2: [20, 20, 0, 0],
+            3: [0, 0, 30, 30],
+        },
+        min_peak_correlation=0.8,
+        min_connection_rate=0.6,
+    )
+
+    assert _normalize_groups(groups) == [[1, 2], [3]]

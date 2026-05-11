@@ -2333,12 +2333,14 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             box_colors = []
             legend_handles = []
             if len(feature_ids) > 0 and len(group_names) > 0:
-                box_width = 0.8 / max(1, len(feature_ids))
+                cluster_width = 0.75
+                slot_width = cluster_width / max(1, len(feature_ids))
+                box_width = slot_width * 0.8
                 for feature_index, feature_id in enumerate(feature_ids):
                     color = f"C{feature_index % 10}"
                     legend_handles.append(patches.Patch(facecolor=color, alpha=0.35, label=f"Feature {feature_id}"))
-                    offset = (feature_index - (len(feature_ids) - 1) / 2.0) * box_width
                     for group_index, group_name in enumerate(group_names):
+                        offset = (-cluster_width / 2.0) + (feature_index + 0.5) * slot_width
                         vals = []
                         for sample_name in samples_by_group.get(group_name, []):
                             key = (group_name, sample_name)
@@ -2354,7 +2356,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             box_colors.append(color)
 
             if box_data:
-                bp = ax.boxplot(box_data, positions=positions, widths=0.8 / max(1, len(feature_sample_values)), patch_artist=True)
+                bp = ax.boxplot(box_data, positions=positions, widths=box_width, patch_artist=True)
                 for patch, c in zip(bp["boxes"], box_colors):
                     patch.set_facecolor(c)
                     patch.set_alpha(0.35)
@@ -3767,6 +3769,87 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if self.terminateJobs:
                 return
 
+            convolution_input_sheet = "2_StatColumns"
+            annotation_input_sheet = "2_StatColumns"
+
+            # re-integrate missed peaks (run before grouping, if enabled)
+            if self.ui.integratedMissedPeaks.isChecked():
+                logging.info("\n\n##############################################################")
+                logging.info("Re-integrating of individual LC-HRMS results..")
+
+                pw = ProgressWrapper(min(len(files), cpus) + 1, showLog=False, parent=self)
+                pw.show()
+                pw.getCallingFunction()("text")("Integrating..")
+                pw.getCallingFunction()("header")("Integrating..")
+
+                try:
+                    # Reintegrate missed peaks in files
+                    fDict = {}
+                    for group in definedGroups:
+                        for grp in natSort(group.files):
+                            f = grp
+                            f = f.replace("\\", "/")
+                            fDict[f] = f[(f.rfind("/") + 1) : max(f.lower().rfind(".mzxml"), f.lower().rfind(".mzml"))]
+
+                    reIntegrateResultsFile(
+                        excel_file,
+                        "2_StatColumns",
+                        "4_Reintegrated",
+                        fDict,
+                        addPeakArea=bool(self.ui.checkBox_expPeakArea.checkState() == QtCore.Qt.Checked),
+                        addPeakAbundance=bool(self.ui.checkBox_expPeakApexIntensity.checkState() == QtCore.Qt.Checked),
+                        addPeakSNR=bool(self.ui.checkBox_expPeakSNR.checkState() == QtCore.Qt.Checked),
+                        ppm=self.ui.groupPpm.value(),
+                        maxRTShift=self.ui.integrationMaxTimeDifference.value(),
+                        scales=[
+                            self.ui.wavelet_minScale.value(),
+                            self.ui.wavelet_maxScale.value(),
+                        ],
+                        reintegrateIntensityCutoff=self.ui.reintegrateIntensityCutoff.value(),
+                        snrTH=self.ui.wavelet_SNRThreshold.value(),
+                        smoothingWindow=str(self.ui.eicSmoothingWindow.currentText()),
+                        smoothingWindowSize=self.ui.eicSmoothingWindowSize.value(),
+                        smoothingWindowPolynom=self.ui.smoothingPolynom_spinner.value(),
+                        positiveScanEvent=str(self.ui.positiveScanEvent.currentText()),
+                        negativeScanEvent=str(self.ui.negativeScanEvent.currentText()),
+                        pw=pw,
+                        selfObj=self,
+                        cpus=min(len(files), cpus),
+                        start=start,
+                        peak_filter_config=filter_config,
+                        peak_picker=picker,
+                    )
+                    convolution_input_sheet = "4_Reintegrated"
+                    annotation_input_sheet = "4_Reintegrated"
+
+                    # Log time used for bracketing
+                    elapsed = (time.time() - start) / 60.0
+                    hours = ""
+                    if elapsed >= 60.0:
+                        hours = "%d hours " % (elapsed // 60)
+                    mins = "%.2f mins" % (elapsed % 60.0)
+                    logging.info("Re-integrating finished (%s%s).." % (hours, mins))
+
+                except Exception as e:
+                    traceback.print_exc()
+                    logging.error(str(traceback))
+
+                    QtWidgets.QMessageBox.warning(
+                        self,
+                        "MetExtract",
+                        "Error during reintegrating files: '%s'" % str(e),
+                        QtWidgets.QMessageBox.Ok,
+                    )
+                    errorCount += 1
+                finally:
+                    pw.setSkipCallBack(True)
+                    pw.hide()
+                logging.info("##############################################################")
+
+            if self.terminateJobs:
+                pw.hide()
+                return
+
             # Calculate metabolite groups
             if self.ui.convoluteResults.isChecked():
                 logging.info("\n\n##############################################################")
@@ -3838,7 +3921,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         _target=calculateMetaboliteGroups,
                         file=excel_file,
                         toFile=excel_file,
-                        sheet_name="2_StatColumns",
+                        sheet_name=convolution_input_sheet,
                         new_sheet_name="3_Convoluted",
                         groups=definedGroups,
                         eicPPM=self.ui.wavelet_EICppm.value(),
@@ -3900,6 +3983,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         return
                     else:
                         logging.info("Convoluting feature pairs finished (%s%s).." % (hours, mins))
+                        annotation_input_sheet = "3_Convoluted"
 
                 except Exception as ex:
                     traceback.print_exc()
@@ -3920,81 +4004,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             pw.hide()
 
             if self.terminateJobs:
-                return
-
-            # re-integrate missed peaks
-            if self.ui.integratedMissedPeaks.isChecked():
-                logging.info("\n\n##############################################################")
-                logging.info("Re-integrating of individual LC-HRMS results..")
-
-                pw = ProgressWrapper(min(len(files), cpus) + 1, showLog=False, parent=self)
-                pw.show()
-                pw.getCallingFunction()("text")("Integrating..")
-                pw.getCallingFunction()("header")("Integrating..")
-
-                try:
-                    # Reintegrate missed peaks in files
-                    fDict = {}
-                    for group in definedGroups:
-                        for grp in natSort(group.files):
-                            f = grp
-                            f = f.replace("\\", "/")
-                            fDict[f] = f[(f.rfind("/") + 1) : max(f.lower().rfind(".mzxml"), f.lower().rfind(".mzml"))]
-
-                    reIntegrateResultsFile(
-                        excel_file,
-                        "3_Convoluted",
-                        "4_Reintegrated",
-                        fDict,
-                        addPeakArea=bool(self.ui.checkBox_expPeakArea.checkState() == QtCore.Qt.Checked),
-                        addPeakAbundance=bool(self.ui.checkBox_expPeakApexIntensity.checkState() == QtCore.Qt.Checked),
-                        addPeakSNR=bool(self.ui.checkBox_expPeakSNR.checkState() == QtCore.Qt.Checked),
-                        ppm=self.ui.groupPpm.value(),
-                        maxRTShift=self.ui.integrationMaxTimeDifference.value(),
-                        scales=[
-                            self.ui.wavelet_minScale.value(),
-                            self.ui.wavelet_maxScale.value(),
-                        ],
-                        reintegrateIntensityCutoff=self.ui.reintegrateIntensityCutoff.value(),
-                        snrTH=self.ui.wavelet_SNRThreshold.value(),
-                        smoothingWindow=str(self.ui.eicSmoothingWindow.currentText()),
-                        smoothingWindowSize=self.ui.eicSmoothingWindowSize.value(),
-                        smoothingWindowPolynom=self.ui.smoothingPolynom_spinner.value(),
-                        positiveScanEvent=str(self.ui.positiveScanEvent.currentText()),
-                        negativeScanEvent=str(self.ui.negativeScanEvent.currentText()),
-                        pw=pw,
-                        selfObj=self,
-                        cpus=min(len(files), cpus),
-                        start=start,
-                        peak_filter_config=filter_config,
-                        peak_picker=picker,
-                    )
-                    # Log time used for bracketing
-                    elapsed = (time.time() - start) / 60.0
-                    hours = ""
-                    if elapsed >= 60.0:
-                        hours = "%d hours " % (elapsed // 60)
-                    mins = "%.2f mins" % (elapsed % 60.0)
-                    logging.info("Re-integrating finished (%s%s).." % (hours, mins))
-
-                except Exception as e:
-                    traceback.print_exc()
-                    logging.error(str(traceback))
-
-                    QtWidgets.QMessageBox.warning(
-                        self,
-                        "MetExtract",
-                        "Error during reintegrating files: '%s'" % str(e),
-                        QtWidgets.QMessageBox.Ok,
-                    )
-                    errorCount += 1
-                finally:
-                    pw.setSkipCallBack(True)
-                    pw.hide()
-                logging.info("##############################################################")
-
-            if self.terminateJobs:
-                pw.hide()
                 return
 
         annotationColumns = []
@@ -4037,7 +4046,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 try:
                     addedColumns = annotateResultMatrix.annotateWithDatabases(
                         file=excel_file,
-                        sheet_name="4_Reintegrated",
+                        sheet_name=annotation_input_sheet,
                         new_sheet_name="5_Annotated",
                         dbFiles=dbFiles,
                         useAdducts=useAdducts,

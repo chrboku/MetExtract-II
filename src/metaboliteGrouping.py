@@ -18,7 +18,14 @@ def _pearson(values_a, values_b):
     if len(values_a) != len(values_b) or len(values_a) < 2:
         return None
     if np.std(values_a) == 0 or np.std(values_b) == 0:
-        return None
+        max_a = max(values_a) if len(values_a) > 0 else 0.0
+        max_b = max(values_b) if len(values_b) > 0 else 0.0
+        if max_a > 0 and max_b > 0:
+            norm_a = [a / max_a for a in values_a]
+            norm_b = [b / max_b for b in values_b]
+            if np.allclose(norm_a, norm_b, rtol=1e-6, atol=1e-9):
+                return 1.0
+        return 0.0
     corr = np.corrcoef(values_a, values_b)[0, 1]
     if np.isnan(corr):
         return None
@@ -79,45 +86,59 @@ def _connected_components(group_ids, adjacency):
     return components
 
 
-def _split_component_by_connection_rate(component_ids, adjacency, min_connection_rate):
+def _avg_similarity_to_group(node, group, similarities):
+    vals = []
+    for other in group:
+        if node == other:
+            continue
+        vals.append(similarities.get(node, {}).get(other, 0.0))
+    if len(vals) == 0:
+        return 0.0
+    return float(sum(vals) / len(vals))
+
+
+def _connection_rate_to_group(node, group, adjacency):
+    if len(group) == 0:
+        return 0.0
+    degree = sum(1 for neighbor in adjacency.get(node, set()) if neighbor in group)
+    return float(degree) / float(len(group))
+
+
+def _split_component_by_connection_rate(component_ids, adjacency, similarities, min_connection_rate):
     if len(component_ids) <= 2:
         return [sorted(component_ids)]
 
     component_set = set(component_ids)
-    changed = True
-    while changed and len(component_set) > 2:
-        changed = False
-        min_required_connections = max(0.0, min_connection_rate) * (len(component_set) - 1)
-        to_remove = set()
-        for node in component_set:
-            degree = sum(1 for neighbor in adjacency.get(node, set()) if neighbor in component_set)
-            if degree < min_required_connections:
-                to_remove.add(node)
-        if to_remove:
-            component_set -= to_remove
-            changed = True
+    min_required_connections = max(0.0, min_connection_rate) * (len(component_set) - 1)
+    dense_nodes = set()
+    for node in component_set:
+        degree = sum(1 for neighbor in adjacency.get(node, set()) if neighbor in component_set)
+        if degree >= min_required_connections:
+            dense_nodes.add(node)
 
-    if not component_set:
-        return [[feature_id] for feature_id in sorted(component_ids)]
+    # avoid over-splitting if no dense core can be formed
+    if len(dense_nodes) == 0:
+        return [sorted(component_ids)]
 
-    result = []
-    kept_components = _connected_components(component_set, adjacency)
-    for kept_component in kept_components:
-        if kept_component == set(component_ids):
-            result.append(sorted(kept_component))
+    dense_groups = _connected_components(dense_nodes, adjacency)
+    groups = [set(group) for group in dense_groups]
+
+    remaining = sorted(component_set - dense_nodes)
+    for node in remaining:
+        best_group = None
+        best_score = None
+        for group in groups:
+            if _connection_rate_to_group(node, group, adjacency) >= min_connection_rate:
+                score = _avg_similarity_to_group(node, group, similarities)
+                if best_score is None or score > best_score:
+                    best_group = group
+                    best_score = score
+        if best_group is not None:
+            best_group.add(node)
         else:
-            result.extend(_split_component_by_connection_rate(sorted(kept_component), adjacency, min_connection_rate))
+            groups.append({node})
 
-    removed = set(component_ids) - component_set
-    if removed:
-        removed_components = _connected_components(removed, adjacency)
-        for removed_component in removed_components:
-            if len(removed_component) <= 1:
-                result.append(sorted(removed_component))
-            else:
-                result.extend(_split_component_by_connection_rate(sorted(removed_component), adjacency, min_connection_rate))
-
-    return result
+    return [sorted(group) for group in groups]
 
 
 def split_group_by_relative_abundance(group_ids, abundance_vectors, min_peak_correlation, min_connection_rate):
@@ -150,6 +171,6 @@ def split_group_by_relative_abundance(group_ids, abundance_vectors, min_peak_cor
     components = _connected_components(group_ids, adjacency)
     refined_groups = []
     for component in components:
-        refined_groups.extend(_split_component_by_connection_rate(sorted(component), adjacency, min_connection_rate))
+        refined_groups.extend(_split_component_by_connection_rate(sorted(component), adjacency, similarities, min_connection_rate))
 
     return sorted([sorted(group) for group in refined_groups], key=lambda group: (len(group), group), reverse=True)
