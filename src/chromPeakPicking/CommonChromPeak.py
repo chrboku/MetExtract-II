@@ -81,7 +81,12 @@ class ChromPeak:
         peakArea = sum((intensities[i] + intensities[i + 1]) / 2 * (retention_times[i + 1] - retention_times[i]) for i in range(peakLeftFlankIndex, peakRightFlankIndex))
 
         # Calculate SNR (signal-to-noise ratio)
-        peakSNR = (peakApexHeight - baseline) / baseline if baseline > 0 else float("inf")
+        noise = np.median(intensities)
+        signal = peakApexHeight - noise
+        if noise > signal:
+            peakSNR = 0.0  # Avoid negative SNR
+        else:
+            peakSNR = signal / noise if noise > 0 else float("inf")
 
         return cls(peakApexIndex, peakApexRt, peakLeftFlankIndex, peakLeftFlankRt, peakRightFlankIndex, peakRightFlankRt, peakArea, peakApexHeight, peakFWHM, peakSNR, fileName, mz, eic)
 

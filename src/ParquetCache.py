@@ -3,19 +3,19 @@ ParquetCache - A Parquet-based caching implementation
 Converted from SqliteCache to use Polars DataFrames and Parquet files
 """
 
-import os
 import errno
-import polars as pl
+import os
 import sys
 from time import time
+import polars as pl
+import base64
+import logging
 
 try:
-    from cPickle import loads, dumps  # Python 2
+    from cPickle import dumps, loads  # Python 2
 except ImportError:
-    from pickle import loads, dumps  # Python 3
+    from pickle import dumps, loads  # Python 3
 
-import logging
-import base64
 
 logger = logging.getLogger(__name__)
 

@@ -3022,6 +3022,38 @@ p, li { white-space: pre-wrap; }
                           </property>
                          </widget>
                         </item>
+                        <item row="6" column="0">
+                         <widget class="QLabel" name="label_scanIndexOffset">
+                          <property name="toolTip">
+                           <string>Scan index offset for labeled signal search. When set to 0, both native and labeled forms are searched in the same scan. A negative value n means the labeled form is searched n scans before the current native scan, a positive value means n scans after.</string>
+                          </property>
+                          <property name="text">
+                           <string>Labeled scan offset</string>
+                          </property>
+                          <property name="margin">
+                           <number>3</number>
+                          </property>
+                         </widget>
+                        </item>
+                        <item row="6" column="1">
+                         <widget class="QSpinBox" name="scanIndexOffset">
+                          <property name="toolTip">
+                           <string>Scan index offset for labeled signal search. 0 = same scan as native. Negative = labeled signal searched in earlier scans, positive = later scans.</string>
+                          </property>
+                          <property name="prefix">
+                           <string>= </string>
+                          </property>
+                          <property name="minimum">
+                           <number>-100</number>
+                          </property>
+                          <property name="maximum">
+                           <number>100</number>
+                          </property>
+                          <property name="value">
+                           <number>0</number>
+                          </property>
+                         </widget>
+                        </item>
                        </layout>
                       </widget>
                      </item>

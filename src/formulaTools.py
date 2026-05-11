@@ -1,7 +1,47 @@
 # a class used to parse chemical formulas
 # e.g. the formula C6H12O6 will be parsed to a dictionary {'H':12, 'C':6, 'O':6}
 # NOTE: different isotopes may be specified as [13C]C5H12O6
-from __future__ import print_function, division, absolute_import
+# Charged formulas are supported: C15H20O6+, C15H20O6+2, C15H20O6++, C15H20O6-, etc.
+from __future__ import absolute_import, division, print_function
+import re
+
+# Mass of an electron in Daltons
+ELECTRON_MASS = 0.000548579909
+
+
+def _parse_charge_suffix(formula):
+    """Parse charge notation from the end of a formula string.
+
+    Returns (clean_formula, charge) where charge is an integer.
+    Handles: +, ++, +N, -, --, -N (N is a positive integer).
+    Examples:
+        'C15H20O6+'  -> ('C15H20O6', 1)
+        'C15H20O6+2' -> ('C15H20O6', 2)
+        'C15H20O6++' -> ('C15H20O6', 2)
+        'C15H20O6-'  -> ('C15H20O6', -1)
+        'C15H20O6-2' -> ('C15H20O6', -2)
+        'C6H12O6'    -> ('C6H12O6', 0)
+    """
+    formula = formula.strip()
+    m = re.search(r"(\+{2,}|\-{2,}|\+\d+|\-\d+|\+|\-)$", formula)
+    if m:
+        charge_str = m.group(1)
+        if charge_str[0] == "+":
+            if len(charge_str) == 1:
+                charge = 1
+            elif charge_str[1:].isdigit():
+                charge = int(charge_str[1:])
+            else:
+                charge = len(charge_str)
+        else:
+            if len(charge_str) == 1:
+                charge = -1
+            elif charge_str[1:].isdigit():
+                charge = -int(charge_str[1:])
+            else:
+                charge = -len(charge_str)
+        return formula[: m.start()], charge
+    return formula, 0
 
 
 class formulaTools:
@@ -151,6 +191,8 @@ class formulaTools:
             self.elemDetails["15N"] = ["Nitrogen", "N", 15, 15.0001088982, 0.00364]
             self.elemDetails["Os"] = ["Osmium", "Os", 192, 191.961487, 0.41]
             self.elemDetails["O"] = ["Oxygen", "O", 16, 15.994915, 0.9976]
+            self.elemDetails["16O"] = ["Oxygen", "O", 16, 15.994915, 0.9976]
+            self.elemDetails["18O"] = ["Oxygen", "O", 18, 17.99915961286, 0.00205]  # 2.004245
             self.elemDetails["Pd"] = ["Palladium", "Pd", 106, 105.903475, 0.2733]
             self.elemDetails["P"] = ["Phosphorus", "P", 31, 30.973763, 1.00]
             self.elemDetails["Pt"] = ["Platinum", "Pt", 195, 194.964785, 0.338]
@@ -176,6 +218,7 @@ class formulaTools:
             self.elemDetails["Na"] = ["Sodium", "Na", 23, 22.98977, 1.00]
             self.elemDetails["Sr"] = ["Strontium", "Sr", 88, 87.905625, 0.8258]
             self.elemDetails["S"] = ["Sulfur", "S", 32, 31.972072, 0.9502]
+            self.elemDetails["32S"] = ["Sulfur", "S", 32, 31.972072, 0.9502]
             self.elemDetails["34S"] = ["Sulfur", "S", 34, 33.967868, 0.0421]  # 1.995796
 
             self.elemDetails["Ta"] = ["Tantalum", "Ta", 181, 180.948014, 0.9999]
@@ -275,9 +318,34 @@ class formulaTools:
                 raise Exception("Unrecognized element")
         return -1
 
-    # parses a formula into an element-dictionary
+    # parses a formula into an element-dictionary (charge notation is stripped and ignored)
     def parseFormula(self, formula):
-        return self._parseStruct("(" + formula.replace(" ", "") + ")", 0)[1]
+        clean, _ = _parse_charge_suffix(formula.replace(" ", ""))
+        return self._parseStruct("(" + clean + ")", 0)[1]
+
+    def parseFormulaWithCharge(self, formula):
+        """Parse a chemical formula and return (elemDict, charge).
+
+        Supports charge notation like C15H20O6+, C15H20O6+2, C15H20O6++.
+        Returns (element_dict, charge) where charge is an integer (0 for neutral).
+        """
+        clean, charge = _parse_charge_suffix(formula.replace(" ", ""))
+        elems = self._parseStruct("(" + clean + ")", 0)[1]
+        return elems, charge
+
+    def get_formal_charge(self, formula):
+        """Return the formal charge of a chemical formula as an integer.
+
+        Examples:
+            'C15H20O6'   -> 0
+            'C15H20O6+'  -> 1
+            'C15H20O6+2' -> 2
+            'C15H20O6++' -> 2
+            'C15H20O6-'  -> -1
+            'C15H20O6-2' -> -2
+        """
+        _, charge = _parse_charge_suffix(formula.replace(" ", ""))
+        return charge
 
     # method determines if a given element represent an isotope other the the main isotope of a given element
     # e.g. isIso("13C"): True; isIso("12C"): False
@@ -328,7 +396,7 @@ class formulaTools:
             if self.isIso(elem):
                 curElem, iso = self.getElementFor(elem)
 
-                if not (curElem in fIso):
+                if curElem not in fIso:
                     fIso[curElem] = []
                 fIso[curElem].append((iso, elems[elem]))
 
@@ -356,7 +424,7 @@ class formulaTools:
             if self.isIso(elem):
                 curElem, iso = self.getElementFor(elem)
 
-                if not (curElem in fIso):
+                if curElem not in fIso:
                     fIso[curElem] = []
                 fIso[curElem].append((iso, elems[elem]))
         for elem in fElems:
@@ -381,7 +449,10 @@ class formulaTools:
         return self.getAbundance(elems) / self.getAbundance(onlyElems)
 
     # calculates the molecular weight of a given elemental collection (e.g. result of parseFormula)
-    def calcMolWeight(self, elems):
+    # If charge is non-zero, the mass is adjusted for the gain/loss of electrons:
+    #   positive charge (cation): subtract charge * ELECTRON_MASS
+    #   negative charge (anion):  add abs(charge) * ELECTRON_MASS
+    def calcMolWeight(self, elems, charge=0):
         mw = 0.0
         for elem in elems.keys():
             if not (self.isIso(elem)):
@@ -389,6 +460,9 @@ class formulaTools:
             else:
                 curElem, iso = self.getElementFor(elem)
                 mw = mw + self.elemDetails[iso + curElem][3] * elems[elem] - self.elemDetails[curElem][3] * elems[elem]
+
+        if charge != 0:
+            mw = mw - charge * ELECTRON_MASS
 
         return mw
 
@@ -411,7 +485,7 @@ class formulaTools:
 
                         d = {}
                         for y in x:
-                            if not (y in d):
+                            if y not in d:
                                 d[y] = 0
                             d[y] = d[y] + 1
                         ret.append(d)

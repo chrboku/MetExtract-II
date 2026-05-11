@@ -1,15 +1,23 @@
-USEGRADIENTDESCENDPEAKPICKING = False
-
-from math import pow, sqrt
-from copy import copy as copycopy
+import os
+import platform
+from math import factorial, sqrt
+from operator import itemgetter
 import numpy
 import numpy as np
-from numpy import array, concatenate, vstack, hstack, zeros, ones, argmax, argmin
 from scipy.ndimage import gaussian_filter1d
-from operator import itemgetter
-from math import factorial
-import platform
-import os
+import importlib
+import sys
+import threading
+from multiprocessing import Process, Queue
+from sys import exc_info
+from traceback import format_tb
+import json
+import re
+import hashlib
+from xlrd import open_workbook
+from . import PolarsDB
+import contextlib
+import logging
 
 
 # get the operating system
@@ -80,7 +88,7 @@ def savitzky_golay(y, window_size, order, deriv=0, rate=1):
     try:
         window_size = np.abs(np.int(window_size))
         order = np.abs(np.int(order))
-    except ValueError as msg:
+    except ValueError:
         raise ValueError("window_size and order have to be of type int")
     if window_size % 2 != 1 or window_size < 1:
         raise TypeError("window_size size must be a positive odd number")
@@ -143,7 +151,7 @@ def __smooth(x, window_len=11, window="bartlett"):
     if window_len < 3:
         return x
 
-    if not window in ["flat", "hanning", "hamming", "bartlett", "blackman"]:
+    if window not in ["flat", "hanning", "hamming", "bartlett", "blackman"]:
         raise ValueError("Window is non of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'")
 
     s = numpy.r_[x[window_len - 1 : 0 : -1], x, x[-1:-window_len:-1]]
@@ -225,7 +233,6 @@ def smoothDataSeries(x, y, windowLen=2, polynom=3, window="gaussian", removeNegI
 
 # HELPER METHOD
 # taken from http://www.py2exe.org/index.cgi/HowToDetermineIfRunningFromExe
-import importlib, os, sys
 
 
 def main_is_frozen():
@@ -250,9 +257,6 @@ def get_main_dir():
         path = os.path.dirname(path)
 
     return path.replace("\\", "/")
-
-
-import threading
 
 
 class FuncThread(threading.Thread):
@@ -291,16 +295,10 @@ if __name__ == "__main__" and False:
     t1.join()
 
 
-from multiprocessing import Process, Queue
-
-
 def process_func(q, _target, *args, **kwds):
     try:
         ret = _target(*args, **kwds)
     except Exception:
-        from sys import exc_info
-        from traceback import format_tb
-
         ex_type, ex_value, tb = exc_info()
         error = ex_type, ex_value, "".join(format_tb(tb))
         ret = None
@@ -371,8 +369,6 @@ def someOtherFunc(data, key):
 
 
 if __name__ == "__main__" and False:
-    import os
-
     # Example usage
     t1 = FuncProcess(_target=someOtherFunc, data=[1, 2], key=7)
     t1.start()
@@ -441,8 +437,6 @@ class Bunch:
         return self.hasMember(var)
 
     def dumpAsJSon(self):
-        import json
-
         return json.dumps(self.__dict__)
 
     @staticmethod
@@ -588,8 +582,37 @@ class ChromPeakPair:
             self.LBorderRight = args["LBorderRight"]
             argsUsed += 1
 
+        if "N_startRT" in args:
+            self.N_startRT = args["N_startRT"]
+            argsUsed += 1
+        if "N_endRT" in args:
+            self.N_endRT = args["N_endRT"]
+            argsUsed += 1
+        if "L_startRT" in args:
+            self.L_startRT = args["L_startRT"]
+            argsUsed += 1
+        if "L_endRT" in args:
+            self.L_endRT = args["L_endRT"]
+            argsUsed += 1
+
+        if "N_FWHM" in args:
+            self.N_FWHM = args["N_FWHM"]
+            argsUsed += 1
+        if "L_FWHM" in args:
+            self.L_FWHM = args["L_FWHM"]
+            argsUsed += 1
+        if "N_Baseline" in args:
+            self.N_Baseline = args["N_Baseline"]
+            argsUsed += 1
+        if "L_Baseline" in args:
+            self.L_Baseline = args["L_Baseline"]
+            argsUsed += 1
+
         if "isotopeRatios" in args:
             self.isotopeRatios = args["isotopeRatios"]
+            argsUsed += 1
+        if "isotopologRatios" in args:
+            self.isotopologRatios = args["isotopologRatios"]
             argsUsed += 1
         if "mzDiffErrors" in args:
             self.mzDiffErrors = args["mzDiffErrors"]
@@ -685,7 +708,7 @@ def mean(x, skipExtremes=0):
 
     if skipExtremes > 0:
         x_arr = np.sort(x_arr)
-        n = len(x_arr)
+        len(x_arr)
         x_arr = x_arr[int(len(x_arr) * skipExtremes) : int(len(x_arr) - len(x_arr) * skipExtremes)]
 
     return np.mean(x_arr)
@@ -795,12 +818,15 @@ def getSubGraphsFromDictDict(nodes):
 # natSort(a)
 # for a=[("1", 1), ("2", 2), ("10", 3), ("11", 4), ("3", 5)]
 # natSort(a, key=itemgetter(0))
-import re
 
 
 def natSort(l, key=lambda ent: ent):
-    convert = lambda text: int(text) if text.isdigit() else text
-    alphanum_key = lambda ent, key=key: [convert(c) for c in re.split("([0-9]+)", str(key(ent)))]
+    def convert(text):
+        return int(text) if text.isdigit() else text
+
+    def alphanum_key(ent, key=key):
+        return [convert(c) for c in re.split("([0-9]+)", str(key(ent)))]
+
     # Convert to list first to handle Python 3 dict_keys, dict_values, etc.
     if not isinstance(l, list):
         l = list(l)
@@ -912,9 +938,6 @@ class StdevFunc:
         return sqrt(self.S / (self.k - 2))
 
 
-import hashlib
-
-
 def getFileHash_sha1(filePath):
     BLOCKSIZE = 65536
     hasher = hashlib.sha1()
@@ -966,7 +989,7 @@ def readTSVFileAsBunch(
                 continue
 
             hs = line.split(delim_bytes)
-            hs = [h.strip().decode("utf-8") for h in hs]
+            hs = [h.strip().decode("utf-8", errors="replace") for h in hs]
             if curRowi == 0:
                 for j, h in enumerate(hs):
                     if h in renameRows.keys():
@@ -976,6 +999,8 @@ def readTSVFileAsBunch(
             else:
                 b = Bunch(_addFollowing=list(headers.values()), _addFollowingDefaultValue="")
                 for j, h in enumerate(hs):
+                    if j not in headers:
+                        continue
                     if useColumns is None or headers[j] in useColumns:
                         setattr(b, headers[j], h)
 
@@ -1012,9 +1037,6 @@ def readTSVFileAsBunch(
     return headTypes, bunchs
 
 
-from xlrd import open_workbook
-
-
 def readXLSXFileAsBunch(file, sheetName="", useColumns=None, omitFirstNRows=0):
     if sheetName == "":
         bn = "Sheet1"
@@ -1025,7 +1047,6 @@ def readXLSXFileAsBunch(file, sheetName="", useColumns=None, omitFirstNRows=0):
             sheetName = bn
     assert omitFirstNRows >= 0
 
-    ret = None
     rb = open_workbook(file)
 
     ind = 0
@@ -1048,7 +1069,7 @@ def readXLSXFileAsBunch(file, sheetName="", useColumns=None, omitFirstNRows=0):
             if sh.cell(row, col).value is None or str(sh.cell(row, col).value) == "":
                 remainingCols = False
                 continue
-        except:
+        except Exception:
             remainingCols = False
             continue
 
@@ -1058,7 +1079,6 @@ def readXLSXFileAsBunch(file, sheetName="", useColumns=None, omitFirstNRows=0):
             colIDs.append(i)
         i = i + 1
 
-    remainingRows = True
     rows = []
     r = 1 + omitFirstNRows
     allEmpty = False
@@ -1073,7 +1093,7 @@ def readXLSXFileAsBunch(file, sheetName="", useColumns=None, omitFirstNRows=0):
                     rowValues.append("")
                     j = j + 1
                     continue
-            except:
+            except Exception:
                 rowValues.append("")
                 j = j + 1
                 continue
@@ -1149,7 +1169,7 @@ def SQLSelectAsObject(curs_or_db, selectStatement, returnColumns=False, newObjec
         where_match = re.search(r"WHERE\s+(.+?)(?:ORDER BY|$)", selectStatement, re.IGNORECASE | re.DOTALL)
         if where_match:
             # This is a simplified WHERE parser - may need enhancement for complex queries
-            where_clause = where_match.group(1).strip()
+            where_match.group(1).strip()
             # For now, skip filtering as it requires complex parsing
             # Users should use execute_select method for complex queries
             pass
@@ -1497,9 +1517,6 @@ def getDBFormat():
     return "parquet"
 
 
-from . import PolarsDB
-
-
 def add_sheet_to_excel(file, polars_df, sheet_name, overwrite=False):
     """
     Add a new sheet to an existing Excel file while preserving all other sheets.
@@ -1520,10 +1537,6 @@ def add_sheet_to_excel(file, polars_df, sheet_name, overwrite=False):
         raise RuntimeError(f"Sheet '{sheet_name}' already exists in the Excel file. Use overwrite=True to replace it.")
 
     db.close()
-
-
-import contextlib
-import logging
 
 
 @contextlib.contextmanager

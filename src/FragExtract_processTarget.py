@@ -1,54 +1,35 @@
 import logging
 from . import LoggingSetup
+import base64
+import pickle
+import sqlite3
+from copy import deepcopy
+from math import floor
+import matplotlib.pyplot as plt
+import numpy as np
+from reportlab.graphics import renderPDF
+from reportlab.graphics.charts.lineplots import LinePlot
+from reportlab.graphics.shapes import Drawing
+from reportlab.lib import pagesizes
+from reportlab.lib.colors import Color
+from reportlab.pdfgen import canvas
+from reportlab.platypus import Table
+from reportlab.platypus.flowables import Flowable
+from .Chromatogram import Chromatogram
+from .formulaTools import formulaTools
+from .MSScan import MS2Scan
+from .SGR import SGRGenerator
+from .utils import (
+    Bunch,
+    SQLSelectAsObject,
+    createTableFromBunch,
+    writeObjectAsSQLInsert,
+)
 
 LoggingSetup.LoggingSetup.Instance().initLogging()
 
-import matplotlib
-import matplotlib.pyplot as plt
-
-from .Chromatogram import Chromatogram
-from .utils import Bunch, merge_dicts
-
-
-from .utils import (
-    createTableFromBunch,
-    SQLInsert,
-    writeObjectAsSQLInsert,
-    SQLSelectAsObject,
-)
-import sqlite3
-import os
-import os.path
-import pickle
-import base64
-from time import sleep
-
-from .SGR import SGRGenerator
-from .formulaTools import formulaTools
-
-from .MSScan import MS2Scan
-
-from copy import deepcopy
-
-
-from math import floor
-
-from reportlab.graphics.shapes import Drawing
-from reportlab.graphics.charts.lineplots import LinePlot
-from reportlab.graphics.charts.lineplots import ScatterPlot
-from reportlab.lib import pagesizes
-from reportlab.lib import colors
-from reportlab.lib.colors import Color
-from reportlab.lib.units import mm
-from reportlab.platypus import Paragraph, Table, TableStyle
-from reportlab.platypus.flowables import Flowable
-from reportlab.pdfgen import canvas
-from reportlab.graphics import renderPDF
-from reportlab.lib.styles import getSampleStyleSheet
 
 # from PyMassBankSearchTool import PyMassBankSearchTool
-
-import numpy as np
 
 
 def cropEICs(eic, times, scanIDs, startRT, stopRT):
@@ -114,9 +95,14 @@ class AnnotatedMSMSSpectra:
         getInd = None
 
         if native:
-            getInd = lambda x: x.NIndex
+
+            def getInd(x):
+                return x.NIndex
+
         if labelled:
-            getInd = lambda x: x.LIndex
+
+            def getInd(x):
+                return x.LIndex
 
         return [anno for anno in self.peakAnnotations if getInd(anno) == index]
 
@@ -127,9 +113,14 @@ class AnnotatedMSMSSpectra:
             getInd = None
 
             if native:
-                getInd = lambda x: x.NIndex
+
+                def getInd(x):
+                    return x.NIndex
+
             if labelled:
-                getInd = lambda x: x.LIndex
+
+                def getInd(x):
+                    return x.LIndex
 
             for i in range(len(self.peakAnnotations)):
                 if getInd(self.peakAnnotations[i]) == index:
@@ -142,11 +133,11 @@ class AnnotatedMSMSSpectra:
         if not (native or labelled) or (native and labelled):
             return
 
-        c = self.getAnnotationsForPeakInScan(native=native, labelled=labelled, index=index)
+        self.getAnnotationsForPeakInScan(native=native, labelled=labelled, index=index)
         return len(self.getAnnotationsForPeakInScan(native=native, labelled=labelled, index=index)) > 0
 
     def newAnnotationForPeakInScan(self, nativeIndex=None, labelledIndex=None, anno=None):
-        if anno == None:
+        if anno is None:
             anno = Bunch()
 
         self.peakAnnotations.append(anno)
@@ -422,7 +413,7 @@ class ProcessTarget:
                     linewidth=2,
                     color="green",
                 )
-            except:
+            except Exception:
                 pass
 
             plt.show()
@@ -501,7 +492,6 @@ class ProcessTarget:
         for i in range(len(scanMS2Native.mz_list)):
             bestMatch = Bunch(nInd=-1, lInd=-1, Cn=-1)
             bestRat = 10000.0
-            bestRationNonAbs = 0
             for j in range(len(scanMS2Labelled.mz_list)):
                 nMz = scanMS2Native.mz_list[i]
                 nInt = scanMS2Native.intensity_list[i]
@@ -750,7 +740,6 @@ class ProcessTarget:
 
     def checkForFragmentParentSumFormulaConsistency(self, scanMS2Annotated, parentSumFormula, removeImpossibleAnnotations=True):
         fT = formulaTools()
-        ret = []
 
         annos = [scanMS2Annotated.getAnnotationsForPeakInScan(native=True, index=i)[0] for i in range(len(scanMS2Annotated.nativeMz_list))]
 
@@ -1276,7 +1265,7 @@ class ProcessTarget:
                 dd.append(zip(times, intensities))
                 colors.append(Color(47 / 255.0, 79 / 255.0, 79 / 255.0))
                 strokeWidth.append(0.35)
-        except:
+        except Exception:
             print(eic.timesList, eic.intensityList)
 
         lp.data = dd
@@ -1489,7 +1478,7 @@ class ProcessTarget:
 
                     drawing.add(lp)
                     renderPDF.draw(drawing, pdf, 30, 400)
-                except:
+                except Exception:
                     currentHeight -= 20
                     pdf.drawString(
                         50,
@@ -1791,8 +1780,7 @@ class ProcessTarget:
                 precursorMZ=target.precursorMZ + self.labellingOffset * target.Cn / target.chargeCount,
                 ppm=self.matchingPPM,
             )
-            scaledTo = "PrecursorMZs"
-        except Exception as e:
+        except Exception:
             print("Scaling to precursor not possible. Scaling will be perfomred to max intensive peak")
             self.scalePrecursorMZ = False
             try:
@@ -1808,8 +1796,7 @@ class ProcessTarget:
                     precursorMZ=target.precursorMZ + self.labellingOffset * target.Cn / target.chargeCount,
                     ppm=self.matchingPPM,
                 )
-                scaledTo = "MaxIntensivePeaks"
-            except Exception as e:
+            except Exception:
                 print("No scaling possible")
 
         assert maxIntFullScanTimeNative == scanFSNative.retention_time and maxIntFullScanTimeLabeled == scanFSLabeled.retention_time and timeMS2Native == scanMS2Native.retention_time and timeMS2Labelled == scanMS2Labelled.retention_time
@@ -1950,7 +1937,7 @@ class ProcessTarget:
 
         # region
         # use either generated sum formulas or check, if the provided is among the generated ones
-        if target.parentSumFormula == "" or target.parentSumFormula == None:
+        if target.parentSumFormula == "" or target.parentSumFormula is None:
             target.parentSumFormula = genSumForms
 
             if self.useParentFragmentConsistencyRule:  # check for fragment-parent-sumFormula consistency
@@ -2075,7 +2062,7 @@ class ProcessTarget:
                             ],
                         )
                 target.matches = matches
-            except:
+            except Exception:
                 target.matches = Bunch(numResults=0)
         else:
             target.matches = Bunch(numResults=0)

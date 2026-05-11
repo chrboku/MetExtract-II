@@ -15,55 +15,38 @@
 #    along with this program; if not, write to the Free Software
 #    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-from __future__ import print_function, division, absolute_import
-
+from __future__ import absolute_import, division, print_function
 import logging
 from . import LoggingSetup
+import base64
+import os
+import os.path
+import pickle
+import re
+import sqlite3
+import time
+from copy import deepcopy
+from multiprocessing import Manager, Pool, cpu_count, freeze_support
+import matplotlib
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+from matplotlib.figure import Figure
+from PySide6 import QtCore, QtGui, QtWidgets
+from . import formulaTools, pyperclip
+from .utilities.AboutDialog import AboutDialog
+from .Chromatogram import Chromatogram
+from .FragExtract_processTarget import ProcessTarget
+from .mePyGuis.adductsEdit import ConfiguredAdduct, ConfiguredElement, adductsEdit
+from .mePyGuis.FE_mainWindow import Ui_MainWindow
+from .mePyGuis.ProgressWrapper import ProgressWrapper
+from .MExtract import MetExtractVersion
+from .utils import Bunch, CallBackMethod, SQLSelectAsObject, get_main_dir, is_float, is_int
 
 LoggingSetup.LoggingSetup.Instance().initLogging()
 
 
-from .FragExtract_processTarget import ProcessTarget
-
-from .mePyGuis.FE_mainWindow import Ui_MainWindow
-from PySide6 import QtCore, QtGui, QtWidgets
-
-import pickle
-import base64
-from copy import deepcopy
-import time
-from multiprocessing import Pool, freeze_support, cpu_count, Manager
-
-from .Chromatogram import Chromatogram
-from .utils import Bunch, get_main_dir, is_int, is_float
-from multiprocessing import cpu_count
-from .mePyGuis.ProgressWrapper import ProgressWrapper
-from .mePyGuis.adductsEdit import adductsEdit, ConfiguredElement, ConfiguredAdduct
-
-from .MExtract import MetExtractVersion
-
-from . import formulaTools
-
-
-import os.path
-import os
-
-import re
-
-import sqlite3
-from .utils import SQLSelectAsObject, CallBackMethod
-
-from . import pyperclip
-
-
 # <editor-fold desc="### MatPlotLib imports and setup">
-import matplotlib
-import matplotlib.pyplot as plt
-from matplotlib.ticker import ScalarFormatter
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
-from matplotlib.figure import Figure
-from matplotlib.cm import get_cmap
+
 
 matplotlib.rcParams["savefig.dpi"] = 300
 font = {"size": 16}
@@ -153,12 +136,12 @@ def clearPlot(plt, setXtoZero=False):
 
 def drawCanvas(plt, ylim=None, xlim=None):
     for ax in plt.twinxs:
-        if ylim != None:
+        if ylim is not None:
             if len(ylim) == 1:
                 ax.set_ylim(ylim[0])
             elif len(ylim) == 2:
                 ax.set_ylim(ylim[0], ylim[1])
-        if xlim != None:
+        if xlim is not None:
             if len(xlim) == 1:
                 ax.set_xlim(xlim[0])
             else:
@@ -256,7 +239,7 @@ class MSMSTargetModel(QtCore.QAbstractTableModel):
                             if ppm <= 10:
                                 self._data[index.row()].scanEventIndexM = sei
                                 update = True
-                        except:
+                        except Exception:
                             pass
 
                 if self._data[index.row()].scanEventIndexMp <= 0:
@@ -267,7 +250,7 @@ class MSMSTargetModel(QtCore.QAbstractTableModel):
                             if ppm <= 10:
                                 self._data[index.row()].scanEventIndexMp = sei
                                 update = True
-                        except:
+                        except Exception:
                             pass
 
                 if update:
@@ -736,7 +719,7 @@ class FEMainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         menu = QtWidgets.QMenu()
         quitAction = menu.addAction("Delete target")
         copyAction = menu.addAction("Duplicate target")
-        none = menu.addSeparator()
+        menu.addSeparator()
         pasteAction = menu.addAction("Paste in row")
 
         action = menu.exec_(self.processFilesTable.mapToGlobal(position))
@@ -927,7 +910,7 @@ class FEMainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                                                     bestMatch = jrt
                                                     bestMatchDiff = abs(jrt - irt)
 
-                                        if bestMatch != None:
+                                        if bestMatch is not None:
                                             jrt = bestMatch
 
                                             b = Bunch(
@@ -1195,8 +1178,8 @@ class FEMainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def showHelp(self):
         import subprocess
-        import webbrowser
         import sys
+        import webbrowser
 
         url = get_main_dir() + "/documentation/index.html"
         if sys.platform == "darwin":  # in case of OS X
@@ -1205,13 +1188,13 @@ class FEMainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             webbrowser.open_new_tab(url)
 
     def showAbout(self):
-        lic = 'THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.'
-        QtWidgets.QMessageBox.information(
-            self,
-            "MetExtract",
-            "FragExtract %s\n\n(c) Centre for Analytical Chemistry, IFA Tulln\nUniversity of Natural Resources and Life Sciences, Vienna\n\n%s" % (MetExtractVersion, lic),
-            QtWidgets.QMessageBox.Ok,
+        dialog = AboutDialog(
+            parent=self,
+            app_name="FragExtract",
+            version=MetExtractVersion,
+            institute_name="CAC",
         )
+        dialog.exec()
 
     def saveCompilationHandler(self):
         groupFile = QtWidgets.QFileDialog.getSaveFileName(caption="Specify group file", filter="Group file (*.grp)")
@@ -1504,7 +1487,7 @@ class FEMainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         pIds = {}
         indGroups = {}
         for index, target in enumerate(self.MSMSTargetModel._data):
-            if target.targetName == "" or target.targetName == None:
+            if target.targetName == "" or target.targetName is None:
                 target.targetName = "Unknown target %d" % (index + 1)
 
             pIds[index + 1] = "%s//%s (%d)" % (
@@ -1590,7 +1573,7 @@ class FEMainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             index += 1
 
         # start the multiprocessing
-        res = p.imap_unordered(runFile, targetsToProc)
+        p.imap_unordered(runFile, targetsToProc)
 
         pw = ProgressWrapper(
             pwCount=min(len(filesTargets.keys()), cpus) + 1,
@@ -2151,7 +2134,7 @@ class FEMainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 linewidth = 1
 
                 self.pl2.twinxs[0].plot(times, intensities, color=col, linewidth=linewidth)
-        except:
+        except Exception:
             print(eic.timesList, eic.intensityList)
 
         try:
@@ -2173,7 +2156,7 @@ class FEMainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     col = (148 / 255.0, 32 / 255.0, 146 / 255.0)
                     linewidth = 2
                     self.pl2.twinxs[0].plot(times, intensities, color=col, linewidth=linewidth)
-        except:
+        except Exception:
             print(eic.timesList, eic.intensityList)
 
         ma = max(target.eicFS)
@@ -2202,7 +2185,7 @@ class FEMainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             color="firebrick",
         )
 
-        if showMassBankSpectra != None:
+        if showMassBankSpectra is not None:
             p = [
                 p
                 for p in SQLSelectAsObject(

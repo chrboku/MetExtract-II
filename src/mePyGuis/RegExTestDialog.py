@@ -1,9 +1,7 @@
-import sys
-from PySide6 import QtGui, QtWidgets
-
-from ..utils import natSort
-
 import re
+import sys
+from PySide6 import QtWidgets
+from ..utils import natSort
 
 
 # a dialog that shows the results of several tasks (e.g. check for dependencies)
@@ -73,7 +71,7 @@ class RegExTestDialog(QtWidgets.QDialog):
                     groups[finSt].append(string)
 
                     # resA.append("%s --> %s"%(string, finSt))
-                except Exception as ex:
+                except Exception:
                     resA = ["Error in RegEx"]
                     # resA.append("%s --> Error in RegEx (%s)"%(string, ex.message))
 

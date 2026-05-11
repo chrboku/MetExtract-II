@@ -29,7 +29,7 @@ from .formulaTools import formulaTools, getIsotopeMass
 from .mePyGuis.TracerEdit import ConfiguredTracer
 from .MZHCA import HierarchicalClustering, cutTreeSized
 from .PolarsDB import PolarsDB
-from .runIdentification_matchPartners import matchPartners
+from .findIsoPairs_matchPartners import matchPartners
 from .SGR import SGRGenerator
 from .chromPeakPicking.peakpickers import filter_peaks
 import numpy as np
@@ -404,37 +404,49 @@ class FindIsoPairs:
             self.heteroAtoms[heteroAtom.name] = heteroAtom
         self.simplifyInSourceFragments = simplifyInSourceFragments
 
+        self.printMessage(f"File: {file}")
+
+        self.last_message_sent = time.time()
+        self.last_value_sent = time.time()
+
     # Thread safe printing function
     def printMessage(self, message, type="info"):
         # Always print to stdout for debugging
         if self.lock is not None:
             self.lock.acquire()
             if type.lower() == "info":
-                # logging.info("   %d: %s" % (self.pID, message))
                 self.postMessageToProgressWrapper(mes="log", val=message)
             elif type.lower() == "warning":
-                # logging.warning("   %d: %s" % (self.pID, message))
                 self.postMessageToProgressWrapper(mes="log", val=message)
             elif type.lower() == "error":
-                # logging.error("   %d: %s" % (self.pID, message))
                 self.postMessageToProgressWrapper(mes="log", val=message)
             else:
-                # logging.debug("   %d: %s" % (self.pID, message))
                 self.postMessageToProgressWrapper(mes="log", val=message)
             self.lock.release()
 
     # helper function used to update the status of the current processing in the Process Dialog
-    def postMessageToProgressWrapper(self, mes, val=""):
+    def postMessageToProgressWrapper(self, mes, val="", force=False):
         # Always print to stdout for debugging
         if self.pID != -1 and self.queue is not None:
             if mes.lower() == "text":
-                self.queue.put(Bunch(pid=self.pID, mes="text", val="%d: %s" % (self.pID, val)))
-            elif mes == "value" or mes == "max":
+                cur = time.time()
+                if cur - self.last_message_sent > 3 or force:
+                    self.queue.put(Bunch(pid=self.pID, mes="text", val="%d: %s" % (self.pID, val)))
+                    self.last_message_sent = cur
+            elif mes == "value":
+                cur = time.time()
+                if cur - self.last_value_sent > 3 or force:
+                    self.queue.put(Bunch(pid=self.pID, mes=mes, val=val))
+                    self.last_value_sent = cur
+            elif mes == "max":
                 self.queue.put(Bunch(pid=self.pID, mes=mes, val=val))
+                self.last_value_sent = time.time()
             elif mes == "start" or mes == "end" or mes == "failed":
                 self.queue.put(Bunch(pid=self.pID, mes=mes))
+                self.last_message_sent = time.time()
             elif mes == "log":
-                self.queue.put(Bunch(pid=self.pID, mes=mes, val=mes))
+                self.queue.put(Bunch(pid=self.pID, mes=mes, val=val))
+                self.last_message_sent = time.time()
 
     def getMostLikelyHeteroIsotope(self, foundIsotopes):
         if len(foundIsotopes) == 0:
@@ -557,6 +569,10 @@ class FindIsoPairs:
                 "N_endRT": pl.Float64,
                 "L_startRT": pl.Float64,
                 "L_endRT": pl.Float64,
+                "N_FWHM": pl.Float64,
+                "L_FWHM": pl.Float64,
+                "N_Baseline": pl.Float64,
+                "L_Baseline": pl.Float64,
                 "adducts": pl.Utf8,
                 "heteroAtomsFeaturePairs": pl.Utf8,
                 "massSpectrumID": pl.Int64,
@@ -611,6 +627,10 @@ class FindIsoPairs:
                 "N_endRT": pl.Float64,
                 "L_startRT": pl.Float64,
                 "L_endRT": pl.Float64,
+                "N_FWHM": pl.Float64,
+                "L_FWHM": pl.Float64,
+                "N_Baseline": pl.Float64,
+                "L_Baseline": pl.Float64,
                 "adducts": pl.Utf8,
                 "heteroAtomsFeaturePairs": pl.Utf8,
                 "ionMode": pl.Utf8,
@@ -746,7 +766,7 @@ class FindIsoPairs:
         return mzxml
 
     # data processing step 1: searches each mass spectrum for isotope patterns of native and highly isotope enriched
-    # metabolite ions. The actual calculation and processing of the data is performed in the file runIdentification_matchPartners.py.
+    # metabolite ions. The actual calculation and processing of the data is performed in the file findIsoPairs_matchPartners.py.
     # The positive and negative ionisation modes are processed separately.
     def findSignalPairs(self, curProgress, mzxml, tracer, reportFunction=None):
         mzs = []
@@ -854,35 +874,46 @@ class FindIsoPairs:
     def writeSignalPairsToDB(self, mzs, mzxml, tracerID):
         db_con = PolarsDB(self.file + getDBSuffix(), format=getDBFormat())
 
+        pdata = {
+            "id": [],
+            "tracer": [],
+            "mz": [],
+            "lmz": [],
+            "tmz": [],
+            "xcount": [],
+            "scanid": [],
+            "scantime": [],
+            "loading": [],
+            "intensity": [],
+            "intensityL": [],
+            "ionMode": [],
+        }
+
         for mz in mzs:
             mz.id = self.curMZId
             mz.tid = tracerID
 
-            scanEvent = ""
-            if mz.ionMode == "+":
-                scanEvent = self.positiveScanEvent
-            elif mz.ionMode == "-":
-                scanEvent = self.negativeScanEvent
-
-            db_con.insert_row(
-                "MZs",
-                {
-                    "id": mz.id,
-                    "tracer": mz.tid,
-                    "mz": mz.mz,
-                    "lmz": mz.lmz,
-                    "tmz": mz.tmz,
-                    "xcount": mz.xCount,
-                    "scanid": mzxml.getIthMS1Scan(mz.scanIndex, scanEvent).id,
-                    "scanTime": mzxml.getIthMS1Scan(mz.scanIndex, scanEvent).retention_time,
-                    "loading": mz.loading,
-                    "intensity": mz.nIntensity,
-                    "intensityL": mz.lIntensity,
-                    "ionMode": mz.ionMode,
-                },
-            )
+            pdata["id"].append(mz.id)
+            pdata["tracer"].append(mz.tid)
+            pdata["mz"].append(mz.mz)
+            pdata["lmz"].append(mz.lmz)
+            pdata["tmz"].append(mz.tmz)
+            pdata["xcount"].append(mz.xCount)
+            pdata["scanid"].append(mz.scanid)
+            pdata["scantime"].append(mz.scantime)
+            pdata["loading"].append(mz.loading)
+            pdata["intensity"].append(mz.nIntensity)
+            pdata["intensityL"].append(mz.lIntensity)
+            pdata["ionMode"].append(mz.ionMode)
 
             self.curMZId = self.curMZId + 1
+
+        new_mzs_df = pl.DataFrame(pdata)
+        existing_mzs_df = db_con.tables.get("MZs", pl.DataFrame())
+        if len(existing_mzs_df) > 0 and len(new_mzs_df) > 0:
+            db_con.set_table("MZs", pl.concat([existing_mzs_df, new_mzs_df], how="vertical_relaxed"))
+        elif len(new_mzs_df) > 0:
+            db_con.set_table("MZs", new_mzs_df)
 
         db_con.commit()
         db_con.close()
@@ -972,12 +1003,34 @@ class FindIsoPairs:
     def writeFeaturePairClustersToDB(self, mzbins):
         db_con = PolarsDB(self.file + getDBSuffix(), format=getDBFormat())
 
+        mzbins_data = {"id": [], "mz": [], "ionMode": []}
+        mzbinskids = {"mzbinID": [], "mzID": []}
+
         for ionMode in ["+", "-"]:
-            for mzbin in mzbins[ionMode]:
-                db_con.insert_row("MZBins", {"id": self.curMZBinId, "mz": mzbin.getValue(), "ionMode": ionMode})
-                for kid in mzbin.getKids():
-                    db_con.insert_row("MZBinsKids", {"mzbinID": self.curMZBinId, "mzID": kid.getObject().id})
-                self.curMZBinId = self.curMZBinId + 1
+            if ionMode in mzbins.keys():
+                for mzbin in mzbins[ionMode]:
+                    mzbins_data["id"].append(self.curMZBinId)
+                    mzbins_data["mz"].append(mzbin.getValue())
+                    mzbins_data["ionMode"].append(ionMode)
+                    for kid in mzbin.getKids():
+                        mzbinskids["mzbinID"].append(self.curMZBinId)
+                        mzbinskids["mzID"].append(kid.getObject().id)
+                    self.curMZBinId = self.curMZBinId + 1
+
+        new_mzbins_df = pl.DataFrame(mzbins_data)
+        new_mzbinskids_df = pl.DataFrame(mzbinskids)
+
+        existing_mzbins_df = db_con.tables.get("MZBins", pl.DataFrame())
+        if len(existing_mzbins_df) > 0 and len(new_mzbins_df) > 0:
+            db_con.set_table("MZBins", pl.concat([existing_mzbins_df, new_mzbins_df], how="vertical_relaxed"))
+        elif len(new_mzbins_df) > 0:
+            db_con.set_table("MZBins", new_mzbins_df)
+
+        existing_mzbinskids_df = db_con.tables.get("MZBinsKids", pl.DataFrame())
+        if len(existing_mzbinskids_df) > 0 and len(new_mzbinskids_df) > 0:
+            db_con.set_table("MZBinsKids", pl.concat([existing_mzbinskids_df, new_mzbinskids_df], how="vertical_relaxed"))
+        elif len(new_mzbinskids_df) > 0:
+            db_con.set_table("MZBinsKids", new_mzbinskids_df)
 
         db_con.commit()
         db_con.close()
@@ -1192,6 +1245,10 @@ class FindIsoPairs:
                                     N_endRT=peakN.end_rt,
                                     L_startRT=peakL.start_rt,
                                     L_endRT=peakL.end_rt,
+                                    N_FWHM=peakN.fwhm,
+                                    L_FWHM=peakL.fwhm,
+                                    N_Baseline=peakN.baseline,
+                                    L_Baseline=peakL.baseline,
                                     isotopeRatios=[],
                                     mzDiffErrors=Bunch(),
                                     comments=[],
@@ -1232,31 +1289,36 @@ class FindIsoPairs:
                                                 int(len(peakN) * 0.25),
                                                 int(len(peakN) * 0.75) + 1,
                                             )
-                                            if peakL[i] > 0 and peakN[i] > 0
+                                            if i < len(peakL) and peakL[i] > 0 and peakN[i] > 0
                                         ]
-                                        correlations.append(
-                                            Bunch(
-                                                correlation=corr(peakN, peakL),
-                                                artificialShift=artShift,
-                                                silRatios=silRatios,
-                                                peakNInts=[
-                                                    peakN[i]
-                                                    for i in range(
-                                                        int(len(peakN) * 0.25),
-                                                        int(len(peakN) * 0.75) + 1,
-                                                    )
-                                                    if peakL[i] > 0 and peakN[i] > 0
-                                                ],
-                                                peakLInts=[
-                                                    peakL[i]
-                                                    for i in range(
-                                                        int(len(peakN) * 0.25),
-                                                        int(len(peakN) * 0.75) + 1,
-                                                    )
-                                                    if peakL[i] > 0 and peakN[i] > 0
-                                                ],
+                                        try:
+                                            correlations.append(
+                                                Bunch(
+                                                    correlation=corr(peakN, peakL),
+                                                    artificialShift=artShift,
+                                                    silRatios=silRatios,
+                                                    peakNInts=[
+                                                        peakN[i]
+                                                        for i in range(
+                                                            int(len(peakN) * 0.25),
+                                                            int(len(peakN) * 0.75) + 1,
+                                                        )
+                                                        if i < len(peakL) and peakL[i] > 0 and peakN[i] > 0
+                                                    ],
+                                                    peakLInts=[
+                                                        peakL[i]
+                                                        for i in range(
+                                                            int(len(peakN) * 0.25),
+                                                            int(len(peakN) * 0.75) + 1,
+                                                        )
+                                                        if i < len(peakL) and peakL[i] > 0 and peakN[i] > 0
+                                                    ],
+                                                )
                                             )
-                                        )
+                                        except AssertionError:
+                                            print(
+                                                f"Warning: Could not calculate correlation for peak at RT {times[peak.NPeakCenter]} with artShift {artShift}. This is likely due to too close proximity of the EIC with its the start/end. This is a bug of the software and will be resolved in a future version"
+                                            )
                                     if not correlations:
                                         return None
                                     bestFit = max(correlations, key=lambda x: x.correlation)
@@ -1460,6 +1522,10 @@ class FindIsoPairs:
                                         "N_endRT": peak.N_endRT,
                                         "L_startRT": peak.L_startRT,
                                         "L_endRT": peak.L_endRT,
+                                        "N_FWHM": getattr(peak, "N_FWHM", 0.0),
+                                        "L_FWHM": getattr(peak, "L_FWHM", 0.0),
+                                        "N_Baseline": getattr(peak, "N_Baseline", 0.0),
+                                        "L_Baseline": getattr(peak, "L_Baseline", 0.0),
                                         "peaksCorr": peak.peaksCorr,
                                         "heteroAtoms": "",
                                         "adducts": "",
@@ -1509,6 +1575,10 @@ class FindIsoPairs:
                                         "N_endRT": peak.N_endRT,
                                         "L_startRT": peak.L_startRT,
                                         "L_endRT": peak.L_endRT,
+                                        "N_FWHM": getattr(peak, "N_FWHM", 0.0),
+                                        "L_FWHM": getattr(peak, "L_FWHM", 0.0),
+                                        "N_Baseline": getattr(peak, "N_Baseline", 0.0),
+                                        "L_Baseline": getattr(peak, "L_Baseline", 0.0),
                                         "peaksCorr": peak.peaksCorr,
                                         "heteroAtoms": "",
                                         "adducts": "",
@@ -1644,40 +1714,23 @@ class FindIsoPairs:
         db_con.commit()
         db_con.close()
 
-    # Isotopolog mass differences (monoisotopic, in Da) for natural isotopes
-    _ISOTOPOLOG_MASS_DIFFS = {
-        "13C": 1.003355,
-        "15N": 0.997035,
-        "34S": 1.995796,
-        "54Fe": -1.995328,
-        "37Cl": 1.997050,
-        "D": 1.006277,
-        "18O": 2.004244,
-    }
+    def _get_isotopolog_mass_diffs_from_formula_tools(self):
+        elem_details = formulaTools().elemDetails
 
-    _M_ISOTOPOLOG_OFFSETS = [
-        ("M-13C2", -2 * 1.003355),
-        ("M-13C", -1 * 1.003355),
-        ("M+13C", +1 * 1.003355),
-        ("M+13C2", +2 * 1.003355),
-        ("M+15N", +0.997035),
-        ("M+34S", +1.995796),
-        ("M-54Fe", -1.995328),
-        ("M+37Cl", +1.997050),
-    ]
+        required_isotopes = ["12C", "13C", "14N", "15N", "32S", "34S", "56Fe", "54Fe", "35Cl", "37Cl", "1H", "D", "16O", "18O"]
+        missing = [iso for iso in required_isotopes if iso not in elem_details]
+        if missing:
+            raise RuntimeError("Missing isotope definitions in formulaTools dictionary: %s" % ", ".join(missing))
 
-    _MP_ISOTOPOLOG_OFFSETS = [
-        ("Mp-13C2", -2 * 1.003355),
-        ("Mp-13C", -1 * 1.003355),
-        ("Mp+13C", +1 * 1.003355),
-        ("Mp+13C2", +2 * 1.003355),
-        ("Mp+15N", +0.997035),
-        ("Mp+34S", +1.995796),
-        ("Mp-54Fe", -1.995328),
-        ("Mp+37Cl", +1.997050),
-        ("Mp+D", +1.006277),
-        ("Mp+18O", +2.004244),
-    ]
+        return {
+            "13C": elem_details["13C"][3] - elem_details["12C"][3],
+            "15N": elem_details["15N"][3] - elem_details["14N"][3],
+            "34S": elem_details["34S"][3] - elem_details["32S"][3],
+            "54Fe": elem_details["54Fe"][3] - elem_details["56Fe"][3],
+            "37Cl": elem_details["37Cl"][3] - elem_details["35Cl"][3],
+            "D": elem_details["D"][3] - elem_details["1H"][3],
+            "18O": elem_details["18O"][3] - elem_details["16O"][3],
+        }
 
     def calculateIsotopologRatiosForFeaturePairs(self, chromPeaks, mzxml, reportFunction=None):
         """For each detected feature pair, extract EICs for isotopologs of M and M',
@@ -1696,6 +1749,30 @@ class FindIsoPairs:
                 return 0.0
             return float(np.trapz(eic[lb : rb + 1], times[lb : rb + 1]))
 
+        mass_diffs = self._get_isotopolog_mass_diffs_from_formula_tools()
+        m_isotopolog_offsets = [
+            ("M-13C2", -2 * mass_diffs["13C"]),
+            ("M-13C", -1 * mass_diffs["13C"]),
+            ("M+13C", +1 * mass_diffs["13C"]),
+            ("M+13C2", +2 * mass_diffs["13C"]),
+            ("M+15N", +1 * mass_diffs["15N"]),
+            ("M+34S", +1 * mass_diffs["34S"]),
+            ("M-54Fe", +1 * mass_diffs["54Fe"]),
+            ("M+37Cl", +1 * mass_diffs["37Cl"]),
+        ]
+        mp_isotopolog_offsets = [
+            ("Mp-13C2", -2 * mass_diffs["13C"]),
+            ("Mp-13C", -1 * mass_diffs["13C"]),
+            ("Mp+13C", +1 * mass_diffs["13C"]),
+            ("Mp+13C2", +2 * mass_diffs["13C"]),
+            ("Mp+15N", +1 * mass_diffs["15N"]),
+            ("Mp+34S", +1 * mass_diffs["34S"]),
+            ("Mp-54Fe", +1 * mass_diffs["54Fe"]),
+            ("Mp+37Cl", +1 * mass_diffs["37Cl"]),
+            ("Mp+D", +1 * mass_diffs["D"]),
+            ("Mp+18O", +1 * mass_diffs["18O"]),
+        ]
+
         for i, peak in enumerate(chromPeaks):
             if reportFunction is not None:
                 reportFunction(1.0 * i / len(chromPeaks), "%d features remaining" % (len(chromPeaks) - i))
@@ -1708,6 +1785,7 @@ class FindIsoPairs:
             lb_L = max(0, peak.LPeakCenter - int(peak.LBorderLeft))
             rb_L = peak.LPeakCenter + int(peak.LBorderRight)
 
+            # Extract reference EICs for M and M'
             eic_M, times_M, _, _ = mzxml.getEIC(peak.mz, self.chromPeakPPM, filterLine=scanEvent)
             eic_Mp, times_Mp, _, _ = mzxml.getEIC(peak.lmz, self.chromPeakPPM, filterLine=scanEvent)
             eic_M = np.asarray(eic_M, dtype=np.float64)
@@ -1720,7 +1798,7 @@ class FindIsoPairs:
 
             isotopolog_ratios = {}
 
-            for label, offset in self._M_ISOTOPOLOG_OFFSETS:
+            for label, offset in m_isotopolog_offsets:
                 target_mz = peak.mz + offset / loading
                 eic_iso, times_iso, _, _ = mzxml.getEIC(target_mz, self.chromPeakPPM, filterLine=scanEvent)
                 eic_iso = np.asarray(eic_iso, dtype=np.float64)
@@ -1728,7 +1806,7 @@ class FindIsoPairs:
                 area_iso = _peak_area(eic_iso, times_iso, lb_N, rb_N)
                 isotopolog_ratios[label] = area_iso / area_M if area_M > 0 else 0.0
 
-            for label, offset in self._MP_ISOTOPOLOG_OFFSETS:
+            for label, offset in mp_isotopolog_offsets:
                 target_mz = peak.lmz + offset / loading
                 eic_iso, times_iso, _, _ = mzxml.getEIC(target_mz, self.chromPeakPPM, filterLine=scanEvent)
                 eic_iso = np.asarray(eic_iso, dtype=np.float64)
@@ -1738,6 +1816,7 @@ class FindIsoPairs:
 
             peak.isotopologRatios = isotopolog_ratios
 
+        # Persist to DB
         for peak in chromPeaks:
             encoded = base64.b64encode(dumps(peak.isotopologRatios)).decode("utf-8")
             db_con.tables["chromPeaks"] = db_con.tables["chromPeaks"].with_columns(pl.when(pl.col("id") == peak.id).then(pl.lit(encoded)).otherwise(pl.col("isotopologRatios")).alias("isotopologRatios"))
@@ -2043,7 +2122,7 @@ class FindIsoPairs:
                 db_con.tables["chromPeaks"] = db_con.tables["chromPeaks"].with_columns(pl.when(pl.col("id") == peak_id).then(pl.lit(value)).otherwise(pl.col(col_name)).alias(col_name))
                 db_con.tables["allChromPeaks"] = db_con.tables["allChromPeaks"].with_columns(pl.when(pl.col("id") == peak_id).then(pl.lit(value)).otherwise(pl.col(col_name)).alias(col_name))
 
-        self.printMessage("%s: Annotating feature pairs done." % tracer.name, type="info")
+        self.printMessage("Annotating feature pairs done.", type="info")
 
         db_con.commit()
         db_con.close()
@@ -2888,7 +2967,7 @@ class FindIsoPairs:
 
             db_con.commit()
             self.printMessage(
-                "%s: Feature grouping done. " % tracer.name + str(len(groups)) + " feature groups",
+                "Feature grouping done. " + str(len(groups)) + " feature groups",
                 type="info",
             )
 
@@ -2898,7 +2977,7 @@ class FindIsoPairs:
         except Exception as ex:
             traceback.print_exc()
 
-            self.printMessage("Error in %s: %s" % (self.file, str(ex)), type="error")
+            self.printMessage("Error: %s" % (str(ex)), type="error")
             self.postMessageToProgressWrapper("failed", self.pID)
 
     # store one MS scan for each detected feature pair in the database
@@ -3188,29 +3267,30 @@ class FindIsoPairs:
             ######################################################################################
 
             self.postMessageToProgressWrapper("value", curTracerProgress + 0 * tracerProgressWidth)
-            self.postMessageToProgressWrapper("text", "%s: Extracting signal pairs" % tracer.name)
+            self.postMessageToProgressWrapper("text", "Extracting signal pairs")
 
             def reportFunction(curVal, text):
                 self.postMessageToProgressWrapper(
                     "value",
                     curTracerProgress + 0 * tracerProgressWidth + 0.25 * curVal * tracerProgressWidth,
                 )
-                self.postMessageToProgressWrapper("text", "%s: Extracting signal pairs (%s)" % (tracer.name, text))
+                self.postMessageToProgressWrapper("text", "Extracting signal pairs (%s)" % text)
 
             mzs, negFound, posFound = self.findSignalPairs(curTracerProgress, mzxml, tracer, reportFunction)
             self.writeSignalPairsToDB(mzs, mzxml, tracerID)
 
             self.printMessage(
-                "%s: Extracting signal pairs done. pos: %d neg: %d mzs (including mismatches)" % (tracer.name, posFound, negFound),
+                "Extracting signal pairs done. pos: %d neg: %d mzs (including mismatches)" % (posFound, negFound),
                 type="info",
             )
+            self.postMessageToProgressWrapper("text", "Extracting signal pairs done. pos: %d neg: %d mzs (including mismatches)" % (posFound, negFound), force=True)
             # endregion
 
             # region 2. Cluster found mz values according to mz value and number of x atoms (25-35%)
             ######################################################################################
 
             self.postMessageToProgressWrapper("value", curTracerProgress + 0.25 * tracerProgressWidth)
-            self.postMessageToProgressWrapper("text", "%s: Clustering found signal pairs" % tracer.name)
+            self.postMessageToProgressWrapper("text", "Clustering found signal pairs")
 
             def reportFunction(curVal, text):
                 self.postMessageToProgressWrapper(
@@ -3219,7 +3299,7 @@ class FindIsoPairs:
                 )
                 self.postMessageToProgressWrapper(
                     "text",
-                    "%s: Clustering found signal pairs (%s)" % (tracer.name, text),
+                    "Clustering found signal pairs (%s)" % text,
                 )
 
             mzbins = self.clusterFeaturePairs(mzs, reportFunction)
@@ -3227,7 +3307,7 @@ class FindIsoPairs:
             mzbins = self.removeImpossibleFeaturePairClusters(mzbins)
 
             self.printMessage(
-                "%s: Clustering found signal pairs done. pos: %d neg: %d mz bins (including mismatches)" % (tracer.name, len(mzbins["+"]), len(mzbins["-"])),
+                "Clustering found signal pairs done. pos: %d neg: %d mz bins (including mismatches)" % (len(mzbins["+"]), len(mzbins["-"])),
                 type="info",
             )
             # endregion
@@ -3243,14 +3323,13 @@ class FindIsoPairs:
                     "value",
                     curTracerProgress + 0.35 * tracerProgressWidth + 0.3 * curVal * tracerProgressWidth,
                 )
-                self.postMessageToProgressWrapper("text", "%s: Separating feature pairs (%s)" % (tracer.name, text))
+                self.postMessageToProgressWrapper("text", "Separating feature pairs (%s)" % text)
 
             chromPeaks = self.findChromatographicPeaksAndWriteToDB(mzbins, mzxml, tracerID, reportFunction)
 
             self.printMessage(
-                "%s: Separating feature pairs done. pos: %d neg: %d chromatographic peaks (including mismatches)"
+                "Separating feature pairs done. pos: %d neg: %d chromatographic peaks (including mismatches)"
                 % (
-                    tracer.name,
                     len([c for c in chromPeaks if c.ionMode == "+"]),
                     len([c for c in chromPeaks if c.ionMode == "-"]),
                 ),
@@ -3262,7 +3341,7 @@ class FindIsoPairs:
             ######################################################################################
 
             self.postMessageToProgressWrapper("value", curTracerProgress + 0.65 * tracerProgressWidth)
-            self.postMessageToProgressWrapper("text", "%s: Removing false positive feature pairs" % tracer.name)
+            self.postMessageToProgressWrapper("text", "Removing false positive feature pairs")
 
             def reportFunction(curVal, text):
                 self.postMessageToProgressWrapper(
@@ -3271,13 +3350,13 @@ class FindIsoPairs:
                 )
                 self.postMessageToProgressWrapper(
                     "text",
-                    "%s: Removing false positive feature pairs (%s)" % (tracer.name, text),
+                    "Removing false positive feature pairs (%s)" % text,
                 )
 
             self.removeFalsePositiveFeaturePairsAndUpdateDB(chromPeaks, reportFunction)
 
             self.printMessage(
-                "%s: Removing false positive feature pairs done. %d chromatographic peaks" % (tracer.name, len(chromPeaks)),
+                "Removing false positive feature pairs done. %d chromatographic peaks" % len(chromPeaks),
                 type="info",
             )
             # endregion
@@ -3286,14 +3365,14 @@ class FindIsoPairs:
             ######################################################################################
 
             self.postMessageToProgressWrapper("value", curTracerProgress + 0.7 * tracerProgressWidth)
-            self.postMessageToProgressWrapper("text", "%s: Searching for hetero atoms" % tracer.name)
+            self.postMessageToProgressWrapper("text", "Searching for hetero atoms")
 
             def reportFunction(curVal, text):
                 self.postMessageToProgressWrapper(
                     "value",
                     curTracerProgress + 0.7 * tracerProgressWidth + 0.05 * curVal * tracerProgressWidth,
                 )
-                self.postMessageToProgressWrapper("text", "%s: Annotating feature pairs (%s)" % (tracer.name, text))
+                self.postMessageToProgressWrapper("text", "Annotating feature pairs (%s)" % text)
 
             self.annotateFeaturePairs(chromPeaks, mzxml, tracer, reportFunction)
             # endregion
@@ -3302,14 +3381,14 @@ class FindIsoPairs:
             ######################################################################################
 
             self.postMessageToProgressWrapper("value", curTracerProgress + 0.75 * tracerProgressWidth)
-            self.postMessageToProgressWrapper("text", "%s: Grouping feature pairs" % tracer.name)
+            self.postMessageToProgressWrapper("text", "Grouping feature pairs")
 
             def reportFunction(curVal, text):
                 self.postMessageToProgressWrapper(
                     "value",
                     curTracerProgress + 0.75 * tracerProgressWidth + 0.05 * curVal * tracerProgressWidth,
                 )
-                self.postMessageToProgressWrapper("text", "%s: Grouping feature pairs (%s)" % (tracer.name, text))
+                self.postMessageToProgressWrapper("text", "Grouping feature pairs (%s)" % text)
 
             self.groupFeaturePairsUntargetedAndWriteToDB(chromPeaks, mzxml, tracer, tracerID, reportFunction)
             # endregion
@@ -3318,7 +3397,7 @@ class FindIsoPairs:
             ######################################################################################
 
             self.postMessageToProgressWrapper("value", curTracerProgress + 0.8 * tracerProgressWidth)
-            self.postMessageToProgressWrapper("text", "%s: Extracting mass spectra to DB" % tracer.name)
+            self.postMessageToProgressWrapper("text", "Extracting mass spectra to DB")
 
             def reportFunction(curVal, text):
                 self.postMessageToProgressWrapper(
@@ -3327,7 +3406,7 @@ class FindIsoPairs:
                 )
                 self.postMessageToProgressWrapper(
                     "text",
-                    "%s: Extracting mass spectra to DB (%s)" % (tracer.name, text),
+                    "Extracting mass spectra to DB (%s)" % (text),
                 )
 
             self.writeMassSpectraToDB(chromPeaks, mzxml, reportFunction)
@@ -3343,7 +3422,7 @@ class FindIsoPairs:
             mins = "%.2f min(s)" % (elapsed % 60.0)
 
             self.printMessage(
-                "%s: Calculations finished (%s%s).." % (tracer.name, hours, mins),
+                "Calculations finished (%s%s).." % (hours, mins),
                 type="info",
             )
             # endregion
@@ -3351,15 +3430,15 @@ class FindIsoPairs:
             # region 7b. Calculate isotopolog ratios for each feature pair
             ######################################################################################
 
-            self.postMessageToProgressWrapper("text", "%s: Calculating isotopolog ratios" % tracer.name)
+            self.postMessageToProgressWrapper("text", "Calculating isotopolog ratios")
 
             def reportFunction(curVal, text):
-                self.postMessageToProgressWrapper("text", "%s: Calculating isotopolog ratios (%s)" % (tracer.name, text))
+                self.postMessageToProgressWrapper("text", "Calculating isotopolog ratios (%s)" % text)
 
             self.calculateIsotopologRatiosForFeaturePairs(chromPeaks, mzxml, reportFunction)
 
             self.printMessage(
-                "%s: Isotopolog ratio calculation done." % tracer.name,
+                "Isotopolog ratio calculation done.",
                 type="info",
             )
             # endregion
@@ -3369,9 +3448,9 @@ class FindIsoPairs:
 
             # W.1 Save results to new MzXML file (intermediate step) (95-100%)
 
-            if self.writeMZXML:
+            if False and self.writeMZXML:
                 self.postMessageToProgressWrapper("value", curTracerProgress + 0.95 * tracerProgressWidth)
-                self.postMessageToProgressWrapper("text", "%s: Writing results to mzXML.." % tracer.name)
+                self.postMessageToProgressWrapper("text", "Writing results to mzXML..")
 
                 self.writeResultsToNewMZXMLIntermediateObject(mzxml, newMZXMLData, chromPeaks)
             # endregion
@@ -3380,7 +3459,7 @@ class FindIsoPairs:
 
             # region W.2 Write results to TSV File
             ##########################################################################################
-            if self.writeFeatureML:
+            if False and self.writeFeatureML:
                 self.postMessageToProgressWrapper("text", "Writing results to featureML..")
 
                 self.writeResultsToFeatureML(self.file)
@@ -3388,17 +3467,16 @@ class FindIsoPairs:
 
             # region W.4 Save all results to new MzXML file
             ##########################################################################################
-            if self.writeMZXML:
+            if False and self.writeMZXML:
                 self.postMessageToProgressWrapper("text", "Writing results to new mzXML file")
 
                 self.writeIntermediateMZXMLDataToNewMZXMLFile(mzxml, newMZXMLData)
             # endregion
 
             mzxml.freeMe()
-            self.printMessage("%s done.." % self.file, type="info")
             self.postMessageToProgressWrapper("end")
 
         except Exception as ex:
-            self.printMessage("Error in %s: %s" % (self.file, str(ex)), type="error")
+            self.printMessage("Error: %s" % (str(ex)), type="error")
             self.postMessageToProgressWrapper("failed")
             traceback.print_exc()

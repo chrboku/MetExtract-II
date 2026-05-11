@@ -1,4 +1,3 @@
-from math import floor
 import numpy as np
 
 
@@ -41,7 +40,6 @@ class MSScan:
     # returns the most abundant ms peak in a given range
     def getMostIntensePeak(self, leftInd, rightInd, minInt=0):
         i = -1
-        v = -1
         if leftInd != -1 and rightInd != -1:
             subset = self.intensity_list[leftInd : rightInd + 1]
             mask = subset > minInt
@@ -50,7 +48,7 @@ class MSScan:
                 # Get the actual index in the masked array
                 masked_indices = np.where(mask)[0]
                 i = leftInd + masked_indices[local_max_idx]
-                v = self.intensity_list[i]
+                self.intensity_list[i]
         return i
 
     # HELPER METHOD: tests (and returns) if a given mz value is present in the current ms scan

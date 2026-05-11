@@ -1,10 +1,7 @@
-from math import pow, sqrt
-
 from abc import ABCMeta, abstractmethod
-
+from math import pow, sqrt
 from .DesignPatterns.IDSingleton import IDProvider
-
-import logging
+import numpy as np
 
 
 class HCANode:
@@ -91,9 +88,6 @@ def average(clust):
         sums[i] = sums[i] * 1.0 / len(kids)
 
     return sums
-
-
-import numpy as np
 
 
 class HCA_generic:

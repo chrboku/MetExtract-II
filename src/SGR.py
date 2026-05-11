@@ -282,8 +282,8 @@ if __name__ == "__main__":
             ppm=5.0,
         )
 
-        from .utils import Bunch, printObjectsAsTable
         from .formulaTools import formulaTools
+        from .utils import Bunch, printObjectsAsTable
 
         fT = formulaTools()
 

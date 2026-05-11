@@ -15,20 +15,16 @@
 #    along with this program; if not, write to the Free Software
 #    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-from __future__ import print_function, division, absolute_import
+from __future__ import absolute_import, division, print_function
 import gc
 import logging
 import time
 import traceback
-from copy import copy
-from multiprocessing import Pool, Manager
-
-from .Chromatogram import Chromatogram
-from .chromPeakPicking.MassSpecWavelet import MassSpecWavelet
-from .utils import Bunch, USEGRADIENTDESCENDPEAKPICKING, get_main_dir, getDBSuffix, getDBFormat
-from .PolarsDB import PolarsDB
+from multiprocessing import Manager, Pool
 import polars as pl
-
+from .Chromatogram import Chromatogram
+from .PolarsDB import PolarsDB
+from .utils import Bunch
 
 # Constants for peak abundance calculation
 peakAbundanceUseSignalsSides = 2
@@ -80,13 +76,9 @@ class ReIntegrationProcessor:
 
         Args:
             forFile: Path to the LC-HRMS data file
-            chromPeakFile: Path to the R script for chromatographic peak picking
+            chromPeakFile: Kept for API compatibility (no longer used)
         """
-        if chromPeakFile is None:
-            cpf = get_main_dir() + "/src/chromPeakPicking/MassSpecWaveletIdentification.r"
-            chromPeakFile = cpf
-
-        self.chromPeakFile = chromPeakFile
+        self.chromPeakFile = chromPeakFile  # kept for backward compatibility
         self.forFile = forFile
         self.queue = None
         self.pID = None
@@ -102,6 +94,7 @@ class ReIntegrationProcessor:
         smoothingWindow,
         smoothingWindowSize,
         smoothingWindowPolynom,
+        peak_filter_config=None,
     ):
         """
         Find chromatographic peak for one detected feature.
@@ -115,10 +108,14 @@ class ReIntegrationProcessor:
             smoothingWindow: smoothing method
             smoothingWindowSize: window size for smoothing
             smoothingWindowPolynom: polynomial order for smoothing
+            peak_filter_config: optional PeakFilterConfig for consistent filtering
 
         Returns:
-            Tuple of (area, abundance, SNR) or None if no peak found
+            Tuple of (area, abundance, SNR, fwhm_min, peak_width_min, apex_to_flank_factor, apex_to_flank_increase)
+            or None if no peak found
         """
+        from .chromPeakPicking.peakpickers import filter_peaks
+
         eic, times, scanids, mzs = self.chromatogram.getEIC(mz, ppm, filterLine=scanEvent)
         eicSmoothed = smoothDataSeries(
             times,
@@ -129,32 +126,31 @@ class ReIntegrationProcessor:
         )
         ret = self.peakPicker.getPeaksFor(times, eicSmoothed)
 
+        if peak_filter_config is not None:
+            ret = filter_peaks(ret, config=peak_filter_config)
+
         best = None
 
         for ri, r in enumerate(ret):
-            if abs(times[r.peakIndex] / 60.0 - rt) <= maxRTShift and (best is None or abs(times[r.peakIndex] / 60.0 - rt) < abs(times[ret[best].peakIndex] / 60.0 - rt)):
+            if abs(r.apex_rt / 60.0 - rt) <= maxRTShift and (best is None or abs(r.apex_rt / 60.0 - rt) < abs(ret[best].apex_rt / 60.0 - rt)):
                 best = ri
 
         if best is not None:
-            lb = int(
-                min(
-                    ret[best].peakIndex - peakAbundanceUseSignalsSides,
-                    ret[best].peakIndex - peakAbundanceUseSignalsSides,
-                )
-            )
-            rb = (
-                int(
-                    max(
-                        ret[best].peakIndex + peakAbundanceUseSignalsSides,
-                        ret[best].peakIndex + peakAbundanceUseSignalsSides,
-                    )
-                )
-                + 1
-            )
-            peak = eic[lb:rb]
+            pk = ret[best]
+            lb = int(max(0, pk.apex_index - peakAbundanceUseSignalsSides))
+            rb = int(pk.apex_index + peakAbundanceUseSignalsSides) + 1
+            peak_slice = eic[lb:rb]
 
-            peakAbundance = max(peak)
-            return ret[best].peakArea, peakAbundance, ret[best].peakSNR
+            peakAbundance = max(peak_slice) if len(peak_slice) > 0 else 0.0
+            fwhm_min = pk.fwhm / 60.0
+            peak_width_min = (pk.end_rt - pk.start_rt) / 60.0
+            baseline = max(pk.baseline, 1.0)
+            apex_to_flank_factor = peakAbundance / baseline
+            apex_to_flank_increase = peakAbundance - pk.baseline
+            start_rt_min = pk.start_rt / 60.0
+            apex_rt_min = pk.apex_rt / 60.0
+            end_rt_min = pk.end_rt / 60.0
+            return pk.area, peakAbundance, pk.snr, fwhm_min, peak_width_min, apex_to_flank_factor, apex_to_flank_increase, start_rt_min, apex_rt_min, end_rt_min
 
         return None
 
@@ -176,6 +172,7 @@ class ReIntegrationProcessor:
         addPeakArea,
         addPeakAbundance,
         addPeakSNR,
+        peak_filter_config=None,
     ):
         """
         Re-integrate one detected feature pair.
@@ -209,19 +206,25 @@ class ReIntegrationProcessor:
                 smoothingWindow,
                 smoothingWindowSize,
                 smoothingWindowPolynom,
+                peak_filter_config=peak_filter_config,
             )
         except Exception as exc:
             logging.error(f"   - Reintegration failed for feature pair (N) {self.forFile} ({mz} {rt}) [{exc}]")
 
         nFound = False
-        areaN = 0.0
         if r is not None:
-            area, abundance, snr = r
-            areaN = area
+            area, abundance, snr, fwhm_min, peak_width_min, apex_factor, apex_increase, start_rt_min, apex_rt_min, end_rt_min = r
             result[f"{fileName}_Found"] = "Reintegrated"
             result[f"{fileName}_Area_N"] = area
             result[f"{fileName}_Abundance_N"] = abundance
             result[f"{fileName}_SNR_N"] = snr
+            result[f"{fileName}_N_FWHM"] = fwhm_min
+            result[f"{fileName}_N_PeakWidth"] = peak_width_min
+            result[f"{fileName}_N_ApexToFlankFactor"] = apex_factor
+            result[f"{fileName}_N_ApexToFlankIncrease"] = apex_increase
+            result[f"{fileName}_N_startRT"] = start_rt_min
+            result[f"{fileName}_N_apexRT"] = apex_rt_min
+            result[f"{fileName}_N_endRT"] = end_rt_min
             nFound = True
 
         # Re-integrate L (labeled) peak
@@ -236,19 +239,25 @@ class ReIntegrationProcessor:
                 smoothingWindow,
                 smoothingWindowSize,
                 smoothingWindowPolynom,
+                peak_filter_config=peak_filter_config,
             )
         except Exception as exc:
             logging.error(f"   - Reintegration failed for feature pair (L) {self.forFile} ({lmz} {rt}) [{exc}]")
 
         lFound = False
-        areaL = 0.0
         if r is not None:
-            area, abundance, snr = r
-            areaL = area
+            area, abundance, snr, fwhm_min, peak_width_min, apex_factor, apex_increase, start_rt_min, apex_rt_min, end_rt_min = r
             result[f"{fileName}_Found"] = "Reintegrated"
             result[f"{fileName}_Area_L"] = area
             result[f"{fileName}_Abundance_L"] = abundance
             result[f"{fileName}_SNR_L"] = snr
+            result[f"{fileName}_L_FWHM"] = fwhm_min
+            result[f"{fileName}_L_PeakWidth"] = peak_width_min
+            result[f"{fileName}_L_ApexToFlankFactor"] = apex_factor
+            result[f"{fileName}_L_ApexToFlankIncrease"] = apex_increase
+            result[f"{fileName}_L_startRT"] = start_rt_min
+            result[f"{fileName}_L_apexRT"] = apex_rt_min
+            result[f"{fileName}_L_endRT"] = end_rt_min
             lFound = True
 
         # Track for database if found
@@ -282,19 +291,12 @@ class ReIntegrationProcessor:
             self.chromatogram = Chromatogram()
             self.chromatogram.parse_file(self.forFile, intensityCutoff=params.reintegrateIntensityCutoff)
 
-            # Initialize peak picking algorithm
-            if not USEGRADIENTDESCENDPEAKPICKING:
-                self.peakPicker = MassSpecWavelet(self.chromPeakFile, scales=params.scales, snrTh=params.snrTH, minScans=1)
+            # Use the peak picker forwarded from the main processing step (if any),
+            # otherwise fall back to MassSpecWavelet with the legacy scale parameters.
+            if getattr(params, "peak_picker", None) is not None:
+                self.peakPicker = params.peak_picker
             else:
-                from .chromPeakPicking.GradientPeaks import GradientPeaks
-
-                self.peakPicker = GradientPeaks(
-                    minInt=1000,
-                    minIntFlanks=100,
-                    minIncreaseRatio=0.5,
-                    minDelta=100,
-                    expTime=[5, 150],
-                )
+                 raise Exception("No peak picker provided for reintegration. Please provide a MassSpecWavelet instance with the same parameters used for the main processing step.")
 
             scanEventsPerPolarity = self.chromatogram.getFilterLinesPerPolarity()
 
@@ -332,6 +334,7 @@ class ReIntegrationProcessor:
                             addPeakArea=params.addPeakArea,
                             addPeakAbundance=params.addPeakAbundance,
                             addPeakSNR=params.addPeakSNR,
+                            peak_filter_config=getattr(params, "peak_filter_config", None),
                         )
                         if result and result.get("found", False):
                             del result["found"]
@@ -398,6 +401,8 @@ def reIntegrateResultsFile(
     selfObj=None,
     cpus=1,
     start=0,
+    peak_filter_config=None,
+    peak_picker=None,
 ):
     """
     Re-integrate all LC-HRMS data files with the grouped feature pairs results using PolarsDB.
@@ -491,6 +496,8 @@ def reIntegrateResultsFile(
             addPeakArea=addPeakArea,
             addPeakAbundance=addPeakAbundance,
             addPeakSNR=addPeakSNR,
+            peak_filter_config=peak_filter_config,
+            peak_picker=peak_picker,
         )
         processor.params = params
 
@@ -517,7 +524,6 @@ def reIntegrateResultsFile(
     loop = True
     freeSlots = list(range(min(len(fDict), cpus)))
     assignedThreads = {}
-    completed = 0
 
     while loop and (selfObj is None or not selfObj.terminateJobs):
         completed_now = imap_results._index
@@ -532,7 +538,7 @@ def reIntegrateResultsFile(
                     if mes.pid not in mess:
                         mess[mes.pid] = {}
                     mess[mes.pid][mes.mes] = mes
-                except:
+                except Exception:
                     break
 
             # Handle thread assignment
@@ -579,7 +585,7 @@ def reIntegrateResultsFile(
                 from PySide6 import QtWidgets
 
                 QtWidgets.QApplication.processEvents()
-            except:
+            except Exception:
                 pass
 
             time.sleep(0.5)
@@ -623,12 +629,41 @@ def reIntegrateResultsFile(
             if f"{fileName}_SNR_L" not in results_df.columns:
                 new_columns[f"{fileName}_SNR_L"] = [None] * len(results_df)
 
+        if f"{fileName}_N_FWHM" not in results_df.columns:
+            new_columns[f"{fileName}_N_FWHM"] = [None] * len(results_df)
+        if f"{fileName}_L_FWHM" not in results_df.columns:
+            new_columns[f"{fileName}_L_FWHM"] = [None] * len(results_df)
+        if f"{fileName}_N_PeakWidth" not in results_df.columns:
+            new_columns[f"{fileName}_N_PeakWidth"] = [None] * len(results_df)
+        if f"{fileName}_L_PeakWidth" not in results_df.columns:
+            new_columns[f"{fileName}_L_PeakWidth"] = [None] * len(results_df)
+        if f"{fileName}_N_ApexToFlankFactor" not in results_df.columns:
+            new_columns[f"{fileName}_N_ApexToFlankFactor"] = [None] * len(results_df)
+        if f"{fileName}_L_ApexToFlankFactor" not in results_df.columns:
+            new_columns[f"{fileName}_L_ApexToFlankFactor"] = [None] * len(results_df)
+        if f"{fileName}_N_ApexToFlankIncrease" not in results_df.columns:
+            new_columns[f"{fileName}_N_ApexToFlankIncrease"] = [None] * len(results_df)
+        if f"{fileName}_L_ApexToFlankIncrease" not in results_df.columns:
+            new_columns[f"{fileName}_L_ApexToFlankIncrease"] = [None] * len(results_df)
+        if f"{fileName}_N_startRT" not in results_df.columns:
+            new_columns[f"{fileName}_N_startRT"] = [None] * len(results_df)
+        if f"{fileName}_N_apexRT" not in results_df.columns:
+            new_columns[f"{fileName}_N_apexRT"] = [None] * len(results_df)
+        if f"{fileName}_N_endRT" not in results_df.columns:
+            new_columns[f"{fileName}_N_endRT"] = [None] * len(results_df)
+        if f"{fileName}_L_startRT" not in results_df.columns:
+            new_columns[f"{fileName}_L_startRT"] = [None] * len(results_df)
+        if f"{fileName}_L_apexRT" not in results_df.columns:
+            new_columns[f"{fileName}_L_apexRT"] = [None] * len(results_df)
+        if f"{fileName}_L_endRT" not in results_df.columns:
+            new_columns[f"{fileName}_L_endRT"] = [None] * len(results_df)
+
     # Add new columns to dataframe
     for col_name, col_data in new_columns.items():
         results_df = results_df.with_columns(pl.Series(col_name, col_data))
 
     # Update values from results
-    print(f"Updating results in all_results table")
+    print("Updating results in all_results table")
 
     for row_idx, row in enumerate(results_df.iter_rows()):
         num = int(results_df[row_idx, "Num"])
@@ -669,7 +704,7 @@ def reIntegrateResultsFile(
     p.close()
     try:
         p.terminate()
-    except:
+    except Exception:
         pass
     p.join()
 
@@ -689,7 +724,7 @@ def interruptReIntegrationProcessing(pool, selfObj):
         True if processing should be interrupted, False otherwise
     """
     try:
-        from PySide6 import QtWidgets, QtCore
+        from PySide6 import QtWidgets
 
         if (
             QtWidgets.QMessageBox.question(
@@ -710,6 +745,6 @@ def interruptReIntegrationProcessing(pool, selfObj):
             return True
         else:
             return False
-    except:
+    except Exception:
         # If GUI not available, just return False
         return False

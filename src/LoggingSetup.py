@@ -1,13 +1,12 @@
 import logging
-import os
 
 # Handle both relative imports (when used as module) and absolute imports (when run directly)
 try:
     from .DesignPatterns.SingletonDecorator import Singleton
 except ImportError:
     # When run directly, use absolute imports
-    import sys
     import os as os_module
+    import sys
 
     # Handle case where __file__ might not be defined (e.g., when using exec())
     if "__file__" in globals():
@@ -24,8 +23,6 @@ class LoggingSetup:
         pass
 
     def initLogging(self, location=None):
-        from .utils import get_main_dir
-
         while len(logging.getLogger().handlers) > 0:
             handler = logging.getLogger().handlers[0]
             logging.getLogger().removeHandler(handler)

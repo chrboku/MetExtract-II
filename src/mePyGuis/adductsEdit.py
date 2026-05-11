@@ -1,14 +1,11 @@
-from __future__ import print_function, division, absolute_import
-import sys
+from __future__ import absolute_import, division, print_function
+import base64
 import os
 import pickle
-import base64
+import sys
 from copy import deepcopy
-
-from PySide6 import QtCore, QtGui, QtWidgets
-
+from PySide6 import QtCore, QtWidgets
 from ..formulaTools import formulaTools
-
 from .adductsEditor import Ui_Dialog
 
 
@@ -344,47 +341,37 @@ class AdductsTableModel(QtCore.QAbstractTableModel):
         return True
 
     def setData(self, index, value, role=QtCore.Qt.EditRole):
-        f = 0
         if index.row() == (len(self.arraydata) - 1) and not (value == ""):
             self.arraydata[-1].entryType = "user"
             self.insertRows(len(self.arraydata) + 1, 1)
 
         if index.column() == 1:
             try:
-                f, ok = value.toDouble()
-                if not ok:
-                    return False
-                self.arraydata[index.row()].mzoffset = f
+                self.arraydata[index.row()].mzoffset = float(value)
                 return True
-            except:
+            except (ValueError, TypeError):
                 return False
         elif index.column() == 0:
-            self.arraydata[index.row()].name = str(value.toString())
+            self.arraydata[index.row()].name = str(value)
             return True
         elif index.column() == 2:
-            val = str(value.toString())
+            val = str(value)
             if val == "+" or val == "-":
-                self.arraydata[index.row()].polarity = str(value.toString())
+                self.arraydata[index.row()].polarity = val
                 return True
             else:
                 return False
         elif index.column() == 3:
             try:
-                f, ok = value.toInt()
-                if not ok:
-                    return False
-                self.arraydata[index.row()].charge = f
+                self.arraydata[index.row()].charge = int(value)
                 return True
-            except:
+            except (ValueError, TypeError):
                 return False
         elif index.column() == 4:
             try:
-                f, ok = value.toInt()
-                if not ok:
-                    return False
-                self.arraydata[index.row()].mCount = f
+                self.arraydata[index.row()].mCount = int(value)
                 return True
-            except:
+            except (ValueError, TypeError):
                 return False
         return False
 
@@ -451,18 +438,13 @@ class ElementsTableModel(QtCore.QAbstractTableModel):
 
         if index.column() == 1:
             try:
-                f, ok = value.toDouble()
-                if not ok:
-                    return False
-                self.arraydata[index.row()].weight = f
+                self.arraydata[index.row()].weight = float(value)
                 return True
-            except:
+            except (ValueError, TypeError):
                 return False
         elif index.column() in [2, 3, 4]:
             try:
-                f, ok = value.toInt()
-                if not ok:
-                    return False
+                f = int(value)
                 if index.column() == 2:
                     self.arraydata[index.row()].numberValenzElectrons = f
                 if index.column() == 3:
@@ -470,10 +452,10 @@ class ElementsTableModel(QtCore.QAbstractTableModel):
                 if index.column() == 4:
                     self.arraydata[index.row()].maxCount = f
                 return True
-            except:
+            except (ValueError, TypeError):
                 return False
         elif index.column() == 0:
-            elem = str(value.toString())
+            elem = str(value)
             if elem in self.ft.elemDetails.keys():
                 self.arraydata[index.row()].weight = self.ft.elemDetails[elem][3]
             self.arraydata[index.row()].name = elem
@@ -493,8 +475,8 @@ def saveANFile(filename, a, n):
 
 def loadANFile(filename):
     conf = QtCore.QSettings(filename, QtCore.QSettings.IniFormat)
-    a = pickle.loads(base64.b64decode(str(conf.value("adducts").toString())))
-    n = pickle.loads(base64.b64decode(str(conf.value("neutralloss").toString())))
+    a = pickle.loads(base64.b64decode(str(conf.value("adducts"))))
+    n = pickle.loads(base64.b64decode(str(conf.value("neutralloss"))))
     return a, n
 
 

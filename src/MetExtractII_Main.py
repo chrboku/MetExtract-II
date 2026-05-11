@@ -16,6 +16,10 @@
 #    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 # current MetExtract version
+import os
+import subprocess
+from PySide6 import QtWidgets
+
 MetExtractVersion = "v3.1.0"
 
 
@@ -32,30 +36,25 @@ def get_version_from_toml(file_path):
 
 
 # Update MetExtractVersion from the TOML file
-import os
 
 MetExtractVersion = get_version_from_toml(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "pyproject.toml"))
 
 # Handle both relative imports (when used as module) and absolute imports (when run directly)
 try:
-    from .mePyGuis.ModuleSelectionWindow import Ui_MainWindow
     from .mePyGuis import calcIsoEnrichmentDialog
+    from .mePyGuis.ModuleSelectionWindow import Ui_MainWindow
 except ImportError:
     # When run directly, use absolute imports
-    import sys
     import os
+    import sys
 
     # Handle case where __file__ might not be defined (e.g., when using exec())
     if "__file__" in globals():
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     else:
         sys.path.insert(0, os.path.dirname(os.path.abspath(os.getcwd() + "/src")))
-    from mePyGuis.ModuleSelectionWindow import Ui_MainWindow
     from mePyGuis import calcIsoEnrichmentDialog
-
-from PySide6 import QtGui, QtCore, QtWidgets
-import subprocess
-import platform
+    from mePyGuis.ModuleSelectionWindow import Ui_MainWindow
 
 
 class ModuleSelection(QtWidgets.QMainWindow, Ui_MainWindow):
@@ -69,23 +68,17 @@ class ModuleSelection(QtWidgets.QMainWindow, Ui_MainWindow):
         self.fragExtractLabel.setVisible(False)
         self.combineResultsButton.setVisible(False)
         self.label_2.setVisible(False)
-        self.fticrExtractIcon.setVisible(False)
-        self.label_3.setVisible(False)
 
         self.allExtractIcon.clicked.connect(self.openAllExtract)
         self.tracExtractIcon.clicked.connect(self.openTracExtract)
         self.fragExtractIcon.clicked.connect(self.openFragExtract)
         self.combineResultsButton.clicked.connect(self.openCombineResults)
-        self.fticrExtractIcon.clicked.connect(self.openFTICR)
         self.documentationIcon.clicked.connect(self.openDocumentation)
 
         self.actionCalculate_isotopic_enrichment.triggered.connect(self.openCalcIsotopologEnrichment)
 
     def openMetExtractModule(self, module):
         try:
-            import sys
-            import os
-
             # Get the Python executable from the current environment
             args = []
             if module == "AllExtract" or module == "TracExtract":
@@ -94,8 +87,6 @@ class ModuleSelection(QtWidgets.QMainWindow, Ui_MainWindow):
                 args = ["uv", "run", "python", "-m", "src.FragExtract"]
             elif module == "combineResults":
                 args = ["uv", "run", "python", "-m", "src.combineResults"]
-            elif module == "FTICRExtract":
-                args = ["uv", "run", "python", "-m", "src.FTICRModule"]
             else:
                 QtWidgets.QMessageBox.warning(self, "MetExtract", "Unknown module", QtWidgets.QMessageBox.Ok)
             subprocess.Popen(args)
@@ -127,14 +118,11 @@ class ModuleSelection(QtWidgets.QMainWindow, Ui_MainWindow):
         print("starting combineResults")
         self.openMetExtractModule(module="combineResults")
 
-    def openFTICR(self):
-        print("starting FTICRExtract")
-        self.openMetExtractModule(module="FTICRExtract")
-
     def openDocumentation(self):
         import subprocess
-        import webbrowser
         import sys
+        import webbrowser
+
         from .utils import get_main_dir
 
         url = get_main_dir() + "/documentation/index.html"
