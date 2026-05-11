@@ -2273,7 +2273,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 sample_name = re.sub(r"\.(mzxml|mzml)$", "", sample_name, flags=re.IGNORECASE)
                 sample_entries.append((group_name, sample_name))
 
-        sample_entries = sorted(set(sample_entries), key=lambda x: (str(x[0]).lower(), str(x[1]).lower()))
+        sample_entries = sorted(set(sample_entries), key=lambda x: (x[0].lower(), x[1].lower()))
         abundance_suffix = "_Abundance_N"
         if not any(f"{entry[1]}{abundance_suffix}" in table_df.columns for entry in sample_entries):
             abundance_suffix = "_Area_N"
@@ -2298,7 +2298,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 row = rows_by_num.get(feature_id)
                 if row is None:
                     continue
-                for group_name in sorted(set([entry[0] for entry in sample_entries]), key=lambda x: str(x).lower()):
+                for group_name in sorted(set([entry[0] for entry in sample_entries]), key=lambda x: x.lower()):
                     vals = []
                     for grp_name, sample_name in sample_entries:
                         if grp_name != group_name:
@@ -2326,7 +2326,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 for patch, c in zip(bp["boxes"], box_colors):
                     patch.set_facecolor(c)
                     patch.set_alpha(0.35)
-                ax.tick_params(axis="x", rotation=45)
+                ax.set_xticklabels(box_labels, rotation=45, ha="right")
             else:
                 ax.text(0.5, 0.5, "No abundance values available", transform=ax.transAxes, ha="center", va="center")
         else:
