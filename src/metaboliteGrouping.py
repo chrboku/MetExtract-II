@@ -18,8 +18,8 @@ def _pearson(values_a, values_b):
     if len(values_a) != len(values_b) or len(values_a) < 2:
         return None
     if np.std(values_a) == 0 or np.std(values_b) == 0:
-        max_a = max(values_a) if len(values_a) > 0 else 0.0
-        max_b = max(values_b) if len(values_b) > 0 else 0.0
+        max_a = max(values_a)
+        max_b = max(values_b)
         if max_a > 0 and max_b > 0:
             norm_a = [a / max_a for a in values_a]
             norm_b = [b / max_b for b in values_b]
@@ -104,7 +104,7 @@ def _connection_rate_to_group(node, group, adjacency):
     return float(degree) / float(len(group))
 
 
-def _split_component_by_connection_rate(component_ids, adjacency, similarities, min_connection_rate):
+def _split_component_by_dense_subclusters(component_ids, adjacency, similarities, min_connection_rate):
     if len(component_ids) <= 2:
         return [sorted(component_ids)]
 
@@ -171,6 +171,6 @@ def split_group_by_relative_abundance(group_ids, abundance_vectors, min_peak_cor
     components = _connected_components(group_ids, adjacency)
     refined_groups = []
     for component in components:
-        refined_groups.extend(_split_component_by_connection_rate(sorted(component), adjacency, similarities, min_connection_rate))
+        refined_groups.extend(_split_component_by_dense_subclusters(sorted(component), adjacency, similarities, min_connection_rate))
 
     return sorted([sorted(group) for group in refined_groups], key=lambda group: (len(group), group), reverse=True)
