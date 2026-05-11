@@ -1912,6 +1912,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.drawCanvas(self.ui.resultsExperimentSeparatedPeaks_plot)
             self.drawCanvas(self.ui.resultsExperimentMSScanPeaks_plot)
             self.drawCanvas(self.ui.resultsExperimentAbundance_plot, showLegendOverwrite=False)
+            self.updateSamplePeaksTab([])
             return
 
         if len(self.ui.resultsExperiment_TreeWidget.selectedItems()) == 0:
@@ -1919,6 +1920,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.drawCanvas(self.ui.resultsExperimentSeparatedPeaks_plot)
             self.drawCanvas(self.ui.resultsExperimentMSScanPeaks_plot)
             self.drawCanvas(self.ui.resultsExperimentAbundance_plot, showLegendOverwrite=False)
+            self.updateSamplePeaksTab([])
             return
 
         plotItems = self._getSelectedExperimentPlotItems()
@@ -2236,6 +2238,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # Update peak details tab
         self.updatePeakDetailsTab(plotItems)
 
+        # Update sample peaks tab
+        self.updateSamplePeaksTab(plotItems)
+
     def _getSelectedExperimentPlotItems(self):
         plotItems = []
         for item in self.ui.resultsExperiment_TreeWidget.selectedItems():
@@ -2413,6 +2418,245 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def _refreshExperimentAbundancePlot(self, *args):
         self.updateExperimentAbundancePlot(self._getSelectedExperimentPlotItems())
+
+    def updateSamplePeaksTab(self, plotItems):
+        """Prepare data for per-sample peak plots and render the first page."""
+        # Cache data for pagination
+        self._samplePeaks_plotItems = list(plotItems) if plotItems else []
+        self._samplePeaks_page = 0
+
+        # Pre-build sorted sample list once
+        self._samplePeaks_entries = []
+        if plotItems and hasattr(self, "loadedMZXMLs") and self.loadedMZXMLs is not None:
+            all_groups = self.getAllSampleGroups()
+            group_order = {str(grp.name): i for i, grp in enumerate(all_groups)}
+            seen = set()
+            raw = []
+            for grp in all_groups:
+                group_name = str(grp.name)
+                for fi in grp.files:
+                    fi_str = str(fi).replace("\\", "/")
+                    a = fi_str[fi_str.rfind("/") + 1 :]
+                    for ext in (".mzXML", ".mzxml", ".mzML", ".mzml"):
+                        if a.lower().endswith(ext.lower()):
+                            a = a[: -len(ext)]
+                            break
+                    key = (group_name, a)
+                    if key not in seen:
+                        seen.add(key)
+                        raw.append((group_name, a, fi_str))
+            self._samplePeaks_entries = sorted(raw, key=lambda x: (group_order.get(x[0], 0), x[1].lower()))
+
+        self._renderSamplePeaksPage()
+
+    def _renderSamplePeaksPage(self):
+        """Render the current page (4×4 grid) of per-sample peak subplots."""
+        _PAGE_ROWS = 4
+        _PAGE_COLS = 4
+        _PAGE_SIZE = _PAGE_ROWS * _PAGE_COLS
+
+        fig = self.ui.resultsExperimentSamplePeaks_plot.fig
+        fig.clear()
+        canvas = self.ui.resultsExperimentSamplePeaks_plot.canvas
+
+        sample_entries = getattr(self, "_samplePeaks_entries", [])
+        plotItems = getattr(self, "_samplePeaks_plotItems", [])
+        page = getattr(self, "_samplePeaks_page", 0)
+
+        n_total = len(sample_entries)
+        n_pages = max(1, (n_total + _PAGE_SIZE - 1) // _PAGE_SIZE)
+        page = max(0, min(page, n_pages - 1))
+        self._samplePeaks_page = page
+
+        # Update navigation buttons / label
+        prev_btn = self.ui.pushButton_samplePeaksPrev
+        next_btn = self.ui.pushButton_samplePeaksNext
+        page_lbl = self.ui.label_samplePeaksPage
+        prev_btn.setEnabled(page > 0)
+        next_btn.setEnabled(page < n_pages - 1)
+        if n_total > 0:
+            page_lbl.setText(f"Page {page + 1} / {n_pages}  ({n_total} samples)")
+        else:
+            page_lbl.setText("")
+
+        if not plotItems or n_total == 0:
+            canvas.draw()
+            return
+
+        if not hasattr(self, "experimentResults") or self.experimentResults is None:
+            canvas.draw()
+            return
+
+        selected_table = getattr(self.experimentResults, "selected_table", None)
+        if selected_table is None or selected_table not in self.experimentResults.db_con.tables:
+            canvas.draw()
+            return
+
+        table_df = self.experimentResults.db_con.tables[selected_table]
+        feature_ids = [pi.id for pi in plotItems if getattr(pi, "id", None) is not None]
+        rows_by_num = {}
+        if feature_ids:
+            filtered = table_df.filter(pl.col("Num").is_in(feature_ids))
+            rows_by_num = {row["Num"]: row for row in filtered.to_dicts()}
+
+        ppm = self.ui.doubleSpinBox_resultsExperiment_EICppm.value()
+
+        # Slice the current page
+        page_start = page * _PAGE_SIZE
+        page_entries = sample_entries[page_start : page_start + _PAGE_SIZE]
+        n_on_page = len(page_entries)
+
+        n_cols = min(_PAGE_COLS, n_on_page)
+        n_rows = (n_on_page + n_cols - 1) // n_cols
+
+        legend_fraction = 0.18
+        fig_width = n_cols * 4.5 + 2.5
+        fig_height = n_rows * 3.8
+        fig.set_size_inches(fig_width, fig_height)
+
+        axes = fig.subplots(n_rows, n_cols, squeeze=False)
+
+        # Build colour map per feature
+        cmap = matplotlib.cm.get_cmap("tab10")
+        feature_colors = {pi.id: cmap(i % 10) for i, pi in enumerate(plotItems)}
+
+        # Legend handles
+        import matplotlib.lines as mlines
+
+        legend_handles = [mlines.Line2D([], [], color=feature_colors[pi.id], linewidth=1.5, label=f"Feature {pi.id} ({pi.mz:.4f})") for pi in plotItems]
+
+        for s_idx, (group_name, sample_name, fi_str) in enumerate(page_entries):
+            row = s_idx // n_cols
+            col = s_idx % n_cols
+            ax = axes[row][col]
+            ax.set_title(f"{group_name}\n{sample_name}", fontsize=8, pad=3)
+            ax.tick_params(labelsize=7)
+            ax.set_xlabel("RT (min)", fontsize=7)
+            ax.set_ylabel("Scaled intensity", fontsize=7)
+
+            if not hasattr(self, "loadedMZXMLs") or self.loadedMZXMLs is None or fi_str not in self.loadedMZXMLs:
+                ax.text(0.5, 0.5, "Not loaded", ha="center", va="center", transform=ax.transAxes, fontsize=7, color="gray")
+                continue
+
+            mzxml_obj = self.loadedMZXMLs[fi_str]
+
+            for pi in plotItems:
+                color = feature_colors[pi.id]
+                row_data = rows_by_num.get(pi.id, {})
+
+                start_rt_min = None
+                apex_rt_min = None
+                end_rt_min = None
+
+                if row_data:
+                    sv = row_data.get(f"{sample_name}_N_startRT")
+                    av = row_data.get(f"{sample_name}_N_apexRT")
+                    ev = row_data.get(f"{sample_name}_N_endRT")
+                    if sv is not None and av is not None and ev is not None:
+                        try:
+                            # DB columns store RT already in minutes (seconds / 60 at write time)
+                            # Use first value when multiple peaks are stored as semicolon list
+                            start_rt_min = float(str(sv).split(";")[0])
+                            apex_rt_min = float(str(av).split(";")[0])
+                            end_rt_min = float(str(ev).split(";")[0])
+                        except (TypeError, ValueError):
+                            start_rt_min = None
+
+                if start_rt_min is None or end_rt_min is None:
+                    global_rt_min = pi.rt / 60.0
+                    start_rt_min = global_rt_min - 0.3
+                    apex_rt_min = global_rt_min
+                    end_rt_min = global_rt_min + 0.3
+
+                peak_width = max(end_rt_min - start_rt_min, 1e-6)
+                context = 0.75 * peak_width
+                window_start = start_rt_min - context
+                window_end = end_rt_min + context
+
+                # Determine scan event
+                scanEvent = pi.scanEvent if hasattr(pi, "scanEvent") and pi.scanEvent else None
+                if scanEvent is None:
+                    filter_lines = mzxml_obj.getFilterLines(includeMS1=True, includeMS2=False, includePosPolarity=True, includeNegPolarity=True)
+                    if filter_lines:
+                        ion_mode = getattr(pi, "ionisationMode", None)
+                        if ion_mode and "+" in str(ion_mode):
+                            scanEvent = next((fl for fl in filter_lines if "+" in fl), filter_lines[0])
+                        elif ion_mode and "-" in str(ion_mode):
+                            scanEvent = next((fl for fl in filter_lines if "-" in fl), filter_lines[0])
+                        else:
+                            scanEvent = filter_lines[0]
+
+                if scanEvent is None:
+                    continue
+
+                available = mzxml_obj.getFilterLines(includeMS1=True, includeMS2=False, includePosPolarity=True, includeNegPolarity=True)
+                if scanEvent not in available:
+                    continue
+
+                try:
+                    eic, times, _scan_ids, _mzs = mzxml_obj.getEIC(pi.mz, ppm=ppm, filterLine=scanEvent)
+                except Exception:
+                    continue
+
+                if len(times) == 0:
+                    continue
+
+                times_min = [t / 60.0 for t in times]
+                eic_list = list(eic)
+
+                # Crop to view window
+                window_indices = [j for j, t in enumerate(times_min) if window_start <= t <= window_end]
+                if not window_indices:
+                    continue
+
+                cropped_times = [times_min[j] for j in window_indices]
+                cropped_eic = [eic_list[j] for j in window_indices]
+
+                # Apex scaling: intensity at the scan closest to the feature apex RT
+                apex_idx = min(range(len(times_min)), key=lambda j: abs(times_min[j] - apex_rt_min))
+                apex_int = eic_list[apex_idx]
+                scale = (1.0 / apex_int) if apex_int > 0 else 1.0
+
+                scaled_eic = [v * scale for v in cropped_eic]
+                ax.plot(cropped_times, scaled_eic, color=color, linewidth=1.0, alpha=0.85)
+
+                # Shade the peak region
+                boundary = [(t, v) for t, v in zip(cropped_times, scaled_eic) if start_rt_min <= t <= end_rt_min]
+                if boundary:
+                    ax.fill_between([x[0] for x in boundary], [x[1] for x in boundary], alpha=0.15, color=color)
+
+        # Hide unused subplots in last row
+        for s_idx in range(n_on_page, n_rows * n_cols):
+            axes[s_idx // n_cols][s_idx % n_cols].set_visible(False)
+
+        if legend_handles:
+            fig.legend(
+                handles=legend_handles,
+                loc="center right",
+                bbox_to_anchor=(1.0, 0.5),
+                fontsize=8,
+                frameon=True,
+                title="Features",
+                title_fontsize=8,
+            )
+
+        fig.tight_layout(rect=[0, 0, 1.0 - legend_fraction, 1.0])
+
+        dpi = self.ui.resultsExperimentSamplePeaks_plot.dpi
+        w_px = int(fig_width * dpi)
+        h_px = int(fig_height * dpi)
+        canvas.setMinimumSize(w_px, h_px)
+        self.ui.resultsExperimentSamplePeaks_widget.setMinimumSize(w_px, h_px + 40)
+
+        canvas.draw()
+
+    def _samplePeaksPrevPage(self):
+        self._samplePeaks_page = max(0, getattr(self, "_samplePeaks_page", 0) - 1)
+        self._renderSamplePeaksPage()
+
+    def _samplePeaksNextPage(self):
+        self._samplePeaks_page = getattr(self, "_samplePeaks_page", 0) + 1
+        self._renderSamplePeaksPage()
 
     # </editor-fold>
 
@@ -10021,10 +10265,54 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     ):
                         availableFilterLines.add(fl)
 
+            # --- Load saved custom features from JSON ---
+            import json as _json
+
+            _custom_features_path = os.path.join(local_folder, "custom_features.json")
+
+            def _load_saved_features():
+                try:
+                    if os.path.exists(_custom_features_path):
+                        with open(_custom_features_path, "r", encoding="utf-8") as _f:
+                            return _json.load(_f)
+                except Exception:
+                    pass
+                return []
+
+            def _save_features(features):
+                try:
+                    with open(_custom_features_path, "w", encoding="utf-8") as _f:
+                        _json.dump(features, _f, indent=2)
+                except Exception as ex:
+                    logging.warning(f"Could not save custom features: {ex}")
+
+            saved_features = _load_saved_features()
+
             dlg = QtWidgets.QDialog(self)
             dlg.setWindowTitle("Custom feature")
-            dlg.setMinimumWidth(400)
+            dlg.setMinimumWidth(450)
             form = QtWidgets.QFormLayout(dlg)
+
+            # --- Saved compounds section ---
+            saved_layout = QtWidgets.QHBoxLayout()
+            saved_combo = QtWidgets.QComboBox()
+            saved_combo.setMinimumWidth(200)
+            saved_combo.addItem("-- select saved compound --")
+            for sf in saved_features:
+                saved_combo.addItem(sf.get("name", ""))
+            saved_layout.addWidget(saved_combo)
+            del_saved_btn = QtWidgets.QPushButton("Delete")
+            saved_layout.addWidget(del_saved_btn)
+            form.addRow("Saved compounds:", saved_layout)
+
+            sep0 = QtWidgets.QFrame()
+            sep0.setFrameShape(QtWidgets.QFrame.HLine)
+            form.addRow(sep0)
+
+            # --- Name field ---
+            name_edit = QtWidgets.QLineEdit()
+            name_edit.setPlaceholderText("Optional – set to save this feature")
+            form.addRow("Name:", name_edit)
 
             # --- Sum formula helper ---
             formula_layout = QtWidgets.QHBoxLayout()
@@ -10080,7 +10368,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 except Exception as ex:
                     QtWidgets.QMessageBox.warning(dlg, "Formula error", str(ex))
 
-            # calcuate on button click and on change of formulas/adducts
             native_formula_edit.textEdited.connect(_calc_mz_from_formula)
             labeled_formula_edit.textEdited.connect(_calc_mz_from_formula)
             adduct_combo.currentIndexChanged.connect(_calc_mz_from_formula)
@@ -10096,6 +10383,37 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             fl_combo.addItems(sorted(availableFilterLines))
             form.addRow("Filter line:", fl_combo)
 
+            def _populate_from_saved(index):
+                """Fill form fields when a saved compound is selected."""
+                if index <= 0 or index - 1 >= len(saved_features):
+                    return
+                sf = saved_features[index - 1]
+                name_edit.setText(sf.get("name", ""))
+                native_formula_edit.setText(sf.get("native_formula", ""))
+                labeled_formula_edit.setText(sf.get("labeled_formula", ""))
+                mz_spin.setValue(sf.get("mz", 0.0))
+                lmz_spin.setValue(sf.get("lmz", 0.0))
+                rt_spin.setValue(sf.get("rt", 0.0))
+                fl_val = sf.get("filter_line", "")
+                idx_fl = fl_combo.findText(fl_val)
+                if idx_fl >= 0:
+                    fl_combo.setCurrentIndex(idx_fl)
+                adduct_name = sf.get("adduct", "")
+                idx_ad = adduct_combo.findText(adduct_name)
+                if idx_ad >= 0:
+                    adduct_combo.setCurrentIndex(idx_ad)
+
+            def _delete_saved():
+                idx = saved_combo.currentIndex()
+                if idx <= 0 or idx - 1 >= len(saved_features):
+                    return
+                saved_features.pop(idx - 1)
+                _save_features(saved_features)
+                saved_combo.removeItem(idx)
+
+            saved_combo.currentIndexChanged.connect(_populate_from_saved)
+            del_saved_btn.clicked.connect(_delete_saved)
+
             btn_box = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
             btn_box.accepted.connect(dlg.accept)
             btn_box.rejected.connect(dlg.reject)
@@ -10108,6 +10426,27 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             lmz = lmz_spin.value()
             rt = rt_spin.value()
             fl = fl_combo.currentText()
+
+            # Save if a name was provided
+            compound_name = name_edit.text().strip()
+            if compound_name:
+                # Update existing entry or append new one
+                existing = next((sf for sf in saved_features if sf.get("name") == compound_name), None)
+                entry = {
+                    "name": compound_name,
+                    "native_formula": native_formula_edit.text().strip(),
+                    "labeled_formula": labeled_formula_edit.text().strip(),
+                    "adduct": adduct_combo.currentText(),
+                    "mz": mz,
+                    "lmz": lmz,
+                    "rt": rt,
+                    "filter_line": fl,
+                }
+                if existing is not None:
+                    existing.update(entry)
+                else:
+                    saved_features.append(entry)
+                _save_features(saved_features)
 
             plotItems.append(Bunch(mz=mz, lmz=lmz, rt=rt * 60.0, scanEvent=fl))
         else:
@@ -11384,6 +11723,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.comboBox_abundancePlotType.currentIndexChanged.connect(self._refreshExperimentAbundancePlot)
         self.ui.comboBox_abundanceScale.currentIndexChanged.connect(self._refreshExperimentAbundancePlot)
         self.ui.comboBox_abundanceScalingMode.currentIndexChanged.connect(self._refreshExperimentAbundancePlot)
+        self.ui.pushButton_samplePeaksPrev.clicked.connect(self._samplePeaksPrevPage)
+        self.ui.pushButton_samplePeaksNext.clicked.connect(self._samplePeaksNextPage)
 
         self.ui.eicSmoothingWindow.currentIndexChanged.connect(self.smoothingWindowChanged)
         self.smoothingWindowChanged()
@@ -11612,6 +11953,21 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         vbox.addWidget(self.ui.resultsExperimentAbundance_plot.mpl_toolbar)
         vbox.addWidget(self.ui.resultsExperimentAbundance_plot.canvas)
         self.ui.resultsExperimentAbundance_widget.setLayout(vbox)
+
+        # Setup sample peaks plot (dynamic per-sample subplot grid)
+        self.ui.resultsExperimentSamplePeaks_plot = QtCore.QObject()
+        self.ui.resultsExperimentSamplePeaks_plot.dpi = 72
+        self.ui.resultsExperimentSamplePeaks_plot.fig = Figure(facecolor="white")
+        self.ui.resultsExperimentSamplePeaks_plot.canvas = FigureCanvas(self.ui.resultsExperimentSamplePeaks_plot.fig)
+        self.ui.resultsExperimentSamplePeaks_plot.canvas.setParent(self.ui.resultsExperimentSamplePeaks_widget)
+        self.ui.resultsExperimentSamplePeaks_plot.mpl_toolbar = NavigationToolbar(
+            self.ui.resultsExperimentSamplePeaks_plot.canvas,
+            self.ui.resultsExperimentSamplePeaks_widget,
+        )
+        vbox_sp = QtWidgets.QVBoxLayout()
+        vbox_sp.addWidget(self.ui.resultsExperimentSamplePeaks_plot.mpl_toolbar)
+        vbox_sp.addWidget(self.ui.resultsExperimentSamplePeaks_plot.canvas)
+        self.ui.resultsExperimentSamplePeaks_widget.setLayout(vbox_sp)
 
         # Setup experiment MSMS plot - multiple MS/MS spectra subplots
         self.ui.plMSMS_exp = QtCore.QObject()
