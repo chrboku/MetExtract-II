@@ -1,8 +1,9 @@
 import numpy as np
-from . import HCA_general
 
 
 def split_group_with_hca(group_ids, similarities, min_peak_correlation, min_connection_rate):
+    from . import HCA_general
+
     if len(group_ids) <= 2:
         return [group_ids]
 
@@ -34,7 +35,7 @@ def split_group_with_hca(group_ids, similarities, min_peak_correlation, min_conn
             above_threshold = sum([corr > corr_threshold for i, corr in enumerate(corrs) if i in inds_set])
             return not (above_threshold * 1.0 / len(inds)) >= cut_off_min_ratio
         else:
-            raise RuntimeError("Unknown if-branch")
+            raise RuntimeError(f"Unexpected tree node type: {type(tree).__name__}. Expected HCALeaf or HCAComposite")
 
     sub_clusters = hca.splitTreeWithCallback(tree, lambda cluster, hca: check_sub_cluster(cluster, hca, min_peak_correlation, min_connection_rate), recursive=True)
     return [[leaf.getID() for leaf in sub_cluster.getLeaves()] for sub_cluster in sub_clusters]
@@ -47,7 +48,7 @@ def _normalize_relative_abundance_profile(values):
             numeric = float(value)
             if np.isnan(numeric):
                 numeric = 0.0
-        except Exception:
+        except (TypeError, ValueError):
             numeric = 0.0
         profile.append(max(0.0, numeric))
 

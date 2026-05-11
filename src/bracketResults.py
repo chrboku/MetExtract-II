@@ -1450,6 +1450,7 @@ def calculateMetaboliteGroups(
             done = done + 1
 
         logging.info("Refining feature groups by abundance profile similarity")
+        # use per-file native peak abundances to compare feature profile similarity across samples
         abundance_cols = [col for col in table_df.columns if col.endswith("_Abundance_N")]
         abundance_vectors = {}
         if len(abundance_cols) > 0:
