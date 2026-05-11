@@ -22,6 +22,7 @@ from . import HCA_general, exportAsFeatureML
 from .Chromatogram import Chromatogram
 from .MZHCA import HierarchicalClustering, cutTreeSized
 from .PolarsDB import PolarsDB
+from .metaboliteGrouping import split_group_by_relative_abundance
 from .utils import ChromPeakPair
 from .utils import (
     Bunch,
@@ -1447,6 +1448,25 @@ def calculateMetaboliteGroups(
             groups.extend(sGroups)
 
             done = done + 1
+
+        logging.info("Refining feature groups by abundance profile similarity")
+        abundance_cols = [col for col in table_df.columns if col.endswith("_Abundance_N")]
+        abundance_vectors = {}
+        if len(abundance_cols) > 0:
+            for row in table_df.select(["Num"] + abundance_cols).iter_rows(named=True):
+                abundance_vectors[row["Num"]] = [row.get(col) for col in abundance_cols]
+
+        refined_groups = []
+        for tGroup in groups:
+            refined_groups.extend(
+                split_group_by_relative_abundance(
+                    tGroup,
+                    abundance_vectors,
+                    min_peak_correlation=minPeakCorrelation,
+                    min_connection_rate=minConnectionRate,
+                )
+            )
+        groups = refined_groups
 
         # Separate feature pair clusters; softer
         curGroup = 1
