@@ -1460,14 +1460,14 @@ def calculateMetaboliteGroups(
                 for row in table_df.select(["Num"] + abundance_cols).iter_rows(named=True):
                     abundance_vectors[row["Num"]] = [row.get(col) for col in abundance_cols]
 
-            abundance_threshold = minPeakCorrelation if abundanceSimilarityThreshold is None else abundanceSimilarityThreshold
+            effective_abundance_threshold = minPeakCorrelation if abundanceSimilarityThreshold is None else abundanceSimilarityThreshold
             refined_groups = []
             for tGroup in groups:
                 refined_groups.extend(
                     split_group_by_relative_abundance(
                         tGroup,
                         abundance_vectors,
-                        min_peak_correlation=abundance_threshold,
+                        min_peak_correlation=effective_abundance_threshold,
                         min_connection_rate=minConnectionRate,
                     )
                 )
