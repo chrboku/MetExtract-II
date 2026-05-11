@@ -1597,7 +1597,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
                 # show a dialog with a drop-down list asking the user to specify the table to load
                 options = self.experimentResults.db_con.list_tables()
-                options = [opt for opt in options if opt not in ["Parameters", "__dTypes__", "2_StatColumns_Omitted", "5_Annotated_Compounds", "5_Annotated_SumFormulas"]][::-1]
+                options = [opt for opt in options if opt not in ["Parameters", "__dTypes__", "2_StatColumns_FalsePositives", "2_StatColumns_Omitted", "4_Convoluted_doublePeaks", "5_Annotated_Compounds", "5_Annotated_SumFormulas"]][::-1]
 
                 mgsBox = QtWidgets.QMessageBox(self)
                 mgsBox.setWindowTitle("Select results to load")
@@ -3298,6 +3298,18 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         errorCount = 0
 
+        # Per-step tracking for the final summary dialog
+        _ST_SKIPPED_USER = "skipped_user"
+        _ST_OK = "ok"
+        _ST_ERROR = "error"
+        _ST_SKIPPED_PREV = "skipped_prev_error"
+        _step_status = {k: _ST_SKIPPED_USER for k in ("individual_files", "bracketing", "reintegration", "convolution", "annotation")}
+        _step_elapsed = {k: 0.0 for k in _step_status}
+        _step_details = {k: "" for k in _step_status}
+        _bracketing_failed = False
+        _reintegration_failed = False
+        _convolution_failed = False
+
         cpus = min(cpu_count(), self.ui.cpuCores.value())
 
         if self.terminateJobs:
@@ -3319,6 +3331,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         # process individual files
         if self.ui.processIndividualFiles.isChecked():
+            _ind_step_start = time.time()
             logging.info("")
             logging.info("Processing %d individual LC-HRMS data files on %d CPU core(s).." % (len(files), min(len(files), cpus)))
 
@@ -3561,6 +3574,11 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             p.terminate()
             p.join()
 
+            _step_elapsed["individual_files"] = (time.time() - _ind_step_start) / 60.0
+            if not self.terminateJobs:
+                _step_status["individual_files"] = _ST_OK
+                _step_details["individual_files"] = f"{len(files)} file(s): {len(files) - len(failedFiles)} finished, {len(failedFiles)} failed"
+
         if self.terminateJobs:
             return
 
@@ -3579,6 +3597,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 logging.info("\n\n##############################################################")
                 logging.info("Bracketing of individual LC-HRMS results..")
 
+                _bracketing_step_start = time.time()
                 try:
                     if True:
                         # Group results
@@ -3753,9 +3772,26 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         grpOmit(excel_file, grpStats, sheet_name="2_StatColumns", new_sheet_name="2_StatColumns")
                         logging.info("Statistic columns added (and feature pairs omitted)..")
 
+                        _step_elapsed["bracketing"] = (time.time() - _bracketing_step_start) / 60.0
+                        _step_status["bracketing"] = _ST_OK
+                        try:
+                            import openpyxl as _opxl_br
+
+                            _wb_br = _opxl_br.load_workbook(excel_file, read_only=True)
+                            _n_feat_br = max(0, _wb_br["2_StatColumns"].max_row - 1) if "2_StatColumns" in _wb_br.sheetnames else 0
+                            _wb_br.close()
+                            _step_details["bracketing"] = f"{_n_feat_br} feature(s) detected"
+                        except Exception:
+                            _step_details["bracketing"] = "features detected"
+
                 except Exception as ex:
                     traceback.print_exc()
                     logging.error(str(traceback))
+
+                    _step_elapsed["bracketing"] = (time.time() - _bracketing_step_start) / 60.0
+                    _step_status["bracketing"] = _ST_ERROR
+                    _step_details["bracketing"] = str(ex)
+                    _bracketing_failed = True
 
                     QtWidgets.QMessageBox.warning(
                         self,
@@ -3779,77 +3815,98 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
             # re-integrate missed peaks (run before grouping, if enabled)
             if self.ui.integratedMissedPeaks.isChecked():
-                logging.info("\n\n##############################################################")
-                logging.info("Re-integrating of individual LC-HRMS results..")
+                if _bracketing_failed:
+                    _step_status["reintegration"] = _ST_SKIPPED_PREV
+                    logging.info("Skipping re-integration: bracketing step failed.")
+                else:
+                    logging.info("\n\n##############################################################")
+                    logging.info("Re-integrating of individual LC-HRMS results..")
 
-                pw = ProgressWrapper(min(len(files), cpus) + 1, showLog=False, parent=self)
-                pw.show()
-                pw.getCallingFunction()("text")("Integrating..")
-                pw.getCallingFunction()("header")("Integrating..")
+                    _reintegration_step_start = time.time()
+                    pw = ProgressWrapper(min(len(files), cpus) + 1, showLog=False, parent=self)
+                    pw.show()
+                    pw.getCallingFunction()("text")("Integrating..")
+                    pw.getCallingFunction()("header")("Integrating..")
 
-                try:
-                    # Reintegrate missed peaks in files
-                    fDict = {}
-                    for group in definedGroups:
-                        for grp in natSort(group.files):
-                            f = grp
-                            f = f.replace("\\", "/")
-                            fDict[f] = f[(f.rfind("/") + 1) : max(f.lower().rfind(".mzxml"), f.lower().rfind(".mzml"))]
+                    try:
+                        # Reintegrate missed peaks in files
+                        fDict = {}
+                        for group in definedGroups:
+                            for grp in natSort(group.files):
+                                f = grp
+                                f = f.replace("\\", "/")
+                                fDict[f] = f[(f.rfind("/") + 1) : max(f.lower().rfind(".mzxml"), f.lower().rfind(".mzml"))]
 
-                    reIntegrateResultsFile(
-                        excel_file,
-                        "2_StatColumns",
-                        "4_Reintegrated",
-                        fDict,
-                        addPeakArea=bool(self.ui.checkBox_expPeakArea.checkState() == QtCore.Qt.Checked),
-                        addPeakAbundance=bool(self.ui.checkBox_expPeakApexIntensity.checkState() == QtCore.Qt.Checked),
-                        addPeakSNR=bool(self.ui.checkBox_expPeakSNR.checkState() == QtCore.Qt.Checked),
-                        ppm=self.ui.groupPpm.value(),
-                        maxRTShift=self.ui.integrationMaxTimeDifference.value(),
-                        scales=[
-                            self.ui.wavelet_minScale.value(),
-                            self.ui.wavelet_maxScale.value(),
-                        ],
-                        reintegrateIntensityCutoff=self.ui.reintegrateIntensityCutoff.value(),
-                        snrTH=self.ui.wavelet_SNRThreshold.value(),
-                        smoothingWindow=str(self.ui.eicSmoothingWindow.currentText()),
-                        smoothingWindowSize=self.ui.eicSmoothingWindowSize.value(),
-                        smoothingWindowPolynom=self.ui.smoothingPolynom_spinner.value(),
-                        positiveScanEvent=str(self.ui.positiveScanEvent.currentText()),
-                        negativeScanEvent=str(self.ui.negativeScanEvent.currentText()),
-                        pw=pw,
-                        selfObj=self,
-                        cpus=min(len(files), cpus),
-                        start=start,
-                        peak_filter_config=filter_config,
-                        peak_picker=picker,
-                    )
-                    convolution_input_sheet = "4_Reintegrated"
-                    annotation_input_sheet = "4_Reintegrated"
+                        reIntegrateResultsFile(
+                            excel_file,
+                            "2_StatColumns",
+                            "3_Reintegrated",
+                            fDict,
+                            addPeakArea=bool(self.ui.checkBox_expPeakArea.checkState() == QtCore.Qt.Checked),
+                            addPeakAbundance=bool(self.ui.checkBox_expPeakApexIntensity.checkState() == QtCore.Qt.Checked),
+                            addPeakSNR=bool(self.ui.checkBox_expPeakSNR.checkState() == QtCore.Qt.Checked),
+                            ppm=self.ui.groupPpm.value(),
+                            maxRTShift=self.ui.integrationMaxTimeDifference.value(),
+                            scales=[
+                                self.ui.wavelet_minScale.value(),
+                                self.ui.wavelet_maxScale.value(),
+                            ],
+                            reintegrateIntensityCutoff=self.ui.reintegrateIntensityCutoff.value(),
+                            snrTH=self.ui.wavelet_SNRThreshold.value(),
+                            smoothingWindow=str(self.ui.eicSmoothingWindow.currentText()),
+                            smoothingWindowSize=self.ui.eicSmoothingWindowSize.value(),
+                            smoothingWindowPolynom=self.ui.smoothingPolynom_spinner.value(),
+                            positiveScanEvent=str(self.ui.positiveScanEvent.currentText()),
+                            negativeScanEvent=str(self.ui.negativeScanEvent.currentText()),
+                            pw=pw,
+                            selfObj=self,
+                            cpus=min(len(files), cpus),
+                            start=start,
+                            peak_filter_config=filter_config,
+                            peak_picker=picker,
+                        )
+                        convolution_input_sheet = "3_Reintegrated"
+                        annotation_input_sheet = "3_Reintegrated"
 
-                    # Log time used for bracketing
-                    elapsed = (time.time() - start) / 60.0
-                    hours = ""
-                    if elapsed >= 60.0:
-                        hours = "%d hours " % (elapsed // 60)
-                    mins = "%.2f mins" % (elapsed % 60.0)
-                    logging.info("Re-integrating finished (%s%s).." % (hours, mins))
+                        _step_elapsed["reintegration"] = (time.time() - _reintegration_step_start) / 60.0
+                        _step_status["reintegration"] = _ST_OK
+                        try:
+                            import openpyxl as _opxl_ri
 
-                except Exception as e:
-                    traceback.print_exc()
-                    logging.error(str(traceback))
+                            _wb_ri = _opxl_ri.load_workbook(excel_file, read_only=True)
+                            _n_feat_ri = max(0, _wb_ri["3_Reintegrated"].max_row - 1) if "3_Reintegrated" in _wb_ri.sheetnames else 0
+                            _wb_ri.close()
+                            _step_details["reintegration"] = f"{_n_feat_ri} feature(s) re-integrated"
+                        except Exception:
+                            _step_details["reintegration"] = "re-integration complete"
 
-                    QtWidgets.QMessageBox.warning(
-                        self,
-                        "MetExtract",
-                        "Error during reintegrating files: '%s'" % str(e),
-                        QtWidgets.QMessageBox.Ok,
-                    )
-                    errorCount += 1
-                finally:
-                    pw.setSkipCallBack(True)
-                    pw.hide()
-                logging.info("##############################################################")
+                        elapsed = (time.time() - start) / 60.0
+                        hours = ""
+                        if elapsed >= 60.0:
+                            hours = "%d hours " % (elapsed // 60)
+                        mins = "%.2f mins" % (elapsed % 60.0)
+                        logging.info("Re-integrating finished (%s%s).." % (hours, mins))
+
+                    except Exception as e:
+                        traceback.print_exc()
+                        logging.error(str(traceback))
+
+                        _step_elapsed["reintegration"] = (time.time() - _reintegration_step_start) / 60.0
+                        _step_status["reintegration"] = _ST_ERROR
+                        _step_details["reintegration"] = str(e)
+                        _reintegration_failed = True
+
+                        QtWidgets.QMessageBox.warning(
+                            self,
+                            "MetExtract",
+                            "Error during reintegrating files: '%s'" % str(e),
+                            QtWidgets.QMessageBox.Ok,
+                        )
+                        errorCount += 1
+                    finally:
+                        pw.setSkipCallBack(True)
+                        pw.hide()
+                    logging.info("##############################################################")
 
             if self.terminateJobs:
                 pw.hide()
@@ -3857,153 +3914,187 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
             # Calculate metabolite groups
             if self.ui.convoluteResults.isChecked():
-                logging.info("\n\n##############################################################")
-                try:
-                    pw = ProgressWrapper(1, parent=self)
-                    pw.show()
-                    pw.getCallingFunction()("text")("Convoluting feature pairs")
+                if _bracketing_failed or _reintegration_failed:
+                    _step_status["convolution"] = _ST_SKIPPED_PREV
+                    logging.info("Skipping convolution: a preceding step failed.")
+                else:
+                    logging.info("\n\n##############################################################")
+                    _convolution_step_start = time.time()
+                    try:
+                        pw = ProgressWrapper(1, parent=self)
+                        pw.show()
+                        pw.getCallingFunction()("text")("Convoluting feature pairs")
 
-                    findIsoPairsInstance = FindIsoPairs(
-                        files[0],
-                        exOperator=str(self.ui.exOperator_LineEdit.text()),
-                        exExperimentID=str(self.ui.exExperimentID_LineEdit.text()),
-                        exComments=str(self.ui.exComments_TextEdit.toPlainText()),
-                        exExperimentName=str(self.ui.exExperimentName_LineEdit.text()),
-                        metabolisationExperiment=self.labellingExperiment == TRACER,
-                        labellingisotopeA=str(self.ui.isotopeAText.text()),
-                        labellingisotopeB=str(self.ui.isotopeBText.text()),
-                        xOffset=self.isotopeBmass - self.isotopeAmass,
-                        useRatio=self.ui.useRatio.isChecked(),
-                        minRatio=self.ui.minRatio.value(),
-                        maxRatio=self.ui.maxRatio.value(),
-                        useCIsotopePatternValidation=int(self.ui.useCValidation.checkState().value),
-                        configuredTracer=self.configuredTracer,
-                        intensityThreshold=self.ui.intensityThreshold.value(),
-                        intensityCutoff=self.ui.intensityCutoff.value(),
-                        startTime=self.ui.scanStartTime.value(),
-                        stopTime=self.ui.scanEndTime.value(),
-                        maxLoading=self.ui.maxLoading.value(),
-                        xCounts=str(self.ui.xCountSearch.text()),
-                        isotopicPatternCountLeft=self.ui.isotopePatternCountA.value(),
-                        isotopicPatternCountRight=self.ui.isotopePatternCountB.value(),
-                        lowAbundanceIsotopeCutoff=self.ui.isoAbundance.checkState() == QtCore.Qt.Checked,
-                        purityN=self.ui.isotopicAbundanceA.value() / 100.0,
-                        purityL=self.ui.isotopicAbundanceB.value() / 100.0,
-                        intensityErrorN=self.ui.baseRange.value() / 100.0,
-                        intensityErrorL=self.ui.isotopeRange.value() / 100.0,
-                        scanIndexOffset=self.ui.scanIndexOffset.value(),
-                        minSpectraCount=self.ui.minSpectraCount.value(),
-                        clustPPM=self.ui.clustPPM.value(),
-                        chromPeakPPM=self.ui.wavelet_EICppm.value(),
-                        eicSmoothingWindow=str(self.ui.eicSmoothingWindow.currentText()),
-                        eicSmoothingWindowSize=self.ui.eicSmoothingWindowSize.value(),
-                        eicSmoothingPolynom=self.ui.smoothingPolynom_spinner.value(),
-                        artificialMPshift_start=self.ui.spinBox_artificialMPshift_start.value(),
-                        artificialMPshift_stop=self.ui.spinBox_artificialMPshift_stop.value(),
-                        calcIsoRatioNative=self.ui.calcIsoRatioNative_spinBox.value(),
-                        calcIsoRatioLabelled=self.ui.calcIsoRatioLabelled_spinBox.value(),
-                        calcIsoRatioMoiety=self.ui.calcIsoRatioMoiety_spinBox.value(),
-                        minCorrelationConnections=self.ui.minCorrelationConnections.value() / 100.0,
-                        positiveScanEvent=str(self.ui.positiveScanEvent.currentText()),
-                        negativeScanEvent=str(self.ui.negativeScanEvent.currentText()),
-                        correctCCount=self.ui.correctcCount.checkState() == QtCore.Qt.Checked,
-                        minCorrelation=self.ui.minCorrelation.value() / 100.0,
-                        hAIntensityError=self.ui.hAIntensityError.value() / 100.0,
-                        hAMinScans=self.ui.hAMinScans.value(),
-                        adducts=self.adducts,
-                        elements=self.elementsForNL,
-                        heteroAtoms=self.heteroElements,
-                        simplifyInSourceFragments=self.ui.checkBox_simplifyInSourceFragments.isChecked(),
-                        lock=None,
-                        queue=None,
-                        pID=1,
-                        meVersion="MetExtract (%s)" % MetExtractVersion,
-                        peak_picker=picker,
-                        peak_filter_config=filter_config,
-                    )
+                        findIsoPairsInstance = FindIsoPairs(
+                            files[0],
+                            exOperator=str(self.ui.exOperator_LineEdit.text()),
+                            exExperimentID=str(self.ui.exExperimentID_LineEdit.text()),
+                            exComments=str(self.ui.exComments_TextEdit.toPlainText()),
+                            exExperimentName=str(self.ui.exExperimentName_LineEdit.text()),
+                            metabolisationExperiment=self.labellingExperiment == TRACER,
+                            labellingisotopeA=str(self.ui.isotopeAText.text()),
+                            labellingisotopeB=str(self.ui.isotopeBText.text()),
+                            xOffset=self.isotopeBmass - self.isotopeAmass,
+                            useRatio=self.ui.useRatio.isChecked(),
+                            minRatio=self.ui.minRatio.value(),
+                            maxRatio=self.ui.maxRatio.value(),
+                            useCIsotopePatternValidation=int(self.ui.useCValidation.checkState().value),
+                            configuredTracer=self.configuredTracer,
+                            intensityThreshold=self.ui.intensityThreshold.value(),
+                            intensityCutoff=self.ui.intensityCutoff.value(),
+                            startTime=self.ui.scanStartTime.value(),
+                            stopTime=self.ui.scanEndTime.value(),
+                            maxLoading=self.ui.maxLoading.value(),
+                            xCounts=str(self.ui.xCountSearch.text()),
+                            isotopicPatternCountLeft=self.ui.isotopePatternCountA.value(),
+                            isotopicPatternCountRight=self.ui.isotopePatternCountB.value(),
+                            lowAbundanceIsotopeCutoff=self.ui.isoAbundance.checkState() == QtCore.Qt.Checked,
+                            purityN=self.ui.isotopicAbundanceA.value() / 100.0,
+                            purityL=self.ui.isotopicAbundanceB.value() / 100.0,
+                            intensityErrorN=self.ui.baseRange.value() / 100.0,
+                            intensityErrorL=self.ui.isotopeRange.value() / 100.0,
+                            scanIndexOffset=self.ui.scanIndexOffset.value(),
+                            minSpectraCount=self.ui.minSpectraCount.value(),
+                            clustPPM=self.ui.clustPPM.value(),
+                            chromPeakPPM=self.ui.wavelet_EICppm.value(),
+                            eicSmoothingWindow=str(self.ui.eicSmoothingWindow.currentText()),
+                            eicSmoothingWindowSize=self.ui.eicSmoothingWindowSize.value(),
+                            eicSmoothingPolynom=self.ui.smoothingPolynom_spinner.value(),
+                            artificialMPshift_start=self.ui.spinBox_artificialMPshift_start.value(),
+                            artificialMPshift_stop=self.ui.spinBox_artificialMPshift_stop.value(),
+                            calcIsoRatioNative=self.ui.calcIsoRatioNative_spinBox.value(),
+                            calcIsoRatioLabelled=self.ui.calcIsoRatioLabelled_spinBox.value(),
+                            calcIsoRatioMoiety=self.ui.calcIsoRatioMoiety_spinBox.value(),
+                            minCorrelationConnections=self.ui.minCorrelationConnections.value() / 100.0,
+                            positiveScanEvent=str(self.ui.positiveScanEvent.currentText()),
+                            negativeScanEvent=str(self.ui.negativeScanEvent.currentText()),
+                            correctCCount=self.ui.correctcCount.checkState() == QtCore.Qt.Checked,
+                            minCorrelation=self.ui.minCorrelation.value() / 100.0,
+                            hAIntensityError=self.ui.hAIntensityError.value() / 100.0,
+                            hAMinScans=self.ui.hAMinScans.value(),
+                            adducts=self.adducts,
+                            elements=self.elementsForNL,
+                            heteroAtoms=self.heteroElements,
+                            simplifyInSourceFragments=self.ui.checkBox_simplifyInSourceFragments.isChecked(),
+                            lock=None,
+                            queue=None,
+                            pID=1,
+                            meVersion="MetExtract (%s)" % MetExtractVersion,
+                            peak_picker=picker,
+                            peak_filter_config=filter_config,
+                        )
 
-                    procProc = FuncProcess(
-                        _target=calculateMetaboliteGroups,
-                        file=excel_file,
-                        toFile=excel_file,
-                        sheet_name=convolution_input_sheet,
-                        new_sheet_name="3_Convoluted",
-                        groups=definedGroups,
-                        eicPPM=self.ui.wavelet_EICppm.value(),
-                        maxAnnotationTimeWindow=self.ui.maxAnnotationTimeWindow.value(),
-                        minConnectionsInFiles=self.ui.metaboliteClusterMinConnections.value(),
-                        minConnectionRate=self.ui.minConnectionRate.value() / 100.0,
-                        minPeakCorrelation=self.ui.minCorrelation.value() / 100.0,
-                        useAbundanceSimilarity=self.ui.useAbundanceSimilarityForConvolution.checkState() == QtCore.Qt.Checked,
-                        abundanceSimilarityThreshold=self.ui.abundanceSimilarityThreshold.value() / 100.0,
-                        useRatio=self.ui.useSILRatioForConvolution.checkState() == QtCore.Qt.Checked,
-                        cpus=min(len(files), cpus),
-                    )
+                        procProc = FuncProcess(
+                            _target=calculateMetaboliteGroups,
+                            file=excel_file,
+                            toFile=excel_file,
+                            sheet_name=convolution_input_sheet,
+                            new_sheet_name="4_Convoluted",
+                            groups=definedGroups,
+                            eicPPM=self.ui.wavelet_EICppm.value(),
+                            maxAnnotationTimeWindow=self.ui.maxAnnotationTimeWindow.value(),
+                            minConnectionsInFiles=self.ui.metaboliteClusterMinConnections.value(),
+                            minConnectionRate=self.ui.minConnectionRate.value() / 100.0,
+                            minPeakCorrelation=self.ui.minCorrelation.value() / 100.0,
+                            useAbundanceSimilarity=self.ui.useAbundanceSimilarityForConvolution.checkState() == QtCore.Qt.Checked,
+                            abundanceSimilarityThreshold=self.ui.abundanceSimilarityThreshold.value() / 100.0,
+                            useRatio=self.ui.useSILRatioForConvolution.checkState() == QtCore.Qt.Checked,
+                            cpus=min(len(files), cpus),
+                        )
 
-                    # Create a shared Queue and Lock and attach to the FindIsoPairs instance
-                    q = procProc.getQueue()
-                    lock = Lock()
-                    findIsoPairsInstance.queue = q
-                    findIsoPairsInstance.lock = lock
+                        # Create a shared Queue and Lock and attach to the FindIsoPairs instance
+                        q = procProc.getQueue()
+                        lock = Lock()
+                        findIsoPairsInstance.queue = q
+                        findIsoPairsInstance.lock = lock
 
-                    procProc.addKwd("pwMaxSet", q)
-                    procProc.addKwd("pwValSet", q)
-                    procProc.addKwd("pwTextSet", q)
-                    procProc.addKwd("runIdentificationInstance", findIsoPairsInstance)
-                    procProc.start()
+                        procProc.addKwd("pwMaxSet", q)
+                        procProc.addKwd("pwValSet", q)
+                        procProc.addKwd("pwTextSet", q)
+                        procProc.addKwd("runIdentificationInstance", findIsoPairsInstance)
+                        procProc.start()
 
-                    pw.setCloseCallback(
-                        closeCallBack=CallBackMethod(
-                            _target=interruptConvolutingOfFeaturePairs,
-                            selfObj=self,
-                            funcProc=procProc,
-                        ).getRunMethod()
-                    )
+                        pw.setCloseCallback(
+                            closeCallBack=CallBackMethod(
+                                _target=interruptConvolutingOfFeaturePairs,
+                                selfObj=self,
+                                funcProc=procProc,
+                            ).getRunMethod()
+                        )
 
-                    # check for status updates
-                    while procProc.isAlive():
-                        QtWidgets.QApplication.processEvents()
-                        while not (procProc.getQueue().empty()):
-                            mes = procProc.getQueue().get(block=False, timeout=1)
+                        # check for status updates
+                        while procProc.isAlive():
+                            QtWidgets.QApplication.processEvents()
+                            while not (procProc.getQueue().empty()):
+                                mes = procProc.getQueue().get(block=False, timeout=1)
 
-                            # No idea why / where there are sometimes other objects than Bunch(mes, val), but they occur
-                            if isinstance(mes, Bunch) and hasattr(mes, "mes") and (hasattr(mes, "val") or hasattr(mes, "text")):
-                                pw.getCallingFunction()(mes.mes)(mes.val)
-                            elif mes == (None, None):
-                                ## I have no idea where this object comes from
-                                pass
+                                # No idea why / where there are sometimes other objects than Bunch(mes, val), but they occur
+                                if isinstance(mes, Bunch) and hasattr(mes, "mes") and (hasattr(mes, "val") or hasattr(mes, "text")):
+                                    pw.getCallingFunction()(mes.mes)(mes.val)
+                                elif mes == (None, None):
+                                    ## I have no idea where this object comes from
+                                    pass
+                                else:
+                                    logging.critical("UNKNONW OBJECT IN PROCESSING QUEUE: %s" % str(mes))
+
+                            time.sleep(0.5)
+
+                        elapsed = (time.time() - start) / 60.0
+                        hours = ""
+                        if elapsed >= 60.0:
+                            hours = "%d hours " % (elapsed // 60)
+                        mins = "%.2f mins" % (elapsed % 60.0)
+
+                        if self.terminateJobs:
+                            return
+                        else:
+                            logging.info("Convoluting feature pairs finished (%s%s).." % (hours, mins))
+                            annotation_input_sheet = "4_Convoluted"
+
+                        _step_elapsed["convolution"] = (time.time() - _convolution_step_start) / 60.0
+                        _step_status["convolution"] = _ST_OK
+                        try:
+                            import openpyxl as _opxl_cv
+
+                            _wb_cv = _opxl_cv.load_workbook(excel_file, read_only=True)
+                            if "4_Convoluted" in _wb_cv.sheetnames:
+                                _ws_cv = _wb_cv["4_Convoluted"]
+                                _headers_cv = [c.value for c in next(_ws_cv.iter_rows(max_row=1))]
+                                if "OGroup" in _headers_cv:
+                                    _og_col = _headers_cv.index("OGroup")
+                                    _ogroups = {row[_og_col] for row in _ws_cv.iter_rows(min_row=2, values_only=True) if row[_og_col] is not None}
+                                    _n_groups = len(_ogroups)
+                                    _n_feats_cv = max(0, _ws_cv.max_row - 1)
+                                else:
+                                    _n_groups = 0
+                                    _n_feats_cv = max(0, _ws_cv.max_row - 1)
                             else:
-                                logging.critical("UNKNONW OBJECT IN PROCESSING QUEUE: %s" % str(mes))
+                                _n_groups = 0
+                                _n_feats_cv = 0
+                            _wb_cv.close()
+                            _step_details["convolution"] = f"{_n_feats_cv} feature(s) in {_n_groups} group(s)"
+                        except Exception:
+                            _step_details["convolution"] = "grouping complete"
 
-                        time.sleep(0.5)
+                    except Exception as ex:
+                        traceback.print_exc()
+                        logging.error(str(traceback))
 
-                    # Log time used for bracketing
-                    elapsed = (time.time() - start) / 60.0
-                    hours = ""
-                    if elapsed >= 60.0:
-                        hours = "%d hours " % (elapsed // 60)
-                    mins = "%.2f mins" % (elapsed % 60.0)
+                        _step_elapsed["convolution"] = (time.time() - _convolution_step_start) / 60.0
+                        _step_status["convolution"] = _ST_ERROR
+                        _step_details["convolution"] = str(ex)
+                        _convolution_failed = True
 
-                    if self.terminateJobs:
-                        return
-                    else:
-                        logging.info("Convoluting feature pairs finished (%s%s).." % (hours, mins))
-                        annotation_input_sheet = "3_Convoluted"
-
-                except Exception as ex:
-                    traceback.print_exc()
-                    logging.error(str(traceback))
-
-                    QtWidgets.QMessageBox.warning(
-                        self,
-                        "MetExtract",
-                        "Error during convolution of feature pairs: '%s'" % str(ex),
-                        QtWidgets.QMessageBox.Ok,
-                    )
-                    errorCount += 1
-                finally:
-                    pw.setSkipCallBack(True)
-                logging.info("##############################################################")
+                        QtWidgets.QMessageBox.warning(
+                            self,
+                            "MetExtract",
+                            "Error during convolution of feature pairs: '%s'" % str(ex),
+                            QtWidgets.QMessageBox.Ok,
+                        )
+                        errorCount += 1
+                    finally:
+                        pw.setSkipCallBack(True)
+                    logging.info("##############################################################")
 
             pw.setSkipCallBack(True)
             pw.hide()
@@ -4014,156 +4105,181 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         annotationColumns = []
         ## annotate results
         if self.ui.annotateMetabolites_CheckBox.isChecked():
-            logging.info("\n\n##############################################################")
-            logging.info("Annotation of detected metabolites..")
+            if _bracketing_failed or _convolution_failed:
+                _step_status["annotation"] = _ST_SKIPPED_PREV
+                logging.info("Skipping annotation: a preceding step failed.")
+            else:
+                logging.info("\n\n##############################################################")
+                logging.info("Annotation of detected metabolites..")
 
-            useAdducts = []
-            for adduct in self.adducts:
-                useAdducts.append(
-                    [
-                        str(adduct.name),
-                        adduct.mzoffset,
-                        str(adduct.polarity),
-                        adduct.charge,
-                        adduct.mCount,
-                    ]
-                )
+                _annotation_step_start = time.time()
+                _annotation_error = False
 
-            pw = ProgressWrapper(1, parent=self)
-            pw.show()
-            pw.getCallingFunction()("text")("Annotation of detected metabolites")
-            pw.getCallingFunction()("header")("Annotating..")
-
-            if self.ui.searchDB_checkBox.isChecked():
-                pw.getCallingFunction()("text")("Searching hits in databases..")
-
-                # Collect database files
-                dbFiles = []
-                for entryInd in range(self.ui.dbList_listView.model().rowCount()):
-                    dbFile = str(self.ui.dbList_listView.model().item(entryInd, 0).data())
-                    dbFiles.append(dbFile)
-
-                # Prepare parameters
-                useExactXn = str(self.ui.sumFormulasUseExactXn_ComboBox.currentText())
-                if useExactXn.lower() == "plusminus":
-                    useExactXn = "PlusMinus_%d" % (self.ui.sumFormulasPlusMinus_spinBox.value())
-
-                try:
-                    addedColumns = annotateResultMatrix.annotateWithDatabases(
-                        file=excel_file,
-                        sheet_name=annotation_input_sheet,
-                        new_sheet_name="5_Annotated",
-                        dbFiles=dbFiles,
-                        useAdducts=useAdducts,
-                        ppm=self.ui.annotationMaxPPM_doubleSpinBox.value(),
-                        correctppmPosMode=self.ui.annotation_correctMassByPPMposMode.value(),
-                        correctppmNegMode=self.ui.annotation_correctMassByPPMnegMode.value(),
-                        rtError=self.ui.maxRTErrorInHits_spinnerBox.value(),
-                        useRt=self.ui.checkRTInHits_checkBox.isChecked(),
-                        checkXnInHits=useExactXn,
-                        processedElement=getElementOfIsotope(str(self.ui.isotopeAText.text())),
-                        pwMaxSet=pw.getCallingFunction()("max"),
-                        pwValSet=pw.getCallingFunction()("value"),
+                useAdducts = []
+                for adduct in self.adducts:
+                    useAdducts.append(
+                        [
+                            str(adduct.name),
+                            adduct.mzoffset,
+                            str(adduct.polarity),
+                            adduct.charge,
+                            adduct.mCount,
+                        ]
                     )
-                    annotationColumns.extend(addedColumns)
 
-                    if False:
-                        logging.info(
-                            "## Database search: checkXn %s, ppm: %.5f, correctppm: pos.mode: %.5f / neg.mode: %.5f, Adducts: %s"
-                            % (
-                                useExactXn,
-                                self.ui.annotationMaxPPM_doubleSpinBox.value(),
-                                self.ui.annotation_correctMassByPPMposMode.value(),
-                                self.ui.annotation_correctMassByPPMnegMode.value(),
-                                str(useAdducts),
-                            )
-                        )
+                pw = ProgressWrapper(1, parent=self)
+                pw.show()
+                pw.getCallingFunction()("text")("Annotation of detected metabolites")
+                pw.getCallingFunction()("header")("Annotating..")
 
-                except Exception as e:
-                    traceback.print_exc()
-                    logging.error(f"Error during database search: {e}")
-                    QtWidgets.QMessageBox.warning(
-                        self,
-                        "MetExtract",
-                        f"Error during database search annotation: {str(e)}",
-                        QtWidgets.QMessageBox.Ok,
-                    )
-                    errorCount += 1
-                logging.info("##############################################################\n\n")
+                if self.ui.searchDB_checkBox.isChecked():
+                    pw.getCallingFunction()("text")("Searching hits in databases..")
 
-            if self.ui.generateSumFormulas_CheckBox.isChecked():
-                pw.getCallingFunction()("text")("Generating sum formulas..")
-                pw.getCallingFunction()("value")(0)
+                    # Collect database files
+                    dbFiles = []
+                    for entryInd in range(self.ui.dbList_listView.model().rowCount()):
+                        dbFile = str(self.ui.dbList_listView.model().item(entryInd, 0).data())
+                        dbFiles.append(dbFile)
 
-                try:
-                    fT = formulaTools()
-                    elemsMin = fT.parseFormula(str(self.ui.sumFormulasMinimumElements_lineEdit.text()))
-                    elemsMax = fT.parseFormula(str(self.ui.sumFormulasMaximumElements_lineEdit.text()))
-
-                    useAtoms = []
-                    if getElementOfIsotope(str(self.ui.isotopeAText.text())) in elemsMax.keys():
-                        useAtoms.append(getElementOfIsotope(str(self.ui.isotopeAText.text())))
-
-                    if "C" in elemsMax.keys() and "C" not in useAtoms:
-                        useAtoms.append("C")
-                    if "H" in elemsMax.keys() and "H" not in useAtoms:
-                        useAtoms.append("H")
-                    if "N" in elemsMax.keys() and "N" not in useAtoms:
-                        useAtoms.append("N")
-                    if "O" in elemsMax.keys() and "O" not in useAtoms:
-                        useAtoms.append("O")
-                    if "S" in elemsMax.keys() and "S" not in useAtoms:
-                        useAtoms.append("S")
-
-                    for atom in elemsMax.keys():
-                        if atom not in useAtoms:
-                            useAtoms.append(atom)
-
-                    atomsRange = []
-                    for atom in useAtoms:
-                        minE = 0
-                        if atom in elemsMin.keys():
-                            minE = elemsMin[atom]
-                        maxE = elemsMax[atom]
-                        atomsRange.append([minE, maxE])
-
+                    # Prepare parameters
                     useExactXn = str(self.ui.sumFormulasUseExactXn_ComboBox.currentText())
                     if useExactXn.lower() == "plusminus":
                         useExactXn = "PlusMinus_%d" % (self.ui.sumFormulasPlusMinus_spinBox.value())
 
-                    addedColumns = annotateResultMatrix.annotateWithSumFormulas(
-                        file=excel_file,
-                        sheet_name="5_Annotated",
-                        useAtoms=useAtoms,
-                        atomsRange=atomsRange,
-                        processedElement=getElementOfIsotope(str(self.ui.isotopeAText.text())),
-                        useExactXn=useExactXn,
-                        ppm=self.ui.annotationMaxPPM_doubleSpinBox.value(),
-                        ppmCorrectionPosMode=self.ui.annotation_correctMassByPPMposMode.value(),
-                        ppmCorrectionNegMode=self.ui.annotation_correctMassByPPMnegMode.value(),
-                        useAdducts=useAdducts,
-                        pwMaxSet=pw.getCallingFunction()("max"),
-                        pwValSet=pw.getCallingFunction()("value"),
-                        nCores=min(len(files), cpus),
-                    )
-                    annotationColumns.extend(addedColumns)
+                    try:
+                        addedColumns = annotateResultMatrix.annotateWithDatabases(
+                            file=excel_file,
+                            sheet_name=annotation_input_sheet,
+                            new_sheet_name="5_Annotated",
+                            dbFiles=dbFiles,
+                            useAdducts=useAdducts,
+                            ppm=self.ui.annotationMaxPPM_doubleSpinBox.value(),
+                            correctppmPosMode=self.ui.annotation_correctMassByPPMposMode.value(),
+                            correctppmNegMode=self.ui.annotation_correctMassByPPMnegMode.value(),
+                            rtError=self.ui.maxRTErrorInHits_spinnerBox.value(),
+                            useRt=self.ui.checkRTInHits_checkBox.isChecked(),
+                            checkXnInHits=useExactXn,
+                            processedElement=getElementOfIsotope(str(self.ui.isotopeAText.text())),
+                            pwMaxSet=pw.getCallingFunction()("max"),
+                            pwValSet=pw.getCallingFunction()("value"),
+                        )
+                        annotationColumns.extend(addedColumns)
 
-                except Exception as e:
-                    traceback.print_exc()
-                    logging.error(f"Error during sum formula generation: {e}")
-                    QtWidgets.QMessageBox.warning(
-                        self,
-                        "MetExtract",
-                        f"Error during sum formula generation: {str(e)}",
-                        QtWidgets.QMessageBox.Ok,
-                    )
-                    errorCount += 1
-                logging.info("\n\n##############################################################")
+                        if False:
+                            logging.info(
+                                "## Database search: checkXn %s, ppm: %.5f, correctppm: pos.mode: %.5f / neg.mode: %.5f, Adducts: %s"
+                                % (
+                                    useExactXn,
+                                    self.ui.annotationMaxPPM_doubleSpinBox.value(),
+                                    self.ui.annotation_correctMassByPPMposMode.value(),
+                                    self.ui.annotation_correctMassByPPMnegMode.value(),
+                                    str(useAdducts),
+                                )
+                            )
 
-            print("\n\n")
-            pw.hide()
+                    except Exception as e:
+                        traceback.print_exc()
+                        logging.error(f"Error during database search: {e}")
+                        QtWidgets.QMessageBox.warning(
+                            self,
+                            "MetExtract",
+                            f"Error during database search annotation: {str(e)}",
+                            QtWidgets.QMessageBox.Ok,
+                        )
+                        _annotation_error = True
+                        errorCount += 1
+                    logging.info("##############################################################\n\n")
 
-            logging.info("##############################################################")
+                if self.ui.generateSumFormulas_CheckBox.isChecked():
+                    pw.getCallingFunction()("text")("Generating sum formulas..")
+                    pw.getCallingFunction()("value")(0)
+
+                    try:
+                        fT = formulaTools()
+                        elemsMin = fT.parseFormula(str(self.ui.sumFormulasMinimumElements_lineEdit.text()))
+                        elemsMax = fT.parseFormula(str(self.ui.sumFormulasMaximumElements_lineEdit.text()))
+
+                        useAtoms = []
+                        if getElementOfIsotope(str(self.ui.isotopeAText.text())) in elemsMax.keys():
+                            useAtoms.append(getElementOfIsotope(str(self.ui.isotopeAText.text())))
+
+                        if "C" in elemsMax.keys() and "C" not in useAtoms:
+                            useAtoms.append("C")
+                        if "H" in elemsMax.keys() and "H" not in useAtoms:
+                            useAtoms.append("H")
+                        if "N" in elemsMax.keys() and "N" not in useAtoms:
+                            useAtoms.append("N")
+                        if "O" in elemsMax.keys() and "O" not in useAtoms:
+                            useAtoms.append("O")
+                        if "S" in elemsMax.keys() and "S" not in useAtoms:
+                            useAtoms.append("S")
+
+                        for atom in elemsMax.keys():
+                            if atom not in useAtoms:
+                                useAtoms.append(atom)
+
+                        atomsRange = []
+                        for atom in useAtoms:
+                            minE = 0
+                            if atom in elemsMin.keys():
+                                minE = elemsMin[atom]
+                            maxE = elemsMax[atom]
+                            atomsRange.append([minE, maxE])
+
+                        useExactXn = str(self.ui.sumFormulasUseExactXn_ComboBox.currentText())
+                        if useExactXn.lower() == "plusminus":
+                            useExactXn = "PlusMinus_%d" % (self.ui.sumFormulasPlusMinus_spinBox.value())
+
+                        addedColumns = annotateResultMatrix.annotateWithSumFormulas(
+                            file=excel_file,
+                            sheet_name="5_Annotated",
+                            useAtoms=useAtoms,
+                            atomsRange=atomsRange,
+                            processedElement=getElementOfIsotope(str(self.ui.isotopeAText.text())),
+                            useExactXn=useExactXn,
+                            ppm=self.ui.annotationMaxPPM_doubleSpinBox.value(),
+                            ppmCorrectionPosMode=self.ui.annotation_correctMassByPPMposMode.value(),
+                            ppmCorrectionNegMode=self.ui.annotation_correctMassByPPMnegMode.value(),
+                            useAdducts=useAdducts,
+                            pwMaxSet=pw.getCallingFunction()("max"),
+                            pwValSet=pw.getCallingFunction()("value"),
+                            nCores=min(len(files), cpus),
+                        )
+                        annotationColumns.extend(addedColumns)
+
+                    except Exception as e:
+                        traceback.print_exc()
+                        logging.error(f"Error during sum formula generation: {e}")
+                        QtWidgets.QMessageBox.warning(
+                            self,
+                            "MetExtract",
+                            f"Error during sum formula generation: {str(e)}",
+                            QtWidgets.QMessageBox.Ok,
+                        )
+                        _annotation_error = True
+                        errorCount += 1
+                    logging.info("\n\n##############################################################")
+
+                print("\n\n")
+                pw.hide()
+
+                _step_elapsed["annotation"] = (time.time() - _annotation_step_start) / 60.0
+                if _annotation_error:
+                    _step_status["annotation"] = _ST_ERROR
+                    _step_details["annotation"] = "annotation encountered errors"
+                else:
+                    _step_status["annotation"] = _ST_OK
+                    try:
+                        import openpyxl as _opxl_an
+
+                        _wb_an = _opxl_an.load_workbook(excel_file, read_only=True)
+                        _n_feat_an = max(0, _wb_an["5_Annotated"].max_row - 1) if "5_Annotated" in _wb_an.sheetnames else 0
+                        _wb_an.close()
+                        _step_details["annotation"] = f"{_n_feat_an} feature(s) annotated"
+                    except Exception:
+                        _step_details["annotation"] = "annotation complete"
+
+                logging.info("##############################################################")
 
         ## Process MSMS info
         if self.ui.generateMSMSInfo_CheckBox.isChecked():
@@ -4229,8 +4345,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.updateLCMSSampleSettings()
 
-        # Log time used for bracketing
-        elapsed = (time.time() - overallStart) / 60.0
+        # Log overall time
+        _overall_elapsed = (time.time() - overallStart) / 60.0
+        elapsed = _overall_elapsed
         hours = ""
         if elapsed >= 60.0:
             hours = "%d hours " % (elapsed // 60)
@@ -4246,12 +4363,72 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             notification_msg = "Processing finished with %d errors in %s%s" % (errorCount, hours, mins)
         self._send_desktop_notification("MetExtract II", notification_msg)
 
-        QtWidgets.QMessageBox.information(
-            self,
-            "MetExtract II",
-            "Processing finished %sin %s%s" % ("(%d errors) " % errorCount if errorCount > 0 else "", hours, mins),
-            QtWidgets.QMessageBox.Ok,
-        )
+        # Build and show the processing summary dialog
+        def _fmt_elapsed(m):
+            if m <= 0:
+                return "—"
+            if m < 1:
+                return f"{m * 60:.1f} sec"
+            if m < 60:
+                return f"{m:.2f} min"
+            return f"{int(m // 60)}h {m % 60:.1f} min"
+
+        _step_names = {
+            "individual_files": "1. Individual file processing",
+            "bracketing": "2. Bracketing",
+            "reintegration": "3. Re-integration",
+            "convolution": "4. Feature grouping",
+            "annotation": "5. Annotation",
+        }
+        _status_style = {
+            _ST_OK: ("olivedrab", "OK"),
+            _ST_ERROR: ("firebrick", "Error"),
+            _ST_SKIPPED_USER: ("gray", "Skipped (not enabled)"),
+            _ST_SKIPPED_PREV: ("darkorange", "Skipped (previous step failed)"),
+        }
+
+        rows_html = ""
+        for _key in ("individual_files", "bracketing", "reintegration", "convolution", "annotation"):
+            _color, _label = _status_style.get(_step_status[_key], ("gray", _step_status[_key]))
+            _det = _step_details[_key] or "—"
+            _dur = _fmt_elapsed(_step_elapsed[_key])
+            rows_html += f"<tr><td style='padding:4px 10px;'>{_step_names[_key]}</td><td style='padding:4px 10px; color:{_color}; font-weight:bold;'>{_label}</td><td style='padding:4px 10px;'>{_det}</td><td style='padding:4px 10px; text-align:right;'>{_dur}</td></tr>"
+
+        _summary_html = f"""<html><body style='font-family:sans-serif; font-size:10pt;'>
+<h3 style='color:#333; margin-bottom:6px;'>Processing Summary</h3>
+<table border='0' cellspacing='0' cellpadding='0'
+       style='border-collapse:collapse; width:100%;'>
+  <tr style='background:#ddd;'>
+    <th align='left'  style='padding:5px 10px;'>Step</th>
+    <th align='left'  style='padding:5px 10px;'>Status</th>
+    <th align='left'  style='padding:5px 10px;'>Details</th>
+    <th align='right' style='padding:5px 10px;'>Duration</th>
+  </tr>
+  {rows_html}
+</table>
+<p style='margin-top:10px;'>
+  <b>Total time:</b> {_fmt_elapsed(_overall_elapsed)}
+</p>
+<p>Results can be viewed:</p>
+<ul>
+  <li>In this application via the <b>Experimental results</b> tab</li>
+  <li>In the Excel file at:<br><tt>{excel_file}</tt></li>
+</ul>
+</body></html>"""
+
+        _dlg = QtWidgets.QDialog(self)
+        _dlg.setWindowTitle("MetExtract II – Processing Summary")
+        _dlg.setMinimumSize(800, 420)
+        _dlg_layout = QtWidgets.QVBoxLayout(_dlg)
+        _browser = QtWidgets.QTextBrowser(_dlg)
+        _browser.setHtml(_summary_html)
+        _browser.setOpenExternalLinks(False)
+        _dlg_layout.addWidget(_browser)
+        _btn_box = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok, parent=_dlg)
+        _btn_box.accepted.connect(_dlg.accept)
+        _dlg_layout.addWidget(_btn_box)
+        _dlg.exec()
+
         self.loadGroupsResultsFile(str(self.ui.groupsSave.text()))
 
     def showResultsSummary(self):
@@ -4399,7 +4576,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 res_db = PolarsDB(resFileFull, format="xlsx", load_all_tables=True)
 
                 convoluted_sheet = None
-                for candidate in ("3_Convoluted", "2_StatColumns"):
+                for candidate in ("3_Reintegrated", "2_StatColumns"):
                     if candidate in res_db.tables:
                         convoluted_sheet = candidate
                         break
@@ -8576,7 +8753,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # Use cached DataFrame to avoid re-reading the Excel file on every feature selection change
         results_df = getattr(self.experimentResults, "_peak_details_df", None)
         if results_df is None:
-            sheet_candidates = ["4_Reintegrated", "3_Convoluted", "1_Bracketed"]
+            sheet_candidates = ["4_Convoluted", "3_Reintegrated", "1_Bracketed"]
             for sheet_name in sheet_candidates:
                 try:
                     tbl = self.experimentResults.db_con.get_table(sheet_name)

@@ -167,7 +167,7 @@ def annotateWithDatabases(
 
     Args:
         file: Path to the results file (PolarsDB format)
-        sheet_name: Name of the sheet to read from (e.g., "4_Reintegrated")
+        sheet_name: Name of the sheet to read from (e.g., "3_Reintegrated")
         new_sheet_name: Name of the sheet to write to (e.g., "6_Annotated")
         dbFiles: List of database file paths
         useAdducts: List of adduct definitions [[name, mzoffset, polarity, charge, mCount], ...]

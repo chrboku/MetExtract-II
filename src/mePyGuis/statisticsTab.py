@@ -28,6 +28,9 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSplitter,
+    QStyle,
+    QStyledItemDelegate,
+    QStyleOptionViewItem,
     QTableWidgetItem,
     QTreeWidget,
     QTreeWidgetItem,
@@ -446,6 +449,20 @@ class NumericTableWidgetItem(QTableWidgetItem):
         return super().__lt__(other)
 
 
+class _BoldSelectedDelegate(QStyledItemDelegate):
+    """Renders selected rows bold without changing their background color."""
+
+    def paint(self, painter, option, index) -> None:
+        opt = QStyleOptionViewItem(option)
+        self.initStyleOption(opt, index)
+        if opt.state & QStyle.State_Selected:
+            opt.state &= ~QStyle.State_Selected
+            font = opt.font
+            font.setBold(True)
+            opt.font = font
+        super().paint(painter, opt, index)
+
+
 class SelectedFeaturesTable(QTreeWidget):
     """Tree-like view for selected features, grouped by Group ID."""
 
@@ -458,7 +475,8 @@ class SelectedFeaturesTable(QTreeWidget):
         self.header().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.setSelectionMode(QAbstractItemView.ExtendedSelection)
-        self.setStyleSheet("QTreeWidget::item:selected { background-color: rgba(80, 200, 80, 120); color: black; }")
+        self.setStyleSheet("")
+        self.setItemDelegate(_BoldSelectedDelegate(self))
         self.setSortingEnabled(False)
         self.feature_data = []
         self._feature_item_by_id = {}
