@@ -5775,6 +5775,88 @@ font: 7pt;</string>
                 </item>
                </layout>
               </widget>
+              <widget class="QWidget" name="tab_abundance_profiles">
+               <attribute name="title">
+                <string>Abundance profiles</string>
+               </attribute>
+               <layout class="QGridLayout" name="gridLayout_abundance_profiles">
+                <item row="0" column="0">
+                 <layout class="QHBoxLayout" name="horizontalLayout_abundance_controls">
+                  <item>
+                   <widget class="QLabel" name="label_abundance_visualization">
+                    <property name="text">
+                     <string>Visualization</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QComboBox" name="comboBox_abundancePlotType">
+                    <item>
+                     <property name="text">
+                      <string>Boxplot</string>
+                     </property>
+                    </item>
+                    <item>
+                     <property name="text">
+                      <string>Line plot</string>
+                     </property>
+                    </item>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QLabel" name="label_abundance_scale">
+                    <property name="text">
+                     <string>Scale</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QComboBox" name="comboBox_abundanceScale">
+                    <item>
+                     <property name="text">
+                      <string>Linear</string>
+                     </property>
+                    </item>
+                    <item>
+                     <property name="text">
+                      <string>Logarithmic</string>
+                     </property>
+                    </item>
+                   </widget>
+                  </item>
+                  <item>
+                   <spacer name="horizontalSpacer_abundance">
+                    <property name="orientation">
+                     <enum>Qt::Horizontal</enum>
+                    </property>
+                    <property name="sizeHint" stdset="0">
+                     <size>
+                      <width>40</width>
+                      <height>20</height>
+                     </size>
+                    </property>
+                   </spacer>
+                  </item>
+                 </layout>
+                </item>
+                <item row="1" column="0">
+                 <widget class="QWidget" name="resultsExperimentAbundance_widget" native="true">
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>700</width>
+                    <height>500</height>
+                   </size>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
              </widget>
             </item>
            </layout>

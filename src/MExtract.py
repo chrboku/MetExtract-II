@@ -1901,18 +1901,24 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.clearPlot(self.ui.resultsExperiment_plot)
         self.clearPlot(self.ui.resultsExperimentSeparatedPeaks_plot)
         self.clearPlot(self.ui.resultsExperimentMSScanPeaks_plot)
+        self.clearPlot(self.ui.resultsExperimentAbundance_plot)
 
         if not hasattr(self, "experimentResults") or self.experimentResults is None:
             self.drawCanvas(self.ui.resultsExperiment_plot)
             self.drawCanvas(self.ui.resultsExperimentSeparatedPeaks_plot)
             self.drawCanvas(self.ui.resultsExperimentMSScanPeaks_plot)
+            self.drawCanvas(self.ui.resultsExperimentAbundance_plot, showLegendOverwrite=False)
             return
 
         if len(self.ui.resultsExperiment_TreeWidget.selectedItems()) == 0:
             self.drawCanvas(self.ui.resultsExperiment_plot)
             self.drawCanvas(self.ui.resultsExperimentSeparatedPeaks_plot)
             self.drawCanvas(self.ui.resultsExperimentMSScanPeaks_plot)
+            self.drawCanvas(self.ui.resultsExperimentAbundance_plot, showLegendOverwrite=False)
             return
+
+        plotItems = self._getSelectedExperimentPlotItems()
+        self.updateExperimentAbundancePlot(plotItems)
 
         # Load raw mzXML files if not already loaded
         if not hasattr(self, "loadedMZXMLs") or self.loadedMZXMLs is None:
@@ -1950,16 +1956,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             return
 
         definedGroups = self.getAllSampleGroups()
-
-        plotItems = []
-        for item in self.ui.resultsExperiment_TreeWidget.selectedItems():
-            if item.bunchData.type == "metaboliteGroup":
-                for i in range(item.childCount()):
-                    child = item.child(i)
-                    if child.bunchData.type == "featurePair":
-                        plotItems.append(child.bunchData)
-            if item.bunchData.type == "featurePair":
-                plotItems.append(item.bunchData)
 
         if not plotItems:
             self.drawCanvas(self.ui.resultsExperiment_plot)
@@ -2236,10 +2232,152 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # Update peak details tab
         self.updatePeakDetailsTab(plotItems)
 
+    def _getSelectedExperimentPlotItems(self):
+        plotItems = []
+        for item in self.ui.resultsExperiment_TreeWidget.selectedItems():
+            if item.bunchData.type == "metaboliteGroup":
+                for i in range(item.childCount()):
+                    child = item.child(i)
+                    if child.bunchData.type == "featurePair":
+                        plotItems.append(child.bunchData)
+            if item.bunchData.type == "featurePair":
+                plotItems.append(item.bunchData)
+        return plotItems
+
+    def updateExperimentAbundancePlot(self, plotItems):
+        self.clearPlot(self.ui.resultsExperimentAbundance_plot)
+        if not plotItems or not hasattr(self, "experimentResults") or self.experimentResults is None:
+            self.drawCanvas(self.ui.resultsExperimentAbundance_plot, showLegendOverwrite=False)
+            return
+
+        selected_table = getattr(self.experimentResults, "selected_table", None)
+        if selected_table is None or selected_table not in self.experimentResults.db_con.tables:
+            self.drawCanvas(self.ui.resultsExperimentAbundance_plot, showLegendOverwrite=False)
+            return
+
+        table_df = self.experimentResults.db_con.tables[selected_table]
+        selected_ids = [pi.id for pi in plotItems if getattr(pi, "id", None) is not None]
+        if len(selected_ids) == 0:
+            self.drawCanvas(self.ui.resultsExperimentAbundance_plot, showLegendOverwrite=False)
+            return
+
+        selected_df = table_df.filter(pl.col("Num").is_in(selected_ids))
+        rows_by_num = {row["Num"]: row for row in selected_df.to_dicts()}
+
+        sample_entries = []
+        for group in self.getAllSampleGroups():
+            group_name = str(group.name)
+            for fi in group.files:
+                fi = str(fi)
+                sample_name = fi[max(fi.rfind("/") + 1, fi.rfind("\\") + 1) :]
+                sample_name = re.sub(r"\.(mzxml|mzml)$", "", sample_name, flags=re.IGNORECASE)
+                sample_entries.append((group_name, sample_name))
+
+        sample_entries = sorted(set(sample_entries), key=lambda x: (str(x[0]).lower(), str(x[1]).lower()))
+        abundance_suffix = "_Abundance_N"
+        if not any(f"{entry[1]}{abundance_suffix}" in table_df.columns for entry in sample_entries):
+            abundance_suffix = "_Area_N"
+
+        color_map = {}
+        for grp in self.getAllSampleGroups():
+            color_map[str(grp.name)] = str(grp.color) if grp.color else "gray"
+
+        plot_type = self.ui.comboBox_abundancePlotType.currentText()
+        log_scale = self.ui.comboBox_abundanceScale.currentText() == "Logarithmic"
+
+        ax = self.ui.resultsExperimentAbundance_plot.axes
+        ax.set_title("Abundance profiles of selected features")
+        ax.set_xlabel("Sample")
+        ax.set_ylabel(f"Abundance ({'log' if log_scale else 'linear'} scale)")
+
+        if "Boxplot" in plot_type:
+            box_data = []
+            box_labels = []
+            box_colors = []
+            for feature_id in sorted(set(selected_ids)):
+                row = rows_by_num.get(feature_id)
+                if row is None:
+                    continue
+                for group_name in sorted(set([entry[0] for entry in sample_entries]), key=lambda x: str(x).lower()):
+                    vals = []
+                    for grp_name, sample_name in sample_entries:
+                        if grp_name != group_name:
+                            continue
+                        col = sample_name + abundance_suffix
+                        if col not in table_df.columns:
+                            continue
+                        val = row.get(col)
+                        if val in [None, ""]:
+                            continue
+                        try:
+                            val = float(val)
+                        except Exception:
+                            continue
+                        if log_scale and val <= 0:
+                            continue
+                        vals.append(val)
+                    if vals:
+                        box_data.append(vals)
+                        box_labels.append(f"{feature_id}\n{group_name}")
+                        box_colors.append(color_map.get(group_name, "gray"))
+
+            if box_data:
+                bp = ax.boxplot(box_data, patch_artist=True, labels=box_labels)
+                for patch, c in zip(bp["boxes"], box_colors):
+                    patch.set_facecolor(c)
+                    patch.set_alpha(0.35)
+                ax.tick_params(axis="x", rotation=45)
+            else:
+                ax.text(0.5, 0.5, "No abundance values available", transform=ax.transAxes, ha="center", va="center")
+        else:
+            x = list(range(len(sample_entries)))
+            x_labels = [f"{grp}|{sample}" for grp, sample in sample_entries]
+            group_changes = []
+            last_group = None
+            for i, (grp, _) in enumerate(sample_entries):
+                if grp != last_group and i > 0:
+                    group_changes.append(i - 0.5)
+                last_group = grp
+
+            for feature_id in sorted(set(selected_ids)):
+                row = rows_by_num.get(feature_id)
+                if row is None:
+                    continue
+                y_vals = []
+                for grp, sample in sample_entries:
+                    col = sample + abundance_suffix
+                    val = row.get(col) if col in table_df.columns else None
+                    if val in [None, ""]:
+                        y_vals.append(float("nan"))
+                        continue
+                    try:
+                        val = float(val)
+                    except Exception:
+                        y_vals.append(float("nan"))
+                        continue
+                    if log_scale and val <= 0:
+                        y_vals.append(float("nan"))
+                    else:
+                        y_vals.append(val)
+                ax.plot(x, y_vals, marker="o", linewidth=1.2, label=f"Feature {feature_id}")
+
+            for sep in group_changes:
+                ax.axvline(sep, color="lightgray", linestyle="--", linewidth=0.8)
+            ax.set_xticks(x)
+            ax.set_xticklabels(x_labels, rotation=45, ha="right")
+            ax.legend()
+
+        if log_scale:
+            ax.set_yscale("log")
+        self.drawCanvas(self.ui.resultsExperimentAbundance_plot, showLegendOverwrite=False)
+
     def _refreshExperimentEICs(self, *args):
         """Re-draw experiment EICs when separation/normalisation controls change, but only if raw data is already loaded."""
         if hasattr(self, "loadedMZXMLs") and self.loadedMZXMLs is not None:
             self.resultsExperimentChanged()
+
+    def _refreshExperimentAbundancePlot(self, *args):
+        self.updateExperimentAbundancePlot(self._getSelectedExperimentPlotItems())
 
     # </editor-fold>
 
@@ -11023,6 +11161,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.resultsExperimentNormaliseXICs_checkBox.stateChanged.connect(self._refreshExperimentEICs)
         self.ui.resultsExperimentNormaliseXICsSeparately_checkBox.stateChanged.connect(self._refreshExperimentEICs)
         self.ui.showLegend_experiment.stateChanged.connect(self._refreshExperimentEICs)
+        self.ui.comboBox_abundancePlotType.currentIndexChanged.connect(self._refreshExperimentAbundancePlot)
+        self.ui.comboBox_abundanceScale.currentIndexChanged.connect(self._refreshExperimentAbundancePlot)
 
         self.ui.eicSmoothingWindow.currentIndexChanged.connect(self.smoothingWindowChanged)
         self.smoothingWindowChanged()
@@ -11231,6 +11371,26 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         vbox.addWidget(self.ui.resultsExperimentMSScanPeaks_plot.mpl_toolbar)
         vbox.addWidget(self.ui.resultsExperimentMSScanPeaks_plot.canvas)
         self.ui.resultsExperimentMSScan_widget.setLayout(vbox)
+
+        # Setup experiment abundance plot
+        self.ui.resultsExperimentAbundance_plot = QtCore.QObject()
+        self.ui.resultsExperimentAbundance_plot.dpi = 50
+        self.ui.resultsExperimentAbundance_plot.fig = Figure((5.0, 4.0), dpi=self.ui.resultsExperimentAbundance_plot.dpi, facecolor="white")
+        self.ui.resultsExperimentAbundance_plot.fig.subplots_adjust(left=0.08, bottom=0.15, right=0.99, top=0.95)
+        self.ui.resultsExperimentAbundance_plot.canvas = FigureCanvas(self.ui.resultsExperimentAbundance_plot.fig)
+        self.ui.resultsExperimentAbundance_plot.canvas.setParent(self.ui.resultsExperimentAbundance_widget)
+        self.ui.resultsExperimentAbundance_plot.axes = self.ui.resultsExperimentAbundance_plot.fig.add_subplot(111)
+        simpleaxis(self.ui.resultsExperimentAbundance_plot.axes)
+        self.ui.resultsExperimentAbundance_plot.twinxs = [self.ui.resultsExperimentAbundance_plot.axes]
+        self.ui.resultsExperimentAbundance_plot.mpl_toolbar = NavigationToolbar(
+            self.ui.resultsExperimentAbundance_plot.canvas,
+            self.ui.resultsExperimentAbundance_widget,
+        )
+
+        vbox = QtWidgets.QVBoxLayout()
+        vbox.addWidget(self.ui.resultsExperimentAbundance_plot.mpl_toolbar)
+        vbox.addWidget(self.ui.resultsExperimentAbundance_plot.canvas)
+        self.ui.resultsExperimentAbundance_widget.setLayout(vbox)
 
         # Setup experiment MSMS plot - multiple MS/MS spectra subplots
         self.ui.plMSMS_exp = QtCore.QObject()
