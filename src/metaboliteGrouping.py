@@ -1,5 +1,8 @@
 import numpy as np
 
+NORMALIZED_PROFILE_RTOL = 1e-6
+NORMALIZED_PROFILE_ATOL = 1e-9
+
 
 def _coerce_abundance_profile(values):
     profile = []
@@ -23,7 +26,7 @@ def _pearson(values_a, values_b):
         if max_a > 0 and max_b > 0:
             norm_a = [a / max_a for a in values_a]
             norm_b = [b / max_b for b in values_b]
-            if np.allclose(norm_a, norm_b, rtol=1e-6, atol=1e-9):
+            if np.allclose(norm_a, norm_b, rtol=NORMALIZED_PROFILE_RTOL, atol=NORMALIZED_PROFILE_ATOL):
                 return 1.0
         return 0.0
     corr = np.corrcoef(values_a, values_b)[0, 1]
@@ -116,7 +119,8 @@ def _split_component_by_dense_subclusters(component_ids, adjacency, similarities
         if degree >= min_required_connections:
             dense_nodes.add(node)
 
-    # avoid over-splitting if no dense core can be formed
+    # avoid over-splitting: if no node reaches the connection-rate threshold, keep this
+    # component intact rather than fragmenting nearly all nodes into singleton groups
     if len(dense_nodes) == 0:
         return [sorted(component_ids)]
 

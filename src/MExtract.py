@@ -2334,14 +2334,15 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             legend_handles = []
             if len(feature_ids) > 0 and len(group_names) > 0:
                 # keep each group's feature boxes tightly clustered while still visibly separated
-                cluster_width = 0.75
-                slot_width = cluster_width / max(1, len(feature_ids))
-                box_width = slot_width * 0.8
+                boxplot_cluster_width = 0.75
+                boxplot_slot_fill_ratio = 0.8
+                slot_width = boxplot_cluster_width / max(1, len(feature_ids))
+                box_width = slot_width * boxplot_slot_fill_ratio
                 for feature_index, feature_id in enumerate(feature_ids):
                     color = f"C{feature_index % 10}"
                     legend_handles.append(patches.Patch(facecolor=color, alpha=0.35, label=f"Feature {feature_id}"))
                     for group_index, group_name in enumerate(group_names):
-                        offset = (-cluster_width / 2.0) + (feature_index + 0.5) * slot_width
+                        offset = (-boxplot_cluster_width / 2.0) + (feature_index + 0.5) * slot_width
                         vals = []
                         for sample_name in samples_by_group.get(group_name, []):
                             key = (group_name, sample_name)
