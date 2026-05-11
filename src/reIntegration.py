@@ -296,7 +296,7 @@ class ReIntegrationProcessor:
             if getattr(params, "peak_picker", None) is not None:
                 self.peakPicker = params.peak_picker
             else:
-                 raise Exception("No peak picker provided for reintegration. Please provide a MassSpecWavelet instance with the same parameters used for the main processing step.")
+                raise Exception("No peak picker provided for reintegration. Please provide a MassSpecWavelet instance with the same parameters used for the main processing step.")
 
             scanEventsPerPolarity = self.chromatogram.getFilterLinesPerPolarity()
 
