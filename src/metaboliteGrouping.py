@@ -1,5 +1,7 @@
 import numpy as np
 
+# Relative/absolute tolerances used when comparing normalized (shape-only) abundance
+# profiles in zero-variance fallback cases.
 NORMALIZED_PROFILE_RTOL = 1e-6
 NORMALIZED_PROFILE_ATOL = 1e-9
 
@@ -90,6 +92,7 @@ def _connected_components(group_ids, adjacency):
 
 
 def _avg_similarity_to_group(node, group, similarities):
+    """Return the mean similarity from a node to all other members of a group."""
     vals = []
     for other in group:
         if node == other:
@@ -101,6 +104,7 @@ def _avg_similarity_to_group(node, group, similarities):
 
 
 def _connection_rate_to_group(node, group, adjacency):
+    """Return the fraction of group members that are directly connected to node."""
     if len(group) == 0:
         return 0.0
     degree = sum(1 for neighbor in adjacency.get(node, set()) if neighbor in group)
@@ -108,6 +112,13 @@ def _connection_rate_to_group(node, group, adjacency):
 
 
 def _split_component_by_dense_subclusters(component_ids, adjacency, similarities, min_connection_rate):
+    """Split a connected component into dense subclusters using connection-rate cores.
+
+    A dense core contains nodes that satisfy the minimum connection-rate criterion
+    within the full component. Remaining nodes are then assigned to the best-matching
+    core (if their connection rate to that core is sufficient), otherwise kept as
+    separate groups.
+    """
     if len(component_ids) <= 2:
         return [sorted(component_ids)]
 
