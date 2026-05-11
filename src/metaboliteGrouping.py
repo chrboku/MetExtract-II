@@ -11,7 +11,7 @@ def split_group_with_hca(group_ids, similarities, min_peak_correlation, min_conn
     for feature_a in group_ids:
         row = []
         for feature_b in group_ids:
-            if feature_a in similarities.keys() and feature_b in similarities[feature_a].keys():
+            if feature_a in similarities and feature_b in similarities[feature_a]:
                 row.append(similarities[feature_a][feature_b])
             elif feature_a == feature_b:
                 row.append(1.0)
@@ -32,7 +32,7 @@ def split_group_with_hca(group_ids, similarities, min_peak_correlation, min_conn
                 return False
             inds_set = set(inds)
 
-            above_threshold = sum([corr > corr_threshold for i, corr in enumerate(corrs) if i in inds_set])
+            above_threshold = sum(corr > corr_threshold for i, corr in enumerate(corrs) if i in inds_set)
             return not (above_threshold * 1.0 / len(inds)) >= cut_off_min_ratio
         else:
             raise RuntimeError(f"Unexpected tree node type: {type(tree).__name__}. Expected HCALeaf or HCAComposite")
