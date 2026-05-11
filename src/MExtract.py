@@ -3789,6 +3789,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         cpus=min(len(files), cpus),
                         start=start,
                         peak_filter_config=filter_config,
+                        peak_picker=picker,
                     )
                     # Log time used for bracketing
                     elapsed = (time.time() - start) / 60.0

@@ -23,7 +23,6 @@ import traceback
 from multiprocessing import Manager, Pool
 import polars as pl
 from .Chromatogram import Chromatogram
-from .chromPeakPicking.MassSpecWavelet import MassSpecWavelet
 from .PolarsDB import PolarsDB
 from .utils import Bunch
 
@@ -292,8 +291,12 @@ class ReIntegrationProcessor:
             self.chromatogram = Chromatogram()
             self.chromatogram.parse_file(self.forFile, intensityCutoff=params.reintegrateIntensityCutoff)
 
-            # Initialize peak picking algorithm (using native Python wavelet implementation)
-            self.peakPicker = MassSpecWavelet(scales=params.scales, snrTh=params.snrTH, minScans=1)
+            # Use the peak picker forwarded from the main processing step (if any),
+            # otherwise fall back to MassSpecWavelet with the legacy scale parameters.
+            if getattr(params, "peak_picker", None) is not None:
+                self.peakPicker = params.peak_picker
+            else:
+                 raise Exception("No peak picker provided for reintegration. Please provide a MassSpecWavelet instance with the same parameters used for the main processing step.")
 
             scanEventsPerPolarity = self.chromatogram.getFilterLinesPerPolarity()
 
@@ -399,6 +402,7 @@ def reIntegrateResultsFile(
     cpus=1,
     start=0,
     peak_filter_config=None,
+    peak_picker=None,
 ):
     """
     Re-integrate all LC-HRMS data files with the grouped feature pairs results using PolarsDB.
@@ -493,6 +497,7 @@ def reIntegrateResultsFile(
             addPeakAbundance=addPeakAbundance,
             addPeakSNR=addPeakSNR,
             peak_filter_config=peak_filter_config,
+            peak_picker=peak_picker,
         )
         processor.params = params
 
