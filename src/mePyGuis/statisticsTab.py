@@ -1003,7 +1003,11 @@ class StatisticsTabWidget(QWidget):
             rsd_clean = rsd[~np.isnan(rsd)]
 
             if len(rsd_clean) > 0:
-                ax.hist(rsd_clean, bins=30, alpha=0.7, color=group_colors[group_name], edgecolor="black")
+                n_bins = min(30, max(1, len(np.unique(rsd_clean))))
+                try:
+                    ax.hist(rsd_clean, bins=n_bins, alpha=0.7, color=group_colors[group_name], edgecolor="black")
+                except ValueError:
+                    ax.hist(rsd_clean, bins=1, alpha=0.7, color=group_colors[group_name], edgecolor="black")
 
                 ax.set_xlabel("RSD (%)", fontsize=8)
                 ax.set_ylabel("Frequency", fontsize=8)
@@ -1169,10 +1173,10 @@ class StatisticsTabWidget(QWidget):
             ax.set_title(f"PCA Score Plot ({self.stats_data.num_features_used} features)")
             ax.grid(True, alpha=0.3)
 
-            # Add legend
+            # Add legend outside the plot area on the right side
             legend_handles = [plt.Line2D([0], [0], marker="o", color="w", markerfacecolor=color, markersize=10, label=group) for group, color in group_colors.items()]
-            ax.legend(handles=legend_handles, loc="best")
-            canvas.fig.tight_layout()
+            ax.legend(handles=legend_handles, loc="upper left", bbox_to_anchor=(1.01, 1), borderaxespad=0, fontsize=8)
+            canvas.fig.tight_layout(rect=[0, 0, 0.82, 1])
 
         self.viz_layout.addWidget(toolbar)
         self.viz_layout.addWidget(canvas)

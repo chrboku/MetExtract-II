@@ -31,7 +31,7 @@ from .MZHCA import HierarchicalClustering, cutTreeSized
 from .PolarsDB import PolarsDB
 from .findIsoPairs_matchPartners import matchPartners
 from .SGR import SGRGenerator
-from .chromPeakPicking.peakpickers import filter_peaks
+from .chromPeakPicking.peakpickers import BasePeakPicker, filter_peaks
 import numpy as np
 import polars as pl
 import scipy
@@ -1168,6 +1168,22 @@ class FindIsoPairs:
                             peaksN = filter_peaks(peaksN, config=self.peak_filter_config)
                             peaksL = filter_peaks(peaksL, config=self.peak_filter_config)
 
+                        # Recalculate SNR, FWHM, area from raw (unsmoothed) EICs
+                        # Peak boundaries are kept from smoothed-EIC detection, only metrics are recomputed
+                        times_arr = np.asarray(times)
+                        eic_raw_arr = np.asarray(eic)
+                        eicL_raw_arr = np.asarray(eicL)
+                        for pk in peaksN:
+                            pk.snr = BasePeakPicker.compute_snr(eic_raw_arr, pk.apex_index, pk.start_index, pk.end_index)
+                            pk.fwhm = BasePeakPicker.compute_fwhm(times_arr, eic_raw_arr, pk.apex_index, pk.start_index, pk.end_index)
+                            pk.area = BasePeakPicker.compute_area(times_arr, eic_raw_arr, pk.start_index, pk.end_index)
+                            pk.apex_intensity = float(eic_raw_arr[pk.apex_index])
+                        for pk in peaksL:
+                            pk.snr = BasePeakPicker.compute_snr(eicL_raw_arr, pk.apex_index, pk.start_index, pk.end_index)
+                            pk.fwhm = BasePeakPicker.compute_fwhm(times_arr, eicL_raw_arr, pk.apex_index, pk.start_index, pk.end_index)
+                            pk.area = BasePeakPicker.compute_area(times_arr, eicL_raw_arr, pk.start_index, pk.end_index)
+                            pk.apex_intensity = float(eicL_raw_arr[pk.apex_index])
+
                         # get EICs of M+1, M'-1 and M'+1 for the database
                         eicfirstiso, timesL, scanIdsL, mzsfirstiso = mzxml.getEIC(
                             meanmz + 1.00335484 / loading,
@@ -1846,6 +1862,12 @@ class FindIsoPairs:
             peak = chromPeaks[i]
 
             ## Annotate hetero atoms
+            scanEvent = ""
+            if peak.ionMode == "+":
+                scanEvent = self.positiveScanEvent
+            elif peak.ionMode == "-":
+                scanEvent = self.negativeScanEvent
+
             for pIso in self.heteroAtoms:
                 pIsotope = self.heteroAtoms[pIso]
 
@@ -1860,12 +1882,6 @@ class FindIsoPairs:
                     refMz = peak.mz
                 else:
                     refMz = peak.lmz
-
-                scanEvent = ""
-                if peak.ionMode == "+":
-                    scanEvent = self.positiveScanEvent
-                elif peak.ionMode == "-":
-                    scanEvent = self.negativeScanEvent
 
                 for haCount in range(pIsotope.minCount, pIsotope.maxCount + 1):
                     if haCount == 0:

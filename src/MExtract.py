@@ -80,7 +80,7 @@ from . import HCA_general, annotateResultMatrix, pyperclip
 from .annotateResultMatrix import addGroup as grpAdd
 from .annotateResultMatrix import addStatsColumnToResults
 from .annotateResultMatrix import performGroupOmit as grpOmit
-from .bracketResults import bracketResults, calculateMetaboliteGroups
+from .bracketResults import bracketResults, calculateMetaboliteGroups, compute_sample_stats
 from .mePyGuis.mainWindow import Ui_MainWindow
 from .mePyGuis.QScrollableMessageBox import QScrollableMessageBox
 from .mePyGuis.TracerEdit import ConfiguredTracer, tracerEdit
@@ -108,6 +108,27 @@ METABOLOME = object()
 # Boxplot layout constants for abundance-profile group comparison plots
 ABUNDANCE_BOXPLOT_CLUSTER_WIDTH = 0.75
 ABUNDANCE_BOXPLOT_SLOT_FILL_RATIO = 0.8
+
+
+class _NumericDateSortItem(QTableWidgetItem):
+    """QTableWidgetItem that sorts numerically or by ISO-timestamp when possible."""
+
+    def __lt__(self, other):
+        t_self = self.text()
+        t_other = other.text()
+        # Numeric comparison
+        try:
+            return float(t_self) < float(t_other)
+        except (ValueError, TypeError):
+            pass
+        # ISO timestamp comparison  (e.g. "2026-04-02T14:51:17.405324")
+        try:
+            from datetime import datetime as _dt
+
+            return _dt.fromisoformat(t_self) < _dt.fromisoformat(t_other)
+        except (ValueError, TypeError):
+            pass
+        return t_self < t_other
 
 
 # Helper function to safely load pickled data with error handling for old cached data
@@ -1107,6 +1128,212 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def showAddGroupDialogClicked(self):
         self.showAddGroupDialog()
+
+    def showFileStatsPopup(self):
+        """Collect all sample files from the groups table, compute stats, and show them in a popup dialog."""
+
+        # Build ordered list of (filepath, group_name, group_color) from all groups
+        all_files_with_groups = []
+        for grp in self.getAllSampleGroups():
+            for f in natSort(grp.files):
+                all_files_with_groups.append((str(f), str(grp.name), str(grp.color)))
+
+        if not all_files_with_groups:
+            QtWidgets.QMessageBox.information(self, "File Stats", "No sample files configured in the groups table.")
+            return
+
+        pos_se = str(self.ui.positiveScanEvent.currentText()) if self.ui.positiveScanEvent.count() > 0 else None
+        neg_se = str(self.ui.negativeScanEvent.currentText()) if self.ui.negativeScanEvent.count() > 0 else None
+
+        pw = QtWidgets.QProgressDialog("Computing file stats...", "Cancel", 0, len(all_files_with_groups), self)
+        pw.setWindowTitle("File Stats")
+        pw.setWindowModality(QtCore.Qt.WindowModal)
+        # Show "current / total  (percent%)" inside the bar
+        bar = pw.findChild(QtWidgets.QProgressBar)
+        if bar is not None:
+            bar.setFormat("%v / %m  (%p%)")
+        pw.setValue(0)
+        pw.show()
+
+        stats_rows = []
+        for i, (f, group_name, group_color) in enumerate(all_files_with_groups):
+            pw.setLabelText(f"Processing: {os.path.basename(f)}")
+            pw.setValue(i)
+            QtWidgets.QApplication.processEvents()
+            if pw.wasCanceled():
+                return
+            rows = compute_sample_stats([f], pos_se, neg_se)
+            for row in rows:
+                row["_group_name"] = group_name
+                row["_group_color"] = group_color
+            stats_rows.extend(rows)
+        pw.setValue(len(all_files_with_groups))
+        pw.close()
+
+        if not stats_rows:
+            return
+
+        # Columns to display (exclude internal _ keys)
+        data_columns = [k for k in stats_rows[0].keys() if not k.startswith("_")]
+        column_labels = {
+            "file": "File",
+            "startTimeStamp": "Start Timestamp",
+            "ms1_pos": "MS1 Pos",
+            "ms1_neg": "MS1 Neg",
+            "ms2_pos": "MS2 Pos",
+            "ms2_neg": "MS2 Neg",
+            "last_rt_min": "Last RT (min)",
+            "ms1_dt_min": "MS1 dT Min (s)",
+            "ms1_dt_p10": "MS1 dT 10%",
+            "ms1_dt_p25": "MS1 dT 25%",
+            "ms1_dt_median": "MS1 dT Median",
+            "ms1_dt_mean": "MS1 dT Mean",
+            "ms1_dt_p75": "MS1 dT 75%",
+            "ms1_dt_p90": "MS1 dT 90%",
+            "ms1_dt_max": "MS1 dT Max",
+            "ms1_dt_sd": "MS1 dT SD",
+            "ms2_dt_min": "MS2 dT Min (s)",
+            "ms2_dt_p10": "MS2 dT 10%",
+            "ms2_dt_p25": "MS2 dT 25%",
+            "ms2_dt_median": "MS2 dT Median",
+            "ms2_dt_mean": "MS2 dT Mean",
+            "ms2_dt_p75": "MS2 dT 75%",
+            "ms2_dt_p90": "MS2 dT 90%",
+            "ms2_dt_max": "MS2 dT Max",
+            "ms2_dt_sd": "MS2 dT SD",
+            "ms1_signalInt_pos_min": "MS1 log10(int) Pos Min",
+            "ms1_signalInt_pos_p10": "MS1 log10(int) Pos 10%",
+            "ms1_signalInt_pos_p25": "MS1 log10(int) Pos 25%",
+            "ms1_signalInt_pos_median": "MS1 log10(int) Pos Median",
+            "ms1_signalInt_pos_p75": "MS1 log10(int) Pos 75%",
+            "ms1_signalInt_pos_p90": "MS1 log10(int) Pos 90%",
+            "ms1_signalInt_pos_p91": "MS1 log10(int) Pos 91%",
+            "ms1_signalInt_pos_p92": "MS1 log10(int) Pos 92%",
+            "ms1_signalInt_pos_p93": "MS1 log10(int) Pos 93%",
+            "ms1_signalInt_pos_p94": "MS1 log10(int) Pos 94%",
+            "ms1_signalInt_pos_p95": "MS1 log10(int) Pos 95%",
+            "ms1_signalInt_pos_p96": "MS1 log10(int) Pos 96%",
+            "ms1_signalInt_pos_p97": "MS1 log10(int) Pos 97%",
+            "ms1_signalInt_pos_p98": "MS1 log10(int) Pos 98%",
+            "ms1_signalInt_pos_p99": "MS1 log10(int) Pos 99%",
+            "ms1_signalInt_pos_max": "MS1 log10(int) Pos Max",
+            "ms1_signalInt_neg_min": "MS1 log10(int) Neg Min",
+            "ms1_signalInt_neg_p10": "MS1 log10(int) Neg 10%",
+            "ms1_signalInt_neg_p25": "MS1 log10(int) Neg 25%",
+            "ms1_signalInt_neg_median": "MS1 log10(int) Neg Median",
+            "ms1_signalInt_neg_p75": "MS1 log10(int) Neg 75%",
+            "ms1_signalInt_neg_p90": "MS1 log10(int) Neg 90%",
+            "ms1_signalInt_neg_p91": "MS1 log10(int) Neg 91%",
+            "ms1_signalInt_neg_p92": "MS1 log10(int) Neg 92%",
+            "ms1_signalInt_neg_p93": "MS1 log10(int) Neg 93%",
+            "ms1_signalInt_neg_p94": "MS1 log10(int) Neg 94%",
+            "ms1_signalInt_neg_p95": "MS1 log10(int) Neg 95%",
+            "ms1_signalInt_neg_p96": "MS1 log10(int) Neg 96%",
+            "ms1_signalInt_neg_p97": "MS1 log10(int) Neg 97%",
+            "ms1_signalInt_neg_p98": "MS1 log10(int) Neg 98%",
+            "ms1_signalInt_neg_p99": "MS1 log10(int) Neg 99%",
+            "ms1_signalInt_neg_max": "MS1 log10(int) Neg Max",
+            "MS:1000073": "MS:1000073",
+            "MS:1000079": "MS:1000079",
+        }
+
+        # "Group" is the first column; the rest follow
+        all_columns = ["_group"] + data_columns
+        all_headers = ["Group"] + [column_labels.get(c, c) for c in data_columns]
+
+        # Compute per-column means for numeric columns (for deviation colour-coding)
+        numeric_cols = set()
+        col_values = {c: [] for c in data_columns}
+        for row in stats_rows:
+            for c in data_columns:
+                v = row.get(c)
+                if v is not None:
+                    try:
+                        col_values[c].append(float(v))
+                        numeric_cols.add(c)
+                    except (ValueError, TypeError):
+                        pass
+        col_means = {}
+        for c in numeric_cols:
+            vals = col_values[c]
+            if vals:
+                col_means[c] = sum(vals) / len(vals)
+
+        def _deviation_color(col, val_str):
+            """Return a QColor based on fractional deviation from the column mean, or None."""
+            if col not in numeric_cols or col not in col_means:
+                return None
+            try:
+                val = float(val_str)
+            except (ValueError, TypeError):
+                return None
+            mean_v = col_means[col]
+            if mean_v == 0:
+                return None
+            dev = abs(val - mean_v) / abs(mean_v)
+            if dev >= 0.10:
+                c = QtGui.QColor(178, 34, 34)  # firebrick
+                c.setAlpha(200)
+                return c
+            # Gradient: alpha 0 → 200 linearly from dev=0 to dev=0.10
+            alpha = int(dev / 0.10 * 200)
+            c = QtGui.QColor(178, 34, 34)
+            c.setAlpha(alpha)
+            return c
+
+        dialog = QtWidgets.QDialog(self)
+        dialog.setWindowTitle("File Stats")
+        dialog.resize(1400, 600)
+        layout = QtWidgets.QVBoxLayout(dialog)
+
+        table = QtWidgets.QTableWidget(len(stats_rows), len(all_columns))
+        table.setHorizontalHeaderLabels(all_headers)
+        table.horizontalHeader().setStretchLastSection(False)
+        table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        table.setAlternatingRowColors(False)
+        table.setSortingEnabled(True)
+        table.setSortingEnabled(False)  # disable while populating
+
+        for r, row_data in enumerate(stats_rows):
+            gname = row_data.get("_group_name", "")
+            gcolor_str = row_data.get("_group_color", "")
+            gcolor = QtGui.QColor(gcolor_str)
+            if gcolor.isValid():
+                gcolor.setAlpha(80)
+            else:
+                gcolor = None
+
+            # Group column
+            grp_item = _NumericDateSortItem(gname)
+            if gcolor:
+                grp_item.setBackground(gcolor)
+            table.setItem(r, 0, grp_item)
+
+            # Data columns
+            for c_idx, col in enumerate(data_columns, start=1):
+                val = row_data.get(col)
+                if val is None:
+                    text = ""
+                elif isinstance(val, float):
+                    text = f"{val:.4f}"
+                else:
+                    text = str(val)
+                item = _NumericDateSortItem(text)
+                dev_color = _deviation_color(col, text)
+                if dev_color is not None:
+                    item.setBackground(dev_color)
+                table.setItem(r, c_idx, item)
+
+        table.setSortingEnabled(True)
+        table.horizontalHeader().setSectionsMovable(True)
+        table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Interactive)
+        table.resizeColumnsToContents()
+        layout.addWidget(table)
+
+        btn_close = QtWidgets.QPushButton("Close")
+        btn_close.clicked.connect(dialog.accept)
+        layout.addWidget(btn_close)
+        dialog.exec()
 
     # show an import group dialog to the user
     def showAddGroupDialog(self, initWithFiles=[], initWithGroupName=""):
@@ -2218,7 +2445,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 mean(meanRT) / 60.0 + borderOffset,
             ]
             intlim = [intlim[0] * 1.1, intlim[1] * 1.1]
-            self.drawCanvas(self.ui.resultsExperiment_plot, xlim=rtlim, ylim=intlim)
+            self.drawCanvas(self.ui.resultsExperiment_plot, xlim=rtlim, ylim=intlim, showLegendOverwrite=False)
             self.drawCanvas(self.ui.resultsExperimentSeparatedPeaks_plot, showLegendOverwrite=self.ui.showLegend_experiment.isChecked())
             lmz_val = plotItems[0].lmz if plotItems[0].lmz else plotItems[0].mz
             self.drawCanvas(
@@ -8719,8 +8946,18 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         return False
 
     def updateMSMSList(self, selectedItems):
-        """Filter and populate MSMS spectra list based on selected features"""
-        self.ui.msms_SpectraList.clear()
+        """Filter and populate MSMS spectra table based on selected features"""
+
+        class _NSItem(QTableWidgetItem):
+            def __lt__(self, other):
+                try:
+                    return float(self.text()) < float(other.text())
+                except (ValueError, TypeError):
+                    return self.text() < other.text()
+
+        tbl = self.ui.msms_SpectraList
+        tbl.setSortingEnabled(False)
+        tbl.setRowCount(0)
 
         if not hasattr(self, "currentOpenRawFile") or self.currentOpenRawFile is None:
             return
@@ -8734,26 +8971,23 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if hasattr(item, "myType") and (item.myType == "feature" or item.myType == "Features"):
                 if item.myType == "feature":
                     cp = item.myData
-                    # Get RT range in seconds
-                    rt_min = cp.NPeakCenterMin - cp.NPeakScale
-                    rt_max = cp.NPeakCenterMin + cp.NPeakScale
-                    # Also consider labeled peak RT range
-                    rt_min = min(rt_min, cp.LPeakCenterMin - cp.LPeakScale)
-                    rt_max = max(rt_max, cp.LPeakCenterMin + cp.LPeakScale)
+                    # Use actual peak start/end RT (in seconds); fall back to center ± scale
+                    rt_min_n = getattr(cp, "N_startRT", cp.NPeakCenterMin - cp.NPeakScale)
+                    rt_max_n = getattr(cp, "N_endRT", cp.NPeakCenterMin + cp.NPeakScale)
+                    rt_min_l = getattr(cp, "L_startRT", cp.LPeakCenterMin - cp.LPeakScale)
+                    rt_max_l = getattr(cp, "L_endRT", cp.LPeakCenterMin + cp.LPeakScale)
+                    rt_min = min(rt_min_n, rt_min_l)
+                    rt_max = max(rt_max_n, rt_max_l)
 
-                    # Get m/z range with tolerance
                     try:
                         ppm = float(self.getParametersFromCurrentRes("Mass deviation (+/- ppm)"))
                     except Exception:
                         ppm = 5.0
 
-                    # Store native (M) and labeled (M') ranges separately
                     native_mz_min = cp.mz * (1 - ppm / 1000000.0)
                     native_mz_max = cp.mz * (1 + ppm / 1000000.0)
-
                     feature_ranges.append({"rt_min": rt_min, "rt_max": rt_max, "mz_min": native_mz_min, "mz_max": native_mz_max, "feature_name": "%.4f @ %.2f min" % (cp.mz, cp.NPeakCenterMin / 60.0), "form": "native"})
 
-                    # Add labeled form if available
                     if hasattr(cp, "lmz"):
                         labeled_mz_min = cp.lmz * (1 - ppm / 1000000.0)
                         labeled_mz_max = cp.lmz * (1 + ppm / 1000000.0)
@@ -8762,37 +8996,189 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if not feature_ranges:
             return
 
-        # Filter MS2 spectra within feature ranges
         matching_ms2 = []
         for ms2_scan in self.currentOpenRawFile.MS2_list:
             for fr in feature_ranges:
-                # Check if MS2 scan is within RT range
                 if fr["rt_min"] <= ms2_scan.retention_time <= fr["rt_max"]:
-                    # Check if precursor m/z is within feature m/z range
                     if fr["mz_min"] <= ms2_scan.precursor_mz <= fr["mz_max"]:
                         matching_ms2.append({"scan": ms2_scan, "feature_name": fr["feature_name"], "form": fr["form"]})
                         break
 
-        # Populate list widget
+        _native_color = QtGui.QColor(30, 144, 255, 60)  # dodgerblue
+        _labeled_color = QtGui.QColor(178, 34, 34, 60)  # firebrick
+
         for ms2_info in sorted(matching_ms2, key=lambda x: x["scan"].precursor_intensity):
             scan = ms2_info["scan"]
-            form_label = "M" if ms2_info["form"] == "native" else "M'"
-            item_text = "%s: I %.3g, %.4f @ %.2f min" % (form_label, scan.precursor_intensity, scan.precursor_mz, scan.retention_time / 60.0)
-            list_item = QtWidgets.QListWidgetItem(item_text)
-            list_item.setData(QtCore.Qt.UserRole, scan)  # Store scan object
-            list_item.setData(QtCore.Qt.UserRole + 1, ms2_info["form"])  # Store form type
-            self.ui.msms_SpectraList.addItem(list_item)
+            form_label = "M" if ms2_info["form"] == "native" else "M\u2032"
+            row_idx = tbl.rowCount()
+            tbl.insertRow(row_idx)
 
-        # Auto-select last 6 entries
-        total_items = self.ui.msms_SpectraList.count()
-        if total_items > 0:
-            self.ui.msms_SpectraList.item(total_items - 1).setSelected(True)
+            nl_item = _NSItem(form_label)
+            nl_item.setData(QtCore.Qt.UserRole, scan)
+            nl_item.setData(QtCore.Qt.UserRole + 1, ms2_info["form"])
+            tbl.setItem(row_idx, 0, nl_item)
+            tbl.setItem(row_idx, 1, _NSItem(f"{scan.precursor_intensity:.4g}"))
+            tbl.setItem(row_idx, 2, _NSItem(f"{scan.precursor_mz:.4f}"))
+            tbl.setItem(row_idx, 3, _NSItem(f"{scan.retention_time / 60.0:.2f}"))
+
+            row_color = _labeled_color if ms2_info["form"] == "labeled" else _native_color
+            for col in range(4):
+                tbl.item(row_idx, col).setBackground(row_color)
+
+        tbl.setSortingEnabled(True)
+        tbl.resizeColumnsToContents()
+
+        total_rows = tbl.rowCount()
+        if total_rows > 0:
+            tbl.selectRow(total_rows - 1)
+
+    def _setup_msms_hover(self, plot_obj):
+        """Connect hover and click handlers to an MSMS canvas.
+
+        Hover: when the cursor is close to a fragment peak (using normalised 2-D
+        distance in m/z and intensity), the vline is redrawn 3× thicker and a
+        popup annotation shows its m/z value.
+
+        Click: same proximity test; if close enough the annotation is *pinned*
+        and will survive zoom/pan.  Pinned annotations are cleared the next time
+        this method is called (i.e. when new spectra are selected).
+
+        State on plot_obj:
+            _hover_cid      – mpl connection id for motion_notify_event
+            _click_cid      – mpl connection id for button_press_event
+            _hover_artists  – temporary artists removed on next move event
+            _pinned_artists – persistent artists cleared on next setup call
+        """
+        canvas = plot_obj.canvas
+
+        # Disconnect any previous handlers
+        for attr in ("_hover_cid", "_click_cid"):
+            cid = getattr(plot_obj, attr, None)
+            if cid is not None:
+                try:
+                    canvas.mpl_disconnect(cid)
+                except Exception:
+                    pass
+        plot_obj._hover_cid = None
+        plot_obj._click_cid = None
+        plot_obj._hover_artists = []
+
+        # Clear pinned annotations from previous spectra
+        for artist in list(getattr(plot_obj, "_pinned_artists", [])):
+            try:
+                artist.remove()
+            except Exception:
+                pass
+        plot_obj._pinned_artists = []
+
+        if not plot_obj.axes:
+            return
+
+        def _find_closest(ax, mx, my):
+            """Return (cidx, norm_dist) for the nearest peak using 2-D normalised distance."""
+            peaks = getattr(ax, "_msms_peaks", None)
+            if peaks is None or len(peaks[0]) == 0:
+                return None, None
+            mz_arr, int_arr, _ = peaks
+            xlim = ax.get_xlim()
+            ylim = ax.get_ylim()
+            x_range = xlim[1] - xlim[0] or 1.0
+            y_range = ylim[1] - ylim[0] or 1.0
+            best_idx, best_dist = 0, float("inf")
+            for i, (mz, iv) in enumerate(zip(mz_arr, int_arr)):
+                dx = abs(float(mz) - mx) / x_range
+                dy = abs(float(iv) - my) / y_range
+                d = (dx**2 + dy**2) ** 0.5
+                if d < best_dist:
+                    best_dist = d
+                    best_idx = i
+            return best_idx, best_dist
+
+        def _on_hover(event):
+            for artist in list(plot_obj._hover_artists):
+                try:
+                    artist.remove()
+                except Exception:
+                    pass
+            plot_obj._hover_artists.clear()
+
+            if event.inaxes is None or event.xdata is None or event.ydata is None:
+                canvas.draw_idle()
+                return
+
+            ax = event.inaxes
+            peaks = getattr(ax, "_msms_peaks", None)
+            if peaks is None or len(peaks[0]) == 0:
+                canvas.draw_idle()
+                return
+
+            mz_arr, int_arr, spec_color = peaks
+            cidx, nd = _find_closest(ax, event.xdata, event.ydata)
+            if nd is None or nd > 0.03:
+                canvas.draw_idle()
+                return
+
+            mz_val = float(mz_arr[cidx])
+            int_val = float(int_arr[cidx])
+
+            vl = ax.vlines(mz_val, 0, int_val, colors=spec_color, linewidth=4.5, zorder=5)
+            plot_obj._hover_artists.append(vl)
+
+            ann = ax.annotate(
+                "m/z  %.4f" % mz_val,
+                xy=(mz_val, int_val),
+                xytext=(8, 8),
+                textcoords="offset points",
+                fontsize=11,
+                color="#202124",
+                bbox=dict(boxstyle="round,pad=0.4", facecolor="lightyellow", edgecolor="#aaaaaa", alpha=0.95),
+                zorder=10,
+            )
+            plot_obj._hover_artists.append(ann)
+            canvas.draw_idle()
+
+        def _on_click(event):
+            if event.inaxes is None or event.xdata is None or event.ydata is None:
+                return
+
+            ax = event.inaxes
+            peaks = getattr(ax, "_msms_peaks", None)
+            if peaks is None or len(peaks[0]) == 0:
+                return
+
+            mz_arr, int_arr, spec_color = peaks
+            cidx, nd = _find_closest(ax, event.xdata, event.ydata)
+            if nd is None or nd > 0.03:
+                return
+
+            mz_val = float(mz_arr[cidx])
+            int_val = float(int_arr[cidx])
+
+            # Pin a thick vline and labelled annotation that survive zoom/pan
+            vl = ax.vlines(mz_val, 0, int_val, colors=spec_color, linewidth=4.5, zorder=5)
+            plot_obj._pinned_artists.append(vl)
+
+            ann = ax.annotate(
+                "m/z  %.4f" % mz_val,
+                xy=(mz_val, int_val),
+                xytext=(8, 8),
+                textcoords="offset points",
+                fontsize=11,
+                color="#202124",
+                bbox=dict(boxstyle="round,pad=0.4", facecolor="lightyellow", edgecolor="#888888", alpha=0.98),
+                zorder=11,
+            )
+            plot_obj._pinned_artists.append(ann)
+            canvas.draw_idle()
+
+        plot_obj._hover_cid = canvas.mpl_connect("motion_notify_event", _on_hover)
+        plot_obj._click_cid = canvas.mpl_connect("button_press_event", _on_click)
 
     def plotSelectedMSMSSpectra(self):
         """Plot selected MSMS spectra as subplots with shared x-axis"""
-        selected_items = self.ui.msms_SpectraList.selectedItems()
+        selected_rows = sorted(set(item.row() for item in self.ui.msms_SpectraList.selectedItems()))
 
-        if not selected_items:
+        if not selected_rows:
             # Clear the plot
             self.ui.plMSMS.fig.clear()
             self.ui.plMSMS.axes = []
@@ -8804,15 +9190,18 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.plMSMS.axes = []
 
         # Calculate subplot grid
-        n_spectra = len(selected_items)
-        n_cols = min(2, n_spectra)
+        n_spectra = len(selected_rows)
+        n_cols = 1 if n_spectra == 2 else min(2, n_spectra)
         n_rows = (n_spectra + n_cols - 1) // n_cols
 
         # Create subplots with shared x-axis
         first_ax = None
-        for idx, item in enumerate(selected_items):
-            scan = item.data(QtCore.Qt.UserRole)
-            form_type = item.data(QtCore.Qt.UserRole + 1)  # Get form type (native/labeled)
+        for idx, row_idx in enumerate(selected_rows):
+            col0 = self.ui.msms_SpectraList.item(row_idx, 0)
+            if col0 is None:
+                continue
+            scan = col0.data(QtCore.Qt.UserRole)
+            form_type = col0.data(QtCore.Qt.UserRole + 1)
 
             # Determine color based on form type
             if form_type == "labeled":
@@ -8835,115 +9224,195 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if len(scan.mz_list) > 0:
                 ax.vlines(scan.mz_list, 0, scan.intensity_list, colors=spectrum_color, linewidth=1.5)
                 ax.plot(scan.mz_list, scan.intensity_list, "o", markersize=3, color=spectrum_color)
+                # Store per-axis peak data for hover interactivity
+                ax._msms_peaks = (scan.mz_list.copy(), scan.intensity_list.copy(), spectrum_color)
 
-                # Label the 10 most abundant peaks
                 if len(scan.intensity_list) > 0:
-                    # Get indices of top 10 peaks by intensity
-                    # Create list of (intensity, index) pairs, sort by intensity, get top 10 indices
-                    intensity_with_idx = [(intensity, idx) for idx, intensity in enumerate(scan.intensity_list)]
+                    intensity_with_idx = [(intensity, i) for i, intensity in enumerate(scan.intensity_list)]
                     intensity_with_idx.sort(reverse=True)
-                    top_indices = [idx for _, idx in intensity_with_idx[:10]]
+                    top_indices = [i for _, i in intensity_with_idx[:10]]
                     for peak_idx in top_indices:
                         mz_val = scan.mz_list[peak_idx]
                         intensity_val = scan.intensity_list[peak_idx]
-                        # Add text label above the peak
-                        ax.text(mz_val, intensity_val, "%.4f" % mz_val, fontsize=12, ha="center", va="bottom", rotation=90, color=label_color, alpha=0.3)
+                        ax.text(mz_val, intensity_val * 1.01, "%.4f" % mz_val, fontsize=9, ha="center", va="bottom", rotation=0, color=label_color, alpha=0.6)
 
-            # Set labels and title
             ax.set_xlabel("m/z", fontsize=12)
             ax.set_ylabel("Intensity", fontsize=12)
             ax.set_title("Scan %d: %.4f m/z | RT %.2f min | I %.3g" % (scan.id, scan.precursor_mz, scan.retention_time / 60.0, scan.precursor_intensity), fontsize=11)
             ax.tick_params(labelsize=12)
             ax.grid(True, alpha=0.3)
 
-        # Apply tight layout for optimal spacing
         try:
             self.ui.plMSMS.fig.tight_layout()
         except Exception:
-            # Fallback to manual adjustment if tight_layout fails
             self.ui.plMSMS.fig.subplots_adjust(left=0.08, bottom=0.08, right=0.98, top=0.95, hspace=0.4, wspace=0.3)
 
+        self._setup_msms_hover(self.ui.plMSMS)
         self.ui.plMSMS.canvas.draw()
 
     def updateMSMSList_exp(self, selectedItems):
-        """Filter and populate MSMS spectra list for experimental results panel"""
-        self.ui.msms_SpectraList_exp.clear()
+        """Filter and populate MSMS spectra table for experimental results panel"""
+
+        class _NSItem(QTableWidgetItem):
+            def __lt__(self, other):
+                try:
+                    return float(self.text()) < float(other.text())
+                except (ValueError, TypeError):
+                    return self.text() < other.text()
+
+        tbl = self.ui.msms_SpectraList_exp
+        tbl.setSortingEnabled(False)
+        tbl.setRowCount(0)
 
         if not hasattr(self, "loadedMZXMLs") or self.loadedMZXMLs is None:
             return
 
-        # Get ppm tolerance and RT border offset from UI
-        try:
-            ppm = self.ui.doubleSpinBox_resultsExperiment_EICppm.value()
-        except Exception:
-            ppm = 5.0
-
         try:
             borderOffset = self.ui.doubleSpinBox_resultsExperiment_PeakWidth.value()
         except Exception:
-            borderOffset = 0.5  # Default 0.5 minutes
+            borderOffset = 0.5
 
-        # Collect RT and m/z ranges from selected features
+        # Build file-path -> group-name mapping (loadedMZXMLs is keyed by both path and group)
+        file_to_group = {}
+        for grp in self.getAllSampleGroups():
+            for fpath in grp.files:
+                file_to_group[fpath] = grp.name
+
+        # Only consider keys that are actual file paths (not group-name aliases)
+        file_keys = [k for k in self.loadedMZXMLs if k.lower().endswith(".mzxml") or k.lower().endswith(".mzml")]
+
         feature_ranges = []
+        # Build per-feature, per-sample RT bounds from the results DB when available
+        rows_by_num = {}
+        if hasattr(self, "experimentResults") and self.experimentResults is not None and self.experimentResults.db_con is not None:
+            for sheet in ["4_Convoluted", "3_Reintegrated", "1_Bracketed"]:
+                try:
+                    tdf = self.experimentResults.db_con.get_table(sheet)
+                    if tdf is not None and not tdf.is_empty():
+                        rows_by_num = {r["Num"]: r for r in tdf.to_dicts()}
+                        break
+                except Exception:
+                    pass
+
         for item in selectedItems:
             if hasattr(item, "bunchData"):
                 bd = item.bunchData
                 if bd.type == "featurePair":
-                    # Get RT range using borderOffset (rt is in seconds)
-                    rt_min = bd.rt - (borderOffset * 60.0)  # Convert minutes to seconds
-                    rt_max = bd.rt + (borderOffset * 60.0)
+                    try:
+                        ppm = self.ui.doubleSpinBox_resultsExperiment_EICppm.value()
+                    except Exception:
+                        ppm = 5.0
 
-                    # Store native (M) and labeled (M') ranges separately
                     native_mz_min = bd.mz * (1 - ppm / 1000000.0)
                     native_mz_max = bd.mz * (1 + ppm / 1000000.0)
-
-                    feature_ranges.append({"rt_min": rt_min, "rt_max": rt_max, "mz_min": native_mz_min, "mz_max": native_mz_max, "feature_name": "%.4f @ %.2f min" % (bd.mz, bd.rt / 60.0), "form": "native"})
-
-                    # Add labeled form
                     labeled_mz_min = bd.lmz * (1 - ppm / 1000000.0)
                     labeled_mz_max = bd.lmz * (1 + ppm / 1000000.0)
-                    feature_ranges.append({"rt_min": rt_min, "rt_max": rt_max, "mz_min": labeled_mz_min, "mz_max": labeled_mz_max, "feature_name": "%.4f @ %.2f min" % (bd.lmz, bd.rt / 60.0), "form": "labeled"})
+
+                    # Build a per-file RT range dict: file_key -> (rt_min_s, rt_max_s)
+                    # Values are in seconds for comparison with ms2_scan.retention_time
+                    per_file_rt = {}
+                    row_data = rows_by_num.get(getattr(bd, "id", None))
+                    if row_data is not None:
+                        for file_key in file_keys:
+                            fname = os.path.basename(file_key)
+                            for ext in [".mzxml", ".mzml"]:
+                                if fname.lower().endswith(ext):
+                                    fname = fname[: -len(ext)]
+                                    break
+                            sv = row_data.get(f"{fname}_N_startRT")
+                            ev = row_data.get(f"{fname}_N_endRT")
+                            lsv = row_data.get(f"{fname}_L_startRT")
+                            lev = row_data.get(f"{fname}_L_endRT")
+                            try:
+                                # DB stores RT in minutes; convert to seconds
+                                rt_min_s = min(
+                                    float(str(sv).split(";")[0]) * 60.0 if sv is not None else float("inf"),
+                                    float(str(lsv).split(";")[0]) * 60.0 if lsv is not None else float("inf"),
+                                )
+                                rt_max_s = max(
+                                    float(str(ev).split(";")[0]) * 60.0 if ev is not None else float("-inf"),
+                                    float(str(lev).split(";")[0]) * 60.0 if lev is not None else float("-inf"),
+                                )
+                                if rt_min_s != float("inf") and rt_max_s != float("-inf"):
+                                    per_file_rt[file_key] = (rt_min_s, rt_max_s)
+                            except (TypeError, ValueError):
+                                pass
+
+                    feature_ranges.append(
+                        {
+                            "native_mz_min": native_mz_min,
+                            "native_mz_max": native_mz_max,
+                            "labeled_mz_min": labeled_mz_min,
+                            "labeled_mz_max": labeled_mz_max,
+                            "per_file_rt": per_file_rt,
+                            "global_rt": bd.rt,  # seconds, used as fallback
+                        }
+                    )
 
         if not feature_ranges:
             return
 
-        # Collect MS2 scans from all loaded files
         all_ms2_scans = []
-        for file_key, mzxml_file in self.loadedMZXMLs.items():
-            if hasattr(mzxml_file, "MS2_list") and len(mzxml_file.MS2_list) > 0:
-                for ms2_scan in mzxml_file.MS2_list:
-                    # Check if this scan matches any feature range
-                    for fr in feature_ranges:
-                        if fr["rt_min"] <= ms2_scan.retention_time <= fr["rt_max"]:
-                            if fr["mz_min"] <= ms2_scan.precursor_mz <= fr["mz_max"]:
-                                all_ms2_scans.append({"scan": ms2_scan, "form": fr["form"], "file": file_key})
-                                break
+        for file_key in file_keys:
+            mzxml_file = self.loadedMZXMLs[file_key]
+            if not (hasattr(mzxml_file, "MS2_list") and len(mzxml_file.MS2_list) > 0):
+                continue
+            for ms2_scan in mzxml_file.MS2_list:
+                for fr in feature_ranges:
+                    # Determine RT bounds for this specific file
+                    if file_key in fr["per_file_rt"]:
+                        rt_min_s, rt_max_s = fr["per_file_rt"][file_key]
+                    else:
+                        # Fallback: borderOffset around the global feature RT
+                        rt_min_s = fr["global_rt"] - (borderOffset * 60.0)
+                        rt_max_s = fr["global_rt"] + (borderOffset * 60.0)
 
-        # Add to list widget - sort by filename then RT using natural sort
-        temp_list = []
-        for scan_info in all_ms2_scans:
-            scan = scan_info["scan"]
-            form = scan_info["form"]
-            file_key = scan_info["file"]
+                    if not (rt_min_s <= ms2_scan.retention_time <= rt_max_s):
+                        continue
 
-            # Extract filename from path
+                    # Check precursor m/z against native form
+                    if fr["native_mz_min"] <= ms2_scan.precursor_mz <= fr["native_mz_max"]:
+                        all_ms2_scans.append({"scan": ms2_scan, "form": "native", "file": file_key})
+                        break
+                    # Check against labeled form
+                    if fr["labeled_mz_min"] <= ms2_scan.precursor_mz <= fr["labeled_mz_max"]:
+                        all_ms2_scans.append({"scan": ms2_scan, "form": "labeled", "file": file_key})
+                        break
+
+        temp_list = [(s["scan"], s["form"], s["file"]) for s in all_ms2_scans]
+        temp_list = natSort(temp_list, key=lambda x: x[0].precursor_intensity)
+
+        _native_color = QtGui.QColor(30, 144, 255, 60)
+        _labeled_color = QtGui.QColor(178, 34, 34, 60)
+
+        for scan, form, file_key in temp_list:
+            form_label = "M\u2032" if form == "labeled" else "M"
+            row_idx = tbl.rowCount()
+            tbl.insertRow(row_idx)
+
+            group_name = file_to_group.get(file_key, "")
             filename = os.path.basename(file_key)
-            temp_list.append((scan, form, filename))
 
-        # Sort by filename (natural sort) then by retention time
-        temp_list = natSort(temp_list, key=lambda x: (x[0].precursor_intensity))
+            nl_item = _NSItem(form_label)
+            nl_item.setData(QtCore.Qt.UserRole, scan)
+            nl_item.setData(QtCore.Qt.UserRole + 1, form)
+            tbl.setItem(row_idx, 0, nl_item)
+            tbl.setItem(row_idx, 1, _NSItem(f"{scan.precursor_intensity:.4g}"))
+            tbl.setItem(row_idx, 2, _NSItem(f"{scan.precursor_mz:.4f}"))
+            tbl.setItem(row_idx, 3, _NSItem(f"{scan.retention_time / 60.0:.2f}"))
+            tbl.setItem(row_idx, 4, _NSItem(group_name))
+            tbl.setItem(row_idx, 5, _NSItem(filename))
 
-        for scan, form, filename in temp_list:
-            item_text = "%s: I %.3g, %.4f @ %.2f, %s" % ("M'" if form == "labeled" else "M", scan.precursor_intensity, scan.precursor_mz, scan.retention_time / 60.0, filename)
-            item = QtWidgets.QListWidgetItem(item_text)
-            item.setData(QtCore.Qt.UserRole, scan)
-            item.setData(QtCore.Qt.UserRole + 1, form)
-            self.ui.msms_SpectraList_exp.addItem(item)
+            row_color = _labeled_color if form == "labeled" else _native_color
+            for col in range(6):
+                tbl.item(row_idx, col).setBackground(row_color)
 
-        # Auto-select last 6 entries
-        total_items = self.ui.msms_SpectraList_exp.count()
-        if total_items > 0:
-            self.ui.msms_SpectraList_exp.item(total_items - 1).setSelected(True)
+        tbl.setSortingEnabled(True)
+        tbl.resizeColumnsToContents()
+
+        total_rows = tbl.rowCount()
+        if total_rows > 0:
+            tbl.selectRow(total_rows - 1)
 
     def updatePeakDetailsTab(self, plotItems):
         """Populate the peak details tab tables for the selected features."""
@@ -9317,39 +9786,36 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def plotSelectedMSMSSpectra_exp(self):
         """Plot selected MSMS spectra from experimental results panel"""
-        selected_items = self.ui.msms_SpectraList_exp.selectedItems()
+        selected_rows = sorted(set(item.row() for item in self.ui.msms_SpectraList_exp.selectedItems()))
 
-        if not selected_items:
-            # Clear the plot
+        if not selected_rows:
             self.ui.plMSMS_exp.fig.clear()
             self.ui.plMSMS_exp.axes = []
             self.ui.plMSMS_exp.canvas.draw()
             return
 
-        # Clear previous plots
         self.ui.plMSMS_exp.fig.clear()
         self.ui.plMSMS_exp.axes = []
 
-        # Calculate subplot grid
-        n_spectra = len(selected_items)
-        n_cols = min(2, n_spectra)
+        n_spectra = len(selected_rows)
+        n_cols = 1 if n_spectra == 2 else min(2, n_spectra)
         n_rows = (n_spectra + n_cols - 1) // n_cols
 
-        # Create subplots with shared x-axis
         first_ax = None
-        for idx, item in enumerate(selected_items):
-            scan = item.data(QtCore.Qt.UserRole)
-            form_type = item.data(QtCore.Qt.UserRole + 1)
+        for idx, row_idx in enumerate(selected_rows):
+            col0 = self.ui.msms_SpectraList_exp.item(row_idx, 0)
+            if col0 is None:
+                continue
+            scan = col0.data(QtCore.Qt.UserRole)
+            form_type = col0.data(QtCore.Qt.UserRole + 1)
 
-            # Determine color based on form type
             if form_type == "labeled":
                 spectrum_color = "firebrick"
                 label_color = "darkred"
-            else:  # native
+            else:
                 spectrum_color = "dodgerblue"
                 label_color = "darkblue"
 
-            # Create subplot with shared x-axis
             if idx == 0:
                 ax = self.ui.plMSMS_exp.fig.add_subplot(n_rows, n_cols, idx + 1)
                 first_ax = ax
@@ -9358,34 +9824,33 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
             self.ui.plMSMS_exp.axes.append(ax)
 
-            # Plot MS/MS spectrum as stem plot with form-specific color
             if len(scan.mz_list) > 0:
                 ax.vlines(scan.mz_list, 0, scan.intensity_list, colors=spectrum_color, linewidth=1.5)
                 ax.plot(scan.mz_list, scan.intensity_list, "o", markersize=3, color=spectrum_color)
+                # Store per-axis peak data for hover interactivity
+                ax._msms_peaks = (scan.mz_list.copy(), scan.intensity_list.copy(), spectrum_color)
 
-                # Label the 10 most abundant peaks
                 if len(scan.intensity_list) > 0:
-                    intensity_with_idx = [(intensity, idx) for idx, intensity in enumerate(scan.intensity_list)]
+                    intensity_with_idx = [(intensity, i) for i, intensity in enumerate(scan.intensity_list)]
                     intensity_with_idx.sort(reverse=True)
-                    top_indices = [idx for _, idx in intensity_with_idx[:10]]
+                    top_indices = [i for _, i in intensity_with_idx[:10]]
                     for peak_idx in top_indices:
                         mz_val = scan.mz_list[peak_idx]
                         intensity_val = scan.intensity_list[peak_idx]
-                        ax.text(mz_val, intensity_val, "%.4f" % mz_val, fontsize=12, ha="center", va="bottom", rotation=90, color=label_color, alpha=0.3)
+                        ax.text(mz_val, intensity_val * 1.01, "%.4f" % mz_val, fontsize=9, ha="center", va="bottom", rotation=0, color=label_color, alpha=0.6)
 
-            # Set labels and title
             ax.set_xlabel("m/z", fontsize=12)
             ax.set_ylabel("Intensity", fontsize=12)
             ax.set_title("Scan %d: %.4f m/z | RT %.2f min | I %.3g" % (scan.id, scan.precursor_mz, scan.retention_time / 60.0, scan.precursor_intensity), fontsize=11)
             ax.tick_params(labelsize=12)
             ax.grid(True, alpha=0.3)
 
-        # Apply tight layout for optimal spacing
         try:
             self.ui.plMSMS_exp.fig.tight_layout()
         except Exception:
             self.ui.plMSMS_exp.fig.subplots_adjust(left=0.08, bottom=0.08, right=0.98, top=0.95, hspace=0.4, wspace=0.3)
 
+        self._setup_msms_hover(self.ui.plMSMS_exp)
         self.ui.plMSMS_exp.canvas.draw()
 
     # </editor-fold>
@@ -10807,7 +11272,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 mean(meanRT) / 60.0 + borderOffset,
             ]
             intlim = [intlim[0] * 1.1, intlim[1] * 1.1]
-            self.drawCanvas(self.ui.resultsExperiment_plot, xlim=rtlim, ylim=intlim)
+            self.drawCanvas(self.ui.resultsExperiment_plot, xlim=rtlim, ylim=intlim, showLegendOverwrite=False)
             self.drawCanvas(self.ui.resultsExperimentSeparatedPeaks_plot, showLegendOverwrite=self.ui.showLegend_experiment.isChecked())
             self.drawCanvas(
                 self.ui.resultsExperimentMSScanPeaks_plot,
@@ -11682,6 +12147,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.saveGroups.clicked.connect(self.saveGroupsClicked)
         self.ui.loadGroups.clicked.connect(self.loadGroupsClicked)
         self.ui.removeGroup.clicked.connect(self.remGrp)
+        self.ui.showFileStats.clicked.connect(self.showFileStatsPopup)
 
         self.ui.groupsList.doubleClicked.connect(self.editGroup)
         self.ui.groupsList.itemChanged.connect(self._onGroupTableItemChanged)
