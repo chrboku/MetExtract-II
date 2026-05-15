@@ -1838,7 +1838,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
                 # show a dialog with a drop-down list asking the user to specify the table to load
                 options = self.experimentResults.db_con.list_tables()
-                options = [opt for opt in options if opt not in ["Parameters", "__dTypes__", "2_StatColumns_FalsePositives", "2_StatColumns_Omitted", "4_Convoluted_doublePeaks", "5_Annotated_Compounds", "5_Annotated_SumFormulas"]][::-1]
+                options = [opt for opt in options if opt not in ["Parameters", "__dTypes__", "2_StatColumns_FalsePositives", "2_StatColumns_Omitted", "4_Convoluted_doublePeaks", "5_Annotated_Compounds", "5_Annotated_SumFormulas", "0_sampleStats", "DB_info"]][::-1]
 
                 mgsBox = QtWidgets.QMessageBox(self)
                 mgsBox.setWindowTitle("Select results to load")
