@@ -2,7 +2,6 @@ import os
 import sys
 import csv
 from copy import deepcopy
-from math import ceil
 from ..formulaTools import formulaTools
 import logging
 from .. import LoggingSetup
@@ -83,7 +82,7 @@ class DBSearch:
         self.dbEntriesNeutral = []
         self.dbEntriesMZ = []
 
-    def addEntriesFromFile(self, dbName, dbFile, callBackCheckFunction=None):
+    def addEntriesFromFile(self, dbName, dbFile, callBackCheckFunction=None, error_collector=None):
         imported = 0
         notImported = 0
 
@@ -92,7 +91,7 @@ class DBSearch:
         fT = formulaTools()
 
         # check if file exists
-        
+
         if not os.path.exists(dbFile):
             logging.error("DB import error: File not found %s" % (dbFile))
             raise Exception("DB import error: File not found %s" % (dbFile))
@@ -145,7 +144,10 @@ class DBSearch:
                     try:
                         rt_min = float(row[headers["Rt_min"]]) if row[headers["Rt_min"]] != "" else None
                     except Exception:
-                        logging.error("   - DB (%s) import error (row %d): The Rt_min value '%s' of the entry %s '%s' could not be parsed as a float, not using RT for this compound" % (dbName, rowi, row[headers["Rt_min"]], num, name))
+                        _msg = "   - Error row %d: The Rt_min value '%s' of the entry %s '%s' could not be parsed as a float, not using RT for this compound" % (rowi, row[headers["Rt_min"]], num, name)
+                        logging.error(_msg)
+                        if error_collector is not None:
+                            error_collector.append(_msg)
                     mz = float(row[headers["MZ"]]) if row[headers["MZ"]] != "" else None
                     polarity = row[headers["IonisationMode"]].strip().replace('"', "DOURBLEPRIME").replace("'", "PRIME").replace("\t", "TAB").replace("\n", "RETURN").replace("\r", "CarrRETURN").replace("#", "HASH")
                     additionalInfo = {}
@@ -176,7 +178,10 @@ class DBSearch:
                                 entry_polarity = "+" if formula_charge > 0 else "-"
                                 is_charged_formula = True
                         except Exception:
-                            logging.error("   - DB (%s) import error (row %d): The sumformula (%s) of the entry %s '%s' could not be parsed" % (dbName, rowi, sumFormula, num, name))
+                            _msg = "   - Error row %d: The sumformula (%s) of the entry %s '%s' could not be parsed" % (rowi, sumFormula, num, name)
+                            logging.error(_msg)
+                            if error_collector is not None:
+                                error_collector.append(_msg)
                             notImported += 1
 
                     dbEntry = DBEntry(
@@ -206,18 +211,26 @@ class DBSearch:
                         imported += 1
 
                 except Exception as ex:
-                    logging.error("   - DB (%s) import error (row %d): %s" % (dbName, rowi, ex))
+                    _msg = "   - Error row %d: %s" % (dbName, rowi, ex)
+                    logging.error(_msg)
+                    if error_collector is not None:
+                        error_collector.append(_msg)
                     notImported += 1
 
-        logging.info(
-            "   - Imported DB %s with %d entries"
-            % (
-                dbName,
-                len(self.dbEntriesMZ) + len(self.dbEntriesNeutral) - curEntriesCount,
-            )
-        )
         if notImported > 0:
-            logging.error("Warning: Not imported %d entries (see above errors)" % (notImported))
+            _summary_msg = "Warning: Not imported %d entries (see above errors)" % (notImported)
+            logging.error(_summary_msg)
+            if error_collector is not None:
+                error_collector.append(_summary_msg)
+
+        _summary_msg = "   - Imported DB %s with %d entries" % (
+            dbName,
+            len(self.dbEntriesMZ) + len(self.dbEntriesNeutral) - curEntriesCount,
+        )
+        logging.info(_summary_msg)
+        if error_collector is not None:
+            error_collector.append(_summary_msg)
+
         return imported, notImported
 
     def optimizeDB(self):
@@ -229,7 +242,7 @@ class DBSearch:
             return []
 
         # implement binary search to find a value in the sorted list between valueLeft and valueRight
-        left = 0    
+        left = 0
         right = len(list) - 1
 
         while left <= right:

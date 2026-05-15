@@ -429,6 +429,20 @@ class _RelativeBarDelegate(QtWidgets.QStyledItemDelegate):
             painter.restore()
 
 
+class _DBTestWorker(QtCore.QThread):
+    """Background worker that test-imports database files without blocking the UI."""
+
+    finished = QtCore.Signal(list)
+
+    def __init__(self, dbFiles, parent=None):
+        super().__init__(parent)
+        self.dbFiles = dbFiles
+
+    def run(self):
+        results = annotateResultMatrix.testDatabaseImports(self.dbFiles)
+        self.finished.emit(results)
+
+
 class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     # <editor-fold desc="### check group functions">
     def forceUpdateFL(self):
@@ -4635,6 +4649,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         useExactXn = "PlusMinus_%d" % (self.ui.sumFormulasPlusMinus_spinBox.value())
 
                     try:
+                        db_info_messages = []
                         addedColumns = annotateResultMatrix.annotateWithDatabases(
                             file=excel_file,
                             sheet_name=annotation_input_sheet,
@@ -4650,8 +4665,15 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             processedElement=getElementOfIsotope(str(self.ui.isotopeAText.text())),
                             pwMaxSet=pw.getCallingFunction()("max"),
                             pwValSet=pw.getCallingFunction()("value"),
+                            db_info_messages=db_info_messages,
                         )
                         annotationColumns.extend(addedColumns)
+
+                        # Write DB_info log sheet
+                        if db_info_messages:
+                            from .utils import add_sheet_to_excel as _add_sheet_db_info
+
+                            _add_sheet_db_info(excel_file, pl.DataFrame({"text": db_info_messages}), "DB_info", overwrite=True)
 
                         if False:
                             logging.info(
@@ -11738,6 +11760,64 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             QtWidgets.QMessageBox.Ok,
         )
 
+    def testDBs(self, events=None):
+        dbFiles = []
+        for entryInd in range(self.ui.dbList_listView.model().rowCount()):
+            dbFile = str(self.ui.dbList_listView.model().item(entryInd, 0).data())
+            dbFiles.append(dbFile)
+
+        if not dbFiles:
+            QtWidgets.QMessageBox.information(self, "MetExtract", "No database files added.", QtWidgets.QMessageBox.Ok)
+            return
+
+        # Show indeterminate progress dialog while importing
+        progress = QtWidgets.QProgressDialog("Importing database files, please wait…", None, 0, 0, self)
+        progress.setWindowTitle("Test DBs")
+        progress.setWindowModality(QtCore.Qt.WindowModality.WindowModal)
+        progress.setMinimumDuration(0)
+        progress.setValue(0)
+        progress.show()
+        QtWidgets.QApplication.processEvents()
+
+        worker = _DBTestWorker(dbFiles, parent=self)
+
+        def _on_finished(results):
+            progress.close()
+            self._showDBTestResults(results)
+
+        worker.finished.connect(_on_finished)
+        worker.start()
+
+    def _showDBTestResults(self, results):
+        dialog = QtWidgets.QDialog(self)
+        dialog.setWindowTitle("Database Import Test Results")
+        dialog.resize(750, 450)
+        layout = QtWidgets.QVBoxLayout(dialog)
+
+        tree = QtWidgets.QTreeWidget(dialog)
+        tree.setHeaderLabels(["Database / Message"])
+        tree.setColumnCount(1)
+        tree.header().setStretchLastSection(True)
+
+        for result in results:
+            has_errors = result["not_imported"] > 0 or len(result["errors"]) > 0
+            status = "Issues found" if has_errors else "OK"
+            top_item = QtWidgets.QTreeWidgetItem(
+                tree,
+                [f"{result['db_name']}  —  Imported: {result['imported']}, Errors: {result['not_imported']}  [{status}]"],
+            )
+            if not has_errors:
+                QtWidgets.QTreeWidgetItem(top_item, [f"Successfully imported {result['imported']} entries"])
+            for err in result["errors"]:
+                QtWidgets.QTreeWidgetItem(top_item, [err])
+            top_item.setExpanded(has_errors)
+
+        layout.addWidget(tree)
+        btn_close = QtWidgets.QPushButton("Close")
+        btn_close.clicked.connect(dialog.accept)
+        layout.addWidget(btn_close)
+        dialog.exec_()
+
     # initialise main interface, triggers and command line parameters
     def __init__(self, module="TracExtract", parent=None, silent=False, disableR=False):
         super(Ui_MainWindow, self).__init__()
@@ -12242,6 +12322,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.addmzVaultRep_pushButton.clicked.connect(self.addMZVaultRepository)
         self.ui.removeDB_pushButton.clicked.connect(self.removeDB)
         self.ui.generateDBTemplate_pushButton.clicked.connect(self.generateDBTemplate)
+        self.ui.testDBs_pushButton.clicked.connect(self.testDBs)
+        self.ui.actionDownloadDBTemplate.triggered.connect(self.generateDBTemplate)
 
         # setup result plots
         # Setup first plot
@@ -12653,7 +12735,9 @@ def main():
             + "<br>"
             + f"If importing mzML files results in the error<br>of missing files, please find the correct version at<br><b>{OBO_DOWNLOAD_URL}</b>.<br>"
             + "Please download the corresponding obo-file and<br>save it to the folder in the error message.<br>"
-            + "You can also open this page via the menu<br>(<b>'Tools'->'Download OBO files'</b>).",
+            + "You can also open this page via the menu<br>(<b>'Tools'->'Download OBO files'</b>).<br>"
+            + "<br>" 
+            + "To generate a template for a database, select<br><b>'Download Database Template'</b> from the 'Tools' menu.",
             QtWidgets.QMessageBox.Ok,
         )
 

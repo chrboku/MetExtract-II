@@ -153,6 +153,7 @@ def annotateWithDatabases(
     processedElement,
     pwMaxSet=None,
     pwValSet=None,
+    db_info_messages=None,
 ):
     """
     Annotate metabolites by searching in databases using PolarsDB.
@@ -180,6 +181,8 @@ def annotateWithDatabases(
         processedElement: Element to check in formulas (e.g., "C")
         pwMaxSet: Progress callback for max value
         pwValSet: Progress callback for current value
+        db_info_messages: Optional list; if provided, import summary messages are appended to it
+            (used to write the DB_info log sheet)
 
     Returns:
         List of annotation column names added
@@ -208,10 +211,21 @@ def annotateWithDatabases(
         logging.info(f"\n-------------------------\nImporting database file: {dbFile}")
         dbName = dbFile[dbFile.rfind("/") + 1 : dbFile.rfind(".")]
         dbNames.append(dbName)
+        errors = []
         try:
-            db.addEntriesFromFile(dbName, dbFile)
+            imported, not_imported = db.addEntriesFromFile(dbName, dbFile, error_collector=errors)
+            if db_info_messages is not None:
+                db_info_messages.append(f"Database: {dbName} (file: {dbFile})")
+                db_info_messages.append(f"  Imported: {imported} entries successfully")
+                if not_imported > 0:
+                    db_info_messages.append(f"  Not imported: {not_imported} entries due to errors")
+                for err in errors:
+                    db_info_messages.append(f"  {err}")
         except IOError as e:
             logging.error(f"   - Cannot process database file '{dbName}' at '{dbFile}': {e}")
+            if db_info_messages is not None:
+                db_info_messages.append(f"Database: {dbName} (file: {dbFile})")
+                db_info_messages.append(f"  Fatal error: {e}")
             continue
     logging.info(f"\nFinished importing databases. Total imported entries: MZ: {len(db.dbEntriesMZ)}, Neutral: {len(db.dbEntriesNeutral)}")
 
@@ -482,6 +496,39 @@ def annotateWithDatabases(
 
     logging.info(f"Database search annotation completed. Added {len(annotationColumns)} columns")
     return annotationColumns
+
+
+def testDatabaseImports(dbFiles):
+    """
+    Test-import database files and return per-db import results without writing to any output file.
+
+    Args:
+        dbFiles: List of database file paths
+
+    Returns:
+        List of dicts: [{'db_name': str, 'db_file': str, 'imported': int, 'not_imported': int, 'errors': list[str]}, ...]
+    """
+    results = []
+    for dbFile in dbFiles:
+        dbName = dbFile[dbFile.rfind("/") + 1 : dbFile.rfind(".")]
+        errors = []
+        db = searchDatabases.DBSearch()
+        try:
+            imported, not_imported = db.addEntriesFromFile(dbName, dbFile, error_collector=errors)
+        except Exception as e:
+            errors.insert(0, f"Fatal error: {e}")
+            imported = 0
+            not_imported = 0
+        results.append(
+            {
+                "db_name": dbName,
+                "db_file": dbFile,
+                "imported": imported,
+                "not_imported": not_imported,
+                "errors": errors,
+            }
+        )
+    return results
 
 
 def annotateWithSumFormulas(
