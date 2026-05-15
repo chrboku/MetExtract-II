@@ -4056,6 +4056,23 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         resFileFull = str(self.ui.groupsSave.text())
         resFilePath, resFileName = os.path.split(os.path.abspath(resFileFull))
         excel_file = resFileFull.replace(".xlsx", ".tsv").replace(".tsv", ".txt").replace(".txt", "") + ".xlsx"
+
+        # Determine the best available input sheet for annotation when only the annotation step is run
+        # (will be overridden later if bracketing/grouping/re-integration runs as part of this execution)
+        annotation_input_sheet = "2_StatColumns"
+        if os.path.isfile(excel_file):
+            try:
+                import openpyxl as _opxl_detect
+
+                _wb_detect = _opxl_detect.load_workbook(excel_file, read_only=True)
+                for _candidate in ("4_Convoluted", "3_Reintegrated", "2_StatColumns"):
+                    if _candidate in _wb_detect.sheetnames:
+                        annotation_input_sheet = _candidate
+                        break
+                _wb_detect.close()
+            except Exception:
+                pass
+
         # bracket/group from individual LC-HRMS data / re-integrate missed peaks
         if self.ui.processMultipleFiles.checkState() == QtCore.Qt.Checked:
             pw = ProgressWrapper(1, parent=self)
@@ -11615,23 +11632,24 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             pass
 
     def addDB(self, events):
-        dbFile, _filter = QtWidgets.QFileDialog.getOpenFileName(
-            caption="Select database file",
+        dbFiles, _filter = QtWidgets.QFileDialog.getOpenFileNames(
+            caption="Select database file(s)",
             dir=self.lastOpenDir,
             filter="Database (*.xlsx *.tsv);;Excel files (*.xlsx);;TSV files (*.tsv);;All files (*.*)",
         )
-        dbFile = str(dbFile)
 
-        if len(dbFile) > 0:
-            self.lastOpenDir = str(dbFile).replace("\\", "/")
-            self.lastOpenDir = self.lastOpenDir[: self.lastOpenDir.rfind("/")]
+        for dbFile in dbFiles:
+            dbFile = str(dbFile)
+            if len(dbFile) > 0:
+                self.lastOpenDir = dbFile.replace("\\", "/")
+                self.lastOpenDir = self.lastOpenDir[: self.lastOpenDir.rfind("/")]
 
-            dbFile = dbFile.replace("\\", "/")
-            dbName = dbFile[dbFile.rfind("/") + 1 : dbFile.rfind(".")]
+                dbFile = dbFile.replace("\\", "/")
+                dbName = dbFile[dbFile.rfind("/") + 1 : dbFile.rfind(".")]
 
-            item = QtGui.QStandardItem("%s (Database)" % dbName)
-            item.setData(dbFile)
-            self.ui.dbList_listView.model().appendRow(item)
+                item = QtGui.QStandardItem("%s (Database)" % dbName)
+                item.setData(dbFile)
+                self.ui.dbList_listView.model().appendRow(item)
 
     def addMZVaultRepository(self, events):
         dbFile = QtWidgets.QFileDialog.getOpenFileName(

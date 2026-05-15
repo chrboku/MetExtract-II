@@ -1,3 +1,4 @@
+import os
 import sys
 import csv
 from copy import deepcopy
@@ -5,6 +6,7 @@ from math import ceil
 from ..formulaTools import formulaTools
 import logging
 from .. import LoggingSetup
+import polars as pl
 
 sys.path.append("C:/development/PyMetExtract")
 
@@ -89,10 +91,26 @@ class DBSearch:
 
         fT = formulaTools()
 
-        if dbFile.lower().endswith(".xlsx"):
-            import polars as pl
+        # check if file exists
+        
+        if not os.path.exists(dbFile):
+            logging.error("DB import error: File not found %s" % (dbFile))
+            raise Exception("DB import error: File not found %s" % (dbFile))
 
-            df = pl.read_excel(dbFile, sheet_name="Template")
+        if dbFile.lower().endswith(".xlsx"):
+            df = None
+            try:
+                df = pl.read_excel(dbFile, sheet_name="Template")
+            except Exception:
+                try:
+                    df = pl.read_excel(dbFile, sheet_name="Sheet 1")
+                except Exception:
+                    try:
+                        df = pl.read_excel(dbFile)
+                    except Exception:
+                        logging.error("DB import error: Could not read Excel file %s; tried sheets 'Template', 'Sheet 1' and default sheet" % (dbFile))
+                        raise Exception("DB import error: Could not read Excel file %s; tried sheets 'Template', 'Sheet 1' and default sheet" % (dbFile))
+
             # Build a list-of-lists interface compatible with the TSV path
             header_row = list(df.columns)
             data_rows = [[str(v) if v is not None else "" for v in row] for row in df.iter_rows()]
@@ -123,7 +141,11 @@ class DBSearch:
                     num = row[headers["Num"]].strip().replace('"', "DOURBLEPRIME").replace("'", "PRIME").replace("\t", "TAB").replace("\n", "RETURN").replace("\r", "CarrRETURN").replace("#", "HASH")
                     name = row[headers["Name"]].strip().replace('"', "DOURBLEPRIME").replace("'", "PRIME").replace("\t", "TAB").replace("\n", "RETURN").replace("\r", "CarrRETURN").replace("#", "HASH")
                     sumFormula = row[headers["SumFormula"]].strip().replace('"', "DOURBLEPRIME").replace("'", "PRIME").replace("\t", "TAB").replace("\n", "RETURN").replace("\r", "CarrRETURN").replace("#", "HASH")
-                    rt_min = float(row[headers["Rt_min"]]) if row[headers["Rt_min"]] != "" else None
+                    rt_min = None
+                    try:
+                        rt_min = float(row[headers["Rt_min"]]) if row[headers["Rt_min"]] != "" else None
+                    except Exception:
+                        logging.error("   - DB (%s) import error (row %d): The Rt_min value '%s' of the entry %s '%s' could not be parsed as a float, not using RT for this compound" % (dbName, rowi, row[headers["Rt_min"]], num, name))
                     mz = float(row[headers["MZ"]]) if row[headers["MZ"]] != "" else None
                     polarity = row[headers["IonisationMode"]].strip().replace('"', "DOURBLEPRIME").replace("'", "PRIME").replace("\t", "TAB").replace("\n", "RETURN").replace("\r", "CarrRETURN").replace("#", "HASH")
                     additionalInfo = {}
@@ -154,7 +176,7 @@ class DBSearch:
                                 entry_polarity = "+" if formula_charge > 0 else "-"
                                 is_charged_formula = True
                         except Exception:
-                            logging.error("DB import error (%s, row: %d): The sumformula (%s) of the entry %s '%s' could not be parsed" % (dbName, rowi, sumFormula, num, name))
+                            logging.error("   - DB (%s) import error (row %d): The sumformula (%s) of the entry %s '%s' could not be parsed" % (dbName, rowi, sumFormula, num, name))
                             notImported += 1
 
                     dbEntry = DBEntry(
@@ -184,19 +206,18 @@ class DBSearch:
                         imported += 1
 
                 except Exception as ex:
-                    logging.error("DB import error: Could not import row %d (%s)" % (rowi, ex.message))
+                    logging.error("   - DB (%s) import error (row %d): %s" % (dbName, rowi, ex))
                     notImported += 1
 
         logging.info(
-            "Imported DB %s with %d entries (Current number of entries: %d)"
+            "   - Imported DB %s with %d entries"
             % (
                 dbName,
                 len(self.dbEntriesMZ) + len(self.dbEntriesNeutral) - curEntriesCount,
-                len(self.dbEntriesMZ) + len(self.dbEntriesNeutral),
             )
         )
         if notImported > 0:
-            logging.error("Not imported %d entries (see above errors)" % (notImported))
+            logging.error("Warning: Not imported %d entries (see above errors)" % (notImported))
         return imported, notImported
 
     def optimizeDB(self):
@@ -205,55 +226,35 @@ class DBSearch:
 
     def _findGeneric(self, list, getValue, valueLeft, valueRight):
         if len(list) == 0:
-            return (-1, -1)
+            return []
 
-        min = 0
-        max = len(list)
+        # implement binary search to find a value in the sorted list between valueLeft and valueRight
+        left = 0    
+        right = len(list) - 1
 
-        while min < max and (max - min) > 1:
-            cur = int(ceil((max + min) / 2.0))
+        while left <= right:
+            middle = (left + right) // 2
+            middleValue = getValue(list[middle])
 
-            if valueLeft <= getValue(list[cur]) <= valueRight:
-                leftBound = cur
-                while leftBound > 0 and getValue(list[leftBound - 1]) >= valueLeft:
-                    leftBound -= 1
-
-                rightBound = cur
-                while (rightBound + 1) < len(list) and getValue(list[rightBound + 1]) <= valueRight:
-                    rightBound += 1
-
-                return leftBound, rightBound
-
-            if getValue(list[cur]) > valueRight:
-                max = cur
+            if middleValue < valueLeft:
+                left = middle + 1
+            elif middleValue > valueRight:
+                right = middle - 1
             else:
-                min = cur
+                # find the leftmost and rightmost index with values between valueLeft and valueRight
+                leftIndex = middle
+                while leftIndex >= 0 and valueLeft <= getValue(list[leftIndex]) <= valueRight:
+                    leftIndex -= 1
+                leftIndex += 1
 
-        cur = min
-        if valueLeft <= getValue(list[cur]) <= valueRight:
-            leftBound = cur
-            while leftBound > 0 and getValue(list[leftBound - 1]) >= valueLeft:
-                leftBound -= 1
+                rightIndex = middle
+                while rightIndex < len(list) and valueLeft <= getValue(list[rightIndex]) <= valueRight:
+                    rightIndex += 1
+                rightIndex -= 1
 
-            rightBound = cur
-            while (rightBound + 1) < len(list) and getValue(list[rightBound + 1]) <= valueRight:
-                rightBound += 1
+                return list[leftIndex : rightIndex + 1]
 
-            return leftBound, rightBound
-
-        cur = len(list) - 1
-        if valueLeft <= getValue(list[cur]) <= valueRight:
-            leftBound = cur
-            while leftBound > 0 and getValue(list[leftBound - 1]) >= valueLeft:
-                leftBound -= 1
-
-            rightBound = cur
-            while (rightBound + 1) < len(list) and getValue(list[rightBound + 1]) <= valueRight:
-                rightBound += 1
-
-            return leftBound, rightBound
-
-        return -1, -1
+        return []
 
     def searchDBForMZ(
         self,
@@ -290,15 +291,14 @@ class DBSearch:
             if polarity == adduct[2] and charges == adduct[3]:
                 mass = (mz - adduct[1]) * adduct[3] / adduct[4]
 
-                ph = self._findGeneric(
+                entries = self._findGeneric(
                     self.dbEntriesNeutral,
                     lambda x: x.mass,
                     mass - mass * ppm / 1000000.0,
                     mass + mass * ppm / 1000000.0,
                 )
-                if ph[0] != -1:
-                    for entryi in range(ph[0], ph[1] + 1):
-                        entry = self.dbEntriesNeutral[entryi]
+                if entries:
+                    for entry in entries:
                         if rt_min is None or entry.rt_min is None or (abs(rt_min - entry.rt_min) <= rt_error):
                             elems = None
                             if entry.sumFormula != "":
@@ -319,16 +319,14 @@ class DBSearch:
 
         ## search for charged DB entries by the provided mz value
 
-        ph = self._findGeneric(
+        entries = self._findGeneric(
             self.dbEntriesMZ,
             lambda x: x.mz,
             mz - mz * ppm / 1000000.0,
             mz + mz * ppm / 1000000.0,
         )
-        if ph[0] != -1:
-            for entryi in range(ph[0], ph[1] + 1):
-                entry = self.dbEntriesMZ[entryi]
-                print(entry)
+        if entries:
+            for entry in entries:
                 if entry.polarity == polarity and (rt_min is None or entry.rt_min is None or (abs(rt_min - entry.rt_min) <= rt_error)):
                     elems = None
                     if entry.sumFormula != "":
@@ -381,15 +379,14 @@ class DBSearch:
             if charges == adduct[3]:
                 mz = mass * adduct[4] / adduct[3] + adduct[1]
 
-                ph = self._findGeneric(
+                entries = self._findGeneric(
                     self.dbEntriesMZ,
                     lambda x: x.mz,
                     mz - mz * ppm / 1000000.0,
                     mz + mz * ppm / 1000000.0,
                 )
-                if ph[0] != -1:
-                    for entryi in range(ph[0], ph[1] + 1):
-                        entry = self.dbEntriesMZ[entryi]
+                if entries:
+                    for entry in entries:
                         if entry.polarity == adduct[2] and (rt_min is None or entry.rt_min is None or (abs(rt_min - entry.rt_min) <= rt_error)):
                             elems = None
                             if entry.sumFormula != "":
@@ -409,15 +406,14 @@ class DBSearch:
                                 possibleHits.append(entry)
 
         ## search for non-charged DB entries by the provided mass
-        ph = self._findGeneric(
+        entries = self._findGeneric(
             self.dbEntriesNeutral,
             lambda x: x.mass,
             mass - mass * ppm / 1000000.0,
             mass + mass * ppm / 1000000.0,
         )
-        if ph[0] != -1:
-            for entryi in range(ph[0], ph[1] + 1):
-                entry = self.dbEntriesNeutral[entryi]
+        if entries:
+            for entry in entries:
                 if rt_min is None or entry.rt_min is None or (abs(rt_min - entry.rt_min) <= rt_error):
                     elems = None
                     if entry.sumFormula != "":
@@ -439,15 +435,14 @@ class DBSearch:
         ## search for charged formula DB entries by directly matching the feature m/z
         ## (only when polarity matches; these entries were imported from formulas with explicit charge)
         if mz is not None:
-            ph = self._findGeneric(
+            entries = self._findGeneric(
                 self.dbEntriesMZ,
                 lambda x: x.mz,
                 mz - mz * ppm / 1000000.0,
                 mz + mz * ppm / 1000000.0,
             )
-            if ph[0] != -1:
-                for entryi in range(ph[0], ph[1] + 1):
-                    entry = self.dbEntriesMZ[entryi]
+            if entries:
+                for entry in entries:
                     if entry.polarity == polarity and (rt_min is None or entry.rt_min is None or (abs(rt_min - entry.rt_min) <= rt_error)):
                         elems = None
                         if entry.sumFormula != "":

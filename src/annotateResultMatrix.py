@@ -203,21 +203,20 @@ def annotateWithDatabases(
     dbNames = []
 
     # Import database files and collect database names
-    logging.info(f"Importing {len(dbFiles)} database file(s)")
+    logging.info(f"\n\n#########################################\nImporting {len(dbFiles)} database file(s)")
     for dbFile in dbFiles:
+        logging.info(f"\n-------------------------\nImporting database file: {dbFile}")
         dbName = dbFile[dbFile.rfind("/") + 1 : dbFile.rfind(".")]
+        dbNames.append(dbName)
         try:
-            imported, notImported = db.addEntriesFromFile(dbName, dbFile)
-            if notImported > 0:
-                logging.warning(f"Warning: {notImported} entries from database '{dbName}' were not imported successfully")
-            dbNames.append(dbName)
-            logging.info(f"  Imported {imported} entries from database '{dbName}'")
+            db.addEntriesFromFile(dbName, dbFile)
         except IOError as e:
-            logging.error(f"Cannot open database file '{dbName}' at '{dbFile}': {e}")
+            logging.error(f"   - Cannot process database file '{dbName}' at '{dbFile}': {e}")
             continue
+    logging.info(f"\nFinished importing databases. Total imported entries: MZ: {len(db.dbEntriesMZ)}, Neutral: {len(db.dbEntriesNeutral)}")
 
     # Optimize database for searching
-    logging.info("Optimizing database for searching")
+    logging.info("\nOptimizing database for searching")
     db.optimizeDB()
 
     # Add all necessary annotation columns BEFORE searching
@@ -363,7 +362,7 @@ def annotateWithDatabases(
     if pwMaxSet is not None:
         pwMaxSet(total_rows)
 
-    logging.info(f"Searching database hits for {total_rows} metabolites")
+    logging.info(f"Searching database hits for {total_rows} metabolites, parameters are ppm: {ppm}, correctppmPosMode: {correctppmPosMode}, correctppmNegMode: {correctppmNegMode}, rtError: {rtError}, useRt: {useRt}, checkXnInHits: {checkXnInHits}, processedElement: {processedElement}")
 
     # Collect all hits for compound-focused sheet
     all_compound_hits = []
@@ -377,6 +376,8 @@ def annotateWithDatabases(
 
         # Search for database hits
         hits_per_db, hit_objects = searcher.searchForRow(row)
+
+        print(f"Row {row_idx + 1}/{total_rows}, mz {row.get('MZ')}, rt {row.get('RT')}, charge {row.get('Charge')}, polarity {row.get('Ionisation_Mode')}, Xn {row.get('Xn')}\n   - Found hits in {len(hits_per_db)} databases")
 
         # Update only if there are hits
         if hits_per_db:

@@ -18,6 +18,7 @@
 from __future__ import absolute_import, division, print_function
 import gc
 import logging
+import os
 import time
 import traceback
 from multiprocessing import Manager, Pool
@@ -279,7 +280,7 @@ class ReIntegrationProcessor:
             List of re-integration results
         """
         startProc = time.time()
-        logging.info(f"   Reintegration started for file {self.forFile}")
+        logging.info(f"   Reintegration started for file {os.path.basename(self.forFile)}")
 
         if self.queue is not None:
             self.queue.put(Bunch(pid=self.pID, mes="start"))
@@ -348,10 +349,10 @@ class ReIntegrationProcessor:
             self.chromatogram.freeMe()
             gc.collect()
 
-            logging.info(f"   Reintegration finished for file {self.forFile} ({(time.time() - startProc) / 60.0:.1f} minutes)")
+            logging.info(f"   Reintegration finished for file {os.path.basename(self.forFile)} ({(time.time() - startProc) / 60.0:.1f} minutes)")
 
         except Exception as e:
-            logging.error(f"Error during reintegration of {self.forFile}: {e}")
+            logging.error(f"Error during reintegration of {os.path.basename(self.forFile)}: {e}")
             traceback.print_exc()
 
         finally:
