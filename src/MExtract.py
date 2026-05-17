@@ -9396,7 +9396,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             "per_file_rt": per_file_rt,
                             "global_rt": bd.rt,  # seconds, used as fallback
                             "feature_num": getattr(bd, "id", None),
-                            "metabolite_group_id": getattr(bd, "metaboliteGroupID", None),
+                            "metaboliteGroupID": getattr(bd, "metaboliteGroupID", None),
                             "xn": getattr(bd, "xn", None),
                         }
                     )
@@ -9424,11 +9424,11 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
                     # Check precursor m/z against native form
                     if fr["native_mz_min"] <= ms2_scan.precursor_mz <= fr["native_mz_max"]:
-                        all_ms2_scans.append({"scan": ms2_scan, "form": "native", "file": file_key, "feature_num": fr.get("feature_num"), "o_group": fr.get("metabolite_group_id"), "xn": fr.get("xn")})
+                        all_ms2_scans.append({"scan": ms2_scan, "form": "native", "file": file_key, "feature_num": fr.get("feature_num"), "o_group": fr.get("metaboliteGroupID"), "xn": fr.get("xn")})
                         break
                     # Check against labeled form
                     if fr["labeled_mz_min"] <= ms2_scan.precursor_mz <= fr["labeled_mz_max"]:
-                        all_ms2_scans.append({"scan": ms2_scan, "form": "labeled", "file": file_key, "feature_num": fr.get("feature_num"), "o_group": fr.get("metabolite_group_id"), "xn": fr.get("xn")})
+                        all_ms2_scans.append({"scan": ms2_scan, "form": "labeled", "file": file_key, "feature_num": fr.get("feature_num"), "o_group": fr.get("metaboliteGroupID"), "xn": fr.get("xn")})
                         break
 
         temp_list = [(s["scan"], s["form"], s["file"], s.get("feature_num"), s.get("o_group"), s.get("xn")) for s in all_ms2_scans]
@@ -10031,7 +10031,14 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         item.setForeground(QtGui.QBrush(QtGui.QColor("white")))
                     matrix.setItem(i, j, item)
                     if i != j:
-                        matrix.setItem(j, i, QtWidgets.QTableWidgetItem(item))
+                        sym_item = QtWidgets.QTableWidgetItem(f"{score:.3f}")
+                        sym_item.setTextAlignment(QtCore.Qt.AlignCenter)
+                        sym_item.setBackground(QtGui.QColor(red, green, 80))
+                        if score >= threshold:
+                            sym_item.setForeground(QtGui.QBrush(QtGui.QColor("black")))
+                        else:
+                            sym_item.setForeground(QtGui.QBrush(QtGui.QColor("white")))
+                        matrix.setItem(j, i, sym_item)
             matrix.resizeColumnsToContents()
 
         def _show_selected_pair():
@@ -10164,7 +10171,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             else:
                 by_key[(r["form"], "all")].append(r)
 
-        label_offset = abs(getIsotopeMass(str(self.ui.isotopeBText.text())) - getIsotopeMass(str(self.ui.isotopeAText.text())))
+        isotope_mass_offset = abs(getIsotopeMass(str(self.ui.isotopeBText.text())) - getIsotopeMass(str(self.ui.isotopeAText.text())))
 
         def _clean_fragextract_like(native_scan, labeled_scan, xn):
             if native_scan is None or labeled_scan is None:
@@ -10179,7 +10186,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             n_it = np.asarray(native_scan.intensity_list, dtype=float)
             l_it = np.asarray(labeled_scan.intensity_list, dtype=float)
             for n in range(min_atoms, max_atoms + 1):
-                shift = n * label_offset / max(1, int(getattr(native_scan, "precursorCharge", 1) or 1))
+                shift = n * isotope_mass_offset / max(1, int(getattr(native_scan, "precursorCharge", 1) or 1))
                 score = 0.0
                 for mz, inten in zip(n_mz, n_it):
                     if np.any(np.abs((l_mz - mz) - shift) <= 0.01):
@@ -10187,7 +10194,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 if score > best_score:
                     best_score = score
                     best_n = n
-            shift = best_n * label_offset / max(1, int(getattr(native_scan, "precursorCharge", 1) or 1))
+            shift = best_n * isotope_mass_offset / max(1, int(getattr(native_scan, "precursorCharge", 1) or 1))
             keep_n = []
             keep_l = []
             for i, mz in enumerate(n_mz):
@@ -10257,7 +10264,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         elif form_key == "labeled" and l_scan is not None:
                             scan = l_scan
                     out.write("BEGIN IONS\n")
-                    out.write(f"TITLE=Num_{feature_num}_OGroup_{o_group}_{form_key}\n")
+                    out.write(f"TITLE=Num_{feature_num}_OGROUP_{o_group}_{form_key}\n")
                     out.write(f"PEPMASS={float(getattr(scan, 'precursor_mz', 0.0)):.6f}\n")
                     out.write(f"RTINSECONDS={float(getattr(scan, 'retention_time', 0.0)):.3f}\n")
                     out.write(f"FEATURE_NUM={feature_num}\n")
