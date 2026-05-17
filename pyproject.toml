@@ -45,6 +45,7 @@ dependencies = [
     "context>=0.1.0",
     "polars>=1.39.3",
     "desktop-notifier>=6.2.0",
+    "matchms>=0.33.0",
 ]
 
 [project.optional-dependencies]

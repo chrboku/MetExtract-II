@@ -47,6 +47,7 @@ from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QCheckBox, QComboBox, QHBoxLayout, QPushButton, QTableWidgetItem, QWidget
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
@@ -88,6 +89,15 @@ from .MSMS import optimizeMSMSTargets
 from .reIntegration import reIntegrateResultsFile
 from .resultsPostProcessing import searchDatabases as searchDatabases
 from .formulaTools import formulaTools, getElementOfIsotope, getIsotopeMass
+
+try:
+    from matchms import Spectrum as MatchmsSpectrum
+    from matchms.similarity import CosineGreedy as MatchmsCosineGreedy
+    from matchms.filtering import normalize_intensities as matchms_normalize_intensities
+
+    MATCHMS_AVAILABLE = True
+except Exception:
+    MATCHMS_AVAILABLE = False
 
 app = None
 
@@ -9385,6 +9395,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             "labeled_mz_max": labeled_mz_max,
                             "per_file_rt": per_file_rt,
                             "global_rt": bd.rt,  # seconds, used as fallback
+                            "feature_num": getattr(bd, "id", None),
+                            "metabolite_group_id": getattr(bd, "metaboliteGroupID", None),
+                            "xn": getattr(bd, "xn", None),
                         }
                     )
 
@@ -9411,20 +9424,20 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
                     # Check precursor m/z against native form
                     if fr["native_mz_min"] <= ms2_scan.precursor_mz <= fr["native_mz_max"]:
-                        all_ms2_scans.append({"scan": ms2_scan, "form": "native", "file": file_key})
+                        all_ms2_scans.append({"scan": ms2_scan, "form": "native", "file": file_key, "feature_num": fr.get("feature_num"), "o_group": fr.get("metabolite_group_id"), "xn": fr.get("xn")})
                         break
                     # Check against labeled form
                     if fr["labeled_mz_min"] <= ms2_scan.precursor_mz <= fr["labeled_mz_max"]:
-                        all_ms2_scans.append({"scan": ms2_scan, "form": "labeled", "file": file_key})
+                        all_ms2_scans.append({"scan": ms2_scan, "form": "labeled", "file": file_key, "feature_num": fr.get("feature_num"), "o_group": fr.get("metabolite_group_id"), "xn": fr.get("xn")})
                         break
 
-        temp_list = [(s["scan"], s["form"], s["file"]) for s in all_ms2_scans]
+        temp_list = [(s["scan"], s["form"], s["file"], s.get("feature_num"), s.get("o_group"), s.get("xn")) for s in all_ms2_scans]
         temp_list = natSort(temp_list, key=lambda x: x[0].precursor_intensity)
 
         _native_color = QtGui.QColor(30, 144, 255, 60)
         _labeled_color = QtGui.QColor(178, 34, 34, 60)
 
-        for scan, form, file_key in temp_list:
+        for scan, form, file_key, feature_num, o_group, xn in temp_list:
             form_label = "M\u2032" if form == "labeled" else "M"
             row_idx = tbl.rowCount()
             tbl.insertRow(row_idx)
@@ -9435,6 +9448,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             nl_item = _NSItem(form_label)
             nl_item.setData(QtCore.Qt.UserRole, scan)
             nl_item.setData(QtCore.Qt.UserRole + 1, form)
+            nl_item.setData(QtCore.Qt.UserRole + 2, feature_num)
+            nl_item.setData(QtCore.Qt.UserRole + 3, o_group)
+            nl_item.setData(QtCore.Qt.UserRole + 4, file_key)
+            nl_item.setData(QtCore.Qt.UserRole + 5, xn)
             tbl.setItem(row_idx, 0, nl_item)
             tbl.setItem(row_idx, 1, _NSItem(f"{scan.precursor_intensity:.4g}"))
             tbl.setItem(row_idx, 2, _NSItem(f"{scan.precursor_mz:.4f}"))
@@ -9891,6 +9908,415 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self._setup_msms_hover(self.ui.plMSMS_exp)
         self.ui.plMSMS_exp.canvas.draw()
+
+    def _iter_exp_msms_rows(self):
+        tbl = self.ui.msms_SpectraList_exp
+        for row_idx in range(tbl.rowCount()):
+            col0 = tbl.item(row_idx, 0)
+            if col0 is None:
+                continue
+            scan = col0.data(QtCore.Qt.UserRole)
+            form = col0.data(QtCore.Qt.UserRole + 1)
+            feature_num = col0.data(QtCore.Qt.UserRole + 2)
+            o_group = col0.data(QtCore.Qt.UserRole + 3)
+            file_key = col0.data(QtCore.Qt.UserRole + 4)
+            xn = col0.data(QtCore.Qt.UserRole + 5)
+            if scan is None:
+                continue
+            yield {
+                "row": row_idx,
+                "scan": scan,
+                "form": form,
+                "feature_num": feature_num,
+                "o_group": o_group,
+                "file_key": file_key,
+                "xn": xn,
+            }
+
+    def _to_matchms_spectrum(self, scan):
+        if not MATCHMS_AVAILABLE:
+            return None
+        if scan is None or len(scan.mz_list) == 0:
+            return None
+        spec = MatchmsSpectrum(
+            mz=np.asarray(scan.mz_list, dtype=float),
+            intensities=np.asarray(scan.intensity_list, dtype=float),
+            metadata={"precursor_mz": float(scan.precursor_mz), "retention_time": float(scan.retention_time)},
+        )
+        return matchms_normalize_intensities(spec)
+
+    def _show_msms_similarity_dialog(self, form_filter):
+        if not MATCHMS_AVAILABLE:
+            QtWidgets.QMessageBox.warning(self, "MS/MS similarity", "matchms is not available in this environment.")
+            return
+
+        rows = [r for r in self._iter_exp_msms_rows() if r.get("form") == form_filter and r.get("feature_num") is not None]
+        by_feature = defaultdict(list)
+        for row in rows:
+            by_feature[row["feature_num"]].append(row)
+        feature_ids = sorted(by_feature.keys())
+        if len(feature_ids) < 2:
+            QtWidgets.QMessageBox.information(self, "MS/MS similarity", "At least two features with MS/MS spectra are required.")
+            return
+
+        repr_scans = {}
+        for fid in feature_ids:
+            repr_scans[fid] = max(by_feature[fid], key=lambda x: float(getattr(x["scan"], "precursor_intensity", 0.0)))["scan"]
+
+        dlg = QtWidgets.QDialog(self)
+        dlg.setWindowTitle(f"MS/MS similarity ({'native' if form_filter == 'native' else 'labeled'})")
+        dlg.resize(980, 760)
+        layout = QtWidgets.QVBoxLayout(dlg)
+
+        ctrl = QtWidgets.QHBoxLayout()
+        ctrl.addWidget(QtWidgets.QLabel("Similarity threshold:"))
+        threshold_spin = QtWidgets.QDoubleSpinBox()
+        threshold_spin.setRange(0.0, 1.0)
+        threshold_spin.setDecimals(3)
+        threshold_spin.setSingleStep(0.05)
+        threshold_spin.setValue(0.7)
+        ctrl.addWidget(threshold_spin)
+        ctrl.addStretch(1)
+        layout.addLayout(ctrl)
+
+        matrix = QtWidgets.QTableWidget()
+        matrix.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+        matrix.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectItems)
+        matrix.setRowCount(len(feature_ids))
+        matrix.setColumnCount(len(feature_ids))
+        labels = [f"Num {fid}" for fid in feature_ids]
+        matrix.setVerticalHeaderLabels(labels)
+        matrix.setHorizontalHeaderLabels(labels)
+        layout.addWidget(matrix, 1)
+
+        mirror = QtCore.QObject()
+        mirror.fig = Figure((5.0, 3.0), dpi=80, facecolor="white")
+        mirror.canvas = FigureCanvas(mirror.fig)
+        mirror.axes = mirror.fig.add_subplot(111)
+        layout.addWidget(mirror.canvas, 1)
+
+        cosine = MatchmsCosineGreedy(tolerance=0.01)
+        pair_cache = {}
+
+        def _paint():
+            threshold = threshold_spin.value()
+            for i, fid_a in enumerate(feature_ids):
+                for j, fid_b in enumerate(feature_ids):
+                    if j < i:
+                        continue
+                    if fid_a == fid_b:
+                        score = 1.0
+                        pair_cache[(i, j)] = (repr_scans[fid_a], repr_scans[fid_b], score)
+                    else:
+                        sp_a = self._to_matchms_spectrum(repr_scans[fid_a])
+                        sp_b = self._to_matchms_spectrum(repr_scans[fid_b])
+                        if sp_a is None or sp_b is None:
+                            score = 0.0
+                        else:
+                            try:
+                                score = float(cosine.pair(sp_a, sp_b).get("score", 0.0))
+                            except Exception:
+                                score = 0.0
+                        pair_cache[(i, j)] = (repr_scans[fid_a], repr_scans[fid_b], score)
+                    pair_cache[(j, i)] = pair_cache[(i, j)]
+
+                    item = QtWidgets.QTableWidgetItem(f"{score:.3f}")
+                    item.setTextAlignment(QtCore.Qt.AlignCenter)
+                    red = int(255 * (1.0 - score))
+                    green = int(255 * score)
+                    item.setBackground(QtGui.QColor(red, green, 80))
+                    if score >= threshold:
+                        item.setForeground(QtGui.QBrush(QtGui.QColor("black")))
+                    else:
+                        item.setForeground(QtGui.QBrush(QtGui.QColor("white")))
+                    matrix.setItem(i, j, item)
+                    if i != j:
+                        matrix.setItem(j, i, QtWidgets.QTableWidgetItem(item))
+            matrix.resizeColumnsToContents()
+
+        def _show_selected_pair():
+            idxs = matrix.selectedIndexes()
+            if len(idxs) == 0:
+                return
+            i, j = idxs[0].row(), idxs[0].column()
+            if (i, j) not in pair_cache:
+                return
+            scan_a, scan_b, score = pair_cache[(i, j)]
+            mirror.fig.clear()
+            ax = mirror.fig.add_subplot(111)
+            ax.vlines(scan_a.mz_list, 0, scan_a.intensity_list, colors="dodgerblue", linewidth=1.2)
+            ax.vlines(scan_b.mz_list, 0, -np.asarray(scan_b.intensity_list), colors="firebrick", linewidth=1.2)
+            ax.axhline(0, color="black", linewidth=0.8)
+            ax.set_xlabel("m/z")
+            ax.set_ylabel("Intensity (mirror)")
+            ax.set_title(f"Num {feature_ids[i]} vs Num {feature_ids[j]} | similarity={score:.3f}")
+            ax.grid(True, alpha=0.2)
+            mirror.fig.tight_layout()
+            mirror.canvas.draw()
+
+        threshold_spin.valueChanged.connect(_paint)
+        matrix.itemSelectionChanged.connect(_show_selected_pair)
+        _paint()
+        if matrix.rowCount() > 0 and matrix.columnCount() > 0:
+            matrix.setCurrentCell(0, 0)
+            _show_selected_pair()
+
+        dlg.exec()
+
+    def _copy_msms_spectrum(self, scan, fmt):
+        if scan is None:
+            return
+        lines = []
+        if fmt == "list":
+            lines = [f"{float(mz):.6f} {float(it):.6f}" for mz, it in zip(scan.mz_list, scan.intensity_list)]
+        elif fmt == "tsv":
+            lines = ["mz\tintensity"] + [f"{float(mz):.6f}\t{float(it):.6f}" for mz, it in zip(scan.mz_list, scan.intensity_list)]
+        else:  # massbank-like
+            lines = [f"{float(mz):.6f}\t{float(it):.6f}" for mz, it in zip(scan.mz_list, scan.intensity_list)]
+        pyperclip.copy("\n".join(lines))
+
+    def _show_msms_context_menu(self, table_widget, pos):
+        item = table_widget.itemAt(pos)
+        if item is None:
+            return
+        row = item.row()
+        col0 = table_widget.item(row, 0)
+        if col0 is None:
+            return
+        scan = col0.data(QtCore.Qt.UserRole)
+        menu = QtWidgets.QMenu(table_widget)
+        act_list = menu.addAction("Copy spectrum (m/z intensity list)")
+        act_tsv = menu.addAction("Copy spectrum (TSV)")
+        act_mb = menu.addAction("Copy spectrum (MassBank style)")
+        sel = menu.exec(table_widget.mapToGlobal(pos))
+        if sel == act_list:
+            self._copy_msms_spectrum(scan, "list")
+        elif sel == act_tsv:
+            self._copy_msms_spectrum(scan, "tsv")
+        elif sel == act_mb:
+            self._copy_msms_spectrum(scan, "massbank")
+
+    def _export_msms_mgf(self):
+        rows = list(self._iter_exp_msms_rows())
+        if len(rows) == 0:
+            QtWidgets.QMessageBox.information(self, "MS/MS export", "No MS/MS spectra available for export.")
+            return
+
+        dlg = QtWidgets.QDialog(self)
+        dlg.setWindowTitle("Export MS/MS to MGF")
+        form = QtWidgets.QVBoxLayout(dlg)
+        grid = QtWidgets.QFormLayout()
+        mode = QtWidgets.QComboBox()
+        mode.addItems(["Raw spectra", "Average spectrum per feature", "Most abundant spectrum per feature", "Cleaned spectrum per feature"])
+        grid.addRow("Export mode:", mode)
+        include_native = QtWidgets.QCheckBox("Export native spectra")
+        include_native.setChecked(True)
+        include_labeled = QtWidgets.QCheckBox("Export labeled spectra")
+        include_labeled.setChecked(True)
+        grid.addRow(include_native)
+        grid.addRow(include_labeled)
+        allow_zero_label = QtWidgets.QCheckBox("Cleaning: allow 0 labeling atoms")
+        allow_zero_label.setChecked(True)
+        grid.addRow(allow_zero_label)
+        separate_collision = QtWidgets.QCheckBox("Create separate files for each collision setup")
+        grid.addRow(separate_collision)
+        collision_list = QtWidgets.QListWidget()
+        collision_list.setSelectionMode(QtWidgets.QAbstractItemView.MultiSelection)
+        collision_keys = sorted({f"{getattr(r['scan'], 'filter_line', '')}|CE={getattr(r['scan'], 'collisionEnergy', '')}" for r in rows})
+        for ck in collision_keys:
+            it = QtWidgets.QListWidgetItem(ck)
+            it.setFlags(it.flags() | QtCore.Qt.ItemIsUserCheckable)
+            it.setCheckState(QtCore.Qt.Checked)
+            collision_list.addItem(it)
+        grid.addRow("Collision setups:", collision_list)
+        form.addLayout(grid)
+        btns = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
+        form.addWidget(btns)
+        btns.accepted.connect(dlg.accept)
+        btns.rejected.connect(dlg.reject)
+        if dlg.exec() != QtWidgets.QDialog.Accepted:
+            return
+
+        forms = set()
+        if include_native.isChecked():
+            forms.add("native")
+        if include_labeled.isChecked():
+            forms.add("labeled")
+        if len(forms) == 0:
+            QtWidgets.QMessageBox.warning(self, "MS/MS export", "Select at least one isotopolog form.")
+            return
+
+        save_path, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Save MS/MS MGF", "msms_export.mgf", "MGF file (*.mgf)")
+        if save_path == "":
+            return
+
+        selected_collision = {collision_list.item(i).text() for i in range(collision_list.count()) if collision_list.item(i).checkState() == QtCore.Qt.Checked}
+        selected = [r for r in rows if r["form"] in forms and f"{getattr(r['scan'], 'filter_line', '')}|CE={getattr(r['scan'], 'collisionEnergy', '')}" in selected_collision]
+        if len(selected) == 0:
+            QtWidgets.QMessageBox.information(self, "MS/MS export", "No spectra match the current export selection.")
+            return
+
+        by_key = defaultdict(list)
+        for r in selected:
+            collision = f"{getattr(r['scan'], 'filter_line', '')}|CE={getattr(r['scan'], 'collisionEnergy', '')}"
+            if separate_collision.isChecked():
+                by_key[(r["form"], collision)].append(r)
+            else:
+                by_key[(r["form"], "all")].append(r)
+
+        label_offset = abs(getIsotopeMass(str(self.ui.isotopeBText.text())) - getIsotopeMass(str(self.ui.isotopeAText.text())))
+
+        def _clean_fragextract_like(native_scan, labeled_scan, xn):
+            if native_scan is None or labeled_scan is None:
+                return native_scan, labeled_scan
+            min_atoms = 0 if allow_zero_label.isChecked() else 1
+            max_atoms = int(xn) if xn is not None else 12
+            max_atoms = max(min_atoms, max_atoms)
+            best_n = min_atoms
+            best_score = -1
+            n_mz = np.asarray(native_scan.mz_list, dtype=float)
+            l_mz = np.asarray(labeled_scan.mz_list, dtype=float)
+            n_it = np.asarray(native_scan.intensity_list, dtype=float)
+            l_it = np.asarray(labeled_scan.intensity_list, dtype=float)
+            for n in range(min_atoms, max_atoms + 1):
+                shift = n * label_offset / max(1, int(getattr(native_scan, "precursorCharge", 1) or 1))
+                score = 0.0
+                for mz, inten in zip(n_mz, n_it):
+                    if np.any(np.abs((l_mz - mz) - shift) <= 0.01):
+                        score += float(inten)
+                if score > best_score:
+                    best_score = score
+                    best_n = n
+            shift = best_n * label_offset / max(1, int(getattr(native_scan, "precursorCharge", 1) or 1))
+            keep_n = []
+            keep_l = []
+            for i, mz in enumerate(n_mz):
+                if np.any(np.abs((l_mz - mz) - shift) <= 0.01):
+                    keep_n.append(i)
+            for i, mz in enumerate(l_mz):
+                if np.any(np.abs((mz - n_mz) - shift) <= 0.01):
+                    keep_l.append(i)
+            cn = deepcopy(native_scan)
+            cl = deepcopy(labeled_scan)
+            if keep_n:
+                cn.mz_list = n_mz[keep_n]
+                cn.intensity_list = n_it[keep_n]
+            if keep_l:
+                cl.mz_list = l_mz[keep_l]
+                cl.intensity_list = l_it[keep_l]
+            return cn, cl
+
+        def _representative_spectrum(entries):
+            if mode.currentText() == "Most abundant spectrum per feature":
+                return max(entries, key=lambda x: float(getattr(x["scan"], "precursor_intensity", 0.0)))["scan"]
+            if mode.currentText() == "Raw spectra":
+                return None
+            bins = defaultdict(float)
+            for e in entries:
+                scan = e["scan"]
+                for mz, inten in zip(scan.mz_list, scan.intensity_list):
+                    mz_bin = round(float(mz), 3)
+                    bins[mz_bin] += float(inten)
+            if len(bins) == 0:
+                return entries[0]["scan"]
+            mzs = sorted(bins.keys())
+            ints = [bins[mz] / max(1, len(entries)) for mz in mzs]
+            rep = deepcopy(entries[0]["scan"])
+            rep.mz_list = np.asarray(mzs, dtype=float)
+            rep.intensity_list = np.asarray(ints, dtype=float)
+            return rep
+
+        written_files = []
+        for (form_key, collision_key), vals in by_key.items():
+            out_path = save_path
+            if len(by_key) > 1:
+                suffix = f"_{form_key}_{re.sub(r'[^A-Za-z0-9_.-]+', '_', collision_key)}"
+                out_path = save_path.replace(".mgf", f"{suffix}.mgf")
+            with open(out_path, "w", encoding="utf-8") as out:
+                if mode.currentText() == "Raw spectra":
+                    export_entries = [[v] for v in vals]
+                else:
+                    by_feature = defaultdict(list)
+                    for v in vals:
+                        by_feature[v["feature_num"]].append(v)
+                    export_entries = [fe for fe in by_feature.values()]
+                for entries in export_entries:
+                    if len(entries) == 0:
+                        continue
+                    feature_num = entries[0]["feature_num"]
+                    o_group = entries[0]["o_group"]
+                    scan = entries[0]["scan"] if mode.currentText() == "Raw spectra" else _representative_spectrum(entries)
+                    if mode.currentText() == "Cleaned spectrum per feature":
+                        native_entries = [x for x in selected if x["feature_num"] == feature_num and x["form"] == "native"]
+                        labeled_entries = [x for x in selected if x["feature_num"] == feature_num and x["form"] == "labeled"]
+                        n_scan = _representative_spectrum(native_entries) if native_entries else None
+                        l_scan = _representative_spectrum(labeled_entries) if labeled_entries else None
+                        n_scan, l_scan = _clean_fragextract_like(n_scan, l_scan, entries[0].get("xn"))
+                        if form_key == "native" and n_scan is not None:
+                            scan = n_scan
+                        elif form_key == "labeled" and l_scan is not None:
+                            scan = l_scan
+                    out.write("BEGIN IONS\n")
+                    out.write(f"TITLE=Num_{feature_num}_OGroup_{o_group}_{form_key}\n")
+                    out.write(f"PEPMASS={float(getattr(scan, 'precursor_mz', 0.0)):.6f}\n")
+                    out.write(f"RTINSECONDS={float(getattr(scan, 'retention_time', 0.0)):.3f}\n")
+                    out.write(f"FEATURE_NUM={feature_num}\n")
+                    out.write(f"OGROUP={o_group}\n")
+                    out.write(f"FORM={form_key}\n")
+                    out.write(f"FILTER_LINE={getattr(scan, 'filter_line', '')}\n")
+                    out.write(f"COLLISION_ENERGY={getattr(scan, 'collisionEnergy', '')}\n")
+                    for mz, inten in zip(scan.mz_list, scan.intensity_list):
+                        out.write(f"{float(mz):.6f} {float(inten):.6f}\n")
+                    out.write("END IONS\n\n")
+            written_files.append(out_path)
+
+        QtWidgets.QMessageBox.information(self, "MS/MS export", "Exported:\n" + "\n".join(written_files))
+
+    def _show_msms_overview(self):
+        rows = list(self._iter_exp_msms_rows())
+        by_feature = defaultdict(lambda: {"native": 0, "labeled": 0})
+        for r in rows:
+            if r["feature_num"] is None:
+                continue
+            by_feature[r["feature_num"]][r["form"]] += 1
+        if len(by_feature) == 0:
+            QtWidgets.QMessageBox.information(self, "MS/MS overview", "No feature-linked MS/MS spectra available.")
+            return
+
+        dlg = QtWidgets.QDialog(self)
+        dlg.setWindowTitle("MS/MS overview")
+        dlg.resize(640, 420)
+        layout = QtWidgets.QVBoxLayout(dlg)
+        table = QtWidgets.QTableWidget()
+        table.setColumnCount(4)
+        table.setHorizontalHeaderLabels(["Feature Num", "Native scans", "Labeled scans", "Total"])
+        table.setRowCount(len(by_feature))
+        for i, fid in enumerate(sorted(by_feature.keys())):
+            n = by_feature[fid]["native"]
+            l = by_feature[fid]["labeled"]
+            table.setItem(i, 0, QtWidgets.QTableWidgetItem(str(fid)))
+            table.setItem(i, 1, QtWidgets.QTableWidgetItem(str(n)))
+            table.setItem(i, 2, QtWidgets.QTableWidgetItem(str(l)))
+            table.setItem(i, 3, QtWidgets.QTableWidgetItem(str(n + l)))
+        table.resizeColumnsToContents()
+        layout.addWidget(table)
+        fig = Figure((5.0, 2.5), dpi=80, facecolor="white")
+        canvas = FigureCanvas(fig)
+        ax = fig.add_subplot(111)
+        fids = sorted(by_feature.keys())
+        native_counts = [by_feature[f]["native"] for f in fids]
+        labeled_counts = [by_feature[f]["labeled"] for f in fids]
+        x = np.arange(len(fids))
+        ax.bar(x - 0.2, native_counts, width=0.4, color="dodgerblue", label="Native")
+        ax.bar(x + 0.2, labeled_counts, width=0.4, color="firebrick", label="Labeled")
+        ax.set_xticks(x)
+        ax.set_xticklabels([str(f) for f in fids], rotation=90)
+        ax.set_xlabel("Feature Num")
+        ax.set_ylabel("MS/MS scan count")
+        ax.legend(loc="upper right")
+        fig.tight_layout()
+        layout.addWidget(canvas)
+        dlg.exec()
 
     # </editor-fold>
 
@@ -12605,6 +13031,27 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # resultsExperimentChangedNew is used only by showCustomFeature (loads raw mzXML);
         # normal tree selection uses resultsExperimentChanged (reads pre-computed per-file DBs)
         self.ui.msms_SpectraList_exp.itemSelectionChanged.connect(self.plotSelectedMSMSSpectra_exp)
+        self.ui.msms_SpectraList.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.ui.msms_SpectraList_exp.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.ui.msms_SpectraList.customContextMenuRequested.connect(lambda pos: self._show_msms_context_menu(self.ui.msms_SpectraList, pos))
+        self.ui.msms_SpectraList_exp.customContextMenuRequested.connect(lambda pos: self._show_msms_context_menu(self.ui.msms_SpectraList_exp, pos))
+
+        # Additional MS/MS controls in experiment-results tab
+        self.ui.msms_controls_exp = QtWidgets.QHBoxLayout()
+        self.ui.btn_msms_similarity_native = QtWidgets.QPushButton("Native similarity")
+        self.ui.btn_msms_similarity_labeled = QtWidgets.QPushButton("Labeled similarity")
+        self.ui.btn_msms_overview = QtWidgets.QPushButton("MS/MS overview")
+        self.ui.btn_msms_export_mgf = QtWidgets.QPushButton("Export MGF")
+        self.ui.msms_controls_exp.addWidget(self.ui.btn_msms_similarity_native)
+        self.ui.msms_controls_exp.addWidget(self.ui.btn_msms_similarity_labeled)
+        self.ui.msms_controls_exp.addWidget(self.ui.btn_msms_overview)
+        self.ui.msms_controls_exp.addWidget(self.ui.btn_msms_export_mgf)
+        self.ui.msms_controls_exp.addStretch(1)
+        self.ui.verticalLayout_msms_exp.insertLayout(1, self.ui.msms_controls_exp)
+        self.ui.btn_msms_similarity_native.clicked.connect(lambda: self._show_msms_similarity_dialog("native"))
+        self.ui.btn_msms_similarity_labeled.clicked.connect(lambda: self._show_msms_similarity_dialog("labeled"))
+        self.ui.btn_msms_overview.clicked.connect(self._show_msms_overview)
+        self.ui.btn_msms_export_mgf.clicked.connect(self._export_msms_mgf)
 
         self.ui.showCustomFeature_pushButton.clicked.connect(self.showCustomFeature)
 
