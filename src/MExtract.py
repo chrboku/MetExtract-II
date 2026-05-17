@@ -99,6 +99,8 @@ try:
 except Exception:
     MATCHMS_AVAILABLE = False
 
+FILENAME_SAFE_PATTERN = r"[^A-Za-z0-9_.-]+"
+
 app = None
 
 # Set local folder for MetExtract II
@@ -9431,13 +9433,13 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         all_ms2_scans.append({"scan": ms2_scan, "form": "labeled", "file": file_key, "feature_num": fr.get("feature_num"), "o_group": fr.get("metaboliteGroupID"), "xn": fr.get("xn")})
                         break
 
-        temp_list = [(s["scan"], s["form"], s["file"], s.get("feature_num"), s.get("o_group"), s.get("xn")) for s in all_ms2_scans]
-        temp_list = natSort(temp_list, key=lambda x: x[0].precursor_intensity)
+        ms2_scans_with_metadata = [(s["scan"], s["form"], s["file"], s.get("feature_num"), s.get("o_group"), s.get("xn")) for s in all_ms2_scans]
+        ms2_scans_with_metadata = natSort(ms2_scans_with_metadata, key=lambda x: x[0].precursor_intensity)
 
         _native_color = QtGui.QColor(30, 144, 255, 60)
         _labeled_color = QtGui.QColor(178, 34, 34, 60)
 
-        for scan, form, file_key, feature_num, o_group, xn in temp_list:
+        for scan, form, file_key, feature_num, o_group, xn in ms2_scans_with_metadata:
             form_label = "M\u2032" if form == "labeled" else "M"
             row_idx = tbl.rowCount()
             tbl.insertRow(row_idx)
@@ -10171,7 +10173,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             else:
                 by_key[(r["form"], "all")].append(r)
 
-        isotope_mass_offset = abs(getIsotopeMass(str(self.ui.isotopeBText.text())) - getIsotopeMass(str(self.ui.isotopeAText.text())))
+        isotope_mass_offset = getattr(self, "_cached_isotope_mass_offset", None)
+        if isotope_mass_offset is None:
+            isotope_mass_offset = abs(getIsotopeMass(str(self.ui.isotopeBText.text())) - getIsotopeMass(str(self.ui.isotopeAText.text())))
+            self._cached_isotope_mass_offset = isotope_mass_offset
 
         def _clean_fragextract_like(native_scan, labeled_scan, xn):
             if native_scan is None or labeled_scan is None:
@@ -10181,12 +10186,13 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             max_atoms = max(min_atoms, max_atoms)
             best_n = min_atoms
             best_score = -1
+            charge = max(1, int(getattr(native_scan, "precursorCharge", 1) or 1))
             n_mz = np.asarray(native_scan.mz_list, dtype=float)
             l_mz = np.asarray(labeled_scan.mz_list, dtype=float)
             n_it = np.asarray(native_scan.intensity_list, dtype=float)
             l_it = np.asarray(labeled_scan.intensity_list, dtype=float)
             for n in range(min_atoms, max_atoms + 1):
-                shift = n * isotope_mass_offset / max(1, int(getattr(native_scan, "precursorCharge", 1) or 1))
+                shift = n * isotope_mass_offset / charge
                 score = 0.0
                 for mz, inten in zip(n_mz, n_it):
                     if np.any(np.abs((l_mz - mz) - shift) <= 0.01):
@@ -10194,7 +10200,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 if score > best_score:
                     best_score = score
                     best_n = n
-            shift = best_n * isotope_mass_offset / max(1, int(getattr(native_scan, "precursorCharge", 1) or 1))
+            shift = best_n * isotope_mass_offset / charge
             keep_n = []
             keep_l = []
             for i, mz in enumerate(n_mz):
@@ -10237,7 +10243,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         for (form_key, collision_key), vals in by_key.items():
             out_path = save_path
             if len(by_key) > 1:
-                suffix = f"_{form_key}_{re.sub(r'[^A-Za-z0-9_.-]+', '_', collision_key)}"
+                suffix = f"_{form_key}_{re.sub(FILENAME_SAFE_PATTERN, '_', collision_key)}"
                 out_path = save_path.replace(".mgf", f"{suffix}.mgf")
             with open(out_path, "w", encoding="utf-8") as out:
                 if mode.currentText() == "Raw spectra":
