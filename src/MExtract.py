@@ -99,8 +99,6 @@ try:
 except Exception:
     MATCHMS_AVAILABLE = False
 
-FILENAME_SAFE_PATTERN = r"[^A-Za-z0-9_.-]+"
-
 app = None
 
 # Set local folder for MetExtract II
@@ -116,6 +114,8 @@ sys.displayhook = pprint.pprint
 
 TRACER = object()
 METABOLOME = object()
+
+FILENAME_SAFE_PATTERN = r"[^A-Za-z0-9_.-]+"
 
 # Boxplot layout constants for abundance-profile group comparison plots
 ABUNDANCE_BOXPLOT_CLUSTER_WIDTH = 0.75
@@ -165,6 +165,10 @@ def safe_pickle_loads(data, default_value=None, operation_name="loading data"):
     except Exception as e:
         logging.error(f"Unexpected error when {operation_name}: {e}")
         return default_value
+
+
+def sanitize_filename(text):
+    return re.sub(FILENAME_SAFE_PATTERN, "_", str(text))
 
 
 # </editor-fold>
@@ -9433,13 +9437,13 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         all_ms2_scans.append({"scan": ms2_scan, "form": "labeled", "file": file_key, "feature_num": fr.get("feature_num"), "o_group": fr.get("metaboliteGroupID"), "xn": fr.get("xn")})
                         break
 
-        ms2_scans_with_metadata = [(s["scan"], s["form"], s["file"], s.get("feature_num"), s.get("o_group"), s.get("xn")) for s in all_ms2_scans]
-        ms2_scans_with_metadata = natSort(ms2_scans_with_metadata, key=lambda x: x[0].precursor_intensity)
+        sorted_scans = [(s["scan"], s["form"], s["file"], s.get("feature_num"), s.get("o_group"), s.get("xn")) for s in all_ms2_scans]
+        sorted_scans = natSort(sorted_scans, key=lambda x: x[0].precursor_intensity)
 
         _native_color = QtGui.QColor(30, 144, 255, 60)
         _labeled_color = QtGui.QColor(178, 34, 34, 60)
 
-        for scan, form, file_key, feature_num, o_group, xn in ms2_scans_with_metadata:
+        for scan, form, file_key, feature_num, o_group, xn in sorted_scans:
             form_label = "M\u2032" if form == "labeled" else "M"
             row_idx = tbl.rowCount()
             tbl.insertRow(row_idx)
@@ -10243,7 +10247,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         for (form_key, collision_key), vals in by_key.items():
             out_path = save_path
             if len(by_key) > 1:
-                suffix = f"_{form_key}_{re.sub(FILENAME_SAFE_PATTERN, '_', collision_key)}"
+                suffix = f"_{form_key}_{sanitize_filename(collision_key)}"
                 out_path = save_path.replace(".mgf", f"{suffix}.mgf")
             with open(out_path, "w", encoding="utf-8") as out:
                 if mode.currentText() == "Raw spectra":
