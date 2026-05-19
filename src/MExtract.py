@@ -83,7 +83,6 @@ from .annotateResultMatrix import addStatsColumnToResults
 from .annotateResultMatrix import performGroupOmit as grpOmit
 from .bracketResults import bracketResults, calculateMetaboliteGroups, compute_sample_stats
 from .mePyGuis.mainWindow import Ui_MainWindow
-from .mePyGuis.QScrollableMessageBox import QScrollableMessageBox
 from .mePyGuis.TracerEdit import ConfiguredTracer, tracerEdit
 from .MSMS import optimizeMSMSTargets
 from .reIntegration import reIntegrateResultsFile
@@ -1629,13 +1628,14 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
             for group in self.getAllSampleGroups():
                 grps.beginGroup(group.name)
-                for i in range(len(group.files)):
-                    try:
-                        relFilePath = "./" + str(os.path.relpath(group.files[i], os.path.split(str(groupFile))[0]).replace("\\", "/"))
-                    except ValueError:
-                        # Files are on different drives, use absolute path
-                        relFilePath = str(group.files[i]).replace("\\", "/")
-                    grps.setValue(group.name + "__" + str(i), relFilePath)
+                # for i in range(len(group.files)):
+                #    try:
+                #        relFilePath = "./" + str(os.path.relpath(group.files[i], os.path.split(str(groupFile))[0]).replace("\\", "/"))
+                #    except ValueError:
+                #        # Files are on different drives, use absolute path
+                #        relFilePath = str(group.files[i]).replace("\\", "/")
+                #    grps.setValue(group.name + "__" + str(i), relFilePath)
+                grps.setValue("files", ";".join(group.files))
                 grps.setValue("Min_Peaks_Found", group.minFound)
                 grps.setValue("OmitFeatures", group.omitFeatures)
                 grps.setValue("RemoveAsFalsePositive", group.removeAsFalsePositive)
@@ -1768,6 +1768,14 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         removeAsFalsePositive = self.to_bool(grps.value(kid))
                     elif str(kid) == "useAsMSMSTarget":
                         useAsMSMSTarget = self.to_bool(grps.value(kid))
+                    elif str(kid) == "files":
+                        files = str(grps.value(kid)).split(";")
+                        for file_i in range(len(files)):
+                            file = files[file_i]
+                            if os.path.isabs(file.replace("\\", "/")):
+                                kids.append(file.replace("\\", "/"))
+                            else:
+                                kids.append(os.path.split(str(groupFile))[0].replace("\\", "/") + "/" + file.replace("\\", "/"))
                     elif str(kid).startswith(grp):
                         if os.path.isabs(str(grps.value(kid)).replace("\\", "/")):
                             kids.append(str(grps.value(kid)).replace("\\", "/"))
@@ -3960,81 +3968,84 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     completed = res._index
                     if completed == len(files):
                         loop = False
-                    else:
-                        pwMain("value")(completed)
+                    
+                    pwMain("value")(completed)
 
-                        mess = {}
-                        while not (queue.empty()):
-                            mes = queue.get(block=False, timeout=1)
-                            if mes.pid not in mess:
-                                mess[mes.pid] = {}
-                            mess[mes.pid][mes.mes] = mes
+                    mess = {}
+                    while not (queue.empty()):
+                        mes = queue.get(block=False, timeout=1)
+                        if mes.pid not in mess:
+                            mess[mes.pid] = {}
+                        mess[mes.pid][mes.mes] = mes
 
-                        for v in mess.values():
-                            if "start" in v.keys():
-                                mes = v["start"]
-                                if len(freeSlots) > 0:
-                                    w = freeSlots.pop()
-                                    assignedThreads[mes.pid] = w
+                    for v in mess.values():
+                        if "start" in v.keys():
+                            mes = v["start"]
+                            if len(freeSlots) > 0:
+                                w = freeSlots.pop()
+                                assignedThreads[mes.pid] = w
 
-                                    pw.getCallingFunction()("statuscolor")(pIds[mes.pid], "orange")
-                                    pw.getCallingFunction()("statustext")(
-                                        pIds[mes.pid],
-                                        text="File: %s\nStatus: %s\nProcess ID: %d" % (pIds[mes.pid], "processing", mes.pid),
-                                    )
-                                else:
-                                    logging.error("Something went wrong..")
-                                    logging.error('Progress bars do not work correctly, but files will be processed and "finished.." will be printed..')
-
-                        for v in mess.values():
-                            for mes in v.values():
-                                if mes.mes == "log":
-                                    messages_to_print[mes.pid].append(mes.val)
-                                elif mes.mes in ["text", "max", "value"]:
-                                    if mes.pid in assignedThreads:
-                                        pw.getCallingFunction(assignedThreads[mes.pid])(mes.mes)(mes.val)
-                                    else:
-                                        logging.error("Error in messaging pipeline of subprocess id %d" % mes.pid)
-                                elif mes.mes in ["end", "failed", "start"]:
-                                    pass
-                                else:
-                                    logging.error(f"Received unknown message {mes.mes} with payload {mes.__dict__}")
-
-                        for v in mess.values():
-                            if "end" in v.keys() or "failed" in v.keys():
-                                mes = None
-                                if "end" in v.keys():
-                                    mes = v["end"]
-                                elif "failed" in v.keys():
-                                    mes = v["failed"]
-                                    failedFiles.append(pIds[mes.pid])
-                                freeS = assignedThreads[mes.pid]
-                                pw.getCallingFunction(assignedThreads[mes.pid])("text")("")
-                                pw.getCallingFunction(assignedThreads[mes.pid])("value")(0)
-
-                                logging.info("\n##############################################################")
-                                logging.info("\n".join(messages_to_print[mes.pid]))
-                                logging.info("##############################################################\n")
-
-                                pw.getCallingFunction()("statuscolor")(
-                                    pIds[mes.pid],
-                                    "olivedrab" if mes.mes == "end" else "firebrick",
-                                )
+                                pw.getCallingFunction()("statuscolor")(pIds[mes.pid], "orange")
                                 pw.getCallingFunction()("statustext")(
                                     pIds[mes.pid],
-                                    text="File: %s\nStatus: %s"
-                                    % (
-                                        pIds[mes.pid],
-                                        "finished" if mes.mes == "end" else "failed",
-                                    ),
+                                    text="File: %s\nStatus: %s\nProcess ID: %d" % (pIds[mes.pid], "processing", mes.pid),
                                 )
+                            else:
+                                logging.error("Something went wrong..")
+                                logging.error('Progress bars do not work correctly, but files will be processed and "finished.." will be printed..')
 
-                                if freeS == -1:
-                                    logging.error("Something went wrong..")
-                                    logging.error('Progress bars do not work correctly, but files will be processed and "finished.." will be printed..')
+                    for v in mess.values():
+                        for mes in v.values():
+                            if mes.mes == "log":
+                                messages_to_print[mes.pid].append(mes.val)
+                            elif mes.mes in ["text", "max", "value"]:
+                                if mes.pid in assignedThreads:
+                                    pw.getCallingFunction(assignedThreads[mes.pid])(mes.mes)(mes.val)
                                 else:
-                                    assignedThreads[mes.pid] = -1
-                                    freeSlots.append(freeS)
+                                    logging.error("Error in messaging pipeline of subprocess id %d" % mes.pid)
+                            elif mes.mes in ["end", "failed", "start"]:
+                                pass
+                            else:
+                                logging.error(f"Received unknown message {mes.mes} with payload {mes.__dict__}")
+
+                    for v in mess.values():
+                        if "end" in v.keys() or "failed" in v.keys():
+                            mes = None
+                            if "end" in v.keys():
+                                mes = v["end"]
+                            elif "failed" in v.keys():
+                                mes = v["failed"]
+                                failedFiles.append(pIds[mes.pid])
+                            freeS = assignedThreads[mes.pid]
+                            pw.getCallingFunction(assignedThreads[mes.pid])("text")("")
+                            pw.getCallingFunction(assignedThreads[mes.pid])("value")(0)
+
+                            logging.info("\n" +
+                            "##############################################################\n" +
+                            "\n".join(messages_to_print[mes.pid])+
+                            "\n" +
+                            "##############################################################\n"+
+                            "")
+
+                            pw.getCallingFunction()("statuscolor")(
+                                pIds[mes.pid],
+                                "olivedrab" if mes.mes == "end" else "firebrick",
+                            )
+                            pw.getCallingFunction()("statustext")(
+                                pIds[mes.pid],
+                                text="File: %s\nStatus: %s"
+                                % (
+                                    pIds[mes.pid],
+                                    "finished" if mes.mes == "end" else "failed",
+                                ),
+                            )
+
+                            if freeS == -1:
+                                logging.error("Something went wrong..")
+                                logging.error('Progress bars do not work correctly, but files will be processed and "finished.." will be printed..')
+                            else:
+                                assignedThreads[mes.pid] = -1
+                                freeSlots.append(freeS)
 
                         elapsed = (time.time() - start) / 60.0
                         hours = ""
@@ -4958,146 +4969,92 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.loadGroupsResultsFile(str(self.ui.groupsSave.text()))
 
     def showResultsSummary(self):
-        texts = []
+        from .mePyGuis.ResultsSummaryDialog import ResultsSummaryDialog
 
         definedGroups = self.getAllSampleGroups()
         for group in definedGroups:
             for i in range(len(group.files)):
                 group.files[i] = str(group.files[i]).replace("\\", "/")
 
-        # get all individual LC-HRMS files for processing
-
-        maxFileNameLength = 10
-        for group in definedGroups:
-            for file in natSort(group.files):
-                maxFileNameLength = max(maxFileNameLength, len(file))
-
-        texts.append("Note: \n")
-        texts.append("All calculated numbers shown here are based on the last data processing that was done for this dataset.\n")
-        texts.append("Thus, these calculated values are influenced and distorted by used parameters. \n")
-        texts.append("For example, an incorrect value for the parameter M:M' ratio will have a dramatic impact on the results and\n")
-        texts.append("consequently also on these number. Please only consider these numbers for a quick overview of the generated last results. \n")
-        texts.append("\n")
-        texts.append("Caution:\n")
-        texts.append("Do not use these numbers as the only means of further improving your data processing parameters. This could\n")
-        texts.append("potentially lead to a deadlock and an incorrect data processing with many false-positive results and/or false-negatives. \n")
-        texts.append("If you are unsure always try to contact an expert in data processing and/or ask a colleague of yours to\nhelp you with optimizing these values.\n\n\n\n")
-        texts.append("Results of individual files\n-=-=-=-=-=-=-=-=-=-=-=-=-=-\n\n")
-        texts.append(
-            ("%%%ds ionMode   %%12s %%12s %%12s %%12s      %%20s %%40s %%25s\n" % (maxFileNameLength))
-            % (
-                "File",
-                "MZs",
-                "MZ Bins",
-                "Features",
-                "Metabolites",
-                "mz delta ppm MZs",
-                "avg M:M' MZs;   Area; Abundance",
-                "avg L-Enrichment",
-            )
-        )
-        indGroups = {}
+        # ── Collect per-file rows ──────────────────────────────────────
+        file_rows = []
         for group in definedGroups:
             grName = str(group.name)
-            indGroups[grName] = []
-            texts.append(
-                " Group "
-                + grName
-                + " [%d files%s%s%s%s, color %s]\n"
-                % (
-                    len(group.files),
-                    ", Omit (minFound %d)" % group.minFound if group.omitFeatures else "",
-                    ", use for grouping" if group.useForMetaboliteGrouping else "",
-                    ", False positives remove",
-                    ", use as MSMS targets" if group.useAsMSMSTarget else "",
-                    group.color,
-                )
-            )
-            texts.append("%s\n" % ("-" * (2 + 6 + maxFileNameLength + 12 * 4 + 6 + 20 * 3 + 25)))
+            grColor = group.color if group.color else ""
             for file in natSort(group.files):
-                showFileName = True
+                if not os.path.exists(file + getDBSuffix()):
+                    for ionMode in ["+", "-"]:
+                        file_rows.append(
+                            {
+                                "group_name": grName,
+                                "group_color": grColor,
+                                "file": file,
+                                "ion_mode": ionMode,
+                                "error": "File not processed",
+                            }
+                        )
+                    continue
                 for ionMode in ["+", "-"]:
-                    indGroups[grName].append(str(file))
+                    try:
+                        file_db_con = PolarsDB(file + getDBSuffix(), format=getDBFormat())
 
-                    if os.path.exists(file + getDBSuffix()):
-                        try:
-                            file_db_con = PolarsDB(file + getDBSuffix(), format=getDBFormat())
+                        nMZs = len(file_db_con.tables["MZs"].filter(pl.col("ionMode") == ionMode))
+                        ppm_df = file_db_con.tables["MZs"].filter(pl.col("ionMode") == ionMode).with_columns(((pl.col("lmz") - pl.col("mz") - pl.col("tmz")) * 1_000_000 / pl.col("mz")).alias("ppm_delta"))
+                        nMZsPPMDelta = ppm_df["ppm_delta"].mean()
+                        nMZsPPMDeltaStd = ppm_df["ppm_delta"].std()
 
-                            # Count MZs for this ionMode
-                            nMZs = len(file_db_con.tables["MZs"].filter(pl.col("ionMode") == ionMode))
-                            nMZsPPMDelta = file_db_con.tables["MZs"].filter(pl.col("ionMode") == ionMode).with_columns(((pl.col("lmz") - pl.col("mz") - pl.col("tmz")) * 1_000_000 / pl.col("mz")).alias("ppm_delta"))["ppm_delta"].mean()
+                        nMZBins = file_db_con.tables["MZBins"].filter(pl.col("ionMode") == ionMode).shape[0]
+                        nFeatures = file_db_con.tables["chromPeaks"].filter(pl.col("ionMode") == ionMode).shape[0]
+                        nMetabolites = file_db_con.tables["featureGroups"].shape[0]
 
-                            nMZsPPMDeltaStd = file_db_con.tables["MZs"].filter(pl.col("ionMode") == ionMode).with_columns(((pl.col("lmz") - pl.col("mz") - pl.col("tmz")) * 1_000_000 / pl.col("mz")).alias("ppm_delta"))["ppm_delta"].std()
+                        ratio_df = file_db_con.tables["MZs"].filter(pl.col("ionMode") == ionMode).select((pl.col("intensity") / pl.col("intensityL")).alias("ratio"))
+                        avgRatioSignals = ratio_df["ratio"].mean()
+                        avgRatioSignalsStd = ratio_df["ratio"].std()
 
-                            nMZBins = file_db_con.tables["MZBins"].filter(pl.col("ionMode") == ionMode).shape[0]
+                        avgRatioFeaturesArea = file_db_con.tables["chromPeaks"].filter(pl.col("ionMode") == ionMode).select((pl.col("NPeakArea") / pl.col("LPeakArea")).alias("area_ratio"))["area_ratio"].mean()
 
-                            nFeatures = file_db_con.tables["chromPeaks"].filter(pl.col("ionMode") == ionMode).shape[0]
+                        avgRatioFeaturesAbundance = file_db_con.tables["chromPeaks"].filter(pl.col("ionMode") == ionMode).select((pl.col("NPeakAbundance") / pl.col("LPeakAbundance")).alias("abundance_ratio"))["abundance_ratio"].mean()
 
-                            nMetabolites = file_db_con.tables["featureGroups"].shape[0]
+                        enr_df = file_db_con.tables["chromPeaks"].filter((pl.col("peaksRatioMPm1") > 0) & (pl.col("ionMode") == ionMode)).select((pl.col("xcount") / (pl.col("xcount") + pl.col("peaksRatioMPm1"))).alias("enrichment"))
+                        avgEnrichmentL = enr_df["enrichment"].mean()
+                        avgEnrichmentLStd = enr_df["enrichment"].std()
 
-                            avgRatioSignals = file_db_con.tables["MZs"].filter(pl.col("ionMode") == ionMode).select((pl.col("intensity") / pl.col("intensityL")).alias("ratio"))["ratio"].mean()
+                        file_rows.append(
+                            {
+                                "group_name": grName,
+                                "group_color": grColor,
+                                "file": file,
+                                "ion_mode": ionMode,
+                                "n_mzs": nMZs if nMZs > 0 else None,
+                                "n_mz_bins": nMZBins if nMZBins > 0 else None,
+                                "n_features": nFeatures if nFeatures > 0 else None,
+                                "n_metabolites": nMetabolites if nMetabolites > 0 else None,
+                                "mz_delta_mean": nMZsPPMDelta,
+                                "mz_delta_std": nMZsPPMDeltaStd,
+                                "avg_ratio_signals": avgRatioSignals,
+                                "avg_ratio_signals_std": avgRatioSignalsStd,
+                                "avg_ratio_area": avgRatioFeaturesArea,
+                                "avg_ratio_abundance": avgRatioFeaturesAbundance,
+                                "avg_enrichment": avgEnrichmentL,
+                                "avg_enrichment_std": avgEnrichmentLStd,
+                                "error": None,
+                            }
+                        )
+                    except Exception as ex:
+                        file_rows.append(
+                            {
+                                "group_name": grName,
+                                "group_color": grColor,
+                                "file": file,
+                                "ion_mode": ionMode,
+                                "error": str(ex),
+                            }
+                        )
 
-                            avgRatioSignalsStd = file_db_con.tables["MZs"].filter(pl.col("ionMode") == ionMode).select((pl.col("intensity") / pl.col("intensityL")).alias("ratio"))["ratio"].std()
-
-                            avgRatioFeaturesArea = file_db_con.tables["chromPeaks"].filter(pl.col("ionMode") == ionMode).select((pl.col("NPeakArea") / pl.col("LPeakArea")).alias("area_ratio"))["area_ratio"].mean()
-
-                            avgRatioFeaturesAbundance = file_db_con.tables["chromPeaks"].filter(pl.col("ionMode") == ionMode).select((pl.col("NPeakAbundance") / pl.col("LPeakAbundance")).alias("abundance_ratio"))["abundance_ratio"].mean()
-
-                            avgEnrichmentL = file_db_con.tables["chromPeaks"].filter((pl.col("peaksRatioMPm1") > 0) & (pl.col("ionMode") == ionMode)).select((pl.col("xcount") / (pl.col("xcount") + pl.col("peaksRatioMPm1"))).alias("enrichment"))["enrichment"].mean()
-
-                            avgEnrichmentLStd = file_db_con.tables["chromPeaks"].filter((pl.col("peaksRatioMPm1") > 0) & (pl.col("ionMode") == ionMode)).select((pl.col("xcount") / (pl.col("xcount") + pl.col("peaksRatioMPm1"))).alias("enrichment"))["enrichment"].std()
-
-                            texts.append(
-                                ("%%%ds       %%s   %%12s %%12s %%12s %%12s      %%20s %%40s %%25s\n" % (maxFileNameLength))
-                                % (
-                                    file if showFileName else "",
-                                    ionMode,
-                                    nMZs if nMZs > 0 else "",
-                                    nMZBins if nMZBins > 0 else "",
-                                    nFeatures if nFeatures > 0 else "",
-                                    nMetabolites if nMetabolites > 0 else "",
-                                    "%s (+/- %s)"
-                                    % (
-                                        "%.2f" % nMZsPPMDelta if nMZsPPMDelta is not None else "",
-                                        "%.2f" % nMZsPPMDeltaStd if nMZsPPMDeltaStd is not None else "",
-                                    )
-                                    if nMZsPPMDelta is not None
-                                    else "",
-                                    "%s; %s; %s"
-                                    % (
-                                        "%6.2f (+/- %s)"
-                                        % (
-                                            avgRatioSignals,
-                                            "%.2f" % avgRatioSignalsStd if avgRatioSignalsStd is not None else "",
-                                        )
-                                        if avgRatioSignals is not None
-                                        else "-",
-                                        "%6.2f" % avgRatioFeaturesArea if avgRatioFeaturesArea is not None else "-",
-                                        "%6.2f" % avgRatioFeaturesAbundance if avgRatioFeaturesAbundance is not None else "-",
-                                    )
-                                    if avgRatioSignalsStd is not None or avgRatioFeaturesArea is not None or avgRatioFeaturesAbundance is not None
-                                    else "",
-                                    "%.2f%% (+/- %s%%)"
-                                    % (
-                                        100 * avgEnrichmentL,
-                                        "%.2f" % (100 * avgEnrichmentLStd) if avgEnrichmentLStd is not None else "",
-                                    )
-                                    if avgEnrichmentL is not None
-                                    else "",
-                                )
-                            )
-                            showFileName = False
-                        except Exception as ex:
-                            texts.append(("%%%ds       %%s   Error reading file: %%s\n" % (maxFileNameLength)) % (file if showFileName else "", ionMode, str(ex)))
-                            showFileName = False
-                    else:
-                        texts.append(("%%%ds   File not processed\n" % (maxFileNameLength)) % file)
-
-            texts.append("\n\n\n")
-
+        # ── Collect bracketing / convoluted summary ────────────────────
+        summary_data = {}
         resFileFull = str(self.ui.groupsSave.text())
         if os.path.exists(resFileFull):
-            texts.append("Convoluted results\n-=-=-=-=-=-=-=-=-=-\n\n")
             try:
                 res_db = PolarsDB(resFileFull, format="xlsx", load_all_tables=True)
 
@@ -5107,82 +5064,54 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         convoluted_sheet = candidate
                         break
 
-                if convoluted_sheet is None:
-                    raise ValueError("No convoluted results sheet found in results file")
+                if convoluted_sheet is not None:
+                    table_df = res_db.tables[convoluted_sheet]
 
-                table_df = res_db.tables[convoluted_sheet]
+                    features = set()
+                    metabolites = {}
+                    metabolitesIonMode = {}
 
-                features = set()
-                negMode = set()
-                posMode = set()
-                metabolites = {}
-                metabolitesIonMode = {}
+                    for row in table_df.iter_rows(named=True):
+                        num = row["Num"]
+                        features.add(num)
+                        ogroup = row["OGroup"]
+                        if ogroup not in metabolites:
+                            metabolites[ogroup] = []
+                        metabolites[ogroup].append(num)
+                        if ogroup not in metabolitesIonMode:
+                            metabolitesIonMode[ogroup] = set()
+                        metabolitesIonMode[ogroup].add(row["Ionisation_Mode"])
 
-                for row in table_df.iter_rows(named=True):
-                    num = row["Num"]
-                    features.add(num)
-                    if row["Ionisation_Mode"] == "-":
-                        negMode.add(num)
-                    else:
-                        posMode.add(num)
-                    ogroup = row["OGroup"]
-                    if ogroup not in metabolites:
-                        metabolites[ogroup] = []
-                    metabolites[ogroup].append(num)
-                    if ogroup not in metabolitesIonMode:
-                        metabolitesIonMode[ogroup] = set()
-                    metabolitesIonMode[ogroup].add(row["Ionisation_Mode"])
+                    summary_data["n_features"] = len(features)
+                    summary_data["n_metabolites"] = len(metabolites)
+                    summary_data["features_1"] = len([1 for k in metabolites if len(metabolites[k]) == 1])
+                    summary_data["features_2"] = len([1 for k in metabolites if len(metabolites[k]) == 2])
+                    summary_data["features_3"] = len([1 for k in metabolites if len(metabolites[k]) == 3])
+                    summary_data["features_4"] = len([1 for k in metabolites if len(metabolites[k]) == 4])
+                    summary_data["features_5"] = len([1 for k in metabolites if len(metabolites[k]) == 5])
+                    summary_data["features_5_to_10"] = len([1 for k in metabolites if 5 < len(metabolites[k]) < 11])
+                    summary_data["features_10_to_20"] = len([1 for k in metabolites if 10 < len(metabolites[k]) < 21])
+                    summary_data["features_gt20"] = len([1 for k in metabolites if 20 < len(metabolites[k])])
+                    summary_data["pos_only"] = len([1 for k in metabolitesIonMode if metabolitesIonMode[k] == {"+"}])
+                    summary_data["neg_only"] = len([1 for k in metabolitesIonMode if metabolitesIonMode[k] == {"-"}])
+                    summary_data["both_modes"] = len([1 for k in metabolitesIonMode if {"+", "-"}.issubset(metabolitesIonMode[k])])
 
-                texts.append(" Features    %12d\n Metabolites %12d\n" % (len(features), len(metabolites)))
-                texts.append("\n")
-                texts.append(" %12d metabolites with a     single feature\n" % (len([1 for key in metabolites.keys() if len(metabolites[key]) == 1])))
-                texts.append(" %12d metabolites with          two features\n" % (len([1 for key in metabolites.keys() if len(metabolites[key]) == 2])))
-                texts.append(" %12d metabolites with        three features\n" % (len([1 for key in metabolites.keys() if len(metabolites[key]) == 3])))
-                texts.append(" %12d metabolites with         four features\n" % (len([1 for key in metabolites.keys() if len(metabolites[key]) == 4])))
-                texts.append(" %12d metabolites with         five features\n" % (len([1 for key in metabolites.keys() if len(metabolites[key]) == 5])))
-                texts.append(" %12d metabolites with   >5 and <11 features\n" % (len([1 for key in metabolites.keys() if 5 < len(metabolites[key]) < 11])))
-                texts.append(" %12d metabolites with  >10 and <21 features\n" % (len([1 for key in metabolites.keys() if 10 < len(metabolites[key]) < 21])))
-                texts.append(" %12d metabolites with          >20 features\n" % (len([1 for key in metabolites.keys() if 20 < len(metabolites[key])])))
-                texts.append("\n")
-                texts.append(" %12d metabolites with only ions in the positive ionization mode\n" % (len([1 for key in metabolitesIonMode.keys() if metabolitesIonMode[key] == {"+"}])))
-                texts.append(" %12d metabolites with only ions in the negative ionization mode\n" % (len([1 for key in metabolitesIonMode.keys() if metabolitesIonMode[key] == {"-"}])))
-                texts.append(" %12d metabolites with      ions in         both ionization modes\n" % (len([1 for key in metabolitesIonMode.keys() if {"+", "-"}.issubset(metabolitesIonMode[key])])))
-                texts.append("\n")
-                texts.append("\n")
             except Exception as ex:
                 import traceback as _tb
 
-                texts.append(f" Error reading convoluted results: {ex}\n")
-                texts.append(f" {_tb.format_exc()}\n\n")
+                logging.warning(f"Error reading convoluted results for summary: {ex}\n{_tb.format_exc()}")
 
-        resFileFull = str(self.ui.groupsSave.text())
-        if os.path.exists(resFileFull):
-            texts.append("Omitted features\n-=-=-=-=-=-=-=-=-\n\n")
             try:
-                res_db = PolarsDB(resFileFull, format="xlsx", load_all_tables=True)
+                res_db2 = PolarsDB(resFileFull, format="xlsx", load_all_tables=True)
                 omitted_sheet = "2_StatColumns_Omitted"
-                if omitted_sheet in res_db.tables:
-                    omitted_df = res_db.tables[omitted_sheet]
-                    features = set(omitted_df["Num"].to_list())
-                    texts.append(" Features    %12d\n" % len(features))
-                else:
-                    texts.append(" No omitted features found\n")
+                if omitted_sheet in res_db2.tables:
+                    omitted_df = res_db2.tables[omitted_sheet]
+                    summary_data["omitted_features"] = len(set(omitted_df["Num"].to_list()))
             except Exception as ex:
-                import traceback as _tb
+                logging.warning(f"Error reading omitted features for summary: {ex}")
 
-                texts.append(f" Error reading omitted features: {ex}\n")
-                texts.append(f" {_tb.format_exc()}\n\n")
-
-        # logging.info("".join(texts))
-
-        pw = QScrollableMessageBox(
-            parent=None,
-            text="".join(texts),
-            title="Processing results",
-            width=700,
-            height=700,
-        )
-        pw.exec()
+        dlg = ResultsSummaryDialog(parent=self, file_rows=file_rows, summary_data=summary_data)
+        dlg.exec()
 
     def groupFilesChanges(self, sta):
         self.ui.label_26.setEnabled(sta)
@@ -6585,24 +6514,42 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 )
 
                 if item.myType == "Features":
-                    mzs = []
-                    rts = []
+                    _fm_rts = []
+                    _fm_mzs = []
+                    _fm_areas = []
                     plotTypes.add("Features")
-                    for i in range(item.childCount()):
-                        child = item.child(i)
-                        assert child.myType == "feature"
-                        mzs.append(child.myData.mz)
-                        rts.append(child.myData.NPeakCenterMin / 60.0)
-                    self.drawPlot(
-                        self.ui.pl1,
-                        plotIndex=0,
-                        x=rts,
-                        y=mzs,
-                        ylab="m/z",
-                        useCol=0,
-                        scatter=True,
-                        plot=False,
+                    plotTypes.add("FeatureMap")
+                    for _fmi in range(item.childCount()):
+                        _fmc = item.child(_fmi)
+                        assert _fmc.myType == "feature"
+                        _fm_rts.append(_fmc.myData.NPeakCenterMin / 60.0)
+                        _fm_mzs.append(_fmc.myData.mz)
+                        try:
+                            _fm_areas.append(max(1.0, float(_fmc.text(7).split(" / ")[0])))
+                        except Exception:
+                            _fm_areas.append(1.0)
+                    if _fm_areas:
+                        import math as _math
+
+                        _log_areas = [_math.log10(a) for a in _fm_areas]
+                        _min_log = min(_log_areas)
+                        _max_log = max(_log_areas)
+                        _range_log = max(_max_log - _min_log, 1.0)
+                        _fm_sizes = [20 + 200 * (la - _min_log) / _range_log for la in _log_areas]
+                    else:
+                        _fm_sizes = []
+                    _ax_fm = self.ui.pl1.twinxs[0]
+                    _ax_fm.scatter(
+                        _fm_rts,
+                        _fm_mzs,
+                        s=_fm_sizes,
+                        c=[predefinedColors[0]] * len(_fm_rts),
+                        alpha=0.6,
                     )
+                    _ax_fm.set_xlabel("Retention time (min)")
+                    _ax_fm.set_ylabel("m/z")
+                    _ax_fm.set_title(f"Feature map ({len(_fm_rts)} feature pairs)")
+                    mzs = _fm_mzs
 
                 if item.myType == "feature":
                     cp = item.myData
@@ -6992,27 +6939,54 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 item.setBackground(7, QColor(predefinedColors[(useColi) % len(predefinedColors)]))
 
                 if item.myType == "Feature Groups":
-                    plotTypes.add("Feature Groups")
-                    for i in range(item.childCount()):
-                        child = item.child(i)
-                        mzs = []
-                        rts = []
-                        for j in range(child.childCount()):
-                            feature = child.child(j)
-                            assert feature.myType == "feature"
+                    import math as _math
 
-                            mzs.append(feature.myData.mz)
-                            rts.append(feature.myData.NPeakCenterMin / 60.0)
-                        self.drawPlot(
-                            self.ui.pl1,
-                            plotIndex=0,
-                            x=rts,
-                            y=mzs,
-                            ylab="m/z",
-                            useCol=i,
-                            scatter=True,
-                            plot=True,
-                        )
+                    plotTypes.add("Feature Groups")
+                    plotTypes.add("FeatureMap")
+                    _all_fm_rts = []
+                    _all_fm_mzs = []
+                    _all_fm_sizes = []
+                    _all_fm_colors = []
+                    for _gi in range(item.childCount()):
+                        _gc = item.child(_gi)
+                        _g_rts = []
+                        _g_mzs = []
+                        _g_areas = []
+                        for _gfi in range(_gc.childCount()):
+                            _gff = _gc.child(_gfi)
+                            assert _gff.myType == "feature"
+                            _g_rts.append(_gff.myData.NPeakCenterMin / 60.0)
+                            _g_mzs.append(_gff.myData.mz)
+                            try:
+                                _g_areas.append(max(1.0, float(_gff.text(7).split(" / ")[0])))
+                            except Exception:
+                                _g_areas.append(1.0)
+                        if _g_areas:
+                            _g_log = [_math.log10(a) for a in _g_areas]
+                            _g_min = min(_g_log)
+                            _g_max = max(_g_log)
+                            _g_range = max(_g_max - _g_min, 1.0)
+                            _g_sizes = [20 + 200 * (la - _g_min) / _g_range for la in _g_log]
+                        else:
+                            _g_sizes = []
+                        _col = predefinedColors[_gi % len(predefinedColors)]
+                        _all_fm_rts.extend(_g_rts)
+                        _all_fm_mzs.extend(_g_mzs)
+                        _all_fm_sizes.extend(_g_sizes)
+                        _all_fm_colors.extend([_col] * len(_g_rts))
+                    _ax_fg = self.ui.pl1.twinxs[0]
+                    _ax_fg.scatter(
+                        _all_fm_rts,
+                        _all_fm_mzs,
+                        s=_all_fm_sizes,
+                        c=_all_fm_colors,
+                        alpha=0.6,
+                    )
+                    _ax_fg.set_xlabel("Retention time (min)")
+                    _ax_fg.set_ylabel("m/z")
+                    _n_groups = item.childCount()
+                    _n_feat = len(_all_fm_rts)
+                    _ax_fg.set_title(f"Feature map ({_n_feat} feature pairs in {_n_groups} metabolite groups)")
 
                 if item.myType == "featureGroup":
                     selFeatureGroups.append(item)
@@ -8083,6 +8057,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
                     # self.drawPlot(self.ui.pl3, plotIndex=0, x=toDrawMzs, y=toDrawInts, useCol="lightgrey", multipleLocator=None,  alpha=0.1, title="", xlab="MZ")
 
+                    if not toDrawMzs:
+                        continue
+
                     bm = (
                         min(
                             range(len(toDrawMzs)),
@@ -8884,18 +8861,22 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         # <editor-fold desc="#feature pair plotting">
         elif "Features" in plotTypes or "Feature Groups" in plotTypes or "feature" in plotTypes:
-            if self.ui.scaleFeatures.checkState() == QtCore.Qt.Checked:
-                self.ui.pl1.axes.set_ylabel("Intensity [counts; normalised]")
-            else:
-                self.ui.pl1.axes.set_ylabel("Intensity [counts]")
-            if self.ui.autoZoomPlot.checkState() == QtCore.Qt.Checked:
-                self.drawCanvas(
-                    self.ui.pl1,
-                    ylim=(minIntY * 1.6, maxIntY * 1.6),
-                    xlim=(minTime * 0.85, maxTime * 1.15),
-                )
-            else:
+            if "FeatureMap" in plotTypes and "feature" not in plotTypes:
+                # Top-level feature map: axes already labelled; just draw canvas
                 self.drawCanvas(self.ui.pl1)
+            else:
+                if self.ui.scaleFeatures.checkState() == QtCore.Qt.Checked:
+                    self.ui.pl1.axes.set_ylabel("Intensity [counts; normalised]")
+                else:
+                    self.ui.pl1.axes.set_ylabel("Intensity [counts]")
+                if self.ui.autoZoomPlot.checkState() == QtCore.Qt.Checked:
+                    self.drawCanvas(
+                        self.ui.pl1,
+                        ylim=(minIntY * 1.6, maxIntY * 1.6),
+                        xlim=(minTime * 0.85, maxTime * 1.15),
+                    )
+                else:
+                    self.drawCanvas(self.ui.pl1)
         # </editor-fold>
 
         # <editor-fold desc="#mz and mzbin plotting">
@@ -13200,7 +13181,7 @@ def main():
             + f"If importing mzML files results in the error<br>of missing files, please find the correct version at<br><b>{OBO_DOWNLOAD_URL}</b>.<br>"
             + "Please download the corresponding obo-file and<br>save it to the folder in the error message.<br>"
             + "You can also open this page via the menu<br>(<b>'Tools'->'Download OBO files'</b>).<br>"
-            + "<br>" 
+            + "<br>"
             + "To generate a template for a database, select<br><b>'Download Database Template'</b> from the 'Tools' menu.",
             QtWidgets.QMessageBox.Ok,
         )

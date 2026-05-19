@@ -177,10 +177,13 @@ class PeakPickingSettingsDialog(QtWidgets.QDialog):
         self.btnAddEic.setToolTip("Add a new EIC definition row")
         self.btnRemoveEic = QtWidgets.QPushButton("Remove Selected")
         self.btnRemoveEic.setToolTip("Remove selected EIC definition(s)")
+        self.btnDuplicateEic = QtWidgets.QPushButton("Duplicate Selected")
+        self.btnDuplicateEic.setToolTip("Duplicate the selected EIC definition row")
         self.btnPickEic = QtWidgets.QPushButton("Pick Peaks")
         self.btnPickEic.setToolTip("Run peak picking on defined EICs and show results below")
         eic_btn_layout.addWidget(self.btnAddEic)
         eic_btn_layout.addWidget(self.btnRemoveEic)
+        eic_btn_layout.addWidget(self.btnDuplicateEic)
         eic_btn_layout.addStretch()
         eic_btn_layout.addWidget(self.btnPickEic)
         eic_layout.addLayout(eic_btn_layout)
@@ -222,12 +225,13 @@ class PeakPickingSettingsDialog(QtWidgets.QDialog):
         self.btnDefaults.clicked.connect(self._restore_defaults)
         self.btnAddEic.clicked.connect(self._add_eic_row)
         self.btnRemoveEic.clicked.connect(self._remove_eic_rows)
+        self.btnDuplicateEic.clicked.connect(self._duplicate_eic_row)
         self.btnPickEic.clicked.connect(self._run_preview)
 
     def _resize_eic_columns(self, event):
-        """Keep EIC table column widths at 60/20/10/10 ratio."""
+        """Keep EIC table column widths at 45/25/15/15 ratio (File column 25% narrower)."""
         total = self.eicTable.viewport().width()
-        ratios = [0.60, 0.20, 0.10, 0.10]
+        ratios = [0.45, 0.25, 0.15, 0.15]
         hdr = self.eicTable.horizontalHeader()
         for col, ratio in enumerate(ratios):
             hdr.resizeSection(col, max(1, int(total * ratio)))
@@ -1018,6 +1022,72 @@ class PeakPickingSettingsDialog(QtWidgets.QDialog):
         rows = sorted({idx.row() for idx in self.eicTable.selectedIndexes()}, reverse=True)
         for r in rows:
             self.eicTable.removeRow(r)
+
+    def _duplicate_eic_row(self):
+        """Duplicate the selected EIC row, inserting a copy directly below it."""
+        selected_rows = sorted({idx.row() for idx in self.eicTable.selectedIndexes()})
+        if not selected_rows:
+            return
+        # Duplicate the last selected row (insert after it)
+        src_row = selected_rows[-1]
+        insert_at = src_row + 1
+
+        # Read current widget values from the source row
+        fileW = self.eicTable.cellWidget(src_row, 0)
+        filterW = self.eicTable.cellWidget(src_row, 1)
+        mzW = self.eicTable.cellWidget(src_row, 2)
+        ppmW = self.eicTable.cellWidget(src_row, 3)
+
+        src_file_idx = fileW.currentIndex() if fileW else 0
+        src_filter_idx = filterW.currentIndex() if filterW else 0
+        src_mz = mzW.value() if mzW else 100.0
+        src_ppm = ppmW.value() if ppmW else 5.0
+
+        # Insert new row at position
+        self.eicTable.insertRow(insert_at)
+
+        # File combo
+        newFileCombo = QtWidgets.QComboBox()
+        if self._sample_files:
+            for group_name, fpath in self._sample_files:
+                fname = os.path.basename(fpath)
+                newFileCombo.addItem(f"{group_name}  \u2014  {fname}", userData=fpath)
+        else:
+            newFileCombo.addItem("(no files loaded)", userData=None)
+        newFileCombo.setCurrentIndex(src_file_idx)
+        self.eicTable.setCellWidget(insert_at, 0, newFileCombo)
+
+        # Filter combo
+        newFilterCombo = QtWidgets.QComboBox()
+        all_filter_lines = []
+        for pol_key in ("+", "-"):
+            for fl in self._scan_events.get(pol_key, []):
+                if fl and fl != "None":
+                    all_filter_lines.append(fl)
+        if all_filter_lines:
+            for fl in all_filter_lines:
+                newFilterCombo.addItem(fl)
+        else:
+            newFilterCombo.addItem("(no filter lines)")
+        newFilterCombo.setCurrentIndex(src_filter_idx)
+        self.eicTable.setCellWidget(insert_at, 1, newFilterCombo)
+
+        # m/z
+        newMzSpin = QtWidgets.QDoubleSpinBox()
+        newMzSpin.setRange(0, 99999.0)
+        newMzSpin.setDecimals(5)
+        newMzSpin.setValue(src_mz)
+        self.eicTable.setCellWidget(insert_at, 2, newMzSpin)
+
+        # ppm
+        newPpmSpin = QtWidgets.QDoubleSpinBox()
+        newPpmSpin.setRange(0.1, 1000.0)
+        newPpmSpin.setDecimals(1)
+        newPpmSpin.setValue(src_ppm)
+        self.eicTable.setCellWidget(insert_at, 3, newPpmSpin)
+
+        # Select the duplicated row
+        self.eicTable.selectRow(insert_at)
 
     def _run_preview(self):
         """Attempt to load EICs and run peak picking for preview."""
