@@ -25,12 +25,12 @@ maxSub = 5
 
 
 def calculate_theoretical_ratios(isotopic_enrichment, Xn_max, maxSub):
-    ''' 
+    """
     calculates the theoretical isotopolog distribution for a given isotopic enrichment and number of atoms
     isotopic_enrichment: isotopic enrichment of the isotope element (e.g. 0.9893 for 12C)
     Xn_max: maximum number of atoms that can be exchanged (e.g. 3 for 3 carbon atoms)
     maxSub: maximum number of substitutions
-    '''
+    """
     ret = []
     ret.append([])
     for Xn in range(1, Xn_max + 1):
@@ -229,7 +229,7 @@ def matchPartners(
                             (cur_scan.retention_time / 60.0 - startTime) / scan_rt_range,
                             "RT %.2f, found patterns: %d" % (cur_scan.retention_time / 60.0, len(detected_signal_pairs)),
                         )
-                    
+
                     # Compute the scan used to search for labeled signals; may be offset relative to the native scan.
                     # Falls back to curScan when the offset puts the index out of bounds or on a different filter line.
                     # but make sure that the offset is scanIndexOffset scans of the correct filter_line

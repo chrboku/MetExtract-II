@@ -3968,7 +3968,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     completed = res._index
                     if completed == len(files):
                         loop = False
-                    
+
                     pwMain("value")(completed)
 
                     mess = {}
@@ -4020,12 +4020,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             pw.getCallingFunction(assignedThreads[mes.pid])("text")("")
                             pw.getCallingFunction(assignedThreads[mes.pid])("value")(0)
 
-                            logging.info("\n" +
-                            "##############################################################\n" +
-                            "\n".join(messages_to_print[mes.pid])+
-                            "\n" +
-                            "##############################################################\n"+
-                            "")
+                            logging.info("\n" + "##############################################################\n" + "\n".join(messages_to_print[mes.pid]) + "\n" + "##############################################################\n" + "")
 
                             pw.getCallingFunction()("statuscolor")(
                                 pIds[mes.pid],
@@ -6315,6 +6310,11 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def selectedResChanged(self):
         annotationPPM = self.ui.doubleSpinBox_isotopologAnnotationPPM.value()
 
+        # Always restore "Result name" row; individual branches may hide it again
+        self.ui.label_22.setVisible(True)
+        self.ui.chromPeakName.setVisible(True)
+        self.ui.setChromPeakName.setVisible(True)
+
         for i in range(self.ui.res_ExtractedData.topLevelItemCount()):
             self.deColorQTreeWidgetItem(self.ui.res_ExtractedData.topLevelItem(i))
 
@@ -6496,6 +6496,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             # <editor-fold desc="#feature results">
             elif item.myType == "Features" or item.myType == "feature":
                 self.ui.chromPeakName.setText("")
+                if item.myType == "Features":
+                    self.ui.label_22.setVisible(False)
+                    self.ui.chromPeakName.setVisible(False)
+                    self.ui.setChromPeakName.setVisible(False)
 
                 self.ui.res_ExtractedData.setHeaderLabels(
                     [
@@ -6517,17 +6521,34 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     _fm_rts = []
                     _fm_mzs = []
                     _fm_areas = []
+                    _fm_point_data = []
                     plotTypes.add("Features")
                     plotTypes.add("FeatureMap")
                     for _fmi in range(item.childCount()):
                         _fmc = item.child(_fmi)
                         assert _fmc.myType == "feature"
-                        _fm_rts.append(_fmc.myData.NPeakCenterMin / 60.0)
-                        _fm_mzs.append(_fmc.myData.mz)
+                        _rt = _fmc.myData.NPeakCenterMin / 60.0
+                        _mz = _fmc.myData.mz
                         try:
-                            _fm_areas.append(max(1.0, float(_fmc.text(7).split(" / ")[0])))
+                            _area = max(1.0, float(_fmc.text(7).split(" / ")[0]))
                         except Exception:
-                            _fm_areas.append(1.0)
+                            _area = 1.0
+                        _fm_rts.append(_rt)
+                        _fm_mzs.append(_mz)
+                        _fm_areas.append(_area)
+                        _fm_point_data.append(
+                            {
+                                "rt": _rt,
+                                "mz": _mz,
+                                "native_area": _area,
+                                "id": _fmc.myData.id,
+                                "ogroup": "N/A",
+                                "polarity": _fmc.myData.ionMode,
+                                "charge": _fmc.myData.loading,
+                                "xcount": _fmc.myData.xCount,
+                                "tree_item": _fmc,
+                            }
+                        )
                     if _fm_areas:
                         import math as _math
 
@@ -6539,6 +6560,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     else:
                         _fm_sizes = []
                     _ax_fm = self.ui.pl1.twinxs[0]
+                    _ax_fm._fm_point_data = _fm_point_data
                     _ax_fm.scatter(
                         _fm_rts,
                         _fm_mzs,
@@ -6914,6 +6936,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
             # <editor-fold desc="#featureGroup results">
             elif item.myType == "featureGroup" or item.myType == "Feature Groups":
+                if item.myType == "Feature Groups":
+                    self.ui.label_22.setVisible(False)
+                    self.ui.chromPeakName.setVisible(False)
+                    self.ui.setChromPeakName.setVisible(False)
                 self.ui.res_ExtractedData.setHeaderLabels(
                     [
                         "Feature group / MZ (/Ionmode Z)",
@@ -6947,20 +6973,39 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     _all_fm_mzs = []
                     _all_fm_sizes = []
                     _all_fm_colors = []
+                    _all_fm_point_data = []
+                    _fm_group_lines = []
                     for _gi in range(item.childCount()):
                         _gc = item.child(_gi)
                         _g_rts = []
                         _g_mzs = []
                         _g_areas = []
+                        _g_group_name = _gc.myData.featureName if hasattr(_gc, "myData") and hasattr(_gc.myData, "featureName") else str(_gc.text(0))
                         for _gfi in range(_gc.childCount()):
                             _gff = _gc.child(_gfi)
                             assert _gff.myType == "feature"
-                            _g_rts.append(_gff.myData.NPeakCenterMin / 60.0)
-                            _g_mzs.append(_gff.myData.mz)
+                            _rt = _gff.myData.NPeakCenterMin / 60.0
+                            _mz = _gff.myData.mz
                             try:
-                                _g_areas.append(max(1.0, float(_gff.text(7).split(" / ")[0])))
+                                _area = max(1.0, float(_gff.text(7).split(" / ")[0]))
                             except Exception:
-                                _g_areas.append(1.0)
+                                _area = 1.0
+                            _g_rts.append(_rt)
+                            _g_mzs.append(_mz)
+                            _g_areas.append(_area)
+                            _all_fm_point_data.append(
+                                {
+                                    "rt": _rt,
+                                    "mz": _mz,
+                                    "native_area": _area,
+                                    "id": _gff.myData.id,
+                                    "ogroup": _g_group_name,
+                                    "polarity": _gff.myData.ionMode,
+                                    "charge": _gff.myData.loading,
+                                    "xcount": _gff.myData.xCount,
+                                    "tree_item": _gff,
+                                }
+                            )
                         if _g_areas:
                             _g_log = [_math.log10(a) for a in _g_areas]
                             _g_min = min(_g_log)
@@ -6974,7 +7019,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         _all_fm_mzs.extend(_g_mzs)
                         _all_fm_sizes.extend(_g_sizes)
                         _all_fm_colors.extend([_col] * len(_g_rts))
+                        _fm_group_lines.append((_g_rts, _g_mzs, _col))
                     _ax_fg = self.ui.pl1.twinxs[0]
+                    _ax_fg._fm_point_data = _all_fm_point_data
                     _ax_fg.scatter(
                         _all_fm_rts,
                         _all_fm_mzs,
@@ -6982,6 +7029,12 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         c=_all_fm_colors,
                         alpha=0.6,
                     )
+                    for _line_rts, _line_mzs, _line_col in _fm_group_lines:
+                        if len(_line_rts) >= 2:
+                            _sorted_pts = sorted(zip(_line_mzs, _line_rts))
+                            _sx = [_rt for _, _rt in _sorted_pts]
+                            _sy = [_mz for _mz, _ in _sorted_pts]
+                            _ax_fg.plot(_sx, _sy, color=_line_col, linewidth=0.8, alpha=0.5, zorder=1)
                     _ax_fg.set_xlabel("Retention time (min)")
                     _ax_fg.set_ylabel("m/z")
                     _n_groups = item.childCount()
@@ -8864,6 +8917,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if "FeatureMap" in plotTypes and "feature" not in plotTypes:
                 # Top-level feature map: axes already labelled; just draw canvas
                 self.drawCanvas(self.ui.pl1)
+                # Connect hover/click handlers so the user can inspect scatter points
+                _fm_ax = self.ui.pl1.twinxs[0]
+                self._setup_feature_map_hover(self.ui.pl1, _fm_ax)
             else:
                 if self.ui.scaleFeatures.checkState() == QtCore.Qt.Checked:
                     self.ui.pl1.axes.set_ylabel("Intensity [counts; normalised]")
@@ -9209,6 +9265,105 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         plot_obj._hover_cid = canvas.mpl_connect("motion_notify_event", _on_hover)
         plot_obj._click_cid = canvas.mpl_connect("button_press_event", _on_click)
+
+    def _setup_feature_map_hover(self, plot_obj, ax):
+        """Connect hover and click handlers to a feature-map scatter canvas.
+
+        On hover: find the closest scatter point (normalised 2-D RT/m/z distance)
+        and display a popup showing id, metabolite-group, polarity, charge, m/z,
+        retention time and native abundance.
+
+        On click: same proximity test; if close enough, navigate the sample-results
+        tree to the corresponding tree item.
+
+        Feature data is read from ``ax._fm_point_data``, a list of dicts with keys:
+            rt, mz, native_area, id, ogroup, polarity, charge, tree_item
+        """
+        canvas = plot_obj.canvas
+
+        # Disconnect any previous feature-map handlers
+        for attr in ("_fm_hover_cid", "_fm_click_cid"):
+            cid = getattr(plot_obj, attr, None)
+            if cid is not None:
+                try:
+                    canvas.mpl_disconnect(cid)
+                except Exception:
+                    pass
+        plot_obj._fm_hover_cid = None
+        plot_obj._fm_click_cid = None
+        plot_obj._fm_hover_artists = []
+
+        point_data = getattr(ax, "_fm_point_data", [])
+        if not point_data:
+            return
+
+        def _find_closest_fm(event_ax, ex, ey):
+            xlim = event_ax.get_xlim()
+            ylim = event_ax.get_ylim()
+            x_range = (xlim[1] - xlim[0]) or 1.0
+            y_range = (ylim[1] - ylim[0]) or 1.0
+            best_idx, best_dist = 0, float("inf")
+            for i, pt in enumerate(point_data):
+                dx = abs(pt["rt"] - ex) / x_range
+                dy = abs(pt["mz"] - ey) / y_range
+                d = (dx**2 + dy**2) ** 0.5
+                if d < best_dist:
+                    best_dist = d
+                    best_idx = i
+            return best_idx, best_dist
+
+        def _on_fm_hover(event):
+            for artist in list(plot_obj._fm_hover_artists):
+                try:
+                    artist.remove()
+                except Exception:
+                    pass
+            plot_obj._fm_hover_artists.clear()
+
+            if event.inaxes is not ax or event.xdata is None or event.ydata is None:
+                canvas.draw_idle()
+                return
+
+            cidx, nd = _find_closest_fm(ax, event.xdata, event.ydata)
+            if nd > 0.04:
+                canvas.draw_idle()
+                return
+
+            pt = point_data[cidx]
+            label = f"ID: {pt['id']}\nGroup: {pt['ogroup']}\nPolarity: {pt['polarity']}\nCharge: {pt['charge']}\nXn: {pt.get('xcount', 'N/A')}\nm/z: {pt['mz']:.5f}\nRT: {pt['rt']:.2f} min\nNative abundance: {pt['native_area']:.1f}"
+            ann = ax.annotate(
+                label,
+                xy=(pt["rt"], pt["mz"]),
+                xytext=(12, 8),
+                textcoords="offset points",
+                fontsize=18,
+                color="#202124",
+                bbox=dict(boxstyle="round,pad=0.7", facecolor="lightyellow", edgecolor="#aaaaaa", alpha=0.95),
+                zorder=10,
+            )
+            plot_obj._fm_hover_artists.append(ann)
+            canvas.draw_idle()
+
+        def _on_fm_dblclick(event):
+            if event.dblclick is False or event.inaxes is not ax or event.xdata is None or event.ydata is None:
+                return
+
+            cidx, nd = _find_closest_fm(ax, event.xdata, event.ydata)
+            if nd > 0.04:
+                return
+
+            tree_item = point_data[cidx].get("tree_item")
+            if tree_item is None:
+                return
+            tree = self.ui.res_ExtractedData
+            parent = tree_item.parent()
+            if parent is not None:
+                tree.expandItem(parent)
+            tree.setCurrentItem(tree_item)
+            tree.scrollToItem(tree_item)
+
+        plot_obj._fm_hover_cid = canvas.mpl_connect("motion_notify_event", _on_fm_hover)
+        plot_obj._fm_click_cid = canvas.mpl_connect("button_press_event", _on_fm_dblclick)
 
     def plotSelectedMSMSSpectra(self):
         """Plot selected MSMS spectra as subplots with shared x-axis"""

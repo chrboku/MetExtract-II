@@ -2699,6 +2699,11 @@ class FindIsoPairs:
                 allPeaks[peak.id] = peak
                 peak.correlationsToOthers = []
 
+            # sort by NPeakCenter once so the inner loop can break early on RT distance
+            chromPeaks = sorted(chromPeaks, key=lambda p: p.NPeakCenter)
+
+            ff_rows = []  # accumulated featurefeatures rows for a single bulk insert
+
             # compare all detected feature pairs at approximately the same retention time
             for piA in range(len(chromPeaks)):
                 peakA = chromPeaks[piA]
@@ -2711,12 +2716,19 @@ class FindIsoPairs:
                 if peakA.id not in correlations.keys():
                     correlations[peakA.id] = {}
 
-                for peakB in chromPeaks:
+                for piB in range(piA + 1, len(chromPeaks)):
+                    peakB = chromPeaks[piB]
+
+                    # peaks are sorted by NPeakCenter; once the RT gap exceeds the threshold
+                    # all remaining peaks are even further away — safe to stop early
+                    if peakB.NPeakCenter - peakA.NPeakCenter >= self.peakCenterError:
+                        break
+
                     if peakB.id not in correlations.keys():
                         correlations[peakB.id] = {}
 
                     if peakA.mz < peakB.mz:
-                        if abs(peakA.NPeakCenter - peakB.NPeakCenter) < self.peakCenterError:
+                        if True:  # RT check already handled by the sorted early-exit above
                             bmin = int(
                                 max(
                                     0,
@@ -2783,10 +2795,16 @@ class FindIsoPairs:
                                 logging.error("Error while convoluting two feature pairs, skipping.. (%s)" % str(e))
 
                             try:
-                                db_con.insert_row("featurefeatures", {"fID1": peakA.id, "fID2": peakB.id, "corr": pb, "silRatioValue": silRatiosFold})
+                                ff_rows.append({"fID1": peakA.id, "fID2": peakB.id, "corr": pb, "silRatioValue": silRatiosFold})
                             except Exception as e:
                                 logging.error("Error while convoluting two feature pairs, skipping.. (%s)" % str(e))
-                                db_con.insert_row("featurefeatures", {"fID1": peakA.id, "fID2": peakB.id, "corr": 0, "silRatioValue": 0})
+                                ff_rows.append({"fID1": peakA.id, "fID2": peakB.id, "corr": 0, "silRatioValue": 0})
+
+            # bulk-insert all featurefeatures rows at once instead of one per pair
+            if ff_rows:
+                _ff_schema = db_con.tables["featurefeatures"].schema
+                _ff_new = pl.DataFrame(ff_rows, schema=_ff_schema)
+                db_con.tables["featurefeatures"] = pl.concat([db_con.tables["featurefeatures"], _ff_new], how="vertical")
 
             self.postMessageToProgressWrapper("text", "%s: Convoluting feature groups" % tracer.name)
 
@@ -2796,11 +2814,7 @@ class FindIsoPairs:
                 delattr(peak, "times")
 
             for k in nodes.keys():
-                uniq = []
-                for u in nodes[k]:
-                    if u not in uniq:
-                        uniq.append(u)
-                nodes[k] = uniq
+                nodes[k] = list(set(nodes[k]))
 
             # get subgraphs from the feature pair graph. Each subgraph represents one convoluted
             # feature group
@@ -2874,8 +2888,8 @@ class FindIsoPairs:
                     # print("HCA with", len(cGroups))
                     gGroup = cGroups.pop(0)
 
-                    ## TODO optimize this code, it recalculates the computationally expensive HCA too often for a high number of features
-                    if False and len(gGroup) > 100:
+                    ## skip expensive HCA splitting for very large groups — keep them as-is
+                    if len(gGroup) > 100:
                         groups.append(gGroup)
                         continue
 
@@ -2925,24 +2939,57 @@ class FindIsoPairs:
                         "%s: Annotating feature groups (%d/%d done)" % (tracer.name, done, len(groups)),
                     )
 
+            # collect all per-peak update data and apply in a single batch join-based update
+            _update_ids = []
+            _update_adducts = []
+            _update_fDesc = []
+            _update_corrToOthers = []
+            _update_heteroAtoms = []
+
             for peak in chromPeaks:
                 adds = countEntries(peak.adducts)
                 peak.adducts = list(adds.keys())
 
-                # Update chromPeaks
-                db_con.tables["chromPeaks"] = db_con.tables["chromPeaks"].with_columns(
-                    pl.when(pl.col("id") == peak.id).then(pl.lit(base64.b64encode(dumps(peak.adducts)).decode("utf-8"))).otherwise(pl.col("adducts")).alias("adducts"),
-                    pl.when(pl.col("id") == peak.id).then(pl.lit(base64.b64encode(dumps(peak.fDesc)).decode("utf-8"))).otherwise(pl.col("fDesc")).alias("fDesc"),
-                    pl.when(pl.col("id") == peak.id).then(pl.lit(base64.b64encode(dumps(peak.correlationsToOthers)).decode("utf-8"))).otherwise(pl.col("correlationsToOthers")).alias("correlationsToOthers"),
-                    pl.when(pl.col("id") == peak.id).then(pl.lit(base64.b64encode(dumps(peak.heteroAtomsFeaturePairs)).decode("utf-8"))).otherwise(pl.col("heteroAtomsFeaturePairs")).alias("heteroAtomsFeaturePairs"),
-                )
+                _update_ids.append(peak.id)
+                _update_adducts.append(base64.b64encode(dumps(peak.adducts)).decode("utf-8"))
+                _update_fDesc.append(base64.b64encode(dumps(peak.fDesc)).decode("utf-8"))
+                _update_corrToOthers.append(base64.b64encode(dumps(peak.correlationsToOthers)).decode("utf-8"))
+                _update_heteroAtoms.append(base64.b64encode(dumps(peak.heteroAtomsFeaturePairs)).decode("utf-8"))
 
-                # Update allChromPeaks
-                db_con.tables["allChromPeaks"] = db_con.tables["allChromPeaks"].with_columns(
-                    pl.when(pl.col("id") == peak.id).then(pl.lit(base64.b64encode(dumps(peak.adducts)).decode("utf-8"))).otherwise(pl.col("adducts")).alias("adducts"),
-                    pl.when(pl.col("id") == peak.id).then(pl.lit(base64.b64encode(dumps(peak.fDesc)).decode("utf-8"))).otherwise(pl.col("fDesc")).alias("fDesc"),
-                    pl.when(pl.col("id") == peak.id).then(pl.lit(base64.b64encode(dumps(peak.heteroAtomsFeaturePairs)).decode("utf-8"))).otherwise(pl.col("heteroAtomsFeaturePairs")).alias("heteroAtomsFeaturePairs"),
+            _upd_df = pl.DataFrame(
+                {
+                    "id": _update_ids,
+                    "_adducts": _update_adducts,
+                    "_fDesc": _update_fDesc,
+                    "_corrToOthers": _update_corrToOthers,
+                    "_heteroAtoms": _update_heteroAtoms,
+                }
+            )
+
+            # single join-based update for chromPeaks
+            db_con.tables["chromPeaks"] = (
+                db_con.tables["chromPeaks"]
+                .join(_upd_df, on="id", how="left")
+                .with_columns(
+                    pl.coalesce([pl.col("_adducts"), pl.col("adducts")]).alias("adducts"),
+                    pl.coalesce([pl.col("_fDesc"), pl.col("fDesc")]).alias("fDesc"),
+                    pl.coalesce([pl.col("_corrToOthers"), pl.col("correlationsToOthers")]).alias("correlationsToOthers"),
+                    pl.coalesce([pl.col("_heteroAtoms"), pl.col("heteroAtomsFeaturePairs")]).alias("heteroAtomsFeaturePairs"),
                 )
+                .drop(["_adducts", "_fDesc", "_corrToOthers", "_heteroAtoms"])
+            )
+
+            # single join-based update for allChromPeaks (no correlationsToOthers column there)
+            db_con.tables["allChromPeaks"] = (
+                db_con.tables["allChromPeaks"]
+                .join(_upd_df.select(["id", "_adducts", "_fDesc", "_heteroAtoms"]), on="id", how="left")
+                .with_columns(
+                    pl.coalesce([pl.col("_adducts"), pl.col("adducts")]).alias("adducts"),
+                    pl.coalesce([pl.col("_fDesc"), pl.col("fDesc")]).alias("fDesc"),
+                    pl.coalesce([pl.col("_heteroAtoms"), pl.col("heteroAtomsFeaturePairs")]).alias("heteroAtomsFeaturePairs"),
+                )
+                .drop(["_adducts", "_fDesc", "_heteroAtoms"])
+            )
 
             # store feature group in the database
             for group in sorted(
