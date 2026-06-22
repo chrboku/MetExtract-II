@@ -444,6 +444,51 @@ class _RelativeBarDelegate(QtWidgets.QStyledItemDelegate):
             painter.restore()
 
 
+class _MSMSTableDelegate(QtWidgets.QStyledItemDelegate):
+    """Delegate for msms_SpectraList_exp: retains row background color on selection
+    (with lighter transparency) and makes selected row text bold."""
+
+    def paint(self, painter, option, index):
+        # Get the stored background color from the item
+        bg_color = index.data(QtCore.Qt.BackgroundRole)
+        is_selected = option.state & QtWidgets.QStyle.State_Selected
+
+        # Build a modified option so the default selection highlight is suppressed
+        opt = QtWidgets.QStyleOptionViewItem(option)
+        if is_selected and bg_color is not None:
+            # Remove the selected state flag so the default blue selection is not drawn
+            opt.state = opt.state & ~QtWidgets.QStyle.State_Selected
+            # Draw standard item without selection highlight
+            self.initStyleOption(opt, index)
+            opt.state = opt.state & ~QtWidgets.QStyle.State_Selected
+
+        super().paint(painter, opt, index)
+
+        if is_selected:
+            painter.save()
+            # Determine lighter overlay color from existing background
+            if bg_color is not None:
+                if hasattr(bg_color, "color"):
+                    base = bg_color.color()
+                else:
+                    base = bg_color
+                overlay = QtGui.QColor(base.red(), base.green(), base.blue(), 160)
+            else:
+                overlay = QtGui.QColor(100, 160, 255, 120)
+            painter.fillRect(option.rect, overlay)
+            # Draw bold text
+            font = painter.font()
+            font.setBold(True)
+            painter.setFont(font)
+            text_rect = option.rect.adjusted(4, 0, -4, 0)
+            text = index.data(QtCore.Qt.DisplayRole)
+            if text:
+                palette = option.palette
+                painter.setPen(palette.color(QtGui.QPalette.Text))
+                painter.drawText(text_rect, QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft, str(text))
+            painter.restore()
+
+
 class _DBTestWorker(QtCore.QThread):
     """Background worker that test-imports database files without blocking the UI."""
 
@@ -1635,7 +1680,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 #        # Files are on different drives, use absolute path
                 #        relFilePath = str(group.files[i]).replace("\\", "/")
                 #    grps.setValue(group.name + "__" + str(i), relFilePath)
-                grps.setValue("files", ";".join(group.files))
+                grps.setValue("files", "§".join(group.files))
                 grps.setValue("Min_Peaks_Found", group.minFound)
                 grps.setValue("OmitFeatures", group.omitFeatures)
                 grps.setValue("RemoveAsFalsePositive", group.removeAsFalsePositive)
@@ -1705,6 +1750,15 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         else:
             return float(value)
 
+    def to_str(self, value):
+        """Convert QSettings value to str (PySide6 compatible)"""
+        if value is None:
+            return ""
+        if hasattr(value, "toString"):
+            return value.toString()
+        else:
+            return str(value)
+
     def loadGroupsClicked(self):
         groupFile = QtWidgets.QFileDialog.getOpenFileName(
             caption="Select group file",
@@ -1769,13 +1823,15 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     elif str(kid) == "useAsMSMSTarget":
                         useAsMSMSTarget = self.to_bool(grps.value(kid))
                     elif str(kid) == "files":
-                        files = str(grps.value(kid)).split(";")
+                        files = self.to_str(grps.value(kid))
+                        files = files.strip().split("§")
+                        files = [f.replace("\\", "/") for f in files]
                         for file_i in range(len(files)):
                             file = files[file_i]
-                            if os.path.isabs(file.replace("\\", "/")):
-                                kids.append(file.replace("\\", "/"))
+                            if os.path.isabs(file):
+                                kids.append(file)
                             else:
-                                kids.append(os.path.split(str(groupFile))[0].replace("\\", "/") + "/" + file.replace("\\", "/"))
+                                kids.append(os.path.split(str(groupFile))[0].replace("\\", "/") + "/" + file)
                     elif str(kid).startswith(grp):
                         if os.path.isabs(str(grps.value(kid)).replace("\\", "/")):
                             kids.append(str(grps.value(kid)).replace("\\", "/"))
@@ -2681,6 +2737,167 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if hasattr(self, "loadedMZXMLs") and self.loadedMZXMLs is not None:
             self.resultsExperimentChanged()
 
+    def _refreshExperimentMSMS(self, *args):
+        """Refresh the MSMS spectra list when RT window or precursor intensity threshold changes."""
+        if hasattr(self, "loadedMZXMLs") and self.loadedMZXMLs is not None:
+            selectedItems = self.ui.resultsExperiment_TreeWidget.selectedItems()
+            self.updateMSMSList_exp(selectedItems)
+
+    def _refreshExperimentMSMS(self, *args):
+        """Refresh the MSMS spectra list when RT window or precursor intensity threshold changes."""
+        if hasattr(self, "loadedMZXMLs") and self.loadedMZXMLs is not None:
+            selectedItems = self.ui.resultsExperiment_TreeWidget.selectedItems()
+            self.updateMSMSList_exp(selectedItems)
+
+    def _build_msms_feature_forms(self):
+        """Build a map of feature_num -> set of MS2 forms (native/labeled) by querying all loaded files."""
+        msms_feature_forms = {}
+
+        if not hasattr(self, "loadedMZXMLs") or self.loadedMZXMLs is None:
+            return msms_feature_forms
+
+        # Show progress dialog
+        pw = ProgressWrapper(1, parent=self, showIndProgress=False)
+        pw.show()
+
+        try:
+            ppm = self.ui.doubleSpinBox_resultsExperiment_EICppm.value()
+        except Exception:
+            ppm = 5.0
+
+        try:
+            msms_rt_window = self.ui.doubleSpinBox_resultsExperiment_MSMSRTWindow.value()
+        except Exception:
+            msms_rt_window = 0.5
+
+        try:
+            prec_intens_percent = self.ui.doubleSpinBox_resultsExperiment_MSMSPrecIntensPercent.value() / 100.0
+        except Exception:
+            prec_intens_percent = 0.5
+
+        try:
+            abs_intens_threshold = self.ui.doubleSpinBox_resultsExperiment_MSMSAbsIntensThreshold.value()
+        except Exception:
+            abs_intens_threshold = 0.0
+
+        file_keys = [k for k in self.loadedMZXMLs if k.lower().endswith(".mzxml") or k.lower().endswith(".mzml")]
+
+        # Collect all features from the tree
+        all_features = {}
+        tree = self.ui.resultsExperiment_TreeWidget
+        for i in range(tree.topLevelItemCount()):
+            top = tree.topLevelItem(i)
+            for c in range(top.childCount()):
+                child = top.child(c)
+                bd = getattr(child, "bunchData", None)
+                if bd and hasattr(bd, "id"):
+                    all_features[bd.id] = bd
+
+        if not all_features:
+            pw.close()
+            return msms_feature_forms
+
+        # Get feature data from DB for per-file RT bounds
+        rows_by_num = {}
+        if hasattr(self, "experimentResults") and self.experimentResults is not None and self.experimentResults.db_con is not None:
+            for sheet in ["4_Convoluted", "3_Reintegrated", "1_Bracketed"]:
+                try:
+                    tdf = self.experimentResults.db_con.get_table(sheet)
+                    if tdf is not None and not tdf.is_empty():
+                        rows_by_num = {r["Num"]: r for r in tdf.to_dicts()}
+                        break
+                except Exception:
+                    pass
+
+        pw.getCallingFunction()("max")(sum(len(mzxml.MS2_list) if hasattr(mzxml, "MS2_list") else 0 for mzxml in self.loadedMZXMLs.values()))
+        pw.getCallingFunction()("value")(0)
+
+        total_checked = 0
+
+        # For each file and MS2 scan, determine if it matches a feature
+        for file_key in file_keys:
+            mzxml_file = self.loadedMZXMLs[file_key]
+            if not (hasattr(mzxml_file, "MS2_list") and len(mzxml_file.MS2_list) > 0):
+                continue
+
+            for ms2_scan in mzxml_file.MS2_list:
+                total_checked += 1
+                if total_checked % 50 == 0:
+                    pw.getCallingFunction()("value")(total_checked)
+                    QtWidgets.QApplication.processEvents()
+
+                # Try to match this scan to any feature
+                for feature_num, bd in all_features.items():
+                    # Calculate m/z windows
+                    native_mz_min = bd.mz * (1 - ppm / 1000000.0)
+                    native_mz_max = bd.mz * (1 + ppm / 1000000.0)
+                    labeled_mz_min = bd.lmz * (1 - ppm / 1000000.0) if bd.lmz is not None else None
+                    labeled_mz_max = bd.lmz * (1 + ppm / 1000000.0) if bd.lmz is not None else None
+
+                    # RT window around feature
+                    rt_min_s = bd.rt - msms_rt_window * 60.0
+                    rt_max_s = bd.rt + msms_rt_window * 60.0
+
+                    # Check RT window
+                    if not (rt_min_s <= ms2_scan.retention_time <= rt_max_s):
+                        continue
+
+                    # Check precursor m/z and determine form
+                    form = None
+                    if native_mz_min <= ms2_scan.precursor_mz <= native_mz_max:
+                        form = "native"
+                    elif labeled_mz_min is not None and labeled_mz_min <= ms2_scan.precursor_mz <= labeled_mz_max:
+                        form = "labeled"
+
+                    if form is None:
+                        continue
+
+                    # Check percent threshold if applicable
+                    if prec_intens_percent > 0.0:
+                        row_data = rows_by_num.get(feature_num)
+                        if row_data is not None:
+                            fname = os.path.basename(file_key)
+                            for ext in [".mzxml", ".mzml"]:
+                                if fname.lower().endswith(ext):
+                                    fname = fname[: -len(ext)]
+                                    break
+                            try:
+                                peak_rt_min = min(
+                                    float(str(row_data.get(f"{fname}_N_startRT", "")).split(";")[0]) * 60.0 if row_data.get(f"{fname}_N_startRT") else float("inf"),
+                                    float(str(row_data.get(f"{fname}_L_startRT", "")).split(";")[0]) * 60.0 if row_data.get(f"{fname}_L_startRT") else float("inf"),
+                                )
+                                peak_rt_max = max(
+                                    float(str(row_data.get(f"{fname}_N_endRT", "")).split(";")[0]) * 60.0 if row_data.get(f"{fname}_N_endRT") else float("-inf"),
+                                    float(str(row_data.get(f"{fname}_L_endRT", "")).split(";")[0]) * 60.0 if row_data.get(f"{fname}_L_endRT") else float("-inf"),
+                                )
+                                if peak_rt_min != float("inf") and peak_rt_max != float("-inf"):
+                                    try:
+                                        eic, times, _, _ = mzxml_file.getEIC(bd.mz, ppm=ppm, filterLine=None)
+                                        peak_max = 0.0
+                                        for intensity, t in zip(eic, times):
+                                            if peak_rt_min <= t <= peak_rt_max:
+                                                if intensity > peak_max:
+                                                    peak_max = intensity
+                                        if peak_max > 0.0 and ms2_scan.precursor_intensity < prec_intens_percent * peak_max:
+                                            continue
+                                    except Exception:
+                                        pass
+                            except (TypeError, ValueError):
+                                pass
+
+                    # Check absolute threshold
+                    if abs_intens_threshold > 0.0 and ms2_scan.precursor_intensity < abs_intens_threshold:
+                        continue
+
+                    # This scan matches the feature
+                    if feature_num not in msms_feature_forms:
+                        msms_feature_forms[feature_num] = set()
+                    msms_feature_forms[feature_num].add(form)
+                    break
+
+        pw.close()
+        return msms_feature_forms
+
     def _refreshExperimentAbundancePlot(self, *args):
         self.updateExperimentAbundancePlot(self._getSelectedExperimentPlotItems())
 
@@ -3326,7 +3543,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 sett.clear()
 
             sett.beginGroup("WorkingDirectory")
-            sett.setValue("workingDirectory", os.getcwd())
+            sett.setValue("workingDirectory", os.getcwd().replace("\\", "/"))
             sett.endGroup()
 
             sett.beginGroup("Settings")
@@ -9459,9 +9676,24 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             return
 
         try:
-            borderOffset = self.ui.doubleSpinBox_resultsExperiment_PeakWidth.value()
+            msms_rt_window = self.ui.doubleSpinBox_resultsExperiment_MSMSRTWindow.value()
         except Exception:
-            borderOffset = 0.5
+            msms_rt_window = 0.5
+
+        try:
+            prec_intens_percent = self.ui.doubleSpinBox_resultsExperiment_MSMSPrecIntensPercent.value() / 100.0
+        except Exception:
+            prec_intens_percent = 0.5
+
+        try:
+            abs_intens_threshold = self.ui.doubleSpinBox_resultsExperiment_MSMSAbsIntensThreshold.value()
+        except Exception:
+            abs_intens_threshold = 0.0
+
+        try:
+            ppm = self.ui.doubleSpinBox_resultsExperiment_EICppm.value()
+        except Exception:
+            ppm = 5.0
 
         # Build file-path -> group-name mapping (loadedMZXMLs is keyed by both path and group)
         file_to_group = {}
@@ -9473,7 +9705,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         file_keys = [k for k in self.loadedMZXMLs if k.lower().endswith(".mzxml") or k.lower().endswith(".mzml")]
 
         feature_ranges = []
-        # Build per-feature, per-sample RT bounds from the results DB when available
+        # Build per-feature, per-sample RT bounds from the results DB (used for precursor intensity check)
         rows_by_num = {}
         if hasattr(self, "experimentResults") and self.experimentResults is not None and self.experimentResults.db_con is not None:
             for sheet in ["4_Convoluted", "3_Reintegrated", "1_Bracketed"]:
@@ -9489,19 +9721,17 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if hasattr(item, "bunchData"):
                 bd = item.bunchData
                 if bd.type == "featurePair":
-                    try:
-                        ppm = self.ui.doubleSpinBox_resultsExperiment_EICppm.value()
-                    except Exception:
-                        ppm = 5.0
-
                     native_mz_min = bd.mz * (1 - ppm / 1000000.0)
                     native_mz_max = bd.mz * (1 + ppm / 1000000.0)
-                    labeled_mz_min = bd.lmz * (1 - ppm / 1000000.0)
-                    labeled_mz_max = bd.lmz * (1 + ppm / 1000000.0)
+                    labeled_mz_min = bd.lmz * (1 - ppm / 1000000.0) if bd.lmz is not None else None
+                    labeled_mz_max = bd.lmz * (1 + ppm / 1000000.0) if bd.lmz is not None else None
 
-                    # Build a per-file RT range dict: file_key -> (rt_min_s, rt_max_s)
-                    # Values are in seconds for comparison with ms2_scan.retention_time
-                    per_file_rt = {}
+                    # RT window around the feature's average RT (in seconds)
+                    rt_min_s = bd.rt - msms_rt_window * 60.0
+                    rt_max_s = bd.rt + msms_rt_window * 60.0
+
+                    # Per-file peak RT bounds for precursor intensity check
+                    per_file_peak_rt = {}
                     row_data = rows_by_num.get(getattr(bd, "id", None))
                     if row_data is not None:
                         for file_key in file_keys:
@@ -9515,36 +9745,92 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             lsv = row_data.get(f"{fname}_L_startRT")
                             lev = row_data.get(f"{fname}_L_endRT")
                             try:
-                                # DB stores RT in minutes; convert to seconds
-                                rt_min_s = min(
+                                peak_rt_min = min(
                                     float(str(sv).split(";")[0]) * 60.0 if sv is not None else float("inf"),
                                     float(str(lsv).split(";")[0]) * 60.0 if lsv is not None else float("inf"),
                                 )
-                                rt_max_s = max(
+                                peak_rt_max = max(
                                     float(str(ev).split(";")[0]) * 60.0 if ev is not None else float("-inf"),
                                     float(str(lev).split(";")[0]) * 60.0 if lev is not None else float("-inf"),
                                 )
-                                if rt_min_s != float("inf") and rt_max_s != float("-inf"):
-                                    per_file_rt[file_key] = (rt_min_s, rt_max_s)
+                                if peak_rt_min != float("inf") and peak_rt_max != float("-inf"):
+                                    per_file_peak_rt[file_key] = (peak_rt_min, peak_rt_max)
                             except (TypeError, ValueError):
                                 pass
 
+                    # Determine scan event for EIC extraction
+                    scan_event = getattr(bd, "scanEvent", None)
+
                     feature_ranges.append(
                         {
+                            "native_mz": bd.mz,
                             "native_mz_min": native_mz_min,
                             "native_mz_max": native_mz_max,
                             "labeled_mz_min": labeled_mz_min,
                             "labeled_mz_max": labeled_mz_max,
-                            "per_file_rt": per_file_rt,
-                            "global_rt": bd.rt,  # seconds, used as fallback
+                            "rt_min_s": rt_min_s,
+                            "rt_max_s": rt_max_s,
+                            "per_file_peak_rt": per_file_peak_rt,
+                            "global_rt": bd.rt,  # seconds
                             "feature_num": getattr(bd, "id", None),
                             "metaboliteGroupID": getattr(bd, "metaboliteGroupID", None),
                             "xn": getattr(bd, "xn", None),
+                            "scan_event": scan_event,
+                            "ionisation_mode": getattr(bd, "ionisationMode", None),
                         }
                     )
 
         if not feature_ranges:
             return
+
+        # Cache for EIC max intensities: (file_key, feature_num) -> max_intensity_in_peak
+        _eic_max_cache = {}
+
+        def _get_eic_peak_max(file_key, fr):
+            """Return max EIC intensity in the peak RT region for a given file/feature, or None if unavailable."""
+            cache_key = (file_key, fr.get("feature_num"))
+            if cache_key in _eic_max_cache:
+                return _eic_max_cache[cache_key]
+
+            peak_rt = fr["per_file_peak_rt"].get(file_key)
+            if peak_rt is None:
+                # Use global RT +/- MSMS window as fallback bounds
+                peak_rt = (fr["global_rt"] - msms_rt_window * 60.0, fr["global_rt"] + msms_rt_window * 60.0)
+
+            mzxml_file = self.loadedMZXMLs.get(file_key)
+            if mzxml_file is None:
+                _eic_max_cache[cache_key] = None
+                return None
+
+            try:
+                scan_event = fr.get("scan_event")
+                if scan_event is None:
+                    ion_mode = fr.get("ionisation_mode")
+                    filter_lines = mzxml_file.getFilterLines(includeMS1=True, includeMS2=False, includePosPolarity=True, includeNegPolarity=True)
+                    if filter_lines:
+                        if ion_mode and "+" in str(ion_mode):
+                            scan_event = next((fl for fl in filter_lines if "+" in fl), filter_lines[0])
+                        elif ion_mode and "-" in str(ion_mode):
+                            scan_event = next((fl for fl in filter_lines if "-" in fl), filter_lines[0])
+                        else:
+                            scan_event = filter_lines[0]
+
+                if scan_event is None:
+                    _eic_max_cache[cache_key] = None
+                    return None
+
+                eic, times, _, _ = mzxml_file.getEIC(fr["native_mz"], ppm=ppm, filterLine=scan_event)
+                peak_max = 0.0
+                for intensity, t in zip(eic, times):
+                    if peak_rt[0] <= t <= peak_rt[1]:
+                        if intensity > peak_max:
+                            peak_max = intensity
+                result = peak_max if peak_max > 0.0 else None
+            except Exception:
+                result = None
+
+            _eic_max_cache[cache_key] = result
+            return result
 
         all_ms2_scans = []
         for file_key in file_keys:
@@ -9553,28 +9839,46 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 continue
             for ms2_scan in mzxml_file.MS2_list:
                 for fr in feature_ranges:
-                    # Determine RT bounds for this specific file
-                    if file_key in fr["per_file_rt"]:
-                        rt_min_s, rt_max_s = fr["per_file_rt"][file_key]
-                    else:
-                        # Fallback: borderOffset around the global feature RT
-                        rt_min_s = fr["global_rt"] - (borderOffset * 60.0)
-                        rt_max_s = fr["global_rt"] + (borderOffset * 60.0)
-
-                    if not (rt_min_s <= ms2_scan.retention_time <= rt_max_s):
+                    # RT window filter: window around average feature RT
+                    if not (fr["rt_min_s"] <= ms2_scan.retention_time <= fr["rt_max_s"]):
                         continue
 
+                    form = None
                     # Check precursor m/z against native form
                     if fr["native_mz_min"] <= ms2_scan.precursor_mz <= fr["native_mz_max"]:
-                        all_ms2_scans.append({"scan": ms2_scan, "form": "native", "file": file_key, "feature_num": fr.get("feature_num"), "o_group": fr.get("metaboliteGroupID"), "xn": fr.get("xn")})
-                        break
+                        form = "native"
                     # Check against labeled form
-                    if fr["labeled_mz_min"] <= ms2_scan.precursor_mz <= fr["labeled_mz_max"]:
-                        all_ms2_scans.append({"scan": ms2_scan, "form": "labeled", "file": file_key, "feature_num": fr.get("feature_num"), "o_group": fr.get("metaboliteGroupID"), "xn": fr.get("xn")})
-                        break
+                    elif fr["labeled_mz_min"] is not None and fr["labeled_mz_min"] <= ms2_scan.precursor_mz <= fr["labeled_mz_max"]:
+                        form = "labeled"
+
+                    if form is None:
+                        continue
+
+                    # Precursor intensity percent check (applied per file)
+                    if prec_intens_percent > 0.0:
+                        peak_max = _get_eic_peak_max(file_key, fr)
+                        if peak_max is not None and ms2_scan.precursor_intensity < prec_intens_percent * peak_max:
+                            continue
+
+                    # Absolute intensity threshold check
+                    if abs_intens_threshold > 0.0 and ms2_scan.precursor_intensity < abs_intens_threshold:
+                        continue
+
+                    all_ms2_scans.append({"scan": ms2_scan, "form": form, "file": file_key, "feature_num": fr.get("feature_num"), "o_group": fr.get("metaboliteGroupID"), "xn": fr.get("xn")})
+                    break
 
         sorted_scans = [(s["scan"], s["form"], s["file"], s.get("feature_num"), s.get("o_group"), s.get("xn")) for s in all_ms2_scans]
         sorted_scans = natSort(sorted_scans, key=lambda x: x[0].precursor_intensity)
+
+        # Build feature_num -> set of forms for the MS2 filter
+        _msms_feature_forms = {}
+        for s in all_ms2_scans:
+            fn = s.get("feature_num")
+            if fn is not None:
+                if fn not in _msms_feature_forms:
+                    _msms_feature_forms[fn] = set()
+                _msms_feature_forms[fn].add(s["form"])
+        self._exp_msms_feature_forms = _msms_feature_forms
 
         _native_color = QtGui.QColor(30, 144, 255, 60)
         _labeled_color = QtGui.QColor(178, 34, 34, 60)
@@ -10220,9 +10524,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             lines = [f"{float(mz):.6f} {float(it):.6f}" for mz, it in zip(scan.mz_list, scan.intensity_list)]
         elif fmt == "tsv":
             lines = ["mz\tintensity"] + [f"{float(mz):.6f}\t{float(it):.6f}" for mz, it in zip(scan.mz_list, scan.intensity_list)]
-        else:  # massbank-like
-            lines = [f"{float(mz):.6f}\t{float(it):.6f}" for mz, it in zip(scan.mz_list, scan.intensity_list)]
-        pyperclip.copy("\n".join(lines))
+        else:  # massbank-like (use space delimiter)
+            lines = [f"{float(mz):.6f} {float(it):.6f}" for mz, it in zip(scan.mz_list, scan.intensity_list)]
+        QtWidgets.QApplication.clipboard().setText("\n".join(lines))
 
     def _show_msms_context_menu(self, table_widget, pos):
         item = table_widget.itemAt(pos)
@@ -10244,6 +10548,312 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self._copy_msms_spectrum(scan, "tsv")
         elif sel == act_mb:
             self._copy_msms_spectrum(scan, "massbank")
+
+    def _export_exp_msms_mgf(self):
+        """Export filtered MSMS spectra from all features to MGF file."""
+        if not hasattr(self, "loadedMZXMLs") or self.loadedMZXMLs is None:
+            QtWidgets.QMessageBox.information(self, "Export MS/MS", "No MS/MS data available.")
+            return
+
+        # Show export options dialog
+        dlg = QtWidgets.QDialog(self)
+        dlg.setWindowTitle("Export MS/MS Spectra")
+        layout = QtWidgets.QVBoxLayout(dlg)
+
+        label = QtWidgets.QLabel("Select export mode:")
+        layout.addWidget(label)
+
+        mode_group = QtWidgets.QButtonGroup(dlg)
+        all_spectra_radio = QtWidgets.QRadioButton("Export all spectra (current filtering applied)")
+        all_spectra_radio.setChecked(True)
+        abundant_radio = QtWidgets.QRadioButton("Export most abundant spectrum per feature\n(one native, one labeled - highest precursor intensity)")
+
+        mode_group.addButton(all_spectra_radio, 0)
+        mode_group.addButton(abundant_radio, 1)
+
+        layout.addWidget(all_spectra_radio)
+        layout.addWidget(abundant_radio)
+        layout.addSpacing(10)
+
+        buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Ok | QtWidgets.QDialogButtonBox.StandardButton.Cancel)
+        buttons.accepted.connect(dlg.accept)
+        buttons.rejected.connect(dlg.reject)
+        layout.addWidget(buttons)
+
+        if dlg.exec() != QtWidgets.QDialog.DialogCode.Accepted:
+            return
+
+        export_mode = "most_abundant" if mode_group.checkedId() == 1 else "all"
+
+        # Collect all features from the tree
+        all_features = {}
+        tree = self.ui.resultsExperiment_TreeWidget
+        for i in range(tree.topLevelItemCount()):
+            top = tree.topLevelItem(i)
+            for c in range(top.childCount()):
+                child = top.child(c)
+                bd = getattr(child, "bunchData", None)
+                if bd and hasattr(bd, "id"):
+                    all_features[bd.id] = bd
+
+        if not all_features:
+            QtWidgets.QMessageBox.information(self, "Export MS/MS", "No features available.")
+            return
+
+        # Get current filter settings
+        try:
+            msms_rt_window = self.ui.doubleSpinBox_resultsExperiment_MSMSRTWindow.value()
+        except Exception:
+            msms_rt_window = 0.5
+
+        try:
+            prec_intens_percent = self.ui.doubleSpinBox_resultsExperiment_MSMSPrecIntensPercent.value() / 100.0
+        except Exception:
+            prec_intens_percent = 0.5
+
+        try:
+            abs_intens_threshold = self.ui.doubleSpinBox_resultsExperiment_MSMSAbsIntensThreshold.value()
+        except Exception:
+            abs_intens_threshold = 0.0
+
+        try:
+            ppm = self.ui.doubleSpinBox_resultsExperiment_EICppm.value()
+        except Exception:
+            ppm = 5.0
+
+        # Build file-path -> group-name mapping
+        file_to_group = {}
+        for grp in self.getAllSampleGroups():
+            for fpath in grp.files:
+                file_to_group[fpath] = grp.name
+
+        file_keys = [k for k in self.loadedMZXMLs if k.lower().endswith(".mzxml") or k.lower().endswith(".mzml")]
+
+        # Collect feature data for per-file RT bounds
+        rows_by_num = {}
+        if hasattr(self, "experimentResults") and self.experimentResults is not None and self.experimentResults.db_con is not None:
+            for sheet in ["4_Convoluted", "3_Reintegrated", "1_Bracketed"]:
+                try:
+                    tdf = self.experimentResults.db_con.get_table(sheet)
+                    if tdf is not None and not tdf.is_empty():
+                        rows_by_num = {r["Num"]: r for r in tdf.to_dicts()}
+                        break
+                except Exception:
+                    pass
+
+        # Cache for EIC max intensities
+        _eic_max_cache = {}
+
+        def _get_eic_peak_max(file_key, native_mz, rt_center, rt_window):
+            cache_key = (file_key, native_mz)
+            if cache_key in _eic_max_cache:
+                return _eic_max_cache[cache_key]
+
+            mzxml_file = self.loadedMZXMLs.get(file_key)
+            if mzxml_file is None:
+                return None
+
+            peak_rt = (rt_center - rt_window * 60.0, rt_center + rt_window * 60.0)
+            try:
+                eic, times, _, _ = mzxml_file.getEIC(native_mz, ppm=ppm, filterLine=None)
+                peak_max = 0.0
+                for intensity, t in zip(eic, times):
+                    if peak_rt[0] <= t <= peak_rt[1]:
+                        if intensity > peak_max:
+                            peak_max = intensity
+                result = peak_max if peak_max > 0.0 else None
+            except Exception:
+                result = None
+
+            _eic_max_cache[cache_key] = result
+            return result
+
+        # Collect all matching spectra
+        all_ms2_scans = []
+        for file_key in file_keys:
+            mzxml_file = self.loadedMZXMLs[file_key]
+            if not (hasattr(mzxml_file, "MS2_list") and len(mzxml_file.MS2_list) > 0):
+                continue
+
+            for ms2_scan in mzxml_file.MS2_list:
+                for feature_num, bd in all_features.items():
+                    # Calculate m/z windows
+                    native_mz_min = bd.mz * (1 - ppm / 1000000.0)
+                    native_mz_max = bd.mz * (1 + ppm / 1000000.0)
+                    labeled_mz_min = bd.lmz * (1 - ppm / 1000000.0) if bd.lmz is not None else None
+                    labeled_mz_max = bd.lmz * (1 + ppm / 1000000.0) if bd.lmz is not None else None
+
+                    # RT window around feature
+                    rt_min_s = bd.rt - msms_rt_window * 60.0
+                    rt_max_s = bd.rt + msms_rt_window * 60.0
+
+                    # Check RT window
+                    if not (rt_min_s <= ms2_scan.retention_time <= rt_max_s):
+                        continue
+
+                    # Check precursor m/z
+                    form = None
+                    if native_mz_min <= ms2_scan.precursor_mz <= native_mz_max:
+                        form = "native"
+                    elif labeled_mz_min is not None and labeled_mz_min <= ms2_scan.precursor_mz <= labeled_mz_max:
+                        form = "labeled"
+
+                    if form is None:
+                        continue
+
+                    # Check percent threshold
+                    if prec_intens_percent > 0.0:
+                        peak_max = _get_eic_peak_max(file_key, bd.mz, bd.rt, msms_rt_window)
+                        if peak_max is not None and ms2_scan.precursor_intensity < prec_intens_percent * peak_max:
+                            continue
+
+                    # Check absolute threshold
+                    if abs_intens_threshold > 0.0 and ms2_scan.precursor_intensity < abs_intens_threshold:
+                        continue
+
+                    all_ms2_scans.append(
+                        {
+                            "scan": ms2_scan,
+                            "form": form,
+                            "file": file_key,
+                            "feature_num": feature_num,
+                            "o_group": getattr(bd, "metaboliteGroupID", None),
+                            "xn": getattr(bd, "xn", None),
+                        }
+                    )
+                    break
+
+        # Filter to most abundant if requested
+        if export_mode == "most_abundant":
+            abundant_scans = {}
+            for row in all_ms2_scans:
+                feature_num = row["feature_num"]
+                form = row["form"]
+                key = (feature_num, form)
+
+                if key not in abundant_scans:
+                    abundant_scans[key] = row
+                else:
+                    # Keep the one with higher precursor intensity
+                    if row["scan"].precursor_intensity > abundant_scans[key]["scan"].precursor_intensity:
+                        abundant_scans[key] = row
+
+            all_ms2_scans = list(abundant_scans.values())
+
+        if len(all_ms2_scans) == 0:
+            QtWidgets.QMessageBox.information(self, "Export MS/MS", "No MS/MS spectra match the current filters.")
+            return
+
+        # Ask user for file location
+        save_path, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Export MS/MS spectra to MGF", "msms_export.mgf", "MGF files (*.mgf)")
+        if not save_path:
+            return
+
+        try:
+            with open(save_path, "w", encoding="utf-8") as f:
+                for row in all_ms2_scans:
+                    scan = row["scan"]
+                    form = row["form"]
+                    feature_num = row["feature_num"]
+                    o_group = row["o_group"]
+                    file_key = row["file"]
+                    xn = row["xn"]
+
+                    # Get file name
+                    file_name = os.path.basename(file_key) if file_key else "unknown"
+
+                    # Get polarity from the scan or other metadata
+                    polarity = getattr(scan, "polarity", None) or ""
+
+                    # Extract filter string: prioritize MS:1000512 from cvParams, fall back to filter_line
+                    filter_string = None
+                    if hasattr(scan, "cvParams") and scan.cvParams:
+                        for cv in scan.cvParams:
+                            if cv.get("accession") == "MS:1000512":
+                                filter_string = cv.get("value", "")
+                                break
+
+                    # Fall back to filter_line attribute if no cvParam found
+                    if not filter_string:
+                        filter_string = getattr(scan, "filter_line", None)
+                        # Don't use default "N/A" values
+                        if filter_string and ("N/A" in filter_string or "Unknown" in filter_string):
+                            filter_string = None
+
+                    # Normalize spectrum (most abundant = 100.0)
+                    processing = []
+                    if len(scan.intensity_list) > 0:
+                        max_intensity = max(scan.intensity_list)
+                        if max_intensity > 0:
+                            normalized_intensities = [float(i) / max_intensity * 100.0 for i in scan.intensity_list]
+                            processing.append("Normalization - relative intensity to most intense peak")
+                        else:
+                            normalized_intensities = list(scan.intensity_list)
+                    else:
+                        normalized_intensities = []
+
+                    # Write MGF block
+                    f.write("BEGIN IONS\n")
+                    f.write(f"TITLE=Feature_{feature_num}_{form}\n")
+                    f.write(f"PEPMASS={float(getattr(scan, 'precursor_mz', 0.0)):.6f}\n")
+                    f.write(f"RTINSECONDS={float(getattr(scan, 'retention_time', 0.0)):.3f}\n")
+                    f.write(f"PRECURSOR_INTENSITY={float(getattr(scan, 'precursor_intensity', 0.0)):.4g}\n")
+                    f.write(f"FEATURE_ID={feature_num}\n")
+                    f.write(f"OGROUP={o_group}\n")
+                    f.write(f"FORM={form}\n")
+                    f.write(f"POLARITY={polarity}\n")
+                    f.write(f"FILE={file_name}\n")
+                    f.write(f"XN={xn}\n")
+                    if filter_string:
+                        f.write(f"FILTER_LINE={filter_string}\n")
+                    if hasattr(scan, "collisionEnergy") and scan.collisionEnergy:
+                        f.write(f"COLLISION_ENERGY={scan.collisionEnergy}\n")
+                    if hasattr(scan, "setup") and scan.setup:
+                        f.write(f"SETUP={scan.setup}\n")
+                    if processing:
+                        f.write(f"PROCESSING={';'.join(processing)}\n")
+
+                    # Write normalized peaks
+                    for mz, intensity in zip(scan.mz_list, normalized_intensities):
+                        f.write(f"{float(mz):.6f} {float(intensity):.2f}\n")
+
+                    f.write("END IONS\n\n")
+
+            QtWidgets.QMessageBox.information(self, "Export MS/MS", f"Exported {len(all_ms2_scans)} spectra to:\n{save_path}")
+
+            # Show FragExtract command dialog
+            dlg = QtWidgets.QDialog(self)
+            dlg.setWindowTitle("MS/MS Export Complete")
+            dlg.setMinimumWidth(600)
+            layout = QtWidgets.QVBoxLayout(dlg)
+
+            info_label = QtWidgets.QLabel(f"Successfully exported {len(all_ms2_scans)} spectra.")
+            layout.addWidget(info_label)
+
+            layout.addWidget(QtWidgets.QLabel("To clean the spectra, run this command:"))
+
+            # Build FragExtract command
+            mgf_path = save_path
+            output_folder = os.path.dirname(save_path)
+            frag_command = f'.\FragExtract.exe --isotope-mz-diff 1.00335484 --max-rt-diff 0.1 --grouping-fields FEATURE_ID --input-mgf "{mgf_path}" --output-folder "{output_folder}/plots"'
+
+            cmd_text = QtWidgets.QTextEdit()
+            cmd_text.setPlainText(frag_command)
+            cmd_text.setReadOnly(True)
+            cmd_text.setMaximumHeight(80)
+            layout.addWidget(cmd_text)
+
+            copy_btn = QtWidgets.QPushButton("Copy Command")
+            copy_btn.clicked.connect(lambda: QtWidgets.QApplication.clipboard().setText(frag_command))
+            layout.addWidget(copy_btn)
+
+            close_btn = QtWidgets.QPushButton("Close")
+            close_btn.clicked.connect(dlg.accept)
+            layout.addWidget(close_btn)
+
+            dlg.exec()
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, "Export MS/MS error", f"Failed to export: {str(e)}")
 
     def _export_msms_mgf(self):
         rows = list(self._iter_exp_msms_rows())
@@ -10884,23 +11494,194 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     allShow = allShow or show
                 fg.setHidden(not allShow)
 
-    def expFilterEdited(self, text):
-        text = str(text).strip()
+    def _onExpFilterToggle(self, checked):
+        self.ui.expFilterContent.setVisible(checked)
+        self.ui.expFilterToggleBtn.setText("Hide filters \u25b4" if checked else "Show filters \u25be")
+        if not checked:
+            # Clear all filter fields when collapsing
+            self.ui.expFilter_mz.clear()
+            self.ui.expFilter_rt.clear()
+            self.ui.expFilter_xn.clear()
+            self.ui.expFilter_z.clear()
+            self.ui.expFilter_polarity.setCurrentIndex(0)
+            self.ui.expFilter_ms2.setCurrentIndex(0)
+
+    def _onExpFilterReset(self):
+        """Reset all filter fields to default values."""
+        self.ui.expFilter_mz.clear()
+        self.ui.expFilter_rt.clear()
+        self.ui.expFilter_xn.clear()
+        self.ui.expFilter_z.clear()
+        self.ui.expFilter_polarity.setCurrentIndex(0)
+        self.ui.expFilter_ms2.setCurrentIndex(0)
+        # Show filter panel when resetting
+        if not self.ui.expFilterToggleBtn.isChecked():
+            self.ui.expFilterToggleBtn.setChecked(True)
+
+    @staticmethod
+    def _parse_filter_range(text):
+        """Parse a filter text into a (value_contains, min_val, max_val) tuple.
+        Handles flexible range syntax:
+        - 'a-b', 'a - b', 'a- b', 'a -b' → (None, a, b)
+        - '-b', '- b' → (None, -inf, b)  [up to b]
+        - 'a-', 'a -' → (None, a, inf)  [from a onward]
+        - Plain text → (text, None, None) for substring matching
+        """
+        text = text.strip()
+        if not text:
+            return None, None, None
+
+        # Try to detect a range pattern (flexible spacing around dash)
+        if "-" in text:
+            # Split on the dash, handling cases like "a-b", "a - b", "a- b", etc.
+            parts = text.split("-", 1)
+            left = parts[0].strip()
+            right = parts[1].strip() if len(parts) > 1 else ""
+
+            left_val = None
+            right_val = None
+
+            # Try to parse left side
+            if left:
+                try:
+                    left_val = float(left)
+                except ValueError:
+                    # Not a number, treat as plain substring match
+                    return text, None, None
+
+            # Try to parse right side
+            if right:
+                try:
+                    right_val = float(right)
+                except ValueError:
+                    # Not a number, treat as plain substring match
+                    return text, None, None
+
+            # If we got here, at least one side parsed as a number
+            if left_val is not None and right_val is not None:
+                return None, left_val, right_val
+            elif left_val is not None:
+                # Only left (e.g., "100-") → from 100 to infinity
+                return None, left_val, float("inf")
+            elif right_val is not None:
+                # Only right (e.g., "-100") → from -infinity to 100
+                return None, float("-inf"), right_val
+
+        # Plain text for substring matching
+        return text, None, None
+
+    def expFilterEdited(self, *args):
         tree = self.ui.resultsExperiment_TreeWidget
+
+        # Gather filter values
+        mz_text = self.ui.expFilter_mz.text().strip()
+        rt_text = self.ui.expFilter_rt.text().strip()
+        xn_text = self.ui.expFilter_xn.text().strip()
+        z_text = self.ui.expFilter_z.text().strip()
+        polarity_idx = self.ui.expFilter_polarity.currentIndex()  # 0=both, 1=pos, 2=neg
+        ms2_idx = self.ui.expFilter_ms2.currentIndex()
+        # 0=all, 1=without MS2, 2=with MS2, 3=with native MS2, 4=with labeled MS2
+
+        # Handle MS2 filter change: if user selects non-"all" option, query MS2 forms from files
+        prev_ms2_idx = getattr(self, "_prev_ms2_filter_idx", 0)
+        if ms2_idx != 0 and ms2_idx != prev_ms2_idx:
+            # User wants to filter by MS2 content; query all files
+            msms_forms = self._build_msms_feature_forms()
+        else:
+            # Use cached data from updateMSMSList_exp or empty set
+            msms_forms = getattr(self, "_exp_msms_feature_forms", {})
+        self._prev_ms2_filter_idx = ms2_idx
+
+        no_filters = not any([mz_text, rt_text, xn_text, z_text, polarity_idx != 0, ms2_idx != 0])
+
+        mz_sub, mz_min, mz_max = self._parse_filter_range(mz_text)
+        rt_sub, rt_min, rt_max = self._parse_filter_range(rt_text)
+        xn_sub, xn_min, xn_max = self._parse_filter_range(xn_text)
+
         for i in range(tree.topLevelItemCount()):
             top = tree.topLevelItem(i)
-            if not text:
+            if no_filters:
                 top.setHidden(False)
                 for c in range(top.childCount()):
                     top.child(c).setHidden(False)
                 continue
+
             any_child_shown = False
             for c in range(top.childCount()):
                 child = top.child(c)
-                match = any(text in child.text(col) for col in range(tree.columnCount()))
-                child.setHidden(not match)
-                if match:
+                bd = getattr(child, "bunchData", None)
+                if bd is None:
+                    child.setHidden(False)
                     any_child_shown = True
+                    continue
+
+                show = True
+
+                # m/z filter
+                if mz_text and show:
+                    mz_val = getattr(bd, "mz", None)
+                    if mz_val is not None:
+                        mz_str = "%.4f" % mz_val
+                        if mz_min is not None and mz_max is not None:
+                            show = mz_min <= mz_val <= mz_max
+                        elif mz_sub:
+                            show = mz_sub in mz_str
+
+                # RT filter
+                if rt_text and show:
+                    rt_val = getattr(bd, "rt", None)
+                    if rt_val is not None:
+                        rt_min_val = rt_val / 60.0
+                        rt_str = "%.2f" % rt_min_val
+                        if rt_min is not None and rt_max is not None:
+                            show = rt_min <= rt_min_val <= rt_max
+                        elif rt_sub:
+                            show = rt_sub in rt_str
+
+                # Xn filter
+                if xn_text and show:
+                    xn_val = getattr(bd, "xn", None)
+                    if xn_val is not None:
+                        xn_str = str(xn_val)
+                        if xn_min is not None and xn_max is not None:
+                            try:
+                                show = xn_min <= float(xn_val) <= xn_max
+                            except (TypeError, ValueError):
+                                show = False
+                        elif xn_sub:
+                            show = xn_sub in xn_str
+
+                # Z (charge state) filter
+                if z_text and show:
+                    z_val = getattr(bd, "charge", None)
+                    if z_val is not None:
+                        show = z_text in str(z_val)
+
+                # Polarity filter
+                if polarity_idx != 0 and show:
+                    ion_mode = str(getattr(bd, "ionisationMode", "") or "")
+                    if polarity_idx == 1:
+                        show = "+" in ion_mode
+                    elif polarity_idx == 2:
+                        show = "-" in ion_mode
+
+                # MS2 filter
+                if ms2_idx != 0 and show:
+                    feature_num = getattr(bd, "id", None)
+                    forms = msms_forms.get(feature_num, set())
+                    if ms2_idx == 1:
+                        show = len(forms) == 0
+                    elif ms2_idx == 2:
+                        show = len(forms) > 0
+                    elif ms2_idx == 3:
+                        show = "native" in forms
+                    elif ms2_idx == 4:
+                        show = "labeled" in forms
+
+                child.setHidden(not show)
+                if show:
+                    any_child_shown = True
+
             top.setHidden(not any_child_shown)
 
     def setChromPeakName(self):
@@ -12863,6 +13644,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.resultsExperimentNormaliseXICs_checkBox.stateChanged.connect(self._refreshExperimentEICs)
         self.ui.resultsExperimentNormaliseXICsSeparately_checkBox.stateChanged.connect(self._refreshExperimentEICs)
         self.ui.showLegend_experiment.stateChanged.connect(self._refreshExperimentEICs)
+        self.ui.doubleSpinBox_resultsExperiment_MSMSRTWindow.valueChanged.connect(self._refreshExperimentMSMS)
+        self.ui.doubleSpinBox_resultsExperiment_MSMSPrecIntensPercent.valueChanged.connect(self._refreshExperimentMSMS)
+        self.ui.doubleSpinBox_resultsExperiment_MSMSAbsIntensThreshold.valueChanged.connect(self._refreshExperimentMSMS)
         self.ui.comboBox_abundancePlotType.currentIndexChanged.connect(self._refreshExperimentAbundancePlot)
         self.ui.comboBox_abundanceScale.currentIndexChanged.connect(self._refreshExperimentAbundancePlot)
         self.ui.comboBox_abundanceScalingMode.currentIndexChanged.connect(self._refreshExperimentAbundancePlot)
@@ -13127,6 +13911,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         vbox.addWidget(self.ui.plMSMS_exp.canvas)
         self.ui.plMSMSWidget_exp.setLayout(vbox)
 
+        # Install custom delegate on MSMS exp table to preserve row colors on selection
+        self._msms_table_delegate = _MSMSTableDelegate(self.ui.msms_SpectraList_exp)
+        self.ui.msms_SpectraList_exp.setItemDelegate(self._msms_table_delegate)
+
         self.ui.pl2A.xics = []
         self.ui.pl2A.times = []
         self.ui.pl2A.peaks = []
@@ -13138,6 +13926,17 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.ui.dataFilter.textChanged.connect(self.filterEdited)
         self.ui.expDataFilter.textChanged.connect(self.expFilterEdited)
+        # Connect collapsible filter toggle
+        self.ui.expFilterToggleBtn.toggled.connect(self._onExpFilterToggle)
+        self.ui.expFilterResetBtn.clicked.connect(self._onExpFilterReset)
+        self.ui.expExportMGFBtn.clicked.connect(self._export_exp_msms_mgf)
+        # Connect all individual filter fields
+        self.ui.expFilter_mz.textChanged.connect(self.expFilterEdited)
+        self.ui.expFilter_rt.textChanged.connect(self.expFilterEdited)
+        self.ui.expFilter_xn.textChanged.connect(self.expFilterEdited)
+        self.ui.expFilter_z.textChanged.connect(self.expFilterEdited)
+        self.ui.expFilter_polarity.currentIndexChanged.connect(self.expFilterEdited)
+        self.ui.expFilter_ms2.currentIndexChanged.connect(self.expFilterEdited)
         self.ui.res_ExtractedData.itemDoubleClicked.connect(self.res_doubleClick)
         self.ui.msms_SpectraList.itemSelectionChanged.connect(self.plotSelectedMSMSSpectra)
 

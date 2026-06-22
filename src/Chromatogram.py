@@ -393,6 +393,14 @@ class Chromatogram:
             if "activationMethod" in attrs:
                 self.MS2_list[-1].activationMethod = str(attrs["activationMethod"])
 
+        # Extract cvParams from scan elements (for mzML format)
+        if name == "cvParam" and len(self.MS2_list) > 0 and self.msLevel == 2:
+            cv_dict = {"accession": attrs.get("accession", ""), "cvRef": attrs.get("cvRef", ""), "name": attrs.get("name", ""), "value": attrs.get("value", "")}
+            self.MS2_list[-1].cvParams.append(cv_dict)
+        elif name == "cvParam" and len(self.MS1_list) > 0 and self.msLevel == 1:
+            cv_dict = {"accession": attrs.get("accession", ""), "cvRef": attrs.get("cvRef", ""), "name": attrs.get("name", ""), "value": attrs.get("value", "")}
+            self.MS1_list[-1].cvParams.append(cv_dict)
+
         if name == "scan":
             self.curScan = self.curScan + 1
 

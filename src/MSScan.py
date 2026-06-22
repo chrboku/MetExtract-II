@@ -101,6 +101,7 @@ class MSScan:
 class MS1Scan(MSScan):
     def __init__(self):
         super().__init__()
+        self.cvParams = []  # List of cvParam dicts with accession, cvRef, name, value
 
 
 class MS2Scan(MSScan):
@@ -113,3 +114,4 @@ class MS2Scan(MSScan):
         self.precursorCharge = 0
         self.collisionEnergy = 0.0
         self.activationMethod = ""
+        self.cvParams = []  # List of cvParam dicts with accession, cvRef, name, value
