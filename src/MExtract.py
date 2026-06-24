@@ -2103,6 +2103,320 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.ui.resultsExperiment_TreeWidget.clear()
             self.experimentResults.db_con = None
             delattr(self, "experimentResults")
+        # Clear feature map when results are closed
+        self._featureMapData = []
+        if hasattr(self.ui, "expFeatureMap_plot"):
+            self.ui.expFeatureMap_plot.axes.clear()
+            self.ui.expFeatureMap_plot.canvas.draw()
+
+    # ── Feature Map ──────────────────────────────────────────────────────────
+
+    # Colors for positive / negative polarity
+    _FM_COLOR_POS = "#DD9D48"
+    _FM_COLOR_NEG = "#8D86B8"
+
+    def _toggleFeatureMap(self, checked: bool):
+        """Show or hide the feature map panel; rebuild when shown."""
+        self.ui.expFeatureMapContainer.setVisible(checked)
+        if checked:
+            self._buildFeatureMap()
+
+    def _buildFeatureMap(self):
+        """Render all features as a RT-vs-MZ scatter plot grouped by OGroup."""
+        if not hasattr(self, "experimentResults") or self.experimentResults is None:
+            return
+
+        try:
+            df = self.experimentResults.db_con.tables[self.experimentResults.selected_table]
+        except Exception:
+            return
+
+        ax = self.ui.expFeatureMap_plot.axes
+        ax.clear()
+        self._featureMapData = []
+        self._featureMapAnnotation = None
+
+        has_mode = "Ionisation_Mode" in df.columns
+        has_avg = "Average_peakarea" in df.columns
+        has_found = "N_found_Samples" in df.columns
+
+        # Determine which metric drives dot size from the combo box
+        size_metric = self.ui.expFeatureMapSizeCombo.currentText()
+
+        # Try to derive MSMS spectra counts from per-file columns (columns ending in _MSMS or similar)
+        # We count non-null/non-zero entries in native+labeled MSMS columns if available,
+        # otherwise fall back to counting _Found columns as a proxy.
+        def _msms_count(r: dict) -> int:
+            """Count MSMS spectra recorded for this feature (native + labeled)."""
+            total = 0
+            for col, val in r.items():
+                if val and (col.endswith("_N_MSMS") or col.endswith("_L_MSMS") or col.endswith("_MSMS_N") or col.endswith("_MSMS_L")):
+                    try:
+                        total += int(val)
+                    except (ValueError, TypeError):
+                        pass
+            return total
+
+        def _found_count(r: dict) -> int:
+            if has_found:
+                try:
+                    return int(r.get("N_found_Samples") or 0)
+                except (ValueError, TypeError):
+                    pass
+            # fallback: count _Found columns with detected values
+            count = 0
+            for col, val in r.items():
+                if col.endswith("_Found") and val and ("Direct" in str(val) or "Reintegrated" in str(val)):
+                    count += 1
+            return count
+
+        rows = df.to_dicts()
+
+        # Restrict to features currently visible in the tree (respects active filters)
+        visible_nums = self._getVisibleFeatureNums()
+        if visible_nums is not None:
+            rows = [r for r in rows if r.get("Num") in visible_nums]
+
+        # Collect raw metric values for normalisation
+        if size_metric == "Average peak area":
+            raw_vals = [float(r.get("Average_peakarea") or 0.0) for r in rows] if has_avg else [0.0] * len(rows)
+        elif size_metric == "Number of MSMS spectra":
+            raw_vals = [float(_msms_count(r)) for r in rows]
+        else:  # Found in n samples
+            raw_vals = [float(_found_count(r)) for r in rows]
+
+        max_val = max(raw_vals) if raw_vals else 1.0
+        if max_val <= 0:
+            max_val = 1.0
+
+        # Collect per-OGroup data for connecting lines
+        groups_for_lines: dict[str, list[dict]] = {}
+        for r in rows:
+            groups_for_lines.setdefault(r["OGroup"], []).append(r)
+
+        # Draw connecting lines (sorted by mz) using the polarity color of the first member
+        for og, grp_rows in groups_for_lines.items():
+            if len(grp_rows) < 2:
+                continue
+            rep_mode = str(grp_rows[0].get("Ionisation_Mode", "+") or "+")
+            line_color = self._FM_COLOR_POS if "+" in rep_mode else self._FM_COLOR_NEG
+            sorted_rows = sorted(grp_rows, key=lambda r: r["MZ"])
+            ax.plot(
+                [r["RT"] for r in sorted_rows],
+                [r["MZ"] for r in sorted_rows],
+                color=line_color,
+                linewidth=0.8,
+                alpha=0.45,
+                zorder=1,
+            )
+
+        # Accumulate scatter data separated by polarity
+        pos_rts, pos_mzs, pos_sizes = [], [], []
+        neg_rts, neg_mzs, neg_sizes = [], [], []
+
+        for i, r in enumerate(rows):
+            rt = float(r["RT"])
+            mz = float(r["MZ"])
+            ion_mode = str(r.get("Ionisation_Mode", "+") or "+") if has_mode else "+"
+            area = float(r.get("Average_peakarea") or 0.0) if has_avg else 0.0
+            n_msms = _msms_count(r)
+            n_found = _found_count(r)
+
+            raw = raw_vals[i]
+            size = 20.0 + (raw / max_val) * 230.0
+
+            self._featureMapData.append(
+                {
+                    "rt": rt,
+                    "mz": mz,
+                    "num": r.get("Num"),
+                    "ogroup": r["OGroup"],
+                    "charge": r.get("Charge"),
+                    "polarity": ion_mode,
+                    "xn": r.get("Xn"),
+                    "avg_peakarea": area,
+                    "n_msms": n_msms,
+                    "n_found": n_found,
+                }
+            )
+
+            if "+" in ion_mode:
+                pos_rts.append(rt)
+                pos_mzs.append(mz)
+                pos_sizes.append(size)
+            else:
+                neg_rts.append(rt)
+                neg_mzs.append(mz)
+                neg_sizes.append(size)
+
+        if pos_rts:
+            ax.scatter(
+                pos_rts,
+                pos_mzs,
+                s=pos_sizes,
+                c=self._FM_COLOR_POS,
+                marker="o",
+                zorder=2,
+                alpha=0.85,
+                linewidths=0,
+                label="positive",
+            )
+        if neg_rts:
+            ax.scatter(
+                neg_rts,
+                neg_mzs,
+                s=neg_sizes,
+                c=self._FM_COLOR_NEG,
+                marker="o",
+                zorder=2,
+                alpha=0.85,
+                linewidths=0,
+                label="negative",
+            )
+
+        if pos_rts or neg_rts:
+            ax.legend(fontsize=8, markerscale=0.8, framealpha=0.7)
+
+        ax.set_xlabel("RT (min)", fontsize=10)
+        ax.set_ylabel("m/z", fontsize=10)
+        ax.set_title(f"Feature Map  ·  size = {size_metric}", fontsize=11)
+        ax.tick_params(labelsize=9)
+
+        self._featureMapAnnotation = ax.annotate(
+            "",
+            xy=(0, 0),
+            xytext=(15, 15),
+            textcoords="offset points",
+            bbox={"boxstyle": "round,pad=0.4", "fc": "lightyellow", "ec": "gray", "lw": 0.8},
+            arrowprops={"arrowstyle": "->", "color": "gray"},
+            fontsize=8,
+            visible=False,
+        )
+
+        self.ui.expFeatureMap_plot.fig.tight_layout()
+        self.ui.expFeatureMap_plot.canvas.draw()
+
+    def _getVisibleFeatureNums(self) -> set | None:
+        """Return the set of Num values currently visible in the tree.
+        Returns None if all items are visible (no filter active)."""
+        tree = self.ui.resultsExperiment_TreeWidget
+        visible: set = set()
+        any_hidden = False
+        for i in range(tree.topLevelItemCount()):
+            top = tree.topLevelItem(i)
+            for c in range(top.childCount()):
+                child = top.child(c)
+                if child.isHidden():
+                    any_hidden = True
+                else:
+                    bd = getattr(child, "bunchData", None)
+                    if bd is not None:
+                        visible.add(getattr(bd, "id", None))
+        return visible if any_hidden else None
+
+    def _featureMapFindNearest(self, event) -> dict | None:
+        """Return the nearest feature within ~10 pixels of the mouse event, or None."""
+        if event.xdata is None or event.ydata is None:
+            return None
+        if not self._featureMapData:
+            return None
+
+        ax = self.ui.expFeatureMap_plot.axes
+        # Transform data coords to display coords for pixel distance
+        x_disp, y_disp = ax.transData.transform((event.xdata, event.ydata))
+
+        best = None
+        best_dist = float("inf")
+        for feat in self._featureMapData:
+            fx, fy = ax.transData.transform((feat["rt"], feat["mz"]))
+            dist = ((fx - x_disp) ** 2 + (fy - y_disp) ** 2) ** 0.5
+            if dist < best_dist:
+                best_dist = dist
+                best = feat
+
+        return best if best_dist <= 10.0 else None
+
+    def _onFeatureMapHover(self, event):
+        """Show hover annotation near the cursor when close to a feature dot."""
+        if not hasattr(self, "_featureMapAnnotation") or self._featureMapAnnotation is None:
+            return
+        if event.inaxes != self.ui.expFeatureMap_plot.axes:
+            if self._featureMapAnnotation.get_visible():
+                self._featureMapAnnotation.set_visible(False)
+                self.ui.expFeatureMap_plot.canvas.draw_idle()
+            return
+
+        feat = self._featureMapFindNearest(event)
+        ann = self._featureMapAnnotation
+
+        if feat is None:
+            if ann.get_visible():
+                ann.set_visible(False)
+                self.ui.expFeatureMap_plot.canvas.draw_idle()
+            return
+
+        # Build tooltip text
+        lines = [
+            f"Num: {feat['num']}   OGroup: {feat['ogroup']}",
+            f"m/z: {feat['mz']:.4f}   RT: {feat['rt']:.3f} min",
+            f"Charge: {feat['charge']}   Polarity: {feat['polarity']}   Xn: {feat['xn']}",
+        ]
+        avg = feat.get("avg_peakarea")
+        if avg is not None and avg > 0:
+            lines.append(f"Avg peak area: {avg:.3g}")
+        n_msms = feat.get("n_msms")
+        if n_msms is not None:
+            lines.append(f"MSMS spectra: {n_msms}")
+        n_found = feat.get("n_found")
+        if n_found is not None:
+            lines.append(f"Found in samples: {n_found}")
+        ann.set_text("\n".join(lines))
+        ann.xy = (feat["rt"], feat["mz"])
+        ann.set_visible(True)
+        self.ui.expFeatureMap_plot.canvas.draw_idle()
+
+    def _onFeatureMapClick(self, event):
+        """On left-click near a feature dot, select it in the tree widget."""
+        if event.button != 1:
+            return
+        if event.inaxes != self.ui.expFeatureMap_plot.axes:
+            return
+        # Don't trigger selection when the pan or zoom tool consumed the drag
+        toolbar_mode = str(self.ui.expFeatureMap_plot.mpl_toolbar.mode)
+        if toolbar_mode in ("pan/zoom", "zoom rect"):
+            return
+
+        feat = self._featureMapFindNearest(event)
+        if feat is None:
+            return
+
+        num = feat.get("num")
+        if num is None:
+            return
+
+        # Switch to experiment results tab if needed
+        for i in range(self.ui.tabWidget.count()):
+            if self.ui.tabWidget.widget(i) == self.ui.bracketedResultsTab:
+                self.ui.tabWidget.setCurrentIndex(i)
+                break
+
+        # Find and select the matching feature in the tree
+        tree = self.ui.resultsExperiment_TreeWidget
+        for top_idx in range(tree.topLevelItemCount()):
+            top_item = tree.topLevelItem(top_idx)
+            # Check top-level item itself
+            if hasattr(top_item, "bunchData") and getattr(top_item.bunchData, "id", None) == num:
+                tree.setCurrentItem(top_item)
+                tree.scrollToItem(top_item)
+                return
+            # Check children
+            for child_idx in range(top_item.childCount()):
+                child = top_item.child(child_idx)
+                if hasattr(child, "bunchData") and getattr(child.bunchData, "id", None) == num:
+                    top_item.setExpanded(True)
+                    tree.setCurrentItem(child)
+                    tree.scrollToItem(child)
+                    return
 
     def _showFeatureInExperimentResults(self, feature_index: int):
         """Navigate to the experiment results tab and select the specified feature."""
@@ -5714,6 +6028,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             adducts=adducts,
                             fDesc=fDesc,
                             assignedMZs=assignedMZs,
+                            N_startRT=row_dict.get("N_startRT"),
+                            N_endRT=row_dict.get("N_endRT"),
+                            L_startRT=row_dict.get("L_startRT"),
+                            L_endRT=row_dict.get("L_endRT"),
                         )
 
                         # Check if MSMS spectra exist for this feature
@@ -5721,10 +6039,17 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             ppm = float(self.getParametersFromCurrentRes("Mass deviation (+/- ppm)"))
                         except Exception:
                             ppm = 5.0
-                        rt_min = xp.NPeakCenterMin - xp.NPeakScale
-                        rt_max = xp.NPeakCenterMin + xp.NPeakScale
-                        rt_min = min(rt_min, xp.LPeakCenterMin - xp.LPeakScale)
-                        rt_max = max(rt_max, xp.LPeakCenterMin + xp.LPeakScale)
+                        n_start_rt = row_dict.get("N_startRT")
+                        n_end_rt = row_dict.get("N_endRT")
+                        l_start_rt = row_dict.get("L_startRT")
+                        l_end_rt = row_dict.get("L_endRT")
+                        if n_start_rt is None:
+                            n_start_rt = xp.NPeakCenterMin - xp.NPeakScale
+                            n_end_rt = xp.NPeakCenterMin + xp.NPeakScale
+                            l_start_rt = xp.LPeakCenterMin - xp.LPeakScale
+                            l_end_rt = xp.LPeakCenterMin + xp.LPeakScale
+                        rt_min = min(float(n_start_rt), float(l_start_rt))
+                        rt_max = max(float(n_end_rt), float(l_end_rt))
                         has_msms = self.hasMSMSSpectra(xp.mz, rt_min, rt_max, ppm) or self.hasMSMSSpectra(xp.lmz, rt_min, rt_max, ppm)
                         msms_marker = "* " if has_msms else ""
 
@@ -9280,13 +9605,38 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if hasattr(item, "myType") and (item.myType == "feature" or item.myType == "Features"):
                 if item.myType == "feature":
                     cp = item.myData
-                    # Use actual peak start/end RT (in seconds); fall back to center ± scale
-                    rt_min_n = getattr(cp, "N_startRT", cp.NPeakCenterMin - cp.NPeakScale)
-                    rt_max_n = getattr(cp, "N_endRT", cp.NPeakCenterMin + cp.NPeakScale)
-                    rt_min_l = getattr(cp, "L_startRT", cp.LPeakCenterMin - cp.LPeakScale)
-                    rt_max_l = getattr(cp, "L_endRT", cp.LPeakCenterMin + cp.LPeakScale)
-                    rt_min = min(rt_min_n, rt_min_l)
-                    rt_max = max(rt_max_n, rt_max_l)
+                    # Prefer stored peak-boundary RTs (in seconds); fall back to XIC times lookup
+                    n_start_rt = getattr(cp, "N_startRT", None)
+                    n_end_rt = getattr(cp, "N_endRT", None)
+                    l_start_rt = getattr(cp, "L_startRT", None)
+                    l_end_rt = getattr(cp, "L_endRT", None)
+
+                    if n_start_rt is None or n_end_rt is None or l_start_rt is None or l_end_rt is None:
+                        try:
+                            xics_rows = self.currentOpenResultsFile.db_con.tables["XICs"].filter(pl.col("id") == cp.eicID).to_dicts()
+                            if xics_rows:
+                                times_raw = [float(t) for t in xics_rows[0]["times"].split(";")]
+                                n_s = max(0, int(cp.NPeakCenter) - int(cp.NBorderLeft))
+                                n_e = min(len(times_raw) - 1, int(cp.NPeakCenter) + int(cp.NBorderRight))
+                                l_s = max(0, int(cp.LPeakCenter) - int(cp.LBorderLeft))
+                                l_e = min(len(times_raw) - 1, int(cp.LPeakCenter) + int(cp.LBorderRight))
+                                n_start_rt = times_raw[n_s]
+                                n_end_rt = times_raw[n_e]
+                                l_start_rt = times_raw[l_s]
+                                l_end_rt = times_raw[l_e]
+                            else:
+                                n_start_rt = cp.NPeakCenterMin - cp.NPeakScale
+                                n_end_rt = cp.NPeakCenterMin + cp.NPeakScale
+                                l_start_rt = cp.LPeakCenterMin - cp.LPeakScale
+                                l_end_rt = cp.LPeakCenterMin + cp.LPeakScale
+                        except Exception:
+                            n_start_rt = cp.NPeakCenterMin - cp.NPeakScale
+                            n_end_rt = cp.NPeakCenterMin + cp.NPeakScale
+                            l_start_rt = cp.LPeakCenterMin - cp.LPeakScale
+                            l_end_rt = cp.LPeakCenterMin + cp.LPeakScale
+
+                    rt_min = min(float(n_start_rt), float(l_start_rt))
+                    rt_max = max(float(n_end_rt), float(l_end_rt))
 
                     try:
                         ppm = float(self.getParametersFromCurrentRes("Mass deviation (+/- ppm)"))
@@ -9295,12 +9645,12 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
                     native_mz_min = cp.mz * (1 - ppm / 1000000.0)
                     native_mz_max = cp.mz * (1 + ppm / 1000000.0)
-                    feature_ranges.append({"rt_min": rt_min, "rt_max": rt_max, "mz_min": native_mz_min, "mz_max": native_mz_max, "feature_name": "%.4f @ %.2f min" % (cp.mz, cp.NPeakCenterMin / 60.0), "form": "native"})
+                    feature_ranges.append({"rt_min": rt_min, "rt_max": rt_max, "mz_min": native_mz_min, "mz_max": native_mz_max, "ionMode": cp.ionMode, "feature_name": "%.4f @ %.2f min" % (cp.mz, cp.NPeakCenterMin / 60.0), "form": "native"})
 
                     if hasattr(cp, "lmz"):
                         labeled_mz_min = cp.lmz * (1 - ppm / 1000000.0)
                         labeled_mz_max = cp.lmz * (1 + ppm / 1000000.0)
-                        feature_ranges.append({"rt_min": rt_min, "rt_max": rt_max, "mz_min": labeled_mz_min, "mz_max": labeled_mz_max, "feature_name": "%.4f @ %.2f min" % (cp.lmz, cp.LPeakCenterMin / 60.0), "form": "labeled"})
+                        feature_ranges.append({"rt_min": rt_min, "rt_max": rt_max, "mz_min": labeled_mz_min, "mz_max": labeled_mz_max, "ionMode": cp.ionMode, "feature_name": "%.4f @ %.2f min" % (cp.lmz, cp.LPeakCenterMin / 60.0), "form": "labeled"})
 
         if not feature_ranges:
             return
@@ -9309,9 +9659,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         for ms2_scan in self.currentOpenRawFile.MS2_list:
             for fr in feature_ranges:
                 if fr["rt_min"] <= ms2_scan.retention_time <= fr["rt_max"]:
-                    if fr["mz_min"] <= ms2_scan.precursor_mz <= fr["mz_max"]:
-                        matching_ms2.append({"scan": ms2_scan, "feature_name": fr["feature_name"], "form": fr["form"]})
-                        break
+                    if ms2_scan.polarity == fr["ionMode"]:
+                        if fr["mz_min"] <= ms2_scan.precursor_mz <= fr["mz_max"]:
+                            matching_ms2.append({"scan": ms2_scan, "feature_name": fr["feature_name"], "form": fr["form"]})
+                            break
 
         _native_color = QtGui.QColor(30, 144, 255, 60)  # dodgerblue
         _labeled_color = QtGui.QColor(178, 34, 34, 60)  # firebrick
@@ -10835,7 +11186,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             # Build FragExtract command
             mgf_path = save_path
             output_folder = os.path.dirname(save_path)
-            frag_command = f'.\FragExtract.exe --isotope-mz-diff 1.00335484 --max-rt-diff 0.1 --grouping-fields FEATURE_ID --input-mgf "{mgf_path}" --output-folder "{output_folder}/plots"'
+            frag_command = f'.\\FragExtract.exe --isotope-mz-diff 1.00335484 --max-rt-diff 0.1 --grouping-fields FEATURE_ID --input-mgf "{mgf_path}" --output-folder "{output_folder}/plots"'
 
             cmd_text = QtWidgets.QTextEdit()
             cmd_text.setPlainText(frag_command)
@@ -11683,6 +12034,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     any_child_shown = True
 
             top.setHidden(not any_child_shown)
+
+        # Sync feature map if it is open
+        if self.ui.expFeatureMapContainer.isVisible():
+            self._buildFeatureMap()
 
     def setChromPeakName(self):
         cpName = str(self.ui.chromPeakName.text())
@@ -12784,8 +13139,12 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             current_settings=self._peakPickingSettings,
             sample_files=sample_files,
             scan_events=scan_events,
+            initial_eic_rows=getattr(self, "_peakPickingEicRows", []),
         )
-        if dlg.exec() == QtWidgets.QDialog.Accepted:
+        result = dlg.exec()
+        # Persist EIC rows regardless of whether the user accepted or cancelled
+        self._peakPickingEicRows = dlg.get_eic_rows()
+        if result == QtWidgets.QDialog.Accepted:
             self._peakPickingSettings = dlg.get_settings()
             logging.info("Peak picking settings updated: algorithm=%s", self._peakPickingSettings.get("algorithm", "wavelettransform"))
 
@@ -13898,6 +14257,37 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         vbox_sp.addWidget(self.ui.resultsExperimentSamplePeaks_plot.canvas)
         self.ui.resultsExperimentSamplePeaks_widget.setLayout(vbox_sp)
 
+        # Setup feature map plot (RT vs MZ overview of all features)
+        self.ui.expFeatureMap_plot = QtCore.QObject()
+        self.ui.expFeatureMap_plot.dpi = 72
+        self.ui.expFeatureMap_plot.fig = Figure(facecolor="white")
+        self.ui.expFeatureMap_plot.fig.subplots_adjust(left=0.07, bottom=0.1, right=0.99, top=0.95)
+        self.ui.expFeatureMap_plot.canvas = FigureCanvas(self.ui.expFeatureMap_plot.fig)
+        self.ui.expFeatureMap_plot.canvas.setParent(self.ui.expFeatureMapContainer)
+        self.ui.expFeatureMap_plot.axes = self.ui.expFeatureMap_plot.fig.add_subplot(111)
+        self.ui.expFeatureMap_plot.mpl_toolbar = NavigationToolbar(
+            self.ui.expFeatureMap_plot.canvas,
+            self.ui.expFeatureMapContainer,
+        )
+        self.ui.expFeatureMap_plot.canvas.mpl_connect("motion_notify_event", self._onFeatureMapHover)
+        self.ui.expFeatureMap_plot.canvas.mpl_connect("button_release_event", self._onFeatureMapClick)
+        self._featureMapData = []
+        self._featureMapAnnotation = None
+        # Control row: dot-size metric selector
+        self.ui.expFeatureMapSizeLabel = QtWidgets.QLabel("Dot size:")
+        self.ui.expFeatureMapSizeCombo = QtWidgets.QComboBox()
+        self.ui.expFeatureMapSizeCombo.addItems(["Average peak area", "Number of MSMS spectra", "Found in n samples"])
+        self.ui.expFeatureMapSizeCombo.currentIndexChanged.connect(lambda _: self._buildFeatureMap() if self.ui.expFeatureMapContainer.isVisible() else None)
+        ctrl_row = QtWidgets.QHBoxLayout()
+        ctrl_row.addWidget(self.ui.expFeatureMapSizeLabel)
+        ctrl_row.addWidget(self.ui.expFeatureMapSizeCombo)
+        ctrl_row.addStretch(1)
+        vbox_fm = QtWidgets.QVBoxLayout()
+        vbox_fm.addWidget(self.ui.expFeatureMap_plot.mpl_toolbar)
+        vbox_fm.addLayout(ctrl_row)
+        vbox_fm.addWidget(self.ui.expFeatureMap_plot.canvas)
+        self.ui.expFeatureMapContainer.setLayout(vbox_fm)
+
         # Setup experiment MSMS plot - multiple MS/MS spectra subplots
         self.ui.plMSMS_exp = QtCore.QObject()
         self.ui.plMSMS_exp.dpi = 50
@@ -13930,6 +14320,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.expFilterToggleBtn.toggled.connect(self._onExpFilterToggle)
         self.ui.expFilterResetBtn.clicked.connect(self._onExpFilterReset)
         self.ui.expExportMGFBtn.clicked.connect(self._export_exp_msms_mgf)
+        self.ui.expFeatureMapBtn.toggled.connect(self._toggleFeatureMap)
         # Connect all individual filter fields
         self.ui.expFilter_mz.textChanged.connect(self.expFilterEdited)
         self.ui.expFilter_rt.textChanged.connect(self.expFilterEdited)

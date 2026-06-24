@@ -103,7 +103,7 @@ class PeakPickingSettingsDialog(QtWidgets.QDialog):
     # Signal emitted when the user accepts the dialog
     settingsAccepted = QtCore.Signal(dict)
 
-    def __init__(self, parent=None, current_settings: dict | None = None, sample_files=None, scan_events=None):
+    def __init__(self, parent=None, current_settings: dict | None = None, sample_files=None, scan_events=None, initial_eic_rows=None):
         super().__init__(parent)
         self.setWindowTitle("Chromatographic Peak Picking Settings")
         self.setMinimumSize(900, 650)
@@ -118,9 +118,13 @@ class PeakPickingSettingsDialog(QtWidgets.QDialog):
         self._sample_files = sample_files or []
         # scan_events: {"+ ": [filter_line, ...], "-": [filter_line, ...]}
         self._scan_events = scan_events or {}
+        # Saved EIC rows to restore on re-open: list of (file_idx, filter_idx, mz, ppm)
+        self._initial_eic_rows = initial_eic_rows or []
 
         self._build_ui()
         self._load_settings(current_settings)
+        if self._initial_eic_rows:
+            self._restore_eic_rows(self._initial_eic_rows)
 
     # ------------------------------------------------------------------
     # UI construction
@@ -348,8 +352,11 @@ class PeakPickingSettingsDialog(QtWidgets.QDialog):
 
         _EIC_COLORS = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd"]
 
-        for i, res in enumerate(results):
-            ax = fig.add_subplot(n, 1, i + 1)
+        # Create all subplots at once with a fresh GridSpec to avoid matplotlib
+        # accumulating axes from previous calls with a different row count.
+        all_axes = fig.subplots(n, 1, squeeze=False)[:, 0]
+
+        for i, (ax, res) in enumerate(zip(all_axes, results)):
             fpath, filter_line, mz, ppm = res[:4]
             rt_array, int_array, peaks, load_error, peak_error = res[4], res[5], res[6], res[7], res[8]
             fname = os.path.basename(fpath)
@@ -973,6 +980,42 @@ class PeakPickingSettingsDialog(QtWidgets.QDialog):
     # ------------------------------------------------------------------
     # EIC management
     # ------------------------------------------------------------------
+
+    def get_eic_rows(self):
+        """Return the current EIC table contents as a list of (file_idx, filter_idx, mz, ppm).
+
+        Used by the caller to persist EIC definitions across dialog openings.
+        """
+        rows = []
+        for row in range(self.eicTable.rowCount()):
+            fileW = self.eicTable.cellWidget(row, 0)
+            filterW = self.eicTable.cellWidget(row, 1)
+            mzW = self.eicTable.cellWidget(row, 2)
+            ppmW = self.eicTable.cellWidget(row, 3)
+            file_idx = fileW.currentIndex() if fileW else 0
+            filter_idx = filterW.currentIndex() if filterW else 0
+            mz = mzW.value() if mzW else 0.0
+            ppm = ppmW.value() if ppmW else 5.0
+            rows.append((file_idx, filter_idx, mz, ppm))
+        return rows
+
+    def _restore_eic_rows(self, eic_rows):
+        """Populate the EIC table from a list of (file_idx, filter_idx, mz, ppm) tuples."""
+        for file_idx, filter_idx, mz, ppm in eic_rows:
+            self._add_eic_row()
+            row = self.eicTable.rowCount() - 1
+            fileW = self.eicTable.cellWidget(row, 0)
+            if fileW and 0 <= file_idx < fileW.count():
+                fileW.setCurrentIndex(file_idx)
+            filterW = self.eicTable.cellWidget(row, 1)
+            if filterW and 0 <= filter_idx < filterW.count():
+                filterW.setCurrentIndex(filter_idx)
+            mzW = self.eicTable.cellWidget(row, 2)
+            if mzW:
+                mzW.setValue(mz)
+            ppmW = self.eicTable.cellWidget(row, 3)
+            if ppmW:
+                ppmW.setValue(ppm)
 
     def _add_eic_row(self):
         """Add a row to the EIC definition table using loaded files and filter lines."""
