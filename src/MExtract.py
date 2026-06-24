@@ -3664,6 +3664,14 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 except Exception:
                     pass
 
+            if sett.contains("peakPickingEicRows"):
+                try:
+                    raw = json.loads(sett.value("peakPickingEicRows"))
+                    # Each entry is [file_path, filter_text, mz, ppm]
+                    self._peakPickingEicRows = [tuple(row) for row in raw]
+                except Exception:
+                    pass
+
             if sett.contains("calcIsoRatioNative"):
                 self.ui.calcIsoRatioNative_spinBox.setValue(self.to_int(sett.value("calcIsoRatioNative")))
             if sett.contains("calcIsoRatioLabelled"):
@@ -3931,6 +3939,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
             # Peak picking settings (algorithm + post-processing filters)
             sett.setValue("peakPickingSettings", json.dumps(self._peakPickingSettings))
+            sett.setValue("peakPickingEicRows", json.dumps(getattr(self, "_peakPickingEicRows", [])))
 
             sett.setValue("calcIsoRatioNative", self.ui.calcIsoRatioNative_spinBox.value())
             sett.setValue("calcIsoRatioLabelled", self.ui.calcIsoRatioLabelled_spinBox.value())

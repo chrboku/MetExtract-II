@@ -127,6 +127,9 @@ QComboBox::down-arrow {
     height: 10px;
     background-color: #32609E;
 }
+QComboBox::down-arrow:disabled {
+    background-color: #e8eaed;
+}
 
 QComboBox QAbstractItemView {
     background-color: #ffffff;
