@@ -1905,10 +1905,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         try:
             self.ui.resultsExperiment_TreeWidget.clear()
-            self.ui.resultsExperiment_TreeWidget.setHeaderLabels(["OGroup", "MZ", "RT", "Xn", "Z", "IonMode"])
+            self.ui.resultsExperiment_TreeWidget.setHeaderLabels(["OGroup", "MZ", "RT", "Xn", "Z", "IonMode", "MS2 N/L"])
 
             if os.path.exists(groupsResFile) and os.path.isfile(groupsResFile):
-                widths = [160, 80, 60, 30, 30, 30]
+                widths = [160, 80, 60, 30, 30, 30, 60]
                 for i in range(len(widths)):
                     self.ui.resultsExperiment_TreeWidget.setColumnWidth(i, widths[i])
 
@@ -2032,6 +2032,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             str(fp.xn),
                             str(fp.charge),
                             str(fp.ionisationMode),
+                            "",
                         ]
                     )
                     featurePair.bunchData = fp
@@ -2918,9 +2919,39 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 sample_entries.append((group_name, sample_name))
 
         sample_entries = sorted(set(sample_entries), key=lambda x: (x[0].lower(), x[1].lower()))
-        abundance_suffix = "_Abundance_N"
-        if not any(f"{entry[1]}{abundance_suffix}" in table_df.columns for entry in sample_entries):
-            abundance_suffix = "_Area_N"
+        value_type_map = {
+            "Native area (_Area_N)": "_Area_N",
+            "Labeled area (_Area_L)": "_Area_L",
+            "Native intensity (_Abundance_N)": "_Abundance_N",
+            "Labeled intensity (_Abundance_L)": "_Abundance_L",
+        }
+        try:
+            value_type_text = self.ui.comboBox_abundanceValueType.currentText()
+        except Exception:
+            value_type_text = "Native area (_Area_N)"
+
+        both_mode = "both" in value_type_text.lower()
+        if both_mode:
+            if "intensity" in value_type_text.lower():
+                blocks = [("Native", "_Abundance_N"), ("Labeled", "_Abundance_L")]
+                metric_label = "intensity"
+            else:
+                blocks = [("Native", "_Area_N"), ("Labeled", "_Area_L")]
+                metric_label = "area"
+        else:
+            abundance_suffix = value_type_map.get(value_type_text, "_Area_N")
+            # Fall back to any available value type if the requested one is missing in the result table
+            if not any(f"{entry[1]}{abundance_suffix}" in table_df.columns for entry in sample_entries):
+                for fallback in ["_Area_N", "_Abundance_N", "_Area_L", "_Abundance_L"]:
+                    if any(f"{entry[1]}{fallback}" in table_df.columns for entry in sample_entries):
+                        abundance_suffix = fallback
+                        break
+            blocks = [("", abundance_suffix)]
+
+        # Build group-name -> defined color map for boxes and sample dots
+        group_color_map = {}
+        for grp in self.getAllSampleGroups():
+            group_color_map[str(grp.name)] = str(grp.color)
 
         plot_type = self.ui.comboBox_abundancePlotType.currentText()
         log_scale = self.ui.comboBox_abundanceScale.currentText() == "Logarithmic"
@@ -2929,117 +2960,215 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         group_names = sorted({entry[0] for entry in sample_entries}, key=lambda x: x.lower())
         samples_by_group = {group_name: [sample for grp, sample in sample_entries if grp == group_name] for group_name in group_names}
 
-        feature_sample_values = {}
-        for feature_id in sorted(set(selected_ids)):
-            row = rows_by_num.get(feature_id)
-            if row is None:
-                continue
-            values = {}
-            for group_name, sample_name in sample_entries:
-                col = sample_name + abundance_suffix
-                if col not in table_df.columns:
+        # Collect (and optionally scale) values per isotopolog block:
+        # {suffix: {feature_id: {(group, sample): value}}}
+        block_feature_values = {}
+        for _block_label, block_suffix in blocks:
+            feature_sample_values = {}
+            for feature_id in sorted(set(selected_ids)):
+                row = rows_by_num.get(feature_id)
+                if row is None:
                     continue
-                val = row.get(col)
-                if val in [None, ""]:
-                    continue
-                try:
-                    values[(group_name, sample_name)] = float(val)
-                except Exception:
-                    continue
-            if values:
-                feature_sample_values[feature_id] = values
+                values = {}
+                for group_name, sample_name in sample_entries:
+                    col = sample_name + block_suffix
+                    if col not in table_df.columns:
+                        continue
+                    val = row.get(col)
+                    if val in [None, ""]:
+                        continue
+                    try:
+                        values[(group_name, sample_name)] = float(val)
+                    except Exception:
+                        continue
+                if values:
+                    feature_sample_values[feature_id] = values
 
-        if scaling_mode != "None":
-            for feature_id, values in feature_sample_values.items():
-                if scaling_mode == "Scale to max sample":
-                    ref = max(values.values()) if values else 0.0
-                else:
-                    group_means = []
-                    for group_name in group_names:
-                        group_vals = [values[(group_name, sample)] for sample in samples_by_group.get(group_name, []) if (group_name, sample) in values]
-                        if group_vals:
-                            group_means.append(mean(group_vals))
-                    ref = max(group_means) if group_means else 0.0
-                if ref > 0:
-                    for key in list(values.keys()):
-                        values[key] = values[key] / ref
+            if scaling_mode != "None":
+                for feature_id, values in feature_sample_values.items():
+                    if scaling_mode == "Scale to max sample":
+                        ref = max(values.values()) if values else 0.0
+                    else:
+                        group_means = []
+                        for group_name in group_names:
+                            group_vals = [values[(group_name, sample)] for sample in samples_by_group.get(group_name, []) if (group_name, sample) in values]
+                            if group_vals:
+                                group_means.append(mean(group_vals))
+                        ref = max(group_means) if group_means else 0.0
+                    if ref > 0:
+                        for key in list(values.keys()):
+                            values[key] = values[key] / ref
+
+            block_feature_values[block_suffix] = feature_sample_values
 
         ax = self.ui.resultsExperimentAbundance_plot.axes
+        if both_mode:
+            _value_label = metric_label
+        else:
+            _value_label = {
+                "_Area_N": "native area",
+                "_Area_L": "labeled area",
+                "_Abundance_N": "native intensity",
+                "_Abundance_L": "labeled intensity",
+            }.get(blocks[0][1], "abundance")
         ax.set_title("Abundance profiles of selected features")
-        ax.set_ylabel(f"Abundance ({'log' if log_scale else 'linear'} scale)")
+        ax.set_ylabel(f"{_value_label.capitalize()} ({'log' if log_scale else 'linear'} scale)")
         if scaling_mode != "None":
-            ax.set_ylabel(f"Relative abundance ({'log' if log_scale else 'linear'} scale)")
+            ax.set_ylabel(f"Relative {_value_label} ({'log' if log_scale else 'linear'} scale)")
 
         if "Boxplot" in plot_type:
-            feature_ids = sorted(feature_sample_values.keys())
             box_data = []
             positions = []
             box_colors = []
+            scatter_x = []
+            scatter_y = []
+            scatter_colors = []
             legend_handles = []
+            block_label_positions = []  # (center_x, label)
+            xtick_positions = []
+            xtick_labels = []
+            box_width = ABUNDANCE_BOXPLOT_CLUSTER_WIDTH
+
+            # union of feature ids present in any block, stable order
+            feature_ids = sorted({fid for fsv in block_feature_values.values() for fid in fsv.keys()})
+            block_gap = 1.5
+
             if len(feature_ids) > 0 and len(group_names) > 0:
                 # keep each group's feature boxes tightly clustered while still visibly separated
                 slot_width = ABUNDANCE_BOXPLOT_CLUSTER_WIDTH / max(1, len(feature_ids))
                 box_width = slot_width * ABUNDANCE_BOXPLOT_SLOT_FILL_RATIO
-                for feature_index, feature_id in enumerate(feature_ids):
-                    color = f"C{feature_index % 10}"
-                    legend_handles.append(patches.Patch(facecolor=color, alpha=0.35, label=f"Feature {feature_id}"))
+
+                # Legend: one entry per group
+                for group_index, group_name in enumerate(group_names):
+                    gcolor = group_color_map.get(group_name, f"C{group_index % 10}")
+                    legend_handles.append(patches.Patch(facecolor=gcolor, alpha=0.35, label=group_name))
+
+                base_cursor = 0.0
+                for block_label, block_suffix in blocks:
+                    feature_sample_values = block_feature_values.get(block_suffix, {})
+                    block_group_centers = []
                     for group_index, group_name in enumerate(group_names):
-                        offset = (-ABUNDANCE_BOXPLOT_CLUSTER_WIDTH / 2.0) + (feature_index + 0.5) * slot_width
-                        vals = []
-                        for sample_name in samples_by_group.get(group_name, []):
-                            key = (group_name, sample_name)
-                            if key not in feature_sample_values[feature_id]:
+                        group_base = base_cursor + group_index
+                        xtick_positions.append(group_base)
+                        xtick_labels.append(group_name)
+                        block_group_centers.append(group_base)
+                        gcolor = group_color_map.get(group_name, f"C{group_index % 10}")
+                        for feature_index, feature_id in enumerate(feature_ids):
+                            if feature_id not in feature_sample_values:
                                 continue
-                            value = feature_sample_values[feature_id][key]
-                            if log_scale and value <= 0:
-                                continue
-                            vals.append(value)
-                        if vals:
-                            box_data.append(vals)
-                            positions.append(group_index + offset)
-                            box_colors.append(color)
+                            offset = (-ABUNDANCE_BOXPLOT_CLUSTER_WIDTH / 2.0) + (feature_index + 0.5) * slot_width
+                            vals = []
+                            for sample_name in samples_by_group.get(group_name, []):
+                                key = (group_name, sample_name)
+                                if key not in feature_sample_values[feature_id]:
+                                    continue
+                                value = feature_sample_values[feature_id][key]
+                                if log_scale and value <= 0:
+                                    continue
+                                vals.append(value)
+                            if vals:
+                                pos = group_base + offset
+                                box_data.append(vals)
+                                positions.append(pos)
+                                box_colors.append(gcolor)
+                                # Overlay individual samples as evenly jittered dots
+                                n_vals = len(vals)
+                                for j, value in enumerate(vals):
+                                    if n_vals > 1:
+                                        jitter = (j / (n_vals - 1) - 0.5) * box_width * 0.6
+                                    else:
+                                        jitter = 0.0
+                                    scatter_x.append(pos + jitter)
+                                    scatter_y.append(value)
+                                    scatter_colors.append(gcolor)
+                    if block_label and block_group_centers:
+                        block_label_positions.append((sum(block_group_centers) / len(block_group_centers), block_label))
+                    base_cursor += len(group_names) + block_gap
 
             if box_data:
-                bp = ax.boxplot(box_data, positions=positions, widths=box_width, patch_artist=True)
+                bp = ax.boxplot(box_data, positions=positions, widths=box_width, patch_artist=True, showfliers=False)
                 for patch, c in zip(bp["boxes"], box_colors):
                     patch.set_facecolor(c)
                     patch.set_alpha(0.35)
-                ax.set_xticks(list(range(len(group_names))))
-                ax.set_xticklabels(group_names, rotation=25, ha="right")
+                if scatter_x:
+                    ax.scatter(scatter_x, scatter_y, c=scatter_colors, s=18, edgecolors="black", linewidths=0.4, alpha=0.9, zorder=3)
+                ax.set_xticks(xtick_positions)
+                ax.set_xticklabels(xtick_labels, rotation=25, ha="right")
                 ax.set_xlabel("Experimental group")
+                # Isotopolog block labels above the plot and separators between blocks
+                if block_label_positions:
+                    xaxis_transform = ax.get_xaxis_transform()
+                    for center_x, label in block_label_positions:
+                        ax.text(center_x, 1.0, label, transform=xaxis_transform, ha="center", va="bottom", fontsize=9, fontweight="bold")
+                    for sep_block in range(1, len(blocks)):
+                        sep_x = sep_block * (len(group_names) + block_gap) - block_gap / 2.0 - 0.5
+                        ax.axvline(sep_x, color="gray", linestyle="--", linewidth=0.8)
                 if legend_handles:
-                    ax.legend(handles=legend_handles, loc="best")
+                    ax.legend(handles=legend_handles, loc="best", title="Sample group")
             else:
                 ax.text(0.5, 0.5, "No abundance values available", transform=ax.transAxes, ha="center", va="center")
         else:
-            x = list(range(len(sample_entries)))
-            x_labels = [f"{grp}|{sample}" for grp, sample in sample_entries]
-            group_changes = []
-            last_group = None
-            for i, (grp, _) in enumerate(sample_entries):
-                if grp != last_group and i > 0:
-                    group_changes.append(i - 0.5)
-                last_group = grp
+            n_samples = len(sample_entries)
+            sample_label = [f"{grp}|{sample}" for grp, sample in sample_entries]
 
             ax.set_xlabel("Sample")
-            for feature_id in sorted(feature_sample_values.keys()):
-                y_vals = []
-                for grp, sample in sample_entries:
-                    key = (grp, sample)
-                    if key not in feature_sample_values[feature_id]:
-                        y_vals.append(float("nan"))
-                        continue
-                    val = feature_sample_values[feature_id][key]
-                    if log_scale and val <= 0:
-                        y_vals.append(float("nan"))
-                    else:
-                        y_vals.append(val)
-                ax.plot(x, y_vals, marker="o", linewidth=1.2, label=f"Feature {feature_id}")
+            cmap = matplotlib.cm.get_cmap("tab10")
+            feature_color = {fid: cmap(i % 10) for i, fid in enumerate(sorted(set(selected_ids)))}
 
-            for sep in group_changes:
-                ax.axvline(sep, color="lightgray", linestyle="--", linewidth=0.8)
-            ax.set_xticks(x)
-            ax.set_xticklabels(x_labels, rotation=45, ha="right")
+            block_gap = 2.0
+            xtick_positions = []
+            xtick_labels = []
+            block_label_positions = []
+            block_boundaries = []
+            base_cursor = 0
+
+            for block_index, (block_label, block_suffix) in enumerate(blocks):
+                feature_sample_values = block_feature_values.get(block_suffix, {})
+                line_style = "--" if block_label == "Labeled" else "-"
+                x = [base_cursor + i for i in range(n_samples)]
+
+                for i in range(n_samples):
+                    xtick_positions.append(base_cursor + i)
+                    xtick_labels.append(sample_label[i])
+
+                # Group-change separators within this block
+                last_group = None
+                for i, (grp, _) in enumerate(sample_entries):
+                    if grp != last_group and i > 0:
+                        ax.axvline(base_cursor + i - 0.5, color="lightgray", linestyle="--", linewidth=0.8)
+                    last_group = grp
+
+                for feature_id in sorted(feature_sample_values.keys()):
+                    y_vals = []
+                    for grp, sample in sample_entries:
+                        key = (grp, sample)
+                        if key not in feature_sample_values[feature_id]:
+                            y_vals.append(float("nan"))
+                            continue
+                        val = feature_sample_values[feature_id][key]
+                        if log_scale and val <= 0:
+                            y_vals.append(float("nan"))
+                        else:
+                            y_vals.append(val)
+                    label = f"Feature {feature_id}" + (f" ({block_label})" if block_label else "")
+                    ax.plot(x, y_vals, marker="o", linewidth=1.2, linestyle=line_style, color=feature_color.get(feature_id), label=label)
+
+                if block_label:
+                    block_label_positions.append((base_cursor + (n_samples - 1) / 2.0, block_label))
+                if block_index < len(blocks) - 1:
+                    block_boundaries.append(base_cursor + n_samples - 0.5 + block_gap / 2.0)
+
+                base_cursor += n_samples + block_gap
+
+            for sep_x in block_boundaries:
+                ax.axvline(sep_x, color="gray", linestyle="--", linewidth=0.8)
+
+            ax.set_xticks(xtick_positions)
+            ax.set_xticklabels(xtick_labels, rotation=45, ha="right")
+            if block_label_positions:
+                xaxis_transform = ax.get_xaxis_transform()
+                for center_x, label in block_label_positions:
+                    ax.text(center_x, 1.0, label, transform=xaxis_transform, ha="center", va="bottom", fontsize=9, fontweight="bold")
             ax.legend()
 
         if log_scale:
@@ -3064,11 +3193,26 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.updateMSMSList_exp(selectedItems)
 
     def _build_msms_feature_forms(self):
-        """Build a map of feature_num -> set of MS2 forms (native/labeled) by querying all loaded files."""
-        msms_feature_forms = {}
+        """Build a map of feature_num -> set of MS2 forms (native/labeled)."""
+        counts = self._build_msms_feature_counts()
+        forms = {}
+        for num, (n_native, n_labeled) in counts.items():
+            s = set()
+            if n_native > 0:
+                s.add("native")
+            if n_labeled > 0:
+                s.add("labeled")
+            if s:
+                forms[num] = s
+        return forms
+
+    def _build_msms_feature_counts(self):
+        """Build a map of feature_num -> [native_count, labeled_count] counting the
+        matching MS2 spectra across all loaded files."""
+        msms_feature_counts = {}
 
         if not hasattr(self, "loadedMZXMLs") or self.loadedMZXMLs is None:
-            return msms_feature_forms
+            return msms_feature_counts
 
         # Show progress dialog
         pw = ProgressWrapper(1, parent=self, showIndProgress=False)
@@ -3109,7 +3253,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         if not all_features:
             pw.close()
-            return msms_feature_forms
+            return msms_feature_counts
 
         # Get feature data from DB for per-file RT bounds
         rows_by_num = {}
@@ -3204,13 +3348,47 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         continue
 
                     # This scan matches the feature
-                    if feature_num not in msms_feature_forms:
-                        msms_feature_forms[feature_num] = set()
-                    msms_feature_forms[feature_num].add(form)
+                    if feature_num not in msms_feature_counts:
+                        msms_feature_counts[feature_num] = [0, 0]
+                    if form == "native":
+                        msms_feature_counts[feature_num][0] += 1
+                    else:
+                        msms_feature_counts[feature_num][1] += 1
                     break
 
         pw.close()
-        return msms_feature_forms
+        return msms_feature_counts
+
+    def _updateExperimentMSMSCountsColumn(self):
+        """Fill the 'MS2 N/L' column of the experiment feature tree with the number of
+        native/labeled MS2 spectra per feature and prefix the feature id with '*' when
+        at least one MS2 spectrum exists."""
+        tree = self.ui.resultsExperiment_TreeWidget
+        if tree.columnCount() < 7:
+            return
+        if not hasattr(self, "loadedMZXMLs") or self.loadedMZXMLs is None:
+            return
+
+        counts = self._build_msms_feature_counts()
+
+        for i in range(tree.topLevelItemCount()):
+            top = tree.topLevelItem(i)
+            for c in range(top.childCount()):
+                child = top.child(c)
+                bd = getattr(child, "bunchData", None)
+                if bd is None or not hasattr(bd, "id"):
+                    continue
+                n_native, n_labeled = counts.get(bd.id, (0, 0))
+                has_msms = (n_native > 0) or (n_labeled > 0)
+                n_txt = str(n_native) if n_native > 0 else ""
+                l_txt = str(n_labeled) if n_labeled > 0 else ""
+                child.setText(6, f"{n_txt}/{l_txt}" if has_msms else "")
+
+                title = child.text(0)
+                if has_msms and not title.startswith("*"):
+                    child.setText(0, "*" + title)
+                elif not has_msms and title.startswith("*"):
+                    child.setText(0, title[1:])
 
     def _refreshExperimentAbundancePlot(self, *args):
         self.updateExperimentAbundancePlot(self._getSelectedExperimentPlotItems())
@@ -3246,10 +3424,32 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._renderSamplePeaksPage()
 
     def _renderSamplePeaksPage(self):
-        """Render the current page (4×4 grid) of per-sample peak subplots."""
-        _PAGE_ROWS = 4
-        _PAGE_COLS = 4
+        """Render the current page of per-sample peak subplots."""
+        try:
+            _PAGE_ROWS = int(self.ui.spinBox_samplePeaksRows.value())
+        except Exception:
+            _PAGE_ROWS = 4
+        try:
+            _PAGE_COLS = int(self.ui.spinBox_samplePeaksCols.value())
+        except Exception:
+            _PAGE_COLS = 4
+        _PAGE_ROWS = max(1, _PAGE_ROWS)
+        _PAGE_COLS = max(1, _PAGE_COLS)
         _PAGE_SIZE = _PAGE_ROWS * _PAGE_COLS
+
+        try:
+            norm_mode = self.ui.comboBox_samplePeaksNorm.currentText()
+        except Exception:
+            norm_mode = "Normalize to peak apex"
+
+        try:
+            labeled_negative = self.ui.checkBox_samplePeaksLabeledNegative.isChecked()
+        except Exception:
+            labeled_negative = False
+        try:
+            labeled_norm_separately = self.ui.checkBox_samplePeaksLabeledNormSeparately.isChecked()
+        except Exception:
+            labeled_norm_separately = False
 
         fig = self.ui.resultsExperimentSamplePeaks_plot.fig
         fig.clear()
@@ -3305,10 +3505,13 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         n_cols = min(_PAGE_COLS, n_on_page)
         n_rows = (n_on_page + n_cols - 1) // n_cols
 
-        legend_fraction = 0.18
-        fig_width = n_cols * 4.5 + 2.5
+        fig_width = n_cols * 4.5
         fig_height = n_rows * 3.8
         fig.set_size_inches(fig_width, fig_height)
+
+        # Reserve a fixed absolute band (~0.55 in) at the top for the legend so the
+        # gap stays small regardless of how many rows are shown.
+        legend_fraction = min(0.4, 0.55 / fig_height)
 
         axes = fig.subplots(n_rows, n_cols, squeeze=False)
 
@@ -3320,6 +3523,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         import matplotlib.lines as mlines
 
         legend_handles = [mlines.Line2D([], [], color=feature_colors[pi.id], linewidth=1.5, label=f"Feature {pi.id} ({pi.mz:.4f})") for pi in plotItems]
+        # Native (solid) vs labeled (dashed) line-style legend
+        legend_handles.append(mlines.Line2D([], [], color="gray", linewidth=1.5, linestyle="-", label="Native"))
+        legend_handles.append(mlines.Line2D([], [], color="gray", linewidth=1.5, linestyle="--", label="Labeled"))
 
         for s_idx, (group_name, sample_name, fi_str) in enumerate(page_entries):
             row = s_idx // n_cols
@@ -3328,7 +3534,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             ax.set_title(f"{group_name}\n{sample_name}", fontsize=8, pad=3)
             ax.tick_params(labelsize=7)
             ax.set_xlabel("RT (min)", fontsize=7)
-            ax.set_ylabel("Scaled intensity", fontsize=7)
+            ax.set_ylabel("Intensity" if norm_mode == "None" else "Scaled intensity", fontsize=7)
+            if labeled_negative:
+                ax.axhline(0.0, color="gray", linewidth=0.6, alpha=0.7)
 
             if not hasattr(self, "loadedMZXMLs") or self.loadedMZXMLs is None or fi_str not in self.loadedMZXMLs:
                 ax.text(0.5, 0.5, "Not loaded", ha="center", va="center", transform=ax.transAxes, fontsize=7, color="gray")
@@ -3340,36 +3548,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 color = feature_colors[pi.id]
                 row_data = rows_by_num.get(pi.id, {})
 
-                start_rt_min = None
-                apex_rt_min = None
-                end_rt_min = None
-
-                if row_data:
-                    sv = row_data.get(f"{sample_name}_N_startRT")
-                    av = row_data.get(f"{sample_name}_N_apexRT")
-                    ev = row_data.get(f"{sample_name}_N_endRT")
-                    if sv is not None and av is not None and ev is not None:
-                        try:
-                            # DB columns store RT already in minutes (seconds / 60 at write time)
-                            # Use first value when multiple peaks are stored as semicolon list
-                            start_rt_min = float(str(sv).split(";")[0])
-                            apex_rt_min = float(str(av).split(";")[0])
-                            end_rt_min = float(str(ev).split(";")[0])
-                        except (TypeError, ValueError):
-                            start_rt_min = None
-
-                if start_rt_min is None or end_rt_min is None:
-                    global_rt_min = pi.rt / 60.0
-                    start_rt_min = global_rt_min - 0.3
-                    apex_rt_min = global_rt_min
-                    end_rt_min = global_rt_min + 0.3
-
-                peak_width = max(end_rt_min - start_rt_min, 1e-6)
-                context = 0.75 * peak_width
-                window_start = start_rt_min - context
-                window_end = end_rt_min + context
-
-                # Determine scan event
+                # Determine scan event (shared by native and labeled forms)
                 scanEvent = pi.scanEvent if hasattr(pi, "scanEvent") and pi.scanEvent else None
                 if scanEvent is None:
                     filter_lines = mzxml_obj.getFilterLines(includeMS1=True, includeMS2=False, includePosPolarity=True, includeNegPolarity=True)
@@ -3389,37 +3568,91 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 if scanEvent not in available:
                     continue
 
-                try:
-                    eic, times, _scan_ids, _mzs = mzxml_obj.getEIC(pi.mz, ppm=ppm, filterLine=scanEvent)
-                except Exception:
-                    continue
+                # Native and labeled forms: (DB tag, m/z, line style)
+                forms = [("N", pi.mz, "-")]
+                if getattr(pi, "lmz", None):
+                    forms.append(("L", pi.lmz, "--"))
 
-                if len(times) == 0:
-                    continue
+                native_scale = None
+                for form_tag, form_mz, form_ls in forms:
+                    if form_mz is None:
+                        continue
 
-                times_min = [t / 60.0 for t in times]
-                eic_list = list(eic)
+                    start_rt_min = None
+                    apex_rt_min = None
+                    end_rt_min = None
 
-                # Crop to view window
-                window_indices = [j for j, t in enumerate(times_min) if window_start <= t <= window_end]
-                if not window_indices:
-                    continue
+                    if row_data:
+                        sv = row_data.get(f"{sample_name}_{form_tag}_startRT")
+                        av = row_data.get(f"{sample_name}_{form_tag}_apexRT")
+                        ev = row_data.get(f"{sample_name}_{form_tag}_endRT")
+                        if sv is not None and av is not None and ev is not None:
+                            try:
+                                # DB columns store RT already in minutes (seconds / 60 at write time)
+                                # Use first value when multiple peaks are stored as semicolon list
+                                start_rt_min = float(str(sv).split(";")[0])
+                                apex_rt_min = float(str(av).split(";")[0])
+                                end_rt_min = float(str(ev).split(";")[0])
+                            except (TypeError, ValueError):
+                                start_rt_min = None
 
-                cropped_times = [times_min[j] for j in window_indices]
-                cropped_eic = [eic_list[j] for j in window_indices]
+                    if start_rt_min is None or end_rt_min is None:
+                        global_rt_min = pi.rt / 60.0
+                        start_rt_min = global_rt_min - 0.3
+                        apex_rt_min = global_rt_min
+                        end_rt_min = global_rt_min + 0.3
 
-                # Apex scaling: intensity at the scan closest to the feature apex RT
-                apex_idx = min(range(len(times_min)), key=lambda j: abs(times_min[j] - apex_rt_min))
-                apex_int = eic_list[apex_idx]
-                scale = (1.0 / apex_int) if apex_int > 0 else 1.0
+                    peak_width = max(end_rt_min - start_rt_min, 1e-6)
+                    context = 0.75 * peak_width
+                    window_start = start_rt_min - context
+                    window_end = end_rt_min + context
 
-                scaled_eic = [v * scale for v in cropped_eic]
-                ax.plot(cropped_times, scaled_eic, color=color, linewidth=1.0, alpha=0.85)
+                    try:
+                        eic, times, _scan_ids, _mzs = mzxml_obj.getEIC(form_mz, ppm=ppm, filterLine=scanEvent)
+                    except Exception:
+                        continue
 
-                # Shade the peak region
-                boundary = [(t, v) for t, v in zip(cropped_times, scaled_eic) if start_rt_min <= t <= end_rt_min]
-                if boundary:
-                    ax.fill_between([x[0] for x in boundary], [x[1] for x in boundary], alpha=0.15, color=color)
+                    if len(times) == 0:
+                        continue
+
+                    times_min = [t / 60.0 for t in times]
+                    eic_list = list(eic)
+
+                    # Crop to view window
+                    window_indices = [j for j, t in enumerate(times_min) if window_start <= t <= window_end]
+                    if not window_indices:
+                        continue
+
+                    cropped_times = [times_min[j] for j in window_indices]
+                    cropped_eic = [eic_list[j] for j in window_indices]
+
+                    # Normalisation according to the selected mode
+                    if norm_mode == "None":
+                        scale = 1.0
+                    elif norm_mode == "Normalize to maximum":
+                        local_max = max(cropped_eic) if cropped_eic else 0.0
+                        scale = (1.0 / local_max) if local_max > 0 else 1.0
+                    else:  # "Normalize to peak apex"
+                        apex_idx = min(range(len(times_min)), key=lambda j: abs(times_min[j] - apex_rt_min))
+                        apex_int = eic_list[apex_idx]
+                        scale = (1.0 / apex_int) if apex_int > 0 else 1.0
+
+                    if form_tag == "N":
+                        native_scale = scale
+                    elif form_tag == "L" and not labeled_norm_separately and native_scale is not None:
+                        # Keep labeled on the native scale so the abundance ratio is
+                        # preserved unless the user requests separate normalisation.
+                        scale = native_scale
+
+                    # Optionally mirror the labeled trace below the x-axis
+                    sign = -1.0 if (form_tag == "L" and labeled_negative) else 1.0
+                    scaled_eic = [sign * v * scale for v in cropped_eic]
+                    ax.plot(cropped_times, scaled_eic, color=color, linewidth=1.0, alpha=0.85, linestyle=form_ls)
+
+                    # Shade the peak region
+                    boundary = [(t, v) for t, v in zip(cropped_times, scaled_eic) if start_rt_min <= t <= end_rt_min]
+                    if boundary:
+                        ax.fill_between([x[0] for x in boundary], [x[1] for x in boundary], alpha=0.12, color=color)
 
         # Hide unused subplots in last row
         for s_idx in range(n_on_page, n_rows * n_cols):
@@ -3428,15 +3661,16 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if legend_handles:
             fig.legend(
                 handles=legend_handles,
-                loc="center right",
-                bbox_to_anchor=(1.0, 0.5),
+                loc="upper center",
+                bbox_to_anchor=(0.5, 1.0),
+                ncol=max(1, min(len(legend_handles), n_cols)),
                 fontsize=8,
                 frameon=True,
                 title="Features",
                 title_fontsize=8,
             )
 
-        fig.tight_layout(rect=[0, 0, 1.0 - legend_fraction, 1.0])
+        fig.tight_layout(rect=[0, 0, 1.0, 1.0 - legend_fraction])
 
         dpi = self.ui.resultsExperimentSamplePeaks_plot.dpi
         w_px = int(fig_width * dpi)
@@ -10018,6 +10252,50 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._setup_msms_hover(self.ui.plMSMS)
         self.ui.plMSMS.canvas.draw()
 
+    def _get_msms_filter_string(self, scan):
+        """Return the filter string for an MS/MS scan.
+
+        Prioritizes the original mzML "filter string" (cvParam MS:1000512),
+        preserved on the scan as ``filter_string`` during parsing, and falls
+        back to the cvParams list or the scan's filter_line attribute."""
+        if scan is None:
+            return ""
+        fs = getattr(scan, "filter_string", None)
+        if fs and ("N/A" not in fs and "Unknown" not in fs):
+            return fs
+        if hasattr(scan, "cvParams") and scan.cvParams:
+            for cv in scan.cvParams:
+                if cv.get("accession") == "MS:1000512":
+                    return cv.get("value", "") or ""
+        fl = getattr(scan, "filter_line", None)
+        if fl and ("N/A" in fl or "Unknown" in fl or fl.startswith("NA //") or fl.startswith("MSn ")):
+            return ""
+        return fl or ""
+
+    def _compile_msms_filter_regex(self, pattern):
+        """Compile the MS/MS filter-string regex. Returns None for empty/invalid patterns."""
+        if not pattern:
+            return None
+        try:
+            return re.compile(pattern)
+        except re.error:
+            return None
+
+    def _msms_filter_match(self, filter_string, compiled_regex):
+        """Test a filter string against a compiled regex.
+
+        Returns (matches, replacement) where replacement is the first capturing
+        group (or None if no groups) when the regex matches, else (False, None)."""
+        if compiled_regex is None:
+            return True, None
+        m = compiled_regex.search(filter_string or "")
+        if not m:
+            return False, None
+        replacement = None
+        if m.groups():
+            replacement = next((g for g in m.groups() if g is not None), None)
+        return True, replacement
+
     def updateMSMSList_exp(self, selectedItems):
         """Filter and populate MSMS spectra table for experimental results panel"""
 
@@ -10054,6 +10332,12 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             ppm = self.ui.doubleSpinBox_resultsExperiment_EICppm.value()
         except Exception:
             ppm = 5.0
+
+        try:
+            filter_regex_pattern = str(self.ui.lineEdit_msms_filter_regex.text()).strip()
+        except Exception:
+            filter_regex_pattern = ""
+        filter_regex = self._compile_msms_filter_regex(filter_regex_pattern)
 
         # Build file-path -> group-name mapping (loadedMZXMLs is keyed by both path and group)
         file_to_group = {}
@@ -10214,6 +10498,12 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     if form is None:
                         continue
 
+                    # Filter-string regex filter (cvParam MS:1000512 / filter_line)
+                    filter_string = self._get_msms_filter_string(ms2_scan)
+                    fs_match, fs_replacement = self._msms_filter_match(filter_string, filter_regex)
+                    if not fs_match:
+                        continue
+
                     # Precursor intensity percent check (applied per file)
                     if prec_intens_percent > 0.0:
                         peak_max = _get_eic_peak_max(file_key, fr)
@@ -10224,10 +10514,21 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     if abs_intens_threshold > 0.0 and ms2_scan.precursor_intensity < abs_intens_threshold:
                         continue
 
-                    all_ms2_scans.append({"scan": ms2_scan, "form": form, "file": file_key, "feature_num": fr.get("feature_num"), "o_group": fr.get("metaboliteGroupID"), "xn": fr.get("xn")})
+                    all_ms2_scans.append(
+                        {
+                            "scan": ms2_scan,
+                            "form": form,
+                            "file": file_key,
+                            "feature_num": fr.get("feature_num"),
+                            "o_group": fr.get("metaboliteGroupID"),
+                            "xn": fr.get("xn"),
+                            "filter_string": filter_string,
+                            "filter_replacement": fs_replacement,
+                        }
+                    )
                     break
 
-        sorted_scans = [(s["scan"], s["form"], s["file"], s.get("feature_num"), s.get("o_group"), s.get("xn")) for s in all_ms2_scans]
+        sorted_scans = [(s["scan"], s["form"], s["file"], s.get("feature_num"), s.get("o_group"), s.get("xn"), s.get("filter_string"), s.get("filter_replacement")) for s in all_ms2_scans]
         sorted_scans = natSort(sorted_scans, key=lambda x: x[0].precursor_intensity)
 
         # Build feature_num -> set of forms for the MS2 filter
@@ -10243,8 +10544,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         _native_color = QtGui.QColor(30, 144, 255, 60)
         _labeled_color = QtGui.QColor(178, 34, 34, 60)
 
-        for scan, form, file_key, feature_num, o_group, xn in sorted_scans:
+        for scan, form, file_key, feature_num, o_group, xn, filter_string, filter_replacement in sorted_scans:
             form_label = "M\u2032" if form == "labeled" else "M"
+            if filter_replacement:
+                form_label = f"{form_label} [{filter_replacement}]"
             row_idx = tbl.rowCount()
             tbl.insertRow(row_idx)
 
@@ -10264,9 +10567,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             tbl.setItem(row_idx, 3, _NSItem(f"{scan.retention_time / 60.0:.2f}"))
             tbl.setItem(row_idx, 4, _NSItem(group_name))
             tbl.setItem(row_idx, 5, _NSItem(filename))
+            tbl.setItem(row_idx, 6, _NSItem(filter_string or ""))
 
             row_color = _labeled_color if form == "labeled" else _native_color
-            for col in range(6):
+            for col in range(7):
                 tbl.item(row_idx, col).setBackground(row_color)
 
         tbl.setSortingEnabled(True)
@@ -10737,6 +11041,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 "o_group": o_group,
                 "file_key": file_key,
                 "xn": xn,
+                "filter_string": self._get_msms_filter_string(scan),
             }
 
     def _to_matchms_spectrum(self, scan):
@@ -10876,17 +11181,55 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         dlg.exec()
 
-    def _copy_msms_spectrum(self, scan, fmt):
+    def _select_msms_fragments(self, scan, selection):
+        """Return (mz_list, intensity_list) filtered according to a fragment selection.
+
+        selection is one of:
+        - ("all", None)
+        - ("top", n): keep the n most intense fragments
+        - ("percent", p): keep fragments with intensity >= p% of the base peak
+        """
+        mzs = list(scan.mz_list)
+        its = list(scan.intensity_list)
+        if not mzs:
+            return [], []
+        mode, value = selection
+        if mode == "top" and value is not None:
+            order = sorted(range(len(its)), key=lambda i: its[i], reverse=True)[: int(value)]
+            keep = sorted(order)
+            return [mzs[i] for i in keep], [its[i] for i in keep]
+        if mode == "percent" and value is not None:
+            base = max(its) if its else 0.0
+            if base <= 0:
+                return mzs, its
+            threshold = base * float(value) / 100.0
+            keep = [i for i in range(len(its)) if its[i] >= threshold]
+            return [mzs[i] for i in keep], [its[i] for i in keep]
+        return mzs, its
+
+    def _copy_msms_spectrum(self, scan, fmt, selection=("all", None)):
         if scan is None:
             return
-        lines = []
-        if fmt == "list":
-            lines = [f"{float(mz):.6f} {float(it):.6f}" for mz, it in zip(scan.mz_list, scan.intensity_list)]
-        elif fmt == "tsv":
-            lines = ["mz\tintensity"] + [f"{float(mz):.6f}\t{float(it):.6f}" for mz, it in zip(scan.mz_list, scan.intensity_list)]
-        else:  # massbank-like (use space delimiter)
-            lines = [f"{float(mz):.6f} {float(it):.6f}" for mz, it in zip(scan.mz_list, scan.intensity_list)]
+        mzs, its = self._select_msms_fragments(scan, selection)
+        if fmt == "tsv":
+            lines = ["mz\tintensity"] + [f"{float(mz):.6f}\t{float(it):.6f}" for mz, it in zip(mzs, its)]
+        else:  # list / massbank-like (use space delimiter)
+            lines = [f"{float(mz):.6f} {float(it):.6f}" for mz, it in zip(mzs, its)]
         QtWidgets.QApplication.clipboard().setText("\n".join(lines))
+
+    def _ask_msms_fragment_selection(self, mode):
+        """Prompt for the number of top fragments or the percentage. Returns a selection tuple or None."""
+        if mode == "top":
+            n, ok = QtWidgets.QInputDialog.getInt(self, "Top-x fragments", "Number of most intense fragments to copy:", 10, 1, 100000, 1)
+            if not ok:
+                return None
+            return ("top", n)
+        if mode == "percent":
+            p, ok = QtWidgets.QInputDialog.getDouble(self, "Fragments >= x%", "Minimum intensity (% of base peak):", 5.0, 0.0, 100.0, 2)
+            if not ok:
+                return None
+            return ("percent", p)
+        return ("all", None)
 
     def _show_msms_context_menu(self, table_widget, pos):
         item = table_widget.itemAt(pos)
@@ -10898,16 +11241,30 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             return
         scan = col0.data(QtCore.Qt.UserRole)
         menu = QtWidgets.QMenu(table_widget)
-        act_list = menu.addAction("Copy spectrum (m/z intensity list)")
-        act_tsv = menu.addAction("Copy spectrum (TSV)")
-        act_mb = menu.addAction("Copy spectrum (MassBank style)")
+
+        fmt_menus = [
+            ("Copy spectrum (m/z intensity list)", "list"),
+            ("Copy spectrum (TSV)", "tsv"),
+            ("Copy spectrum (MassBank style)", "massbank"),
+        ]
+        action_map = {}
+        for label, fmt in fmt_menus:
+            submenu = menu.addMenu(label)
+            a_all = submenu.addAction("All fragments")
+            a_top = submenu.addAction("Top-x fragments")
+            a_pct = submenu.addAction("Fragments >=x%")
+            action_map[a_all] = (fmt, "all")
+            action_map[a_top] = (fmt, "top")
+            action_map[a_pct] = (fmt, "percent")
+
         sel = menu.exec(table_widget.mapToGlobal(pos))
-        if sel == act_list:
-            self._copy_msms_spectrum(scan, "list")
-        elif sel == act_tsv:
-            self._copy_msms_spectrum(scan, "tsv")
-        elif sel == act_mb:
-            self._copy_msms_spectrum(scan, "massbank")
+        if sel is None or sel not in action_map:
+            return
+        fmt, mode = action_map[sel]
+        selection = self._ask_msms_fragment_selection(mode)
+        if selection is None:
+            return
+        self._copy_msms_spectrum(scan, fmt, selection)
 
     def _export_exp_msms_mgf(self):
         """Export filtered MSMS spectra from all features to MGF file."""
@@ -10935,6 +11292,17 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         layout.addWidget(abundant_radio)
         layout.addSpacing(10)
 
+        regex_row = QtWidgets.QHBoxLayout()
+        regex_row.addWidget(QtWidgets.QLabel("Filter string regex:"))
+        filter_regex_edit = QtWidgets.QLineEdit("(FTMS).*")
+        try:
+            filter_regex_edit.setText(str(self.ui.lineEdit_msms_filter_regex.text()))
+        except Exception:
+            pass
+        filter_regex_edit.setToolTip("Regular expression applied to each spectrum's filter string. Empty exports all spectra.")
+        regex_row.addWidget(filter_regex_edit)
+        layout.addLayout(regex_row)
+
         buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Ok | QtWidgets.QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(dlg.accept)
         buttons.rejected.connect(dlg.reject)
@@ -10944,6 +11312,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             return
 
         export_mode = "most_abundant" if mode_group.checkedId() == 1 else "all"
+        export_filter_regex = self._compile_msms_filter_regex(str(filter_regex_edit.text()).strip())
 
         # Collect all features from the tree
         all_features = {}
@@ -11059,6 +11428,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         form = "labeled"
 
                     if form is None:
+                        continue
+
+                    # Filter-string regex filter (cvParam MS:1000512 / filter_line)
+                    if not self._msms_filter_match(self._get_msms_filter_string(ms2_scan), export_filter_regex)[0]:
                         continue
 
                     # Check percent threshold
@@ -11248,6 +11621,13 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             it.setCheckState(QtCore.Qt.Checked)
             collision_list.addItem(it)
         grid.addRow("Collision setups:", collision_list)
+        filter_regex_edit = QtWidgets.QLineEdit()
+        try:
+            filter_regex_edit.setText(str(self.ui.lineEdit_msms_filter_regex.text()))
+        except Exception:
+            pass
+        filter_regex_edit.setToolTip("Regular expression applied to each spectrum's filter string. Empty exports all displayed spectra.")
+        grid.addRow("Filter string regex:", filter_regex_edit)
         form.addLayout(grid)
         btns = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
         form.addWidget(btns)
@@ -11270,7 +11650,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             return
 
         selected_collision = {collision_list.item(i).text() for i in range(collision_list.count()) if collision_list.item(i).checkState() == QtCore.Qt.Checked}
-        selected = [r for r in rows if r["form"] in forms and f"{getattr(r['scan'], 'filter_line', '')}|CE={getattr(r['scan'], 'collisionEnergy', '')}" in selected_collision]
+        export_regex = self._compile_msms_filter_regex(str(filter_regex_edit.text()).strip())
+        selected = [r for r in rows if r["form"] in forms and f"{getattr(r['scan'], 'filter_line', '')}|CE={getattr(r['scan'], 'collisionEnergy', '')}" in selected_collision and self._msms_filter_match(r.get("filter_string", ""), export_regex)[0]]
         if len(selected) == 0:
             QtWidgets.QMessageBox.information(self, "MS/MS export", "No spectra match the current export selection.")
             return
@@ -11439,6 +11820,46 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         ax.legend(loc="upper right")
         fig.tight_layout()
         layout.addWidget(canvas)
+        dlg.exec()
+
+    def _show_msms_filter_strings_list(self):
+        """Show a scrollable list of all unique filter strings of the loaded MS/MS spectra."""
+        filter_strings = {}
+        if hasattr(self, "loadedMZXMLs") and self.loadedMZXMLs is not None:
+            seen_ids = set()
+            for key, mzxml_file in self.loadedMZXMLs.items():
+                if id(mzxml_file) in seen_ids:
+                    continue
+                seen_ids.add(id(mzxml_file))
+                if not (hasattr(mzxml_file, "MS2_list") and len(mzxml_file.MS2_list) > 0):
+                    continue
+                for ms2_scan in mzxml_file.MS2_list:
+                    fs = self._get_msms_filter_string(ms2_scan)
+                    if fs:
+                        filter_strings[fs] = filter_strings.get(fs, 0) + 1
+
+        if len(filter_strings) == 0:
+            QtWidgets.QMessageBox.information(self, "Filter strings", "No MS/MS filter strings available. Load raw data first.")
+            return
+
+        dlg = QtWidgets.QDialog(self)
+        dlg.setWindowTitle("Loaded MS/MS filter strings")
+        dlg.resize(720, 480)
+        layout = QtWidgets.QVBoxLayout(dlg)
+        layout.addWidget(QtWidgets.QLabel(f"{len(filter_strings)} unique filter string(s) found across the loaded MS/MS spectra:"))
+        listw = QtWidgets.QListWidget()
+        for fs in sorted(filter_strings.keys()):
+            listw.addItem(f"[{filter_strings[fs]}x]  {fs}")
+        layout.addWidget(listw, 1)
+        btn_row = QtWidgets.QHBoxLayout()
+        copy_btn = QtWidgets.QPushButton("Copy all")
+        copy_btn.clicked.connect(lambda: QtWidgets.QApplication.clipboard().setText("\n".join(sorted(filter_strings.keys()))))
+        btn_row.addWidget(copy_btn)
+        btn_row.addStretch(1)
+        close_btn = QtWidgets.QPushButton("Close")
+        close_btn.clicked.connect(dlg.accept)
+        btn_row.addWidget(close_btn)
+        layout.addLayout(btn_row)
         dlg.exec()
 
     # </editor-fold>
@@ -12433,6 +12854,12 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 "%.1f MB" % usedMemory if usedMemory < 1024 else "%.1f GB" % (usedMemory / 1024),
             )
         )
+
+        # Update the per-feature MS2 spectra counts column now that raw data is loaded
+        try:
+            self._updateExperimentMSMSCountsColumn()
+        except Exception:
+            logging.exception("Could not update MS2 spectra counts column")
 
     def showCustomFeature(self):
         self.resultsExperimentChangedNew(askForFeature=True)
@@ -14015,11 +14442,18 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.doubleSpinBox_resultsExperiment_MSMSRTWindow.valueChanged.connect(self._refreshExperimentMSMS)
         self.ui.doubleSpinBox_resultsExperiment_MSMSPrecIntensPercent.valueChanged.connect(self._refreshExperimentMSMS)
         self.ui.doubleSpinBox_resultsExperiment_MSMSAbsIntensThreshold.valueChanged.connect(self._refreshExperimentMSMS)
+        self.ui.lineEdit_msms_filter_regex.textChanged.connect(self._refreshExperimentMSMS)
         self.ui.comboBox_abundancePlotType.currentIndexChanged.connect(self._refreshExperimentAbundancePlot)
         self.ui.comboBox_abundanceScale.currentIndexChanged.connect(self._refreshExperimentAbundancePlot)
         self.ui.comboBox_abundanceScalingMode.currentIndexChanged.connect(self._refreshExperimentAbundancePlot)
+        self.ui.comboBox_abundanceValueType.currentIndexChanged.connect(self._refreshExperimentAbundancePlot)
         self.ui.pushButton_samplePeaksPrev.clicked.connect(self._samplePeaksPrevPage)
         self.ui.pushButton_samplePeaksNext.clicked.connect(self._samplePeaksNextPage)
+        self.ui.spinBox_samplePeaksRows.valueChanged.connect(self._renderSamplePeaksPage)
+        self.ui.spinBox_samplePeaksCols.valueChanged.connect(self._renderSamplePeaksPage)
+        self.ui.comboBox_samplePeaksNorm.currentIndexChanged.connect(self._renderSamplePeaksPage)
+        self.ui.checkBox_samplePeaksLabeledNegative.stateChanged.connect(self._renderSamplePeaksPage)
+        self.ui.checkBox_samplePeaksLabeledNormSeparately.stateChanged.connect(self._renderSamplePeaksPage)
 
         self.ui.eicSmoothingWindow.currentIndexChanged.connect(self.smoothingWindowChanged)
         self.smoothingWindowChanged()
@@ -14394,16 +14828,19 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.btn_msms_similarity_labeled = QtWidgets.QPushButton("Labeled similarity")
         self.ui.btn_msms_overview = QtWidgets.QPushButton("MS/MS overview")
         self.ui.btn_msms_export_mgf = QtWidgets.QPushButton("Export MGF")
+        self.ui.btn_msms_filter_strings = QtWidgets.QPushButton("Show filter strings")
         self.ui.msms_controls_exp.addWidget(self.ui.btn_msms_similarity_native)
         self.ui.msms_controls_exp.addWidget(self.ui.btn_msms_similarity_labeled)
         self.ui.msms_controls_exp.addWidget(self.ui.btn_msms_overview)
         self.ui.msms_controls_exp.addWidget(self.ui.btn_msms_export_mgf)
+        self.ui.msms_controls_exp.addWidget(self.ui.btn_msms_filter_strings)
         self.ui.msms_controls_exp.addStretch(1)
         self.ui.verticalLayout_msms_exp.insertLayout(1, self.ui.msms_controls_exp)
         self.ui.btn_msms_similarity_native.clicked.connect(lambda: self._show_msms_similarity_dialog("native"))
         self.ui.btn_msms_similarity_labeled.clicked.connect(lambda: self._show_msms_similarity_dialog("labeled"))
         self.ui.btn_msms_overview.clicked.connect(self._show_msms_overview)
         self.ui.btn_msms_export_mgf.clicked.connect(self._export_msms_mgf)
+        self.ui.btn_msms_filter_strings.clicked.connect(self._show_msms_filter_strings_list)
 
         self.ui.showCustomFeature_pushButton.clicked.connect(self.showCustomFeature)
 
@@ -14535,6 +14972,10 @@ def main():
             + f"If importing mzML files results in the error<br>of missing files, please find the correct version at<br><b>{OBO_DOWNLOAD_URL}</b>.<br>"
             + "Please download the corresponding obo-file and<br>save it to the folder in the error message.<br>"
             + "You can also open this page via the menu<br>(<b>'Tools'->'Download OBO files'</b>).<br>"
+            + "<br>"
+            + "In the experiment-results MS/MS tab you can <b>filter<br>spectra by their filter string</b> (cvParam MS:1000512)<br>"
+            + "using a regular expression. Leave it empty to show all<br>spectra; a capturing group is shown in the first column.<br>"
+            + "The 'Show filter strings' button lists all loaded filter<br>strings.<br>"
             + "<br>"
             + "To generate a template for a database, select<br><b>'Download Database Template'</b> from the 'Tools' menu.",
             QtWidgets.QMessageBox.Ok,

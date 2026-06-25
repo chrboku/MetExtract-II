@@ -664,10 +664,23 @@ class Chromatogram:
                 raise RuntimeError("No polarity for scan available")
 
             tmp_ms.id = int(spectrum["id"])
-            if "filter string" in spectrum.__dict__.keys():
-                tmp_ms.filter_line = spectrum["filter string"]
-            else:
-                tmp_ms.filter_line = f"NA // MSLevel: {msLevel}, polarity: {tmp_ms.polarity}"
+            if msLevel == 1:
+                if "filter string" in spectrum.__dict__.keys():
+                    tmp_ms.filter_line = spectrum["filter string"]
+                else:
+                    tmp_ms.filter_line = f"NA // MSLevel: {msLevel}, polarity: {tmp_ms.polarity}"
+            if msLevel == 2:
+                filter_str = None
+                try:
+                    if "filter string" in spectrum:
+                        filter_str = spectrum["filter string"]
+                except (KeyError, TypeError):
+                    filter_str = None
+                if filter_str:
+                    tmp_ms.filter_line = filter_str
+                    tmp_ms.filter_string = filter_str
+                else:
+                    tmp_ms.filter_line = f"NA // MSLevel: {msLevel}, polarity: {tmp_ms.polarity}"
 
             tmp_ms.peak_count = len(spectrum.peaks(peak_type="centroided"))
             tmp_ms.retention_time = spectrum.scan_time_in_minutes() * 60.0

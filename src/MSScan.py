@@ -7,6 +7,7 @@ class MSScan:
         self.id = 0
         self.peak_count = 0
         self.filter_line = ""
+        self.filter_string = ""
         self.retention_time = 0.0
         self.low_mz = 0.0
         self.high_mz = 0.0
