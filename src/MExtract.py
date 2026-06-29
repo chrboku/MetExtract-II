@@ -2612,6 +2612,20 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         meanRT = []
         intlim = [0, 0]
 
+        # Per-feature row lookup to determine which files detected the feature
+        # pair (i.e. have a feature ID in their "<sample>_FID" column).
+        rowsByNum = {}
+        selected_table = getattr(self.experimentResults, "selected_table", None)
+        if selected_table is not None and selected_table in self.experimentResults.db_con.tables:
+            table_df = self.experimentResults.db_con.tables[selected_table]
+            feature_ids = [pi.id for pi in plotItems if getattr(pi, "id", None) is not None]
+            if feature_ids:
+                rowsByNum = {row["Num"]: row for row in table_df.filter(pl.col("Num").is_in(feature_ids)).to_dicts()}
+
+        # Solid line for detected feature pairs, densely dashdotted otherwise.
+        solidStyle = "-"
+        denselyDashDotted = (0, (3, 1, 1, 1))
+
         all_files = sum(len(g.files) for g in definedGroups)
 
         pw = ProgressWrapper(1, parent=self, showIndProgress=False)
@@ -2685,6 +2699,13 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         eicL, timesL, scanIdsL, mzsL = self.loadedMZXMLs[fi].getEIC(lmz, ppm=ppm, filterLine=scanEvent)
 
                         groupColor = group.color if group.color else "gray"
+
+                        # Solid line if this file detected the feature pair (has a
+                        # feature ID), densely dashdotted otherwise.
+                        row_data = rowsByNum.get(pi.id)
+                        fid_val = row_data.get(a + "_FID") if row_data is not None else None
+                        detected = fid_val is not None and str(fid_val).strip() not in ("", "None")
+                        eicStyle = solidStyle if detected else denselyDashDotted
 
                         maxN = 1
                         maxL = 1
@@ -2776,12 +2797,14 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             [t / 60.0 for t in times],
                             [e / maxN for e in eic],
                             color=groupColor,
+                            linestyle=eicStyle,
                             label="M: %s" % (a),
                         )
                         self.ui.resultsExperiment_plot.axes.plot(
                             [t / 60.0 for t in times],
                             [-e / maxL for e in eicL],
                             color=groupColor,
+                            linestyle=eicStyle,
                             label="M': %s" % (a),
                         )
 
@@ -2796,12 +2819,14 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             [t / 60.0 + offset for t in times if rtBorderMin <= t / 60.0 <= rtBorderMax],
                             [eic[j] / maxN for j in range(len(eic)) if rtBorderMin <= times[j] / 60.0 <= rtBorderMax],
                             color=groupColor,
+                            linestyle=eicStyle,
                             label="M: %s" % (a),
                         )
                         self.ui.resultsExperimentSeparatedPeaks_plot.axes.plot(
                             [t / 60.0 + offset for t in times if rtBorderMin <= t / 60.0 <= rtBorderMax],
                             [-eicL[j] / maxL for j in range(len(eicL)) if rtBorderMin <= times[j] / 60.0 <= rtBorderMax],
                             color=groupColor,
+                            linestyle=eicStyle,
                             label="M': %s" % (a),
                         )
 
@@ -2815,12 +2840,17 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             pi = plotItems[0]
             for oi, o in enumerate(offsetOrder):
                 self.ui.resultsExperimentSeparatedPeaks_plot.axes.axvline(x=oi * shiftMinutes + pi.rt / 60.0, color=o[1])
+                label = o[0]
+                if separateBy == "Group":
+                    found, rsd = self._groupSampleStats(o[0], plotItems, definedGroups, rowsByNum)
+                    label = "%s\n%s\n%s" % (o[0], found, rsd)
                 self.ui.resultsExperimentSeparatedPeaks_plot.axes.text(
-                    x=oi * shiftMinutes - 0.05 + pi.rt / 60.0,
+                    x=oi * shiftMinutes + pi.rt / 60.0,
                     y=intlim[1] * 1.05,
-                    s=o[0],
-                    rotation=90,
-                    horizontalalignment="left",
+                    s=label,
+                    rotation=0,
+                    horizontalalignment="center",
+                    verticalalignment="bottom",
                     color=o[1],
                     backgroundcolor="white",
                     weight="bold",
@@ -2888,6 +2918,72 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if item.bunchData.type == "featurePair":
                 plotItems.append(item.bunchData)
         return plotItems
+
+    def _groupSampleStats(self, groupName, plotItems, definedGroups, rowsByNum):
+        """Compute label strings for a group in the Separated peaks plot.
+
+        Returns a tuple ("found x / y / z", "RSD % a / b") where:
+          x = samples in which the feature pair was detected (has a feature ID),
+          y = samples re-integrated as the native form (Area_N not empty),
+          z = samples re-integrated as the labeled form (Area_L not empty),
+          a/b = relative standard deviation (%) of native/labeled peak areas.
+        """
+        group = next((g for g in definedGroups if g.name == groupName), None)
+        if group is None:
+            return ("found 0 / 0 / 0", "RSD % n/a / n/a")
+
+        sampleNames = []
+        for f in group.files:
+            fi = str(f).replace("\\", "/")
+            a = fi[fi.rfind("/") + 1 :]
+            for ext in (".mzXML", ".mzxml", ".mzML", ".mzml"):
+                if a.lower().endswith(ext.lower()):
+                    a = a[: -len(ext)]
+                    break
+            sampleNames.append(a)
+
+        def parseArea(val):
+            if val is None:
+                return None
+            try:
+                return float(str(val).split(";")[0])
+            except (TypeError, ValueError):
+                return None
+
+        nFound = nNative = nLabeled = 0
+        areasN = []
+        areasL = []
+        for a in sampleNames:
+            sampleFound = sampleNative = sampleLabeled = False
+            for pi in plotItems:
+                row = rowsByNum.get(pi.id)
+                if row is None:
+                    continue
+                fid = row.get(a + "_FID")
+                if fid is not None and str(fid).strip() not in ("", "None"):
+                    sampleFound = True
+                aN = parseArea(row.get(a + "_Area_N"))
+                if aN is not None:
+                    sampleNative = True
+                    areasN.append(aN)
+                aL = parseArea(row.get(a + "_Area_L"))
+                if aL is not None:
+                    sampleLabeled = True
+                    areasL.append(aL)
+            nFound += sampleFound
+            nNative += sampleNative
+            nLabeled += sampleLabeled
+
+        def rsd(vals):
+            if len(vals) < 2:
+                return "n/a"
+            m = sum(vals) / len(vals)
+            if m == 0:
+                return "n/a"
+            sd = (sum((v - m) ** 2 for v in vals) / (len(vals) - 1)) ** 0.5
+            return "%.1f" % (sd / m * 100.0)
+
+        return ("found %d / %d / %d" % (nFound, nNative, nLabeled), "RSD %% %s / %s" % (rsd(areasN), rsd(areasL)))
 
     def updateExperimentAbundancePlot(self, plotItems):
         self.clearPlot(self.ui.resultsExperimentAbundance_plot)
