@@ -11457,6 +11457,109 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             return
         self._copy_msms_spectrum(scan, fmt, selection)
 
+    def _countMSMSPerFeatureForRows(self, rows, min_precursor_intensity):
+        """Count filtered MSMS spectra per feature (native and labeled separately).
+
+        Only spectra that would be shown in the experiment MSMS spectra list are
+        considered: i.e. those within the configured RT window (deviation from the
+        feature apex) whose precursor m/z matches the native/labeled m/z (within the
+        EIC ppm tolerance) and whose filter string passes the configured filter-line
+        regex. Among those, only spectra with a precursor intensity >=
+        ``min_precursor_intensity`` are counted.
+
+        Returns a dict mapping feature Num -> {"native": int, "labeled": int}.
+        """
+        counts = {}
+        if not hasattr(self, "loadedMZXMLs") or self.loadedMZXMLs is None:
+            return counts
+
+        try:
+            msms_rt_window = self.ui.doubleSpinBox_resultsExperiment_MSMSRTWindow.value()
+        except Exception:
+            msms_rt_window = 0.5
+        try:
+            ppm = self.ui.doubleSpinBox_resultsExperiment_EICppm.value()
+        except Exception:
+            ppm = 5.0
+        try:
+            filter_regex_pattern = str(self.ui.lineEdit_msms_filter_regex.text()).strip()
+        except Exception:
+            filter_regex_pattern = ""
+        filter_regex = self._compile_msms_filter_regex(filter_regex_pattern)
+
+        file_keys = [k for k in self.loadedMZXMLs if k.lower().endswith(".mzxml") or k.lower().endswith(".mzml")]
+
+        feature_ranges = []
+        for r in rows:
+            num = r.get("Num")
+            if num is None:
+                continue
+            try:
+                rt_s = float(r.get("RT", 0.0)) * 60.0
+            except (TypeError, ValueError):
+                continue
+            try:
+                mz = float(r.get("MZ")) if r.get("MZ") is not None else None
+            except (TypeError, ValueError):
+                mz = None
+            try:
+                lmz = float(r.get("L_MZ")) if r.get("L_MZ") is not None else None
+            except (TypeError, ValueError):
+                lmz = None
+
+            counts[num] = {"native": 0, "labeled": 0}
+            feature_ranges.append(
+                {
+                    "num": num,
+                    "native_mz_min": mz * (1 - ppm / 1000000.0) if mz is not None else None,
+                    "native_mz_max": mz * (1 + ppm / 1000000.0) if mz is not None else None,
+                    "labeled_mz_min": lmz * (1 - ppm / 1000000.0) if lmz is not None else None,
+                    "labeled_mz_max": lmz * (1 + ppm / 1000000.0) if lmz is not None else None,
+                    "rt_min_s": rt_s - msms_rt_window * 60.0,
+                    "rt_max_s": rt_s + msms_rt_window * 60.0,
+                }
+            )
+
+        if not feature_ranges:
+            return counts
+
+        for file_key in file_keys:
+            mzxml_file = self.loadedMZXMLs[file_key]
+            if not (hasattr(mzxml_file, "MS2_list") and len(mzxml_file.MS2_list) > 0):
+                continue
+            for ms2_scan in mzxml_file.MS2_list:
+                # Apply the additional minimum precursor intensity threshold first
+                if min_precursor_intensity > 0.0 and ms2_scan.precursor_intensity < min_precursor_intensity:
+                    continue
+
+                filter_string = None
+                fs_checked = False
+                fs_match = True
+                for fr in feature_ranges:
+                    if not (fr["rt_min_s"] <= ms2_scan.retention_time <= fr["rt_max_s"]):
+                        continue
+
+                    form = None
+                    if fr["native_mz_min"] is not None and fr["native_mz_min"] <= ms2_scan.precursor_mz <= fr["native_mz_max"]:
+                        form = "native"
+                    elif fr["labeled_mz_min"] is not None and fr["labeled_mz_min"] <= ms2_scan.precursor_mz <= fr["labeled_mz_max"]:
+                        form = "labeled"
+
+                    if form is None:
+                        continue
+
+                    # Filter-line regex check (scan-dependent only, evaluated once per scan)
+                    if not fs_checked:
+                        filter_string = self._get_msms_filter_string(ms2_scan)
+                        fs_match, _ = self._msms_filter_match(filter_string, filter_regex)
+                        fs_checked = True
+                    if not fs_match:
+                        break
+
+                    counts[fr["num"]][form] += 1
+
+        return counts
+
     def _generateInclusionLists(self):
         """Show a dialog to configure and export targeted inclusion lists from the experiment results."""
         if not hasattr(self, "experimentResults") or self.experimentResults is None or self.experimentResults.db_con is None:
@@ -11501,6 +11604,29 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         intensSpin.setDecimals(2)
         intensSpin.setValue(0.0)
         layout.addRow("Intensity threshold", intensSpin)
+
+        chkMSMS = QtWidgets.QCheckBox("Only features without MSMS spectra")
+        chkMSMS.setChecked(False)
+        layout.addRow(chkMSMS)
+
+        msmsMinPrecIntensSpin = QtWidgets.QDoubleSpinBox(dlg)
+        msmsMinPrecIntensSpin.setRange(0.0, 1e15)
+        msmsMinPrecIntensSpin.setDecimals(2)
+        msmsMinPrecIntensSpin.setValue(1e6)
+        layout.addRow("MSMS min. precursor intensity", msmsMinPrecIntensSpin)
+
+        msmsMinSpectraSpin = QtWidgets.QSpinBox(dlg)
+        msmsMinSpectraSpin.setRange(1, 1000000)
+        msmsMinSpectraSpin.setValue(1)
+        layout.addRow("MSMS min. number of spectra", msmsMinSpectraSpin)
+
+        # Enable the MSMS thresholds only when the MSMS filter is active
+        def _toggleMSMSControls(checked):
+            msmsMinPrecIntensSpin.setEnabled(checked)
+            msmsMinSpectraSpin.setEnabled(checked)
+
+        chkMSMS.toggled.connect(_toggleMSMSControls)
+        _toggleMSMSControls(chkMSMS.isChecked())
 
         fileRow = QtWidgets.QHBoxLayout()
         fileEdit = QtWidgets.QLineEdit(dlg)
@@ -11549,6 +11675,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         intens_threshold = intensSpin.value()
         sep_pol = chkSepPol.isChecked()
         sep_iso = chkSepIso.isChecked()
+        msms_only = chkMSMS.isChecked()
+        msms_min_prec_intens = msmsMinPrecIntensSpin.value()
+        msms_min_spectra = msmsMinSpectraSpin.value()
 
         # Collect feature rows from the loaded experiment results, respecting active tree filters
         try:
@@ -11561,6 +11690,14 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         visible_nums = self._getVisibleFeatureNums()
         if visible_nums is not None:
             rows = [r for r in rows if r.get("Num") in visible_nums]
+
+        # When restricting to features without MSMS spectra, count filtered MSMS
+        # spectra (native and labeled separately) per feature, using the same RT-window
+        # (apex deviation) and filter-line parameters as the experiment MSMS spectra
+        # list. Features that reach the minimum number of spectra are excluded.
+        msms_counts = {}
+        if msms_only:
+            msms_counts = self._countMSMSPerFeatureForRows(rows, msms_min_prec_intens)
 
         # Build polarity groups: (suffix, set_of_modes)
         pol_groups = []
@@ -11626,28 +11763,31 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     polarity = "positive" if "+" in mode else "negative"
                     ogroup = r.get("OGroup")
                     num = r.get("Num")
+                    feat_msms = msms_counts.get(num, {}) if msms_only else None
                     if "native" in forms and r.get("MZ") is not None:
-                        entries.append(
-                            {
-                                "compound": "OGroup%s_Num%s_native_%s" % (ogroup, num, polarity),
-                                "mz": float(r["MZ"]),
-                                "polarity": polarity,
-                                "tstart": rt - rt_offset,
-                                "tstop": rt + rt_offset,
-                                "intensityThreshold": intens_threshold,
-                            }
-                        )
+                        if not msms_only or feat_msms.get("native", 0) < msms_min_spectra:
+                            entries.append(
+                                {
+                                    "compound": "OGroup%s_Num%s_native_%s" % (ogroup, num, polarity),
+                                    "mz": float(r["MZ"]),
+                                    "polarity": polarity,
+                                    "tstart": rt - rt_offset,
+                                    "tstop": rt + rt_offset,
+                                    "intensityThreshold": intens_threshold,
+                                }
+                            )
                     if "labeled" in forms and r.get("L_MZ") is not None:
-                        entries.append(
-                            {
-                                "compound": "OGroup%s_Num%s_labeled_%s" % (ogroup, num, polarity),
-                                "mz": float(r["L_MZ"]),
-                                "polarity": polarity,
-                                "tstart": rt - rt_offset,
-                                "tstop": rt + rt_offset,
-                                "intensityThreshold": intens_threshold,
-                            }
-                        )
+                        if not msms_only or feat_msms.get("labeled", 0) < msms_min_spectra:
+                            entries.append(
+                                {
+                                    "compound": "OGroup%s_Num%s_labeled_%s" % (ogroup, num, polarity),
+                                    "mz": float(r["L_MZ"]),
+                                    "polarity": polarity,
+                                    "tstart": rt - rt_offset,
+                                    "tstop": rt + rt_offset,
+                                    "intensityThreshold": intens_threshold,
+                                }
+                            )
 
                 if not entries:
                     continue
