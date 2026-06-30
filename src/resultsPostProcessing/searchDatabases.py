@@ -22,6 +22,46 @@ exCharge = "Charge"
 LoggingSetup.LoggingSetup.Instance().initLogging()
 
 
+def smilesToSumFormula(smiles):
+    """Derive a neutral-element sum formula string from a SMILES code using RDKit.
+
+    Returns the sum formula string (e.g. 'C6H12O6') or None if the SMILES could
+    not be parsed.
+    """
+    try:
+        from rdkit import Chem
+        from rdkit.Chem import rdMolDescriptors
+    except Exception:
+        logging.error("DB import error: RDKit is required to derive sum formulas from SMILES but could not be imported")
+        return None
+
+    if smiles is None or smiles == "":
+        return None
+
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        return None
+
+    return rdMolDescriptors.CalcMolFormula(mol)
+
+
+def formulasEqual(formulaA, formulaB, fT):
+    """Compare two sum formulas by their elemental composition (ignoring formatting and charge).
+
+    Returns True if both formulas describe the same set of elements with the same counts.
+    """
+    try:
+        elemsA = fT.parseFormula(formulaA)
+        elemsB = fT.parseFormula(formulaB)
+    except Exception:
+        return False
+
+    elemsA = {k: v for k, v in elemsA.items() if v != 0}
+    elemsB = {k: v for k, v in elemsB.items() if v != 0}
+
+    return elemsA == elemsB
+
+
 class DBEntry:
     def __init__(
         self,
@@ -82,9 +122,10 @@ class DBSearch:
         self.dbEntriesNeutral = []
         self.dbEntriesMZ = []
 
-    def addEntriesFromFile(self, dbName, dbFile, callBackCheckFunction=None, error_collector=None):
+    def addEntriesFromFile(self, dbName, dbFile, callBackCheckFunction=None, error_collector=None, mismatch_collector=None):
         imported = 0
         notImported = 0
+        mismatches = 0
 
         curEntriesCount = len(self.dbEntriesMZ) + len(self.dbEntriesNeutral)
 
@@ -162,6 +203,38 @@ class DBSearch:
                         ]:
                             additionalInfo[header] = row[headers[header]].replace('"', "DOURBLEPRIME").replace("'", "PRIME").replace("\t", "TAB").replace("\n", "RETURN").replace("\r", "CarrRETURN").replace("#", "HASH")
 
+                    # SMILES handling: derive the sum formula from the SMILES code (if provided)
+                    smiles = ""
+                    if "SMILES" in headers:
+                        smiles = row[headers["SMILES"]].strip()
+                    if smiles != "":
+                        smiles_formula = smilesToSumFormula(smiles)
+                        if smiles_formula is None:
+                            _msg = "   - Error row %d: The SMILES code (%s) of the entry %s '%s' could not be parsed, ignoring SMILES for this compound" % (rowi, smiles, num, name)
+                            logging.error(_msg)
+                            if error_collector is not None:
+                                error_collector.append(_msg)
+                        elif sumFormula == "":
+                            # Only a SMILES code is provided: derive and use the sum formula for annotation
+                            sumFormula = smiles_formula
+                        elif not formulasEqual(sumFormula, smiles_formula, fT):
+                            # Provided sum formula and SMILES-derived sum formula disagree: report and skip
+                            _msg = "   - SMILES/SumFormula mismatch in row %d: entry %s '%s' has SumFormula '%s' but SMILES '%s' yields '%s'; this entry is not used" % (
+                                rowi,
+                                num,
+                                name,
+                                sumFormula,
+                                smiles,
+                                smiles_formula,
+                            )
+                            logging.error(_msg)
+                            if error_collector is not None:
+                                error_collector.append(_msg)
+                            if mismatch_collector is not None:
+                                mismatch_collector.append(_msg)
+                            mismatches += 1
+                            continue
+
                     mass = 0
                     formula_charge = 0
                     entry_mz = mz
@@ -219,6 +292,12 @@ class DBSearch:
 
         if notImported > 0:
             _summary_msg = "Warning: Not imported %d entries (see above errors)" % (notImported)
+            logging.error(_summary_msg)
+            if error_collector is not None:
+                error_collector.append(_summary_msg)
+
+        if mismatches > 0:
+            _summary_msg = "Warning: Skipped %d entries due to SMILES/SumFormula mismatches (see above)" % (mismatches)
             logging.error(_summary_msg)
             if error_collector is not None:
                 error_collector.append(_summary_msg)

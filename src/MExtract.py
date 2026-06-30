@@ -86,6 +86,7 @@ from .mePyGuis.mainWindow import Ui_MainWindow
 from .mePyGuis.TracerEdit import ConfiguredTracer, tracerEdit
 from .MSMS import optimizeMSMSTargets
 from .reIntegration import reIntegrateResultsFile
+from .exportToInclusionList import writeIQXInclusionList, writeQExactiveInclusionList
 from .resultsPostProcessing import searchDatabases as searchDatabases
 from .formulaTools import formulaTools, getElementOfIsotope, getIsotopeMass
 
@@ -2337,6 +2338,15 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         return best if best_dist <= 10.0 else None
 
+    @staticmethod
+    def _mathbf(value) -> str:
+        """Return the value as a bold matplotlib mathtext string, escaping special characters."""
+        s = str(value)
+        for ch in ["\\", "{", "}", "$", "_", "^", "#", "%", "&", "~"]:
+            s = s.replace(ch, "\\" + ch)
+        s = s.replace(" ", "\\ ")
+        return r"$\mathbf{" + s + r"}$"
+
     def _onFeatureMapHover(self, event):
         """Show hover annotation near the cursor when close to a feature dot."""
         if not hasattr(self, "_featureMapAnnotation") or self._featureMapAnnotation is None:
@@ -2356,21 +2366,25 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 self.ui.expFeatureMap_plot.canvas.draw_idle()
             return
 
-        # Build tooltip text
+        # Build tooltip text: one key-value pair per line, value in bold
         lines = [
-            f"Num: {feat['num']}   OGroup: {feat['ogroup']}",
-            f"m/z: {feat['mz']:.4f}   RT: {feat['rt']:.3f} min",
-            f"Charge: {feat['charge']}   Polarity: {feat['polarity']}   Xn: {feat['xn']}",
+            f"Num: {self._mathbf(feat['num'])}",
+            f"OGroup: {self._mathbf(feat['ogroup'])}",
+            f"m/z: {self._mathbf('%.4f' % feat['mz'])}",
+            f"RT: {self._mathbf('%.3f' % feat['rt'])} min",
+            f"Charge: {self._mathbf(feat['charge'])}",
+            f"Polarity: {self._mathbf(feat['polarity'])}",
+            f"Xn: {self._mathbf(feat['xn'])}",
         ]
         avg = feat.get("avg_peakarea")
         if avg is not None and avg > 0:
-            lines.append(f"Avg peak area: {avg:.3g}")
+            lines.append(f"Avg peak area: {self._mathbf('%.3g' % avg)}")
         n_msms = feat.get("n_msms")
         if n_msms is not None:
-            lines.append(f"MSMS spectra: {n_msms}")
+            lines.append(f"MSMS spectra: {self._mathbf(n_msms)}")
         n_found = feat.get("n_found")
         if n_found is not None:
-            lines.append(f"Found in samples: {n_found}")
+            lines.append(f"Found in samples: {self._mathbf(n_found)}")
         ann.set_text("\n".join(lines))
         ann.xy = (feat["rt"], feat["mz"])
         ann.set_visible(True)
@@ -2418,6 +2432,76 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     tree.setCurrentItem(child)
                     tree.scrollToItem(child)
                     return
+
+    # ── Feature-field copy context menu (shared by both result tree views) ────
+    def _addFeatureCopyMenu(self, menu, values: dict) -> dict:
+        """Add a 'Copy' submenu to *menu* offering the available feature fields.
+
+        *values* maps the keys ogroup/num/polarity/rt/mz/lmz to their string values
+        (any of which may be None to omit it). Returns {QAction: text-to-copy}.
+        """
+        field_order = [
+            ("OGroup", "ogroup"),
+            ("Feature-Num", "num"),
+            ("Polarity", "polarity"),
+            ("Mean RT (min)", "rt"),
+            ("Mean m/z (native)", "mz"),
+            ("Mean m/z (labeled)", "lmz"),
+        ]
+        present = [(label, key) for label, key in field_order if values.get(key) is not None]
+        if not present:
+            return {}
+
+        copyMenu = menu.addMenu("Copy")
+        actions: dict = {}
+        for label, key in present:
+            act = copyMenu.addAction(label)
+            actions[act] = str(values[key])
+
+        copyMenu.addSeparator()
+        tab_str = "\t".join(str(values[key]) for _, key in present)
+        semi_str = ";".join(str(values[key]) for _, key in present)
+        actions[copyMenu.addAction("All (tab-separated)")] = tab_str
+        actions[copyMenu.addAction("All (semicolon-separated)")] = semi_str
+        return actions
+
+    def _featureValuesFromBunch(self, bd) -> dict:
+        """Build the copy-value dict for an experiment-results tree item's bunchData."""
+        values = {"ogroup": None, "num": None, "polarity": None, "rt": None, "mz": None, "lmz": None}
+        if bd is None:
+            return values
+        bd_type = getattr(bd, "type", None)
+        if bd_type == "featurePair":
+            values["ogroup"] = getattr(bd, "metaboliteGroupID", None)
+            values["num"] = getattr(bd, "id", None)
+            values["polarity"] = getattr(bd, "ionisationMode", None)
+            rt = getattr(bd, "rt", None)
+            if rt is not None:
+                values["rt"] = "%.3f" % (float(rt) / 60.0)
+            mz = getattr(bd, "mz", None)
+            if mz is not None:
+                values["mz"] = "%.4f" % float(mz)
+            lmz = getattr(bd, "lmz", None)
+            if lmz is not None:
+                values["lmz"] = "%.4f" % float(lmz)
+        elif bd_type == "metaboliteGroup":
+            values["ogroup"] = getattr(bd, "metaboliteGroupID", None)
+        return values
+
+    def _showExperimentTreeContextMenu(self, position):
+        tree = self.ui.resultsExperiment_TreeWidget
+        item = tree.itemAt(position)
+        if item is None:
+            return
+        bd = getattr(item, "bunchData", None)
+        values = self._featureValuesFromBunch(bd)
+        menu = QtWidgets.QMenu()
+        actions = self._addFeatureCopyMenu(menu, values)
+        if not actions:
+            return
+        chosen = menu.exec_(tree.mapToGlobal(position))
+        if chosen in actions:
+            pyperclip.copy(actions[chosen])
 
     def _showFeatureInExperimentResults(self, feature_index: int):
         """Navigate to the experiment results tab and select the specified feature."""
@@ -5542,6 +5626,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
                     try:
                         db_info_messages = []
+                        smiles_mismatches = []
                         addedColumns = annotateResultMatrix.annotateWithDatabases(
                             file=excel_file,
                             sheet_name=annotation_input_sheet,
@@ -5558,6 +5643,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             pwMaxSet=pw.getCallingFunction()("max"),
                             pwValSet=pw.getCallingFunction()("value"),
                             db_info_messages=db_info_messages,
+                            smiles_mismatches=smiles_mismatches,
                         )
                         annotationColumns.extend(addedColumns)
 
@@ -5566,6 +5652,15 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             from .utils import add_sheet_to_excel as _add_sheet_db_info
 
                             _add_sheet_db_info(excel_file, pl.DataFrame({"text": db_info_messages}), "DB_info", overwrite=True)
+
+                        # Inform the user about SMILES / sum formula mismatches
+                        if smiles_mismatches:
+                            QtWidgets.QMessageBox.warning(
+                                self,
+                                "MetExtract",
+                                "%d database entries had a SMILES code that does not match the provided sum formula.\nThese entries were not used for the annotation. See the console / DB_info sheet for details." % (len(smiles_mismatches)),
+                                QtWidgets.QMessageBox.Ok,
+                            )
 
                         if False:
                             logging.info(
@@ -11362,6 +11457,218 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             return
         self._copy_msms_spectrum(scan, fmt, selection)
 
+    def _generateInclusionLists(self):
+        """Show a dialog to configure and export targeted inclusion lists from the experiment results."""
+        if not hasattr(self, "experimentResults") or self.experimentResults is None or self.experimentResults.db_con is None:
+            QtWidgets.QMessageBox.information(self, "Generate Inclusion Lists", "No experiment results loaded.")
+            return
+
+        dlg = QtWidgets.QDialog(self)
+        dlg.setWindowTitle("Generate Inclusion Lists")
+        layout = QtWidgets.QFormLayout(dlg)
+
+        styleCombo = QtWidgets.QComboBox(dlg)
+        styleCombo.addItems(["IQ-X", "QExactive"])
+        layout.addRow("Style", styleCombo)
+
+        chkPos = QtWidgets.QCheckBox("Include positive mode")
+        chkPos.setChecked(True)
+        layout.addRow(chkPos)
+        chkNeg = QtWidgets.QCheckBox("Include negative mode")
+        chkNeg.setChecked(True)
+        layout.addRow(chkNeg)
+        chkSepPol = QtWidgets.QCheckBox("Separate polarities")
+        layout.addRow(chkSepPol)
+
+        chkNat = QtWidgets.QCheckBox("Include native")
+        chkNat.setChecked(True)
+        layout.addRow(chkNat)
+        chkLab = QtWidgets.QCheckBox("Include labeled")
+        chkLab.setChecked(True)
+        layout.addRow(chkLab)
+        chkSepIso = QtWidgets.QCheckBox("Separate isotopolog form lists")
+        layout.addRow(chkSepIso)
+
+        rtOffsetSpin = QtWidgets.QDoubleSpinBox(dlg)
+        rtOffsetSpin.setRange(0.0, 1000.0)
+        rtOffsetSpin.setDecimals(3)
+        rtOffsetSpin.setSingleStep(0.1)
+        rtOffsetSpin.setValue(0.5)
+        layout.addRow("RT offset (min)", rtOffsetSpin)
+
+        intensSpin = QtWidgets.QDoubleSpinBox(dlg)
+        intensSpin.setRange(0.0, 1e15)
+        intensSpin.setDecimals(2)
+        intensSpin.setValue(0.0)
+        layout.addRow("Intensity threshold", intensSpin)
+
+        fileRow = QtWidgets.QHBoxLayout()
+        fileEdit = QtWidgets.QLineEdit(dlg)
+        fileEdit.setReadOnly(True)
+        fileBtn = QtWidgets.QPushButton("Choose file...", dlg)
+        fileRow.addWidget(fileEdit)
+        fileRow.addWidget(fileBtn)
+        layout.addRow("Export to", fileRow)
+
+        def _chooseFile():
+            if styleCombo.currentText() == "IQ-X":
+                fname, _ = QtWidgets.QFileDialog.getSaveFileName(dlg, "Select inclusion list file", "", "CSV files (*.csv)")
+            else:
+                fname, _ = QtWidgets.QFileDialog.getSaveFileName(dlg, "Select inclusion list file", "", "Excel files (*.xlsx)")
+            if fname:
+                fileEdit.setText(fname)
+
+        fileBtn.clicked.connect(_chooseFile)
+
+        buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Ok | QtWidgets.QDialogButtonBox.StandardButton.Cancel)
+        buttons.accepted.connect(dlg.accept)
+        buttons.rejected.connect(dlg.reject)
+        layout.addRow(buttons)
+
+        if dlg.exec() != QtWidgets.QDialog.DialogCode.Accepted:
+            return
+
+        include_pos = chkPos.isChecked()
+        include_neg = chkNeg.isChecked()
+        include_nat = chkNat.isChecked()
+        include_lab = chkLab.isChecked()
+        if not (include_pos or include_neg):
+            QtWidgets.QMessageBox.warning(self, "Generate Inclusion Lists", "Select at least one polarity to include.")
+            return
+        if not (include_nat or include_lab):
+            QtWidgets.QMessageBox.warning(self, "Generate Inclusion Lists", "Select at least native or labeled to include.")
+            return
+
+        out_file = str(fileEdit.text()).strip()
+        if not out_file:
+            QtWidgets.QMessageBox.warning(self, "Generate Inclusion Lists", "Please choose an output file.")
+            return
+
+        style = styleCombo.currentText()
+        rt_offset = rtOffsetSpin.value()
+        intens_threshold = intensSpin.value()
+        sep_pol = chkSepPol.isChecked()
+        sep_iso = chkSepIso.isChecked()
+
+        # Collect feature rows from the loaded experiment results, respecting active tree filters
+        try:
+            df = self.experimentResults.db_con.tables[self.experimentResults.selected_table]
+        except Exception:
+            QtWidgets.QMessageBox.warning(self, "Generate Inclusion Lists", "Could not access the loaded results table.")
+            return
+
+        rows = df.to_dicts()
+        visible_nums = self._getVisibleFeatureNums()
+        if visible_nums is not None:
+            rows = [r for r in rows if r.get("Num") in visible_nums]
+
+        # Build polarity groups: (suffix, set_of_modes)
+        pol_groups = []
+        if sep_pol:
+            if include_pos:
+                pol_groups.append(("pos", {"+"}))
+            if include_neg:
+                pol_groups.append(("neg", {"-"}))
+        else:
+            modes = set()
+            if include_pos:
+                modes.add("+")
+            if include_neg:
+                modes.add("-")
+            if modes == {"+", "-"}:
+                suffix = "posneg"
+            elif modes == {"+"}:
+                suffix = "pos"
+            else:
+                suffix = "neg"
+            pol_groups.append((suffix, modes))
+
+        # Build isotopolog groups: (suffix, set_of_forms)
+        iso_groups = []
+        if sep_iso:
+            if include_nat:
+                iso_groups.append(("nat", {"native"}))
+            if include_lab:
+                iso_groups.append(("lab", {"labeled"}))
+        else:
+            forms = set()
+            if include_nat:
+                forms.add("native")
+            if include_lab:
+                forms.add("labeled")
+            if forms == {"native", "labeled"}:
+                suffix = "natlab"
+            elif forms == {"native"}:
+                suffix = "nat"
+            else:
+                suffix = "lab"
+            iso_groups.append((suffix, forms))
+
+        base, ext = os.path.splitext(out_file)
+        if style == "IQ-X":
+            ext = ".csv"
+        else:
+            ext = ".xlsx"
+
+        written_files = []
+        total_entries = 0
+        for pol_suffix, modes in pol_groups:
+            for iso_suffix, forms in iso_groups:
+                entries = []
+                for r in rows:
+                    mode = str(r.get("Ionisation_Mode", "+") or "+")
+                    if mode not in modes:
+                        continue
+                    avg = r.get("Average_peakarea")
+                    if intens_threshold > 0.0 and avg is not None and float(avg) < intens_threshold:
+                        continue
+                    rt = float(r.get("RT", 0.0))
+                    polarity = "positive" if "+" in mode else "negative"
+                    ogroup = r.get("OGroup")
+                    num = r.get("Num")
+                    if "native" in forms and r.get("MZ") is not None:
+                        entries.append(
+                            {
+                                "compound": "OGroup%s_Num%s_native_%s" % (ogroup, num, polarity),
+                                "mz": float(r["MZ"]),
+                                "polarity": polarity,
+                                "tstart": rt - rt_offset,
+                                "tstop": rt + rt_offset,
+                                "intensityThreshold": intens_threshold,
+                            }
+                        )
+                    if "labeled" in forms and r.get("L_MZ") is not None:
+                        entries.append(
+                            {
+                                "compound": "OGroup%s_Num%s_labeled_%s" % (ogroup, num, polarity),
+                                "mz": float(r["L_MZ"]),
+                                "polarity": polarity,
+                                "tstart": rt - rt_offset,
+                                "tstop": rt + rt_offset,
+                                "intensityThreshold": intens_threshold,
+                            }
+                        )
+
+                if not entries:
+                    continue
+
+                target = "%s_%s_%s%s" % (base, pol_suffix, iso_suffix, ext)
+                if style == "IQ-X":
+                    writeIQXInclusionList(entries, target)
+                else:
+                    writeQExactiveInclusionList(entries, target)
+                written_files.append(os.path.basename(target))
+                total_entries += len(entries)
+
+        if written_files:
+            QtWidgets.QMessageBox.information(
+                self,
+                "Generate Inclusion Lists",
+                "Wrote %d entries to %d file(s):\n%s" % (total_entries, len(written_files), "\n".join(written_files)),
+            )
+        else:
+            QtWidgets.QMessageBox.information(self, "Generate Inclusion Lists", "No features matched the selected criteria.")
+
     def _export_exp_msms_mgf(self):
         """Export filtered MSMS spectra from all features to MGF file."""
         if not hasattr(self, "loadedMZXMLs") or self.loadedMZXMLs is None:
@@ -12719,6 +13026,52 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         return newName
 
+    def _featureValuesFromSampleItem(self, item) -> dict:
+        """Build the copy-value dict for a sample-results tree item (feature/featureGroup)."""
+        values = {"ogroup": None, "num": None, "polarity": None, "rt": None, "mz": None, "lmz": None}
+        myType = getattr(item, "myType", None)
+        if myType == "feature":
+            xp = getattr(item, "myData", None)
+            values["num"] = getattr(item, "myID", None)
+            if xp is not None:
+                values["polarity"] = getattr(xp, "ionMode", None)
+                mz = getattr(xp, "mz", None)
+                if mz is not None:
+                    values["mz"] = "%.4f" % float(mz)
+                lmz = getattr(xp, "lmz", None)
+                if lmz is not None:
+                    values["lmz"] = "%.4f" % float(lmz)
+                rt = getattr(xp, "NPeakCenterMin", None)
+                if rt is not None:
+                    values["rt"] = "%.3f" % (float(rt) / 60.0)
+            parent = item.parent()
+            if parent is not None and getattr(parent, "myType", None) == "featureGroup":
+                values["ogroup"] = getattr(getattr(parent, "myData", None), "fgID", None)
+        elif myType == "featureGroup":
+            values["ogroup"] = getattr(getattr(item, "myData", None), "fgID", None)
+            mzs, lmzs, rts, modes = [], [], [], set()
+            for j in range(item.childCount()):
+                xp = getattr(item.child(j), "myData", None)
+                if xp is None:
+                    continue
+                if getattr(xp, "mz", None) is not None:
+                    mzs.append(float(xp.mz))
+                if getattr(xp, "lmz", None) is not None:
+                    lmzs.append(float(xp.lmz))
+                if getattr(xp, "NPeakCenterMin", None) is not None:
+                    rts.append(float(xp.NPeakCenterMin) / 60.0)
+                if getattr(xp, "ionMode", None) is not None:
+                    modes.add(xp.ionMode)
+            if mzs:
+                values["mz"] = "%.4f" % (sum(mzs) / len(mzs))
+            if lmzs:
+                values["lmz"] = "%.4f" % (sum(lmzs) / len(lmzs))
+            if rts:
+                values["rt"] = "%.3f" % (sum(rts) / len(rts))
+            if len(modes) == 1:
+                values["polarity"] = next(iter(modes))
+        return values
+
     def showPopup(self, position):
         selectedItems = self.ui.res_ExtractedData.selectedItems()
 
@@ -12766,10 +13119,22 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             clipboardAction = menu.addAction("Copy")
             actionAvailable = True
 
+        # Copy individual feature fields (OGroup, Feature-Num, polarity, mean RT, mean m/z)
+        copyFieldActions = {}
+        if len(selectedItems) == 1 and len(types) == 1 and types[0] in ("feature", "featureGroup"):
+            menu.addSeparator()
+            field_values = self._featureValuesFromSampleItem(selectedItems[0])
+            copyFieldActions = self._addFeatureCopyMenu(menu, field_values)
+            if copyFieldActions:
+                actionAvailable = True
+
         if actionAvailable:
             action = menu.exec_(self.ui.res_ExtractedData.mapToGlobal(position))
 
-            if action == clipboardAction:
+            if action in copyFieldActions:
+                pyperclip.copy(copyFieldActions[action])
+
+            elif action == clipboardAction:
                 clipboard = ["MZ\tRT\tXn\tZ\tIonMode\tFG\tTracer\tAdduct\tHeteroAtoms"]
 
                 if len(selectedItems) == 1 and types[0] == "Features":
@@ -14860,7 +15225,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.expFilterResetBtn.clicked.connect(self._onExpFilterReset)
         self.ui.expExportMGFBtn.clicked.connect(self._export_exp_msms_mgf)
         self.ui.expFeatureMapBtn.toggled.connect(self._toggleFeatureMap)
-        # Connect all individual filter fields
+        self.ui.expGenInclusionListBtn.clicked.connect(self._generateInclusionLists)
+        # Right-click context menu on the experiment-results tree (copy feature fields)
+        self.ui.resultsExperiment_TreeWidget.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.ui.resultsExperiment_TreeWidget.customContextMenuRequested.connect(self._showExperimentTreeContextMenu)
         self.ui.expFilter_mz.textChanged.connect(self.expFilterEdited)
         self.ui.expFilter_rt.textChanged.connect(self.expFilterEdited)
         self.ui.expFilter_xn.textChanged.connect(self.expFilterEdited)

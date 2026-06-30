@@ -4,17 +4,44 @@ from .MetExtractII_Main import MetExtractVersion
 from .utils import Bunch
 
 
-def writeFeatureListToFeatureML(features, toFile, ppmPM=5, rtPM=0.25 * 60):
-    fileLineArray = []
-
+def _writeFeatureMLHeader(fileLineArray, features):
     fileLineArray.append('<?xml version="1.0" encoding="ISO-8859-1"?>')
     fileLineArray.append('<featureMap version="1.4" id="fm_16311276685788915066" xsi:noNamespaceSchemaLocation="http://open-ms.sourceforge.net/schemas/FeatureXML_1_4.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">')
     fileLineArray.append('	<dataProcessing completion_time="%s">' % (strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime())))
     fileLineArray.append('		<software name="MetExtract II" version="%s" />' % (MetExtractVersion))
     fileLineArray.append('		<processingAction name="Feature pair detection" />')
-    # fileLineArray.append('		<UserParam type="string" name="parameter: key" value="value"/>')
     fileLineArray.append("	</dataProcessing>")
     fileLineArray.append('	<featureList count="%d">' % (len(features)))
+
+
+def _writeFeatureMLFooter(fileLineArray):
+    fileLineArray.append("	</featureList>")
+    fileLineArray.append("</featureMap>")
+
+
+def _writeFeatureMLToFile(fileLineArray, toFile):
+    with open(toFile, "w") as fOut:
+        for line in fileLineArray:
+            fOut.write(line)
+            fOut.write("\r\n")
+
+
+def writeFeatureListToFeatureML(features, toFile, ppmPM=5, rtPM=0.25 * 60):
+    """Writes two featureML files for the given feature pairs:
+
+    a) <toFile>: each MZ value (native and labeled) is shown as a separate
+       rectangle of +/- ppmPM relative to the respective MZ value.
+    b) <toFile>_adapted.featureML: an I-beam shape where the native MZ and the
+       labeled MZ are each shown as a thin rectangle (mz +/- 3 ppm) connected
+       by a narrow vertical rectangle in the middle.
+    """
+    writeFeatureListToFeatureMLStandard(features, toFile, ppmPM=ppmPM, rtPM=rtPM)
+    writeFeatureListToFeatureMLAdapted(features, toFile.replace(".featureML", "_adapted.featureML"), ppmPM=3.0, rtPM=rtPM)
+
+
+def writeFeatureListToFeatureMLStandard(features, toFile, ppmPM=5, rtPM=0.25 * 60):
+    fileLineArray = []
+    _writeFeatureMLHeader(fileLineArray, features)
 
     for feature in features:
         num = feature.id
@@ -50,13 +77,62 @@ def writeFeatureListToFeatureML(features, toFile, ppmPM=5, rtPM=0.25 * 60):
         fileLineArray.append("			</convexhull>")
         fileLineArray.append("		</feature>")
 
-    fileLineArray.append("	</featureList>")
-    fileLineArray.append("</featureMap>")
+    _writeFeatureMLFooter(fileLineArray)
+    _writeFeatureMLToFile(fileLineArray, toFile)
 
-    with open(toFile, "w") as fOut:
-        for line in fileLineArray:
-            fOut.write(line)
-            fOut.write("\r\n")
+
+def writeFeatureListToFeatureMLAdapted(features, toFile, ppmPM=3.0, rtPM=0.25 * 60):
+    fileLineArray = []
+    _writeFeatureMLHeader(fileLineArray, features)
+
+    for feature in features:
+        num = feature.id
+        grpNum = feature.ogroup
+        mz = feature.mz
+        lmz = feature.lmz
+        rt = feature.rt
+        z = feature.charge
+        name = feature.name
+        xn = feature.Xn
+        ionMode = feature.ionMode
+
+        # width of the central connecting bar
+        rtBar = rtPM * 0.1
+
+        fileLineArray.append('		<feature id="%s">' % (num))
+        fileLineArray.append('			<UserParam type="string" name="label" value="%s (Num: %s, OGroup: %s, MZ: %.5f, RT (min): %.2f, Charge: %d, Xn: %s, ionMode: %s)"/>' % (name, num, grpNum, mz, rt, z, xn, ionMode))
+        fileLineArray.append('			<position dim="0">%f</position>' % (rt))
+        fileLineArray.append('			<position dim="1">%f</position>' % (mz))
+        fileLineArray.append("			<charge>%d</charge>" % (z))
+        fileLineArray.append("			<intensity>1</intensity>")
+        fileLineArray.append('			<quality dim="0">-1</quality>')
+        fileLineArray.append('			<quality dim="1">-1</quality>')
+        fileLineArray.append("			<overallquality>-1</overallquality>")
+        # native MZ flange
+        fileLineArray.append('			<convexhull nr="1">')
+        fileLineArray.append('				<pt x="%f" y="%f" />' % (rt - rtPM, mz * (1 - ppmPM / 1000000.0)))
+        fileLineArray.append('				<pt x="%f" y="%f" />' % (rt + rtPM, mz * (1 - ppmPM / 1000000.0)))
+        fileLineArray.append('				<pt x="%f" y="%f" />' % (rt - rtPM, mz * (1 + ppmPM / 1000000.0)))
+        fileLineArray.append('				<pt x="%f" y="%f" />' % (rt + rtPM, mz * (1 + ppmPM / 1000000.0)))
+        fileLineArray.append("			</convexhull>")
+        # labeled MZ flange
+        fileLineArray.append('			<convexhull nr="2_lab">')
+        fileLineArray.append('				<pt x="%f" y="%f" />' % (rt - rtPM, lmz * (1 - ppmPM / 1000000.0)))
+        fileLineArray.append('				<pt x="%f" y="%f" />' % (rt + rtPM, lmz * (1 - ppmPM / 1000000.0)))
+        fileLineArray.append('				<pt x="%f" y="%f" />' % (rt - rtPM, lmz * (1 + ppmPM / 1000000.0)))
+        fileLineArray.append('				<pt x="%f" y="%f" />' % (rt + rtPM, lmz * (1 + ppmPM / 1000000.0)))
+        fileLineArray.append("			</convexhull>")
+        # central connecting bar between native and labeled MZ
+        fileLineArray.append('			<convexhull nr="3_bar">')
+        fileLineArray.append('				<pt x="%f" y="%f" />' % (rt - rtBar, mz))
+        fileLineArray.append('				<pt x="%f" y="%f" />' % (rt + rtBar, mz))
+        fileLineArray.append('				<pt x="%f" y="%f" />' % (rt - rtBar, lmz))
+        fileLineArray.append('				<pt x="%f" y="%f" />' % (rt + rtBar, lmz))
+        fileLineArray.append("			</convexhull>")
+        fileLineArray.append("		</feature>")
+
+    _writeFeatureMLFooter(fileLineArray)
+    _writeFeatureMLToFile(fileLineArray, toFile)
 
 
 def convertMSMSoptFileToFeatureML(msmsFile, featureMLFile=None):

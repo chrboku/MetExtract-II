@@ -27,6 +27,86 @@ except AttributeError:
         return QtWidgets.QApplication.translate(context, text, disambig)
 
 
+class FlowLayout(QtWidgets.QLayout):
+    """A layout that arranges its widgets left-to-right and wraps to the next
+    row when there is not enough horizontal space."""
+
+    def __init__(self, parent=None, margin=0, spacing=4):
+        super().__init__(parent)
+        if parent is not None:
+            self.setContentsMargins(margin, margin, margin, margin)
+        self.setSpacing(spacing)
+        self._items = []
+
+    def __del__(self):
+        while self.count():
+            self.takeAt(0)
+
+    def addItem(self, item):
+        self._items.append(item)
+
+    def count(self):
+        return len(self._items)
+
+    def itemAt(self, index):
+        if 0 <= index < len(self._items):
+            return self._items[index]
+        return None
+
+    def takeAt(self, index):
+        if 0 <= index < len(self._items):
+            return self._items.pop(index)
+        return None
+
+    def expandingDirections(self):
+        return QtCore.Qt.Orientations(QtCore.Qt.Orientation(0))
+
+    def hasHeightForWidth(self):
+        return True
+
+    def heightForWidth(self, width):
+        return self._doLayout(QtCore.QRect(0, 0, width, 0), True)
+
+    def setGeometry(self, rect):
+        super().setGeometry(rect)
+        self._doLayout(rect, False)
+
+    def sizeHint(self):
+        return self.minimumSize()
+
+    def minimumSize(self):
+        size = QtCore.QSize()
+        for item in self._items:
+            size = size.expandedTo(item.minimumSize())
+        margins = self.contentsMargins()
+        size += QtCore.QSize(margins.left() + margins.right(), margins.top() + margins.bottom())
+        return size
+
+    def _doLayout(self, rect, testOnly):
+        left, top, right, bottom = self.getContentsMargins()
+        effectiveRect = rect.adjusted(left, top, -right, -bottom)
+        x = effectiveRect.x()
+        y = effectiveRect.y()
+        lineHeight = 0
+        spacing = self.spacing()
+
+        for item in self._items:
+            itemWidth = item.sizeHint().width()
+            itemHeight = item.sizeHint().height()
+            nextX = x + itemWidth + spacing
+            if nextX - spacing > effectiveRect.right() and lineHeight > 0:
+                x = effectiveRect.x()
+                y = y + lineHeight + spacing
+                nextX = x + itemWidth + spacing
+                lineHeight = 0
+            if not testOnly:
+                item.setGeometry(QtCore.QRect(QtCore.QPoint(x, y), item.sizeHint()))
+            x = nextX
+            lineHeight = max(lineHeight, itemHeight)
+
+        return y + lineHeight - rect.y() + bottom
+
+
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName(_fromUtf8("MainWindow"))
@@ -2619,7 +2699,7 @@ class Ui_MainWindow(object):
         self.expFilterGroupBox_layout.setContentsMargins(0, 0, 0, 4)
         self.expFilterGroupBox_layout.setObjectName(_fromUtf8("expFilterGroupBox_layout"))
         # Toggle button row
-        self.expFilterToggleLayout = QtWidgets.QHBoxLayout()
+        self.expFilterToggleLayout = FlowLayout(spacing=4)
         self.expFilterToggleBtn = QtWidgets.QPushButton(self.expFilterGroupBox)
         self.expFilterToggleBtn.setObjectName(_fromUtf8("expFilterToggleBtn"))
         self.expFilterToggleBtn.setText(_fromUtf8("Show filters \u25be"))
@@ -2630,6 +2710,10 @@ class Ui_MainWindow(object):
         self.expFilterResetBtn.setObjectName(_fromUtf8("expFilterResetBtn"))
         self.expFilterResetBtn.setText(_fromUtf8("Reset filters"))
         self.expFilterToggleLayout.addWidget(self.expFilterResetBtn)
+        self.expGenInclusionListBtn = QtWidgets.QPushButton(self.expFilterGroupBox)
+        self.expGenInclusionListBtn.setObjectName(_fromUtf8("expGenInclusionListBtn"))
+        self.expGenInclusionListBtn.setText(_fromUtf8("Generate Inclusion Lists"))
+        self.expFilterToggleLayout.addWidget(self.expGenInclusionListBtn)
         self.expExportMGFBtn = QtWidgets.QPushButton(self.expFilterGroupBox)
         self.expExportMGFBtn.setObjectName(_fromUtf8("expExportMGFBtn"))
         self.expExportMGFBtn.setText(_fromUtf8("Export MGF"))
@@ -2640,8 +2724,6 @@ class Ui_MainWindow(object):
         self.expFeatureMapBtn.setCheckable(True)
         self.expFeatureMapBtn.setChecked(False)
         self.expFilterToggleLayout.addWidget(self.expFeatureMapBtn)
-        spacerItemFilter0 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-        self.expFilterToggleLayout.addItem(spacerItemFilter0)
         self.expFilterGroupBox_layout.addLayout(self.expFilterToggleLayout)
         # Collapsible content widget
         self.expFilterContent = QtWidgets.QWidget(self.expFilterGroupBox)

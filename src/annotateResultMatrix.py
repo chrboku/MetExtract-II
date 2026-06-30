@@ -154,6 +154,7 @@ def annotateWithDatabases(
     pwMaxSet=None,
     pwValSet=None,
     db_info_messages=None,
+    smiles_mismatches=None,
 ):
     """
     Annotate metabolites by searching in databases using PolarsDB.
@@ -213,7 +214,7 @@ def annotateWithDatabases(
         dbNames.append(dbName)
         errors = []
         try:
-            imported, not_imported = db.addEntriesFromFile(dbName, dbFile, error_collector=errors)
+            imported, not_imported = db.addEntriesFromFile(dbName, dbFile, error_collector=errors, mismatch_collector=smiles_mismatches)
             if db_info_messages is not None:
                 db_info_messages.append(f"Database: {dbName} (file: {dbFile})")
                 db_info_messages.append(f"  Imported: {imported} entries successfully")
