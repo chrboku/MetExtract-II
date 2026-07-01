@@ -14992,8 +14992,16 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.ui.dbList_listView.model().appendRow(item)
 
     def removeDB(self, events):
-        ind = self.ui.dbList_listView.currentIndex().row()
-        self.ui.dbList_listView.model().removeRows(ind, 1)
+        selectedRows = sorted(
+            {index.row() for index in self.ui.dbList_listView.selectedIndexes()},
+            reverse=True,
+        )
+        if not selectedRows:
+            ind = self.ui.dbList_listView.currentIndex().row()
+            if ind >= 0:
+                selectedRows = [ind]
+        for row in selectedRows:
+            self.ui.dbList_listView.model().removeRows(row, 1)
 
     def generateDBTemplate(self, events):
         dbTemplateFile, _ = QtWidgets.QFileDialog.getSaveFileName(

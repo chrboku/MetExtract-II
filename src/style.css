@@ -481,6 +481,14 @@ QProgressBar::chunk {
 }
 
 /* -------------------------------------------------------
+   QListView
+------------------------------------------------------- */
+
+QListView {
+    background-color: #ffffff;
+}
+
+/* -------------------------------------------------------
    CollapsibleBox toggle button
 ------------------------------------------------------- */
 QPushButton[role="collapsibleHeader"] {
@@ -595,4 +603,8 @@ QTabBar::tab:disabled {
     color: #b0b4b8;
     background-color: #f8f9fa;
     border-color: #e8eaed;
+}
+
+QListView:disabled {
+    background-color: #f8f9fa;
 }
