@@ -24,7 +24,7 @@ def writeIQXInclusionList(rows, toFile):
 
 
 def writeQExactiveInclusionList(rows, toFile):
-    """Write a QExactive style inclusion list (xlsx).
+    """Write a QExactive style inclusion list (comma-separated CSV).
 
     *rows* is a list of dicts with keys: mz, polarity, tstart, tstop.
     All other columns are left empty.
@@ -60,7 +60,7 @@ def writeQExactiveInclusionList(rows, toFile):
             }
         )
     df = pd.DataFrame(data, columns=headers)
-    df.to_excel(toFile, index=False)
+    df.to_csv(toFile, index=False, sep=",", lineterminator="\n")
 
 
 def writeInclusionList(mzs, rtStarts, rtEnds, pols, toFile, comments=None):
