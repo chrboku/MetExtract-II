@@ -19,6 +19,7 @@ from __future__ import absolute_import, division, print_function
 import io
 import logging
 import os
+import shutil
 import zipfile
 from json import dumps, loads
 import polars as pl
@@ -266,13 +267,24 @@ class PolarsDB:
         """Save all tables to file in the appropriate format."""
         if not self.tables:
             return
+        
+        # copy self.filepath to a temporary file to avoid overwriting in case of errors
+        bkp_filepath = self.filepath + ".bkp"
+        if os.path.exists(bkp_filepath):
+            os.remove(bkp_filepath)
+        shutil.copyfile(self.filepath, bkp_filepath)
 
+        # save tables
         if self.format == "parquet":
             self._save_parquet_tables()
         elif self.format == "xlsx":
             self._save_xlsx_tables()
         elif self.format == "tsv":
             self._save_tsv_tables()
+
+        # remove backup
+        if os.path.exists(bkp_filepath):
+            os.remove(bkp_filepath)
 
     def _save_parquet_tables(self):
         """Save all tables as Parquet files in a ZIP archive."""

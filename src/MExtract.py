@@ -5667,20 +5667,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         )
                         annotationColumns.extend(addedColumns)
 
-                        # Write DB_info log sheet
-                        if db_info_messages:
-                            from .utils import add_sheet_to_excel as _add_sheet_db_info
-
-                            _add_sheet_db_info(excel_file, pl.DataFrame({"text": db_info_messages}), "DB_info", overwrite=True)
-
                         # Inform the user about SMILES / sum formula mismatches
                         if smiles_mismatches:
-                            QtWidgets.QMessageBox.warning(
-                                self,
-                                "MetExtract",
-                                "%d database entries had a SMILES code that does not match the provided sum formula.\nThese entries were not used for the annotation. See the console / DB_info sheet for details." % (len(smiles_mismatches)),
-                                QtWidgets.QMessageBox.Ok,
-                            )
+                            logging.warning(f"{len(smiles_mismatches)} database entries had a SMILES code that does not match the provided sum formula.\nThese entries were not used for the annotation. See the console / DB_info sheet for details.")
 
                         if False:
                             logging.info(

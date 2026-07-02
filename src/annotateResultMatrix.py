@@ -421,27 +421,32 @@ def annotateWithDatabases(
         logging.info(f"Creating compound-focused sheet with {len(all_compound_hits)} database hits")
 
         # Collect all unique additionalInfo keys across all hits so every row gets a column
-        all_additional_keys = []
-        seen_keys = set()
+        all_additional_keys = {}
         for hit, _row_info in all_compound_hits:
             for k in hit.additionalInfo.keys():
-                if k not in seen_keys:
-                    all_additional_keys.append(k)
-                    seen_keys.add(k)
+                ks = "".join(c.replace(".", "_") if c.isalnum() else "_" for c in k)  # Sanitize key to be a valid column name
+                all_additional_keys[k] = ks
+
+        def sanitize_str(s):
+            if s is None:
+                return ""
+            # TODO
+            #return ascii(s)[1:-1]
+            return str(s)
 
         compound_rows = []
         for hit, row_info in all_compound_hits:
             compound_row = {
                 # Database entry information
-                "DB_Name": str(hit.dbName) if hit.dbName is not None else "",
-                "DB_Num": str(hit.num) if hit.num is not None else "",
-                "DB_CompoundName": str(hit.name) if hit.name is not None else "",
-                "DB_SumFormula": str(hit.sumFormula) if hit.sumFormula is not None else "",
+                "DB_Name": sanitize_str(hit.dbName),
+                "DB_Num": sanitize_str(hit.num),
+                "DB_CompoundName": sanitize_str(hit.name),
+                "DB_SumFormula": sanitize_str(hit.sumFormula),
                 "DB_Mass": float(hit.mass) if hit.mass is not None and hit.mass != "" else None,
                 "DB_RT_min": float(hit.rt_min) if hit.rt_min is not None and hit.rt_min != "" else None,
                 "DB_MZ": float(hit.mz) if hit.mz is not None and hit.mz != "" else None,
-                "DB_Polarity": str(hit.polarity) if hit.polarity is not None else "",
-                "HitType": str(hit.hitType) if hit.hitType is not None else "",
+                "DB_Polarity": sanitize_str(hit.polarity),
+                "HitType": sanitize_str(hit.hitType),
                 "MatchErrorPPM": float(hit.matchErrorPPM) if hit.matchErrorPPM is not None else None,
                 "MatchErrorMass": float(hit.matchErrorMass) if hit.matchErrorMass is not None else None,
                 # Feature information where the hit was found
@@ -458,9 +463,14 @@ def annotateWithDatabases(
                 "Feature_Relative_peakarea_in_group": row_info["Feature_Relative_peakarea_in_group"],
                 "Feature_Average_peakarea": row_info["Feature_Average_peakarea"],
             }
+            
+            # TODO implement
             # Expand additionalInfo into individual columns with a DB_Info_ prefix
-            for k in all_additional_keys:
-                compound_row[f"DB_Info_{k}"] = str(hit.additionalInfo.get(k, ""))
+            #for k, ks in all_additional_keys.items():
+            #    if ks not in compound_row:
+            #        compound_row[f"DB_Info_{ks}"] = sanitize_str(hit.additionalInfo.get(k, None))
+            
+            # add compound row and new columns
             compound_rows.append(compound_row)
 
         # Build schema overrides only for the known numeric columns; let polars infer the rest
@@ -487,12 +497,11 @@ def annotateWithDatabases(
 
         # Save to compound-focused sheet
         compound_sheet_name = f"{new_sheet_name}_Compounds"
-        logging.info(f"Saving compound-focused results to sheet: {compound_sheet_name}")
+        logging.info(f"Saving compound-focused results to sheet '{compound_sheet_name}' with {len(compound_df)} hits")
         plDB.set_table(compound_sheet_name, compound_df)
     else:
         logging.info("No database hits found, skipping compound-focused sheet")
 
-    plDB.commit()
     plDB.close()
 
     logging.info(f"Database search annotation completed. Added {len(annotationColumns)} columns")
@@ -659,7 +668,6 @@ def annotateWithSumFormulas(
     else:
         logging.info("No sum formula hits found, skipping compound-focused sheet")
 
-    plDB.commit()
     plDB.close()
 
     logging.info(f"Sum formula generation completed. Added {len(annotationColumns)} columns")
