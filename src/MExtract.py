@@ -93,11 +93,29 @@ from .formulaTools import formulaTools, getElementOfIsotope, getIsotopeMass
 try:
     from matchms import Spectrum as MatchmsSpectrum
     from matchms.similarity import CosineGreedy as MatchmsCosineGreedy
+    from matchms.similarity import CosineHungarian as MatchmsCosineHungarian
+    from matchms.similarity import ModifiedCosineGreedy as MatchmsModifiedCosineGreedy
+    from matchms.similarity import ModifiedCosineHungarian as MatchmsModifiedCosineHungarian
+    from matchms.similarity import NeutralLossesCosine as MatchmsNeutralLossesCosine
     from matchms.filtering import normalize_intensities as matchms_normalize_intensities
+    from matchms.filtering import select_by_relative_intensity as matchms_select_by_relative_intensity
 
     MATCHMS_AVAILABLE = True
 except Exception:
     MATCHMS_AVAILABLE = False
+
+# Registry of matchms similarity algorithms selectable in the "Show options" panel.
+# The values are the matchms classes themselves; instances are created on demand with
+# the user-configured m/z tolerance (see _get_msms_similarity_algorithm).
+MSMS_SIMILARITY_ALGORITHMS = {}
+if MATCHMS_AVAILABLE:
+    MSMS_SIMILARITY_ALGORITHMS = {
+        "ModifiedCosineHungarian": MatchmsModifiedCosineHungarian,
+        "ModifiedCosineGreedy": MatchmsModifiedCosineGreedy,
+        "CosineHungarian": MatchmsCosineHungarian,
+        "CosineGreedy": MatchmsCosineGreedy,
+        "NeutralLossesCosine": MatchmsNeutralLossesCosine,
+    }
 
 app = None
 
@@ -10796,6 +10814,84 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if total_rows > 0:
             tbl.selectRow(total_rows - 1)
 
+        self._update_msms_similarity_stats_exp()
+
+    def _update_msms_similarity_stats_exp(self):
+        """Compute and display, above the MSMS list, the pairwise similarity percentiles
+        (min/P10/P50/P90/max) for spectra of the same "type" (native/labeled x filter-string
+        regex group 1) currently listed for the selected feature(s)."""
+        label = getattr(self.ui, "label_msms_exp_typestats", None)
+        if label is None:
+            return
+        if not MATCHMS_AVAILABLE:
+            label.setText("")
+            return
+
+        algorithm_name, rel_intensity_pct, mz_tolerance = self._get_msms_similarity_settings()
+        algorithm = self._get_msms_similarity_algorithm(algorithm_name, mz_tolerance)
+        try:
+            filter_regex_pattern = str(self.ui.lineEdit_msms_filter_regex.text()).strip()
+        except Exception:
+            filter_regex_pattern = ""
+        compiled_regex = self._compile_msms_filter_regex(filter_regex_pattern)
+
+        by_type = defaultdict(list)
+        for row in self._iter_exp_msms_rows():
+            type_key = self._msms_type_key(row["form"], row["filter_string"], compiled_regex)
+            by_type[type_key].append(row["scan"])
+
+        lines = []
+        for type_key in sorted(by_type.keys(), key=lambda k: (k[0] or "", k[1] or "")):
+            scans = by_type[type_key]
+            if len(scans) < 2:
+                continue
+            scores = self._compute_pairwise_similarity_scores(scans, algorithm, rel_intensity_pct)
+            stats = self._format_percentile_stats(scores)
+            if stats:
+                lines.append(f"<b>{self._format_msms_type_label(type_key)}</b>: {stats}")
+
+        if lines:
+            label.setText(f"<b>Similarity ({algorithm_name}) per type:</b><br>" + "<br>".join(lines))
+        else:
+            label.setText("")
+
+    def _update_msms_selected_similarity_exp(self, selected_rows):
+        """Compute and display, above the MSMS list, the similarity of the currently
+        user-selected spectra in msms_SpectraList_exp."""
+        label = getattr(self.ui, "label_msms_exp_selected_similarity", None)
+        if label is None:
+            return
+        if not MATCHMS_AVAILABLE or len(selected_rows) < 2:
+            label.setText("")
+            return
+
+        algorithm_name, rel_intensity_pct, mz_tolerance = self._get_msms_similarity_settings()
+        algorithm = self._get_msms_similarity_algorithm(algorithm_name, mz_tolerance)
+
+        scans = []
+        for row_idx in selected_rows:
+            col0 = self.ui.msms_SpectraList_exp.item(row_idx, 0)
+            if col0 is None:
+                continue
+            scan = col0.data(QtCore.Qt.UserRole)
+            if scan is not None:
+                scans.append(scan)
+
+        if len(scans) < 2:
+            label.setText("")
+            return
+
+        scores = self._compute_pairwise_similarity_scores(scans, algorithm, rel_intensity_pct)
+        if not scores:
+            label.setText("")
+            return
+
+        if len(scans) == 2:
+            label.setText(f"<b>Selected spectra similarity ({algorithm_name}):</b> {scores[0]:.3f}")
+        else:
+            arr = np.asarray(scores, dtype=float)
+            label.setText(f"<b>Selected spectra similarity ({algorithm_name}), n={len(scans)}:</b> min={arr.min():.3f}, mean={arr.mean():.3f}, max={arr.max():.3f} (pairs={len(scores)})")
+
     def updatePeakDetailsTab(self, plotItems):
         """Populate the peak details tab tables for the selected features."""
 
@@ -11169,6 +11265,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def plotSelectedMSMSSpectra_exp(self):
         """Plot selected MSMS spectra from experimental results panel"""
         selected_rows = sorted(set(item.row() for item in self.ui.msms_SpectraList_exp.selectedItems()))
+        self._update_msms_selected_similarity_exp(selected_rows)
 
         if not selected_rows:
             self.ui.plMSMS_exp.fig.clear()
@@ -11260,17 +11357,177 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 "filter_string": self._get_msms_filter_string(scan),
             }
 
-    def _to_matchms_spectrum(self, scan):
+    def _to_matchms_spectrum(self, scan, rel_intensity_pct=None):
+        """Convert an MSScan/MS2Scan to a normalized matchms Spectrum.
+
+        rel_intensity_pct, if given (0-100), removes fragments whose intensity
+        is below that percentage of the spectrum's most abundant fragment."""
         if not MATCHMS_AVAILABLE:
             return None
         if scan is None or len(scan.mz_list) == 0:
             return None
+        # matchms requires mz values to be sorted in ascending order
+        mz = np.asarray(scan.mz_list, dtype=float)
+        intens = np.asarray(scan.intensity_list, dtype=float)
+        order = np.argsort(mz)
         spec = MatchmsSpectrum(
-            mz=np.asarray(scan.mz_list, dtype=float),
-            intensities=np.asarray(scan.intensity_list, dtype=float),
+            mz=mz[order],
+            intensities=intens[order],
             metadata={"precursor_mz": float(scan.precursor_mz), "retention_time": float(scan.retention_time)},
         )
-        return matchms_normalize_intensities(spec)
+        spec = matchms_normalize_intensities(spec)
+        if rel_intensity_pct is not None and rel_intensity_pct > 0.0 and spec is not None:
+            spec = matchms_select_by_relative_intensity(spec, intensity_from=float(rel_intensity_pct) / 100.0, intensity_to=1.0)
+        return spec
+
+    def _get_msms_similarity_settings(self):
+        """Read the similarity-scoring options (algorithm, relative intensity threshold
+        in %, m/z tolerance in Da) from the "Show options" panel. Falls back to
+        defaults (ModifiedCosineHungarian, 1%, 0.01 Da) if the widgets are unavailable."""
+        try:
+            algorithm_name = str(self.ui.comboBox_msms_similarity_algorithm.currentText())
+        except Exception:
+            algorithm_name = "ModifiedCosineHungarian"
+        try:
+            rel_intensity_pct = float(self.ui.doubleSpinBox_msms_similarity_relIntensity.value())
+        except Exception:
+            rel_intensity_pct = 1.0
+        try:
+            mz_tolerance = float(self.ui.doubleSpinBox_msms_similarity_mzTolerance.value())
+        except Exception:
+            mz_tolerance = 0.01
+        return algorithm_name, rel_intensity_pct, mz_tolerance
+
+    def _get_msms_similarity_algorithm(self, algorithm_name, mz_tolerance):
+        """Instantiate a matchms similarity algorithm by name with the given m/z tolerance."""
+        if not MATCHMS_AVAILABLE:
+            return None
+        cls = MSMS_SIMILARITY_ALGORITHMS.get(algorithm_name, MSMS_SIMILARITY_ALGORITHMS.get("ModifiedCosineHungarian"))
+        if cls is None:
+            return None
+        try:
+            return cls(tolerance=mz_tolerance)
+        except TypeError:
+            return cls()
+
+    def _msms_pair_score(self, algorithm, spec_a, spec_b):
+        """Return a similarity score (float) between two matchms spectra, or None on failure."""
+        if algorithm is None or spec_a is None or spec_b is None:
+            return None
+        try:
+            result = algorithm.pair(spec_a, spec_b)
+        except Exception:
+            return None
+        try:
+            return float(result["score"])
+        except (TypeError, IndexError, ValueError, KeyError):
+            try:
+                return float(result)
+            except Exception:
+                return None
+
+    @staticmethod
+    def _restrict_to_common_peaks(spec_a, spec_b, mz_tolerance):
+        """Return copies of spec_a/spec_b containing only the fragments that have a
+        matching counterpart (within mz_tolerance) in the other spectrum. Used to score
+        spectra while ignoring any fragments that are missing in the other spectrum."""
+        mz_a = spec_a.peaks.mz
+        int_a = spec_a.peaks.intensities
+        mz_b = spec_b.peaks.mz
+        int_b = spec_b.peaks.intensities
+        keep_a = np.zeros(len(mz_a), dtype=bool)
+        keep_b = np.zeros(len(mz_b), dtype=bool)
+        for i, mz in enumerate(mz_a):
+            diffs = np.abs(mz_b - mz)
+            matches = np.where(diffs <= mz_tolerance)[0]
+            if matches.size > 0:
+                keep_a[i] = True
+                keep_b[matches] = True
+        if not keep_a.any() or not keep_b.any():
+            return None, None
+        restricted_a = MatchmsSpectrum(mz=mz_a[keep_a], intensities=int_a[keep_a], metadata=spec_a.metadata)
+        restricted_b = MatchmsSpectrum(mz=mz_b[keep_b], intensities=int_b[keep_b], metadata=spec_b.metadata)
+        return restricted_a, restricted_b
+
+    def _msms_pair_score_and_matches(self, algorithm, spec_a, spec_b, ignore_unmatched=False, mz_tolerance=0.01):
+        """Return (score, n_matches, n_fragments_a, n_fragments_b) for a pair of matchms
+        spectra, or (None, None, n_fragments_a, n_fragments_b) on failure. If
+        ignore_unmatched is True, the score is computed only from fragments that have a
+        matching counterpart in the other spectrum (i.e. missing fragments are ignored
+        instead of penalizing the score)."""
+        n_fragments_a = len(spec_a.peaks.mz) if spec_a is not None else 0
+        n_fragments_b = len(spec_b.peaks.mz) if spec_b is not None else 0
+        if algorithm is None or spec_a is None or spec_b is None:
+            return None, None, n_fragments_a, n_fragments_b
+
+        score_spec_a, score_spec_b = spec_a, spec_b
+        if ignore_unmatched:
+            score_spec_a, score_spec_b = self._restrict_to_common_peaks(spec_a, spec_b, mz_tolerance)
+            if score_spec_a is None or score_spec_b is None:
+                return 0.0, 0, n_fragments_a, n_fragments_b
+
+        try:
+            result = algorithm.pair(score_spec_a, score_spec_b)
+        except Exception:
+            return None, None, n_fragments_a, n_fragments_b
+
+        try:
+            score = float(result["score"])
+        except (TypeError, IndexError, ValueError, KeyError):
+            try:
+                score = float(result)
+            except Exception:
+                return None, None, n_fragments_a, n_fragments_b
+
+        n_matches = None
+        try:
+            n_matches = int(result["matches"])
+        except (TypeError, IndexError, ValueError, KeyError):
+            n_matches = None
+
+        return score, n_matches, n_fragments_a, n_fragments_b
+
+    def _msms_type_key(self, form, filter_string, compiled_regex):
+        """Return the (form, regex-group-1) 'type' key used to group spectra for
+        similarity statistics, e.g. ("native", "hcd25.0") or ("labeled", None)."""
+        _, replacement = self._msms_filter_match(filter_string, compiled_regex)
+        return (form, replacement)
+
+    def _format_msms_type_label(self, type_key):
+        form, replacement = type_key
+        label = "M\u2032" if form == "labeled" else "M"
+        if replacement:
+            label = f"{label} [{replacement}]"
+        return label
+
+    def _compute_pairwise_similarity_scores(self, scans, algorithm, rel_intensity_pct):
+        """Compute all pairwise similarity scores among a list of MSScan/MS2Scan objects.
+
+        Returns a list of floats (one per unique pair, i<j). Scans that cannot be
+        converted to a valid matchms spectrum are skipped."""
+        if algorithm is None or len(scans) < 2:
+            return []
+        spectra = [self._to_matchms_spectrum(s, rel_intensity_pct=rel_intensity_pct) for s in scans]
+        scores = []
+        for i in range(len(spectra)):
+            if spectra[i] is None:
+                continue
+            for j in range(i + 1, len(spectra)):
+                if spectra[j] is None:
+                    continue
+                score = self._msms_pair_score(algorithm, spectra[i], spectra[j])
+                if score is not None:
+                    scores.append(score)
+        return scores
+
+    @staticmethod
+    def _format_percentile_stats(scores):
+        """Return an HTML-ish summary string with min/p10/p50/p90/max for a list of scores."""
+        if not scores:
+            return None
+        arr = np.asarray(scores, dtype=float)
+        p10, p50, p90 = np.percentile(arr, [10, 50, 90])
+        return f"min={arr.min():.3f}, P10={p10:.3f}, P50={p50:.3f}, P90={p90:.3f}, max={arr.max():.3f} (n={len(arr)})"
 
     def _show_msms_similarity_dialog(self, form_filter):
         if not MATCHMS_AVAILABLE:
@@ -11290,8 +11547,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         for fid in feature_ids:
             repr_scans[fid] = max(by_feature[fid], key=lambda x: float(getattr(x["scan"], "precursor_intensity", 0.0)))["scan"]
 
+        algorithm_name, rel_intensity_pct, mz_tolerance = self._get_msms_similarity_settings()
+
         dlg = QtWidgets.QDialog(self)
-        dlg.setWindowTitle(f"MS/MS similarity ({'native' if form_filter == 'native' else 'labeled'})")
+        dlg.setWindowTitle(f"MS/MS similarity ({'native' if form_filter == 'native' else 'labeled'}) - {algorithm_name}")
         dlg.resize(980, 760)
         layout = QtWidgets.QVBoxLayout(dlg)
 
@@ -11322,7 +11581,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         mirror.axes = mirror.fig.add_subplot(111)
         layout.addWidget(mirror.canvas, 1)
 
-        cosine = MatchmsCosineGreedy(tolerance=0.01)
+        cosine = self._get_msms_similarity_algorithm(algorithm_name, mz_tolerance)
         pair_cache = {}
 
         def _paint():
@@ -11335,8 +11594,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         score = 1.0
                         pair_cache[(i, j)] = (repr_scans[fid_a], repr_scans[fid_b], score)
                     else:
-                        sp_a = self._to_matchms_spectrum(repr_scans[fid_a])
-                        sp_b = self._to_matchms_spectrum(repr_scans[fid_b])
+                        sp_a = self._to_matchms_spectrum(repr_scans[fid_a], rel_intensity_pct=rel_intensity_pct)
+                        sp_b = self._to_matchms_spectrum(repr_scans[fid_b], rel_intensity_pct=rel_intensity_pct)
                         if sp_a is None or sp_b is None:
                             score = 0.0
                         else:
@@ -11473,14 +11732,400 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             action_map[a_top] = (fmt, "top")
             action_map[a_pct] = (fmt, "percent")
 
+        show_similar_action = None
+        if table_widget is getattr(self.ui, "msms_SpectraList_exp", None):
+            menu.addSeparator()
+            show_similar_action = menu.addAction("Show similar spectra...")
+
         sel = menu.exec(table_widget.mapToGlobal(pos))
-        if sel is None or sel not in action_map:
+        if sel is None:
+            return
+        if show_similar_action is not None and sel is show_similar_action:
+            self._show_similar_spectra_for_scan(scan)
+            return
+        if sel not in action_map:
             return
         fmt, mode = action_map[sel]
         selection = self._ask_msms_fragment_selection(mode)
         if selection is None:
             return
         self._copy_msms_spectrum(scan, fmt, selection)
+
+    def _build_feature_match_ranges(self):
+        """Build a lightweight list of per-feature RT/mz windows from the FULL experiment
+        results table (independent of which features are currently visible/selected in the
+        tree). Used to associate an arbitrary MS/MS scan with a detected feature pair."""
+        ranges = []
+        if not hasattr(self, "experimentResults") or self.experimentResults is None or self.experimentResults.db_con is None:
+            return ranges
+        try:
+            df = self.experimentResults.db_con.tables[self.experimentResults.selected_table]
+        except Exception:
+            return ranges
+        try:
+            msms_rt_window = self.ui.doubleSpinBox_resultsExperiment_MSMSRTWindow.value()
+        except Exception:
+            msms_rt_window = 0.5
+        try:
+            ppm = self.ui.doubleSpinBox_resultsExperiment_EICppm.value()
+        except Exception:
+            ppm = 5.0
+
+        def _first_float(val):
+            if val is None:
+                return None
+            try:
+                return float(str(val).split(";")[0])
+            except (TypeError, ValueError):
+                return None
+
+        for r in df.to_dicts():
+            num = r.get("Num")
+            if num is None:
+                continue
+            rt_min = _first_float(r.get("RT"))
+            if rt_min is None:
+                continue
+            mz = _first_float(r.get("MZ"))
+            lmz = _first_float(r.get("L_MZ"))
+            mode = str(r.get("Ionisation_Mode", "+") or "+")
+            ranges.append(
+                {
+                    "num": num,
+                    "ogroup": r.get("OGroup"),
+                    "rt_min_s": rt_min * 60.0 - msms_rt_window * 60.0,
+                    "rt_max_s": rt_min * 60.0 + msms_rt_window * 60.0,
+                    "native_mz_min": mz * (1 - ppm / 1e6) if mz is not None else None,
+                    "native_mz_max": mz * (1 + ppm / 1e6) if mz is not None else None,
+                    "labeled_mz_min": lmz * (1 - ppm / 1e6) if lmz is not None else None,
+                    "labeled_mz_max": lmz * (1 + ppm / 1e6) if lmz is not None else None,
+                    "mode": mode,
+                }
+            )
+        return ranges
+
+    @staticmethod
+    def _match_scan_to_feature(scan, feature_ranges):
+        """Return (feature_num, form, ogroup) for the first feature range whose RT window
+        and native/labeled m/z window contains the given scan, or (None, None, None) if
+        none match."""
+        for fr in feature_ranges:
+            if not (fr["rt_min_s"] <= scan.retention_time <= fr["rt_max_s"]):
+                continue
+            mode = fr.get("mode")
+            if mode and getattr(scan, "polarity", None) and scan.polarity != mode:
+                continue
+            if fr["native_mz_min"] is not None and fr["native_mz_min"] <= scan.precursor_mz <= fr["native_mz_max"]:
+                return fr["num"], "native", fr.get("ogroup")
+            if fr["labeled_mz_min"] is not None and fr["labeled_mz_min"] <= scan.precursor_mz <= fr["labeled_mz_max"]:
+                return fr["num"], "labeled", fr.get("ogroup")
+        return None, None, None
+
+    def _ask_show_similar_spectra_params(self):
+        """Ask the user for the parameters used by the cross-feature 'Show similar
+        spectra' search. Returns a dict, or None if the user cancelled."""
+        dlg = QtWidgets.QDialog(self)
+        dlg.setWindowTitle("Show similar spectra")
+        form = QtWidgets.QFormLayout(dlg)
+
+        info = QtWidgets.QLabel("Searches loaded MS/MS spectra (even from other features) for spectra similar to the selected one. Precursor m/z does not need to match.")
+        info.setWordWrap(True)
+        form.addRow(info)
+
+        default_algorithm, default_rel_intens, default_mz_tol = self._get_msms_similarity_settings()
+
+        algorithm_combo = QtWidgets.QComboBox()
+        algorithm_combo.addItems(list(MSMS_SIMILARITY_ALGORITHMS.keys()))
+        idx = algorithm_combo.findText(default_algorithm)
+        algorithm_combo.setCurrentIndex(idx if idx >= 0 else 0)
+        form.addRow("Similarity algorithm:", algorithm_combo)
+
+        sim_spin = QtWidgets.QDoubleSpinBox()
+        sim_spin.setRange(0.0, 1.0)
+        sim_spin.setDecimals(3)
+        sim_spin.setSingleStep(0.05)
+        sim_spin.setValue(0.8)
+        form.addRow("Similarity score threshold:", sim_spin)
+
+        min_matches_spin = QtWidgets.QSpinBox()
+        min_matches_spin.setRange(0, 1000)
+        min_matches_spin.setValue(5)
+        form.addRow("Min. number of matched fragments:", min_matches_spin)
+
+        missing_frag_combo = QtWidgets.QComboBox()
+        missing_frag_combo.addItems(["Penalize unmatched fragments (standard scoring)", "Ignore unmatched fragments (score matched fragments only)"])
+        form.addRow("Unmatched fragments:", missing_frag_combo)
+
+        intens_spin = QtWidgets.QDoubleSpinBox()
+        intens_spin.setRange(0.0, 100.0)
+        intens_spin.setDecimals(1)
+        intens_spin.setValue(default_rel_intens)
+        intens_spin.setSuffix("%")
+        form.addRow("Min. rel. fragment intensity:", intens_spin)
+
+        mz_spin = QtWidgets.QDoubleSpinBox()
+        mz_spin.setRange(0.0001, 1.0)
+        mz_spin.setDecimals(4)
+        mz_spin.setSingleStep(0.001)
+        mz_spin.setValue(default_mz_tol)
+        form.addRow("m/z error:", mz_spin)
+
+        scope_all = QtWidgets.QRadioButton("All loaded MS/MS spectra (every loaded file)")
+        scope_filtered = QtWidgets.QRadioButton("Only spectra matching the current Show-options filters")
+        scope_all.setChecked(True)
+        scope_group = QtWidgets.QButtonGroup(dlg)
+        scope_group.addButton(scope_all)
+        scope_group.addButton(scope_filtered)
+        form.addRow(scope_all)
+        form.addRow(scope_filtered)
+
+        btns = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
+        btns.accepted.connect(dlg.accept)
+        btns.rejected.connect(dlg.reject)
+        form.addRow(btns)
+
+        if dlg.exec() != QtWidgets.QDialog.Accepted:
+            return None
+
+        return {
+            "algorithm": algorithm_combo.currentText(),
+            "similarity_threshold": sim_spin.value(),
+            "min_matches": min_matches_spin.value(),
+            "ignore_unmatched_fragments": missing_frag_combo.currentIndex() == 1,
+            "rel_intensity_pct": intens_spin.value(),
+            "mz_tolerance": mz_spin.value(),
+            "scope": "filtered" if scope_filtered.isChecked() else "all",
+        }
+
+    def _show_similar_spectra_for_scan(self, reference_scan):
+        """Search all loaded MS/MS spectra for spectra similar to ``reference_scan``
+        (using ModifiedCosineHungarian, ignoring precursor m/z) and show the matches
+        in a non-blocking popup window."""
+        if not MATCHMS_AVAILABLE:
+            QtWidgets.QMessageBox.warning(self, "Show similar spectra", "matchms is not available in this environment.")
+            return
+        if reference_scan is None:
+            return
+
+        params = self._ask_show_similar_spectra_params()
+        if params is None:
+            return
+
+        if not hasattr(self, "loadedMZXMLs") or self.loadedMZXMLs is None:
+            QtWidgets.QMessageBox.information(self, "Show similar spectra", "No raw MS/MS data loaded.")
+            return
+
+        algorithm = self._get_msms_similarity_algorithm(params["algorithm"], params["mz_tolerance"])
+        ref_spec = self._to_matchms_spectrum(reference_scan, rel_intensity_pct=params["rel_intensity_pct"])
+        if ref_spec is None or len(ref_spec.peaks) == 0:
+            QtWidgets.QMessageBox.information(self, "Show similar spectra", "The selected spectrum has no usable fragments.")
+            return
+
+        # Gather candidate (scan, file_key) pairs depending on the chosen search scope
+        candidates = []
+        if params["scope"] == "filtered":
+            # Consider spectra of ANY feature pair (not just the currently selected
+            # one) that would be visible with the current "Show options" filters
+            # (RT window, precursor m/z tolerance, precursor intensity thresholds
+            # and the filter-string regex).
+            try:
+                df = self.experimentResults.db_con.tables[self.experimentResults.selected_table]
+                all_rows = df.to_dicts()
+            except Exception:
+                all_rows = []
+            match_result = self._compute_msms_filtered_matches(all_rows) if all_rows else None
+            if match_result is not None:
+                for m in match_result["matched"]:
+                    candidates.append((m["scan"], m["file_key"]))
+        else:
+            file_keys = [k for k in self.loadedMZXMLs if k.lower().endswith(".mzxml") or k.lower().endswith(".mzml")]
+            for file_key in file_keys:
+                mzxml_file = self.loadedMZXMLs[file_key]
+                ms2_list = getattr(mzxml_file, "MS2_list", None)
+                if not ms2_list:
+                    continue
+                for ms2_scan in ms2_list:
+                    candidates.append((ms2_scan, file_key))
+
+        feature_ranges = self._build_feature_match_ranges()
+
+        progress = QtWidgets.QProgressDialog("Searching for similar spectra...", "Cancel", 0, max(len(candidates), 1), self)
+        progress.setWindowTitle("Show similar spectra")
+        progress.setWindowModality(QtCore.Qt.WindowModal)
+        progress.setMinimumDuration(0)
+        progress.setValue(0)
+
+        matches = []
+        seen_scan_ids = set()
+        try:
+            for idx, (cand_scan, file_key) in enumerate(candidates):
+                if idx % 20 == 0 or idx == len(candidates) - 1:
+                    progress.setValue(idx)
+                    QtWidgets.QApplication.processEvents()
+                    if progress.wasCanceled():
+                        break
+                if cand_scan is reference_scan or id(cand_scan) in seen_scan_ids:
+                    continue
+                seen_scan_ids.add(id(cand_scan))
+                cand_spec = self._to_matchms_spectrum(cand_scan, rel_intensity_pct=params["rel_intensity_pct"])
+                if cand_spec is None or len(cand_spec.peaks) == 0:
+                    continue
+                score, n_matches, n_fragments_ref, n_fragments_query = self._msms_pair_score_and_matches(
+                    algorithm,
+                    ref_spec,
+                    cand_spec,
+                    ignore_unmatched=params["ignore_unmatched_fragments"],
+                    mz_tolerance=params["mz_tolerance"],
+                )
+                if score is None or score < params["similarity_threshold"]:
+                    continue
+                if n_matches is not None and n_matches < params["min_matches"]:
+                    continue
+                num, form, ogroup = self._match_scan_to_feature(cand_scan, feature_ranges)
+                matches.append(
+                    {
+                        "scan": cand_scan,
+                        "file_key": file_key,
+                        "score": score,
+                        "num": num,
+                        "form": form,
+                        "ogroup": ogroup,
+                        "n_matches": n_matches,
+                        "n_fragments_ref": n_fragments_ref,
+                        "n_fragments_query": n_fragments_query,
+                    }
+                )
+        finally:
+            progress.setValue(max(len(candidates), 1))
+            progress.close()
+
+        matches.sort(key=lambda m: m["score"], reverse=True)
+
+        if not matches:
+            QtWidgets.QMessageBox.information(self, "Show similar spectra", "No spectra above the similarity threshold were found.")
+            return
+
+        self._show_similar_spectra_results_popup(reference_scan, matches, params)
+
+    def _show_similar_spectra_results_popup(self, reference_scan, matches, params):
+        """Show a non-blocking (modeless) popup with the matched MS/MS spectra, each
+        annotated with its detected feature pair (if any). Double-clicking a match
+        navigates to and selects its feature pair in the main experiment-results tree."""
+        dlg = QtWidgets.QDialog(self)
+        dlg.setAttribute(QtCore.Qt.WA_DeleteOnClose)
+        dlg.setWindowModality(QtCore.Qt.NonModal)
+        dlg.setWindowTitle(f"Similar spectra ({params['algorithm']} \u2265 {params['similarity_threshold']:.3f}) - {len(matches)} found")
+        dlg.resize(1050, 700)
+        layout = QtWidgets.QVBoxLayout(dlg)
+
+        info = QtWidgets.QLabel(f"Reference: precursor m/z {reference_scan.precursor_mz:.4f}, polarity {getattr(reference_scan, 'polarity', None) or 'n/a'}, RT {reference_scan.retention_time / 60.0:.2f} min. Double-click a match to select its feature pair in the main tree.")
+        info.setWordWrap(True)
+        layout.addWidget(info)
+
+        splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
+        layout.addWidget(splitter, 1)
+
+        list_widget = QtWidgets.QTableWidget()
+        list_widget.setColumnCount(11)
+        list_widget.setHorizontalHeaderLabels(["Score", "Matched frags.", "Ref. frags.", "Query frags.", "Feature pair", "OGroup", "Polarity", "Prec. m/z", "\u0394 Prec. m/z", "RT (min)", "File"])
+        list_widget.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        list_widget.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+        list_widget.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        list_widget.setSortingEnabled(True)
+        list_widget.setRowCount(len(matches))
+        for i, m in enumerate(matches):
+            score_item = QTableWidgetItem(f"{m['score']:.3f}")
+            score_item.setData(QtCore.Qt.UserRole, m)
+            list_widget.setItem(i, 0, score_item)
+            n_matches_text = str(m["n_matches"]) if m.get("n_matches") is not None else "n/a"
+            list_widget.setItem(i, 1, QTableWidgetItem(n_matches_text))
+            list_widget.setItem(i, 2, QTableWidgetItem(str(m.get("n_fragments_ref", ""))))
+            list_widget.setItem(i, 3, QTableWidgetItem(str(m.get("n_fragments_query", ""))))
+            if m["num"] is not None:
+                feat_text = f"Num {m['num']} ({'M\u2032' if m['form'] == 'labeled' else 'M'})"
+            else:
+                feat_text = "(no detected feature pair)"
+            list_widget.setItem(i, 4, QTableWidgetItem(feat_text))
+            list_widget.setItem(i, 5, QTableWidgetItem(str(m["ogroup"]) if m.get("ogroup") is not None else ""))
+            list_widget.setItem(i, 6, QTableWidgetItem(str(getattr(m["scan"], "polarity", None) or "n/a")))
+            list_widget.setItem(i, 7, QTableWidgetItem(f"{m['scan'].precursor_mz:.4f}"))
+            list_widget.setItem(i, 8, QTableWidgetItem(f"{m['scan'].precursor_mz - reference_scan.precursor_mz:+.4f}"))
+            list_widget.setItem(i, 9, QTableWidgetItem(f"{m['scan'].retention_time / 60.0:.2f}"))
+            list_widget.setItem(i, 10, QTableWidgetItem(os.path.basename(m["file_key"])))
+        list_widget.resizeColumnsToContents()
+        splitter.addWidget(list_widget)
+
+        plot_obj = QtCore.QObject()
+        plot_obj.fig = Figure((6.0, 4.5), dpi=80, facecolor="white")
+        plot_obj.canvas = FigureCanvas(plot_obj.fig)
+        plot_obj.mpl_toolbar = NavigationToolbar(plot_obj.canvas, dlg)
+        plot_container = QtWidgets.QWidget()
+        plot_container_layout = QtWidgets.QVBoxLayout(plot_container)
+        plot_container_layout.setContentsMargins(0, 0, 0, 0)
+        plot_container_layout.addWidget(plot_obj.mpl_toolbar)
+        plot_container_layout.addWidget(plot_obj.canvas, 1)
+        splitter.addWidget(plot_container)
+        splitter.setSizes([420, 630])
+
+        def _plot_pair(m):
+            plot_obj.fig.clear()
+            ax = plot_obj.fig.add_subplot(111)
+            ref_intens = np.asarray(reference_scan.intensity_list, dtype=float)
+            match_intens = np.asarray(m["scan"].intensity_list, dtype=float)
+            ref_max = ref_intens.max() if ref_intens.size else 0.0
+            match_max = match_intens.max() if match_intens.size else 0.0
+            ref_norm = ref_intens / ref_max * 100.0 if ref_max > 0.0 else ref_intens
+            match_norm = match_intens / match_max * 100.0 if match_max > 0.0 else match_intens
+            ax.vlines(reference_scan.mz_list, 0, ref_norm, colors="dodgerblue", linewidth=1.2, label="Reference")
+            ax.vlines(m["scan"].mz_list, 0, -match_norm, colors="firebrick", linewidth=1.2, label="Match")
+            ax.axhline(0, color="black", linewidth=0.8)
+            feat_txt = f"Num {m['num']} ({'M\u2032' if m['form'] == 'labeled' else 'M'})" if m["num"] is not None else "no detected feature pair"
+            ax.set_title(f"Score={m['score']:.3f} | {feat_txt}", fontsize=10)
+            ax.set_xlabel("m/z")
+            ax.set_ylabel("Relative intensity (%, each spectrum normalized to its own base peak)")
+            ax.legend(fontsize=8)
+            ax.grid(True, alpha=0.2)
+            plot_obj.fig.tight_layout()
+            plot_obj.canvas.draw()
+
+        def _on_selection_changed():
+            rows = sorted(set(i.row() for i in list_widget.selectedItems()))
+            if not rows:
+                return
+            item = list_widget.item(rows[0], 0)
+            if item is None:
+                return
+            _plot_pair(item.data(QtCore.Qt.UserRole))
+
+        def _on_double_click(item):
+            m = list_widget.item(item.row(), 0).data(QtCore.Qt.UserRole)
+            if m.get("num") is not None:
+                self._showFeatureInExperimentResults(m["num"])
+
+        list_widget.itemSelectionChanged.connect(_on_selection_changed)
+        list_widget.itemDoubleClicked.connect(_on_double_click)
+        list_widget.selectRow(0)
+        _plot_pair(matches[0])
+
+        btn_row = QtWidgets.QHBoxLayout()
+        btn_row.addStretch(1)
+        close_btn = QtWidgets.QPushButton("Close")
+        close_btn.clicked.connect(dlg.close)
+        btn_row.addWidget(close_btn)
+        layout.addLayout(btn_row)
+
+        # Keep a reference alive so the non-modal dialog isn't garbage-collected while open
+        if not hasattr(self, "_similar_spectra_dialogs"):
+            self._similar_spectra_dialogs = []
+        self._similar_spectra_dialogs.append(dlg)
+
+        def _on_destroyed(_obj=None, _dlg=dlg):
+            if _dlg in self._similar_spectra_dialogs:
+                self._similar_spectra_dialogs.remove(_dlg)
+
+        dlg.destroyed.connect(_on_destroyed)
+
+        dlg.show()
 
     def _countMSMSPerFeatureForRows(self, rows, min_precursor_intensity):
         """Count filtered MSMS spectra per feature (native and labeled separately).
@@ -12426,34 +13071,18 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         layout.addWidget(canvas)
         dlg.exec()
 
-    def _showMSMSPrecursorOverview(self):
-        """Show an overview of the currently filtered MSMS precursor spectra.
+    def _compute_msms_filtered_matches(self, rows):
+        """Match all loaded MS/MS scans against the given feature rows using the same
+        filter parameters as the experiment "Show options" (RT window around the
+        feature apex, precursor m/z tolerance, precursor intensity percent / absolute
+        thresholds and the filter-string regex).
 
-        Uses the same MSMS filter parameters as the experiment "Show options"
-        (RT window around the feature apex, precursor m/z tolerance, precursor
-        intensity percent / absolute thresholds and the filter-string regex) and
-        evaluates them against all features currently visible in the results tree.
+        Returns a dict with keys "matched", "feature_ranges", "file_keys",
+        "file_to_group", "per_feature_form_count", "per_sample_stats" or ``None`` if
+        raw MS/MS data is not available.
         """
-        if not hasattr(self, "experimentResults") or self.experimentResults is None or self.experimentResults.db_con is None:
-            QtWidgets.QMessageBox.information(self, "MSMS precursor overview", "No experiment results loaded.")
-            return
         if not hasattr(self, "loadedMZXMLs") or self.loadedMZXMLs is None:
-            QtWidgets.QMessageBox.information(self, "MSMS precursor overview", "No raw MS/MS data loaded.")
-            return
-
-        try:
-            df = self.experimentResults.db_con.tables[self.experimentResults.selected_table]
-        except Exception:
-            QtWidgets.QMessageBox.warning(self, "MSMS precursor overview", "Could not access the loaded results table.")
-            return
-
-        rows = df.to_dicts()
-        visible_nums = self._getVisibleFeatureNums()
-        if visible_nums is not None:
-            rows = [r for r in rows if r.get("Num") in visible_nums]
-        if not rows:
-            QtWidgets.QMessageBox.information(self, "MSMS precursor overview", "No features available.")
-            return
+            return None
 
         # Read the "Show options" MSMS filter parameters
         try:
@@ -12622,6 +13251,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 fs_string = None
                 fs_checked = False
                 fs_match = True
+                fs_replacement = None
                 for fr in feature_ranges:
                     if not (fr["rt_min_s"] <= ms2_scan.retention_time <= fr["rt_max_s"]):
                         continue
@@ -12638,7 +13268,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
                     if not fs_checked:
                         fs_string = self._get_msms_filter_string(ms2_scan)
-                        fs_match, _ = self._msms_filter_match(fs_string, filter_regex)
+                        fs_match, fs_replacement = self._msms_filter_match(fs_string, filter_regex)
                         fs_checked = True
                     if not fs_match:
                         break
@@ -12659,12 +13289,71 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             "prec_intensity": ms2_scan.precursor_intensity,
                             "rt_offset_min": ms2_scan.retention_time / 60.0 - apex_rt,
                             "apex_intensity": apex_intensity,
+                            "scan": ms2_scan,
+                            "filter_replacement": fs_replacement,
                         }
                     )
                     per_feature_form_count[(fr["num"], form)] += 1
                     per_sample_stats[file_key][form] += 1
                     per_sample_stats[file_key][f"{form}_features"].add(fr["num"])
                     break
+
+        return {
+            "matched": matched,
+            "feature_ranges": feature_ranges,
+            "file_keys": file_keys,
+            "file_to_group": file_to_group,
+            "per_feature_form_count": per_feature_form_count,
+            "per_sample_stats": per_sample_stats,
+        }
+
+    def _showMSMSPrecursorOverview(self):
+        """Show an overview of the currently filtered MSMS precursor spectra.
+
+        Uses the same MSMS filter parameters as the experiment "Show options"
+        (RT window around the feature apex, precursor m/z tolerance, precursor
+        intensity percent / absolute thresholds and the filter-string regex) and
+        evaluates them against all features currently visible in the results tree.
+        """
+        if not hasattr(self, "experimentResults") or self.experimentResults is None or self.experimentResults.db_con is None:
+            QtWidgets.QMessageBox.information(self, "MSMS precursor overview", "No experiment results loaded.")
+            return
+        if not hasattr(self, "loadedMZXMLs") or self.loadedMZXMLs is None:
+            QtWidgets.QMessageBox.information(self, "MSMS precursor overview", "No raw MS/MS data loaded.")
+            return
+
+        try:
+            df = self.experimentResults.db_con.tables[self.experimentResults.selected_table]
+        except Exception:
+            QtWidgets.QMessageBox.warning(self, "MSMS precursor overview", "Could not access the loaded results table.")
+            return
+
+        rows = df.to_dicts()
+        visible_nums = self._getVisibleFeatureNums()
+        if visible_nums is not None:
+            rows = [r for r in rows if r.get("Num") in visible_nums]
+        if not rows:
+            QtWidgets.QMessageBox.information(self, "MSMS precursor overview", "No features available.")
+            return
+
+        match_result = self._compute_msms_filtered_matches(rows)
+        if match_result is None:
+            QtWidgets.QMessageBox.information(self, "MSMS precursor overview", "No raw MS/MS data loaded.")
+            return
+        matched = match_result["matched"]
+        feature_ranges = match_result["feature_ranges"]
+        file_to_group = match_result["file_to_group"]
+        per_feature_form_count = match_result["per_feature_form_count"]
+        per_sample_stats = match_result["per_sample_stats"]
+
+        try:
+            msms_rt_window = self.ui.doubleSpinBox_resultsExperiment_MSMSRTWindow.value()
+        except Exception:
+            msms_rt_window = 0.5
+
+        def _sample_name(file_key):
+            name = os.path.basename(file_key)
+            return re.sub(r"\.(mzxml|mzml)$", "", name, flags=re.IGNORECASE)
 
         n_native = sum(1 for m in matched if m["form"] == "native")
         n_labeled = sum(1 for m in matched if m["form"] == "labeled")
@@ -12701,7 +13390,13 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         dlg = QtWidgets.QDialog(self)
         dlg.setWindowTitle("MSMS precursor overview")
         dlg.resize(1100, 860)
-        layout = QtWidgets.QVBoxLayout(dlg)
+        outer_layout = QtWidgets.QVBoxLayout(dlg)
+        scroll = QtWidgets.QScrollArea(dlg)
+        scroll.setWidgetResizable(True)
+        scroll_content = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(scroll_content)
+        scroll.setWidget(scroll_content)
+        outer_layout.addWidget(scroll)
 
         summary = QtWidgets.QLabel(
             f"<b>Features with MSMS spectra:</b> {len(features_with_msms)} / {n_features} &nbsp;·&nbsp; "
@@ -12854,6 +13549,49 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         plot.fig.tight_layout()
         plot.canvas.draw()
 
+        # MS/MS similarity histograms: one subplot per (native/labeled x filter-string
+        # regex group 1) "type", pooling pairwise similarity scores computed only between
+        # spectra belonging to the same feature (never across different features).
+        if MATCHMS_AVAILABLE:
+            algorithm_name, rel_intensity_pct, mz_tolerance = self._get_msms_similarity_settings()
+            algorithm = self._get_msms_similarity_algorithm(algorithm_name, mz_tolerance)
+
+            by_feature_type = defaultdict(list)  # (num, type_key) -> [scan, ...]
+            for m in matched:
+                type_key = (m["form"], m.get("filter_replacement"))
+                by_feature_type[(m["num"], type_key)].append(m["scan"])
+
+            pooled_scores_by_type = defaultdict(list)
+            for (_num, type_key), scans in by_feature_type.items():
+                if len(scans) < 2:
+                    continue
+                pooled_scores_by_type[type_key].extend(self._compute_pairwise_similarity_scores(scans, algorithm, rel_intensity_pct))
+
+            type_keys = sorted(k for k, v in pooled_scores_by_type.items() if v)
+            if type_keys:
+                layout.addWidget(QtWidgets.QLabel(f"<b>MS/MS similarity ({algorithm_name}) per type (within-feature pairs, pooled)</b>"))
+                n_types = len(type_keys)
+                hist_cols = min(3, n_types)
+                hist_rows = (n_types + hist_cols - 1) // hist_cols
+                hist_plot = QtCore.QObject()
+                hist_plot.fig = Figure((10.0, 3.2 * hist_rows), dpi=80, facecolor="white")
+                hist_plot.canvas = FigureCanvas(hist_plot.fig)
+                layout.addWidget(hist_plot.canvas, 1)
+                for idx, type_key in enumerate(type_keys):
+                    scores = pooled_scores_by_type[type_key]
+                    ax = hist_plot.fig.add_subplot(hist_rows, hist_cols, idx + 1)
+                    color = _labeled_color if type_key[0] == "labeled" else _native_color
+                    ax.hist(scores, bins=np.linspace(0.0, 1.0, 21), color=color, alpha=0.75, edgecolor="black", linewidth=0.5)
+                    stats = self._format_percentile_stats(scores)
+                    ax.set_title(f"{self._format_msms_type_label(type_key)}\n{stats}", fontsize=8)
+                    ax.set_xlabel("Similarity score")
+                    ax.set_ylabel("Count")
+                    ax.set_xlim(0.0, 1.0)
+                    ax.grid(True, alpha=0.2)
+                hist_plot.fig.tight_layout()
+                hist_plot.canvas.draw()
+                self._msms_overview_hist_plot = hist_plot  # keep a reference alive
+
         # Per-sample table
         layout.addWidget(QtWidgets.QLabel("<b>Per-sample MSMS spectra</b>"))
         table = QtWidgets.QTableWidget()
@@ -12893,7 +13631,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         close_btn = QtWidgets.QPushButton("Close")
         close_btn.clicked.connect(dlg.accept)
         btn_row.addWidget(close_btn)
-        layout.addLayout(btn_row)
+        outer_layout.addLayout(btn_row)
 
         dlg.exec()
 
