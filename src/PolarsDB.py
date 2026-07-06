@@ -272,7 +272,7 @@ class PolarsDB:
         bkp_filepath = self.filepath + ".bkp"
         if os.path.exists(bkp_filepath):
             os.remove(bkp_filepath)
-        shutil.copyfile(self.filepath, bkp_filepath)
+            shutil.copyfile(self.filepath, bkp_filepath)
 
         # save tables
         if self.format == "parquet":
