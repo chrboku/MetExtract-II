@@ -4810,6 +4810,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         _bracketing_failed = False
         _reintegration_failed = False
         _convolution_failed = False
+        _individual_files_failed = False
 
         cpus = min(cpu_count(), self.ui.cpuCores.value())
 
@@ -5066,6 +5067,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if len(failedFiles) > 0:
                 logging.info("Some files failed to process correctly (%s)" % (", ".join(failedFiles)))
 
+            _individual_files_failed = len(failedFiles) > 0
+
             pw.setSkipCallBack(True)
             pw.hide()
 
@@ -5075,7 +5078,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
             _step_elapsed["individual_files"] = (time.time() - _ind_step_start) / 60.0
             if not self.terminateJobs:
-                _step_status["individual_files"] = _ST_OK
+                _step_status["individual_files"] = _ST_ERROR if _individual_files_failed else _ST_OK
                 _step_details["individual_files"] = f"{len(files)} file(s): {len(files) - len(failedFiles)} finished, {len(failedFiles)} failed"
 
         if self.terminateJobs:
@@ -5102,7 +5105,20 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 pass
 
         # bracket/group from individual LC-HRMS data / re-integrate missed peaks
-        if self.ui.processMultipleFiles.checkState() == QtCore.Qt.Checked:
+        if _individual_files_failed and self.ui.processMultipleFiles.checkState() == QtCore.Qt.Checked:
+            logging.warning(
+                "Skipping bracketing, re-integration, grouping and annotation: %d file(s) failed during individual processing (%s)."
+                % (len(failedFiles), ", ".join(failedFiles))
+            )
+            if self.ui.groupResults.isChecked():
+                _step_status["bracketing"] = _ST_SKIPPED_PREV
+            if self.ui.integratedMissedPeaks.isChecked():
+                _step_status["reintegration"] = _ST_SKIPPED_PREV
+            if self.ui.convoluteResults.isChecked():
+                _step_status["convolution"] = _ST_SKIPPED_PREV
+            _bracketing_failed = True
+
+        if self.ui.processMultipleFiles.checkState() == QtCore.Qt.Checked and not _individual_files_failed:
             pw = ProgressWrapper(1, parent=self)
             pw.show()
             pw.getCallingFunction()("text")("Bracketing results")
