@@ -267,7 +267,7 @@ class PolarsDB:
         """Save all tables to file in the appropriate format."""
         if not self.tables:
             return
-        
+
         # copy self.filepath to a temporary file to avoid overwriting in case of errors
         bkp_filepath = self.filepath + ".bkp"
         if os.path.exists(bkp_filepath):

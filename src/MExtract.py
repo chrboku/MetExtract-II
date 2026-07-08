@@ -5106,10 +5106,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         # bracket/group from individual LC-HRMS data / re-integrate missed peaks
         if _individual_files_failed and self.ui.processMultipleFiles.checkState() == QtCore.Qt.Checked:
-            logging.warning(
-                "Skipping bracketing, re-integration, grouping and annotation: %d file(s) failed during individual processing (%s)."
-                % (len(failedFiles), ", ".join(failedFiles))
-            )
+            logging.warning("Skipping bracketing, re-integration, grouping and annotation: %d file(s) failed during individual processing (%s)." % (len(failedFiles), ", ".join(failedFiles)))
             if self.ui.groupResults.isChecked():
                 _step_status["bracketing"] = _ST_SKIPPED_PREV
             if self.ui.integratedMissedPeaks.isChecked():
@@ -5215,7 +5212,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             maxLoading=self.ui.maxLoading.value(),
                             positiveScanEvent=str(self.ui.positiveScanEvent.currentText()),
                             negativeScanEvent=str(self.ui.negativeScanEvent.currentText()),
-                            file=resFileFull,
+                            file=excel_file,
                             align=(self.ui.alignChromatograms.checkState() == QtCore.Qt.Checked),
                             nPolynom=self.ui.polynomValue.value(),
                             meVersion="MetExtract (%s)" % MetExtractVersion,
@@ -5679,7 +5676,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         useExactXn = "PlusMinus_%d" % (self.ui.sumFormulasPlusMinus_spinBox.value())
 
                     try:
-                        db_info_messages = []
                         smiles_mismatches = []
                         addedColumns = annotateResultMatrix.annotateWithDatabases(
                             file=excel_file,
@@ -5696,7 +5692,6 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             processedElement=getElementOfIsotope(str(self.ui.isotopeAText.text())),
                             pwMaxSet=pw.getCallingFunction()("max"),
                             pwValSet=pw.getCallingFunction()("value"),
-                            db_info_messages=db_info_messages,
                             smiles_mismatches=smiles_mismatches,
                         )
                         annotationColumns.extend(addedColumns)

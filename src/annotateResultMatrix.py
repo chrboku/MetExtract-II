@@ -153,7 +153,6 @@ def annotateWithDatabases(
     processedElement,
     pwMaxSet=None,
     pwValSet=None,
-    db_info_messages=None,
     smiles_mismatches=None,
 ):
     """
@@ -182,8 +181,6 @@ def annotateWithDatabases(
         processedElement: Element to check in formulas (e.g., "C")
         pwMaxSet: Progress callback for max value
         pwValSet: Progress callback for current value
-        db_info_messages: Optional list; if provided, import summary messages are appended to it
-            (used to write the DB_info log sheet)
 
     Returns:
         List of annotation column names added
@@ -193,6 +190,7 @@ def annotateWithDatabases(
 
     # Load the PolarsDB
     plDB = PolarsDB(file, format="xlsx", load_all_tables=True)
+    db_info_messages = []
 
     # Load the results dataframe from the specified sheet
     try:
@@ -431,7 +429,7 @@ def annotateWithDatabases(
             if s is None:
                 return ""
             # TODO
-            #return ascii(s)[1:-1]
+            # return ascii(s)[1:-1]
             return str(s)
 
         compound_rows = []
@@ -463,13 +461,13 @@ def annotateWithDatabases(
                 "Feature_Relative_peakarea_in_group": row_info["Feature_Relative_peakarea_in_group"],
                 "Feature_Average_peakarea": row_info["Feature_Average_peakarea"],
             }
-            
+
             # TODO implement
             # Expand additionalInfo into individual columns with a DB_Info_ prefix
-            #for k, ks in all_additional_keys.items():
+            # for k, ks in all_additional_keys.items():
             #    if ks not in compound_row:
             #        compound_row[f"DB_Info_{ks}"] = sanitize_str(hit.additionalInfo.get(k, None))
-            
+
             # add compound row and new columns
             compound_rows.append(compound_row)
 
@@ -502,6 +500,8 @@ def annotateWithDatabases(
     else:
         logging.info("No database hits found, skipping compound-focused sheet")
 
+    db_info_db = pl.DataFrame(db_info_messages)
+    plDB.set_table("DB_info", db_info_messages)
     plDB.close()
 
     logging.info(f"Database search annotation completed. Added {len(annotationColumns)} columns")

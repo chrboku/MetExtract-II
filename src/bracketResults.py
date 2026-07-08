@@ -39,6 +39,7 @@ from .utils import (
 )
 from .XICAlignment import XICAlignment
 from .utils import mapArrayToRefTimes, get_app_folder
+from .resultsPostProcessing.helpSheet import generate_help_sheet
 
 
 def log10(x):
@@ -1334,6 +1335,7 @@ def bracketResults(
 
         excel_file = file.replace(".tsv", ".xlsx")
         plDB = PolarsDB(excel_file, format="xlsx")
+        plDB.insert_table("help", generate_help_sheet())
 
         # Collect all file paths for sample stats
         all_files = []
