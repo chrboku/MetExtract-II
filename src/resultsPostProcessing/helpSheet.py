@@ -37,6 +37,28 @@ SHEET_DESCRIPTIONS = [
         "Documentation of all sheets and columns contained in this results file. Generated automatically whenever step 2 processing (bracketing / re-integration / convolution / annotation) is run.",
     ),
     _entry(
+        "5_Annotated",
+        "Final results: detected metabolic features relatively quantified and annotated with database hits and/or generated sum formulas.",
+        "The last available feature table (from '4_Convoluted', '3_Reintegrated' or '2_StatColumns', "
+        "whichever completed most recently) with annotation columns appended: 'DBs_*' database search "
+        "hits and/or 'SFs_*' generated sum-formula candidates. See the dedicated section below for "
+        "details on the database annotation columns. This is normally the primary results sheet used "
+        "for further analysis.",
+    ),
+    _entry(
+        "5_Annotated_Compounds",
+        "One row per database hit (compound-centric view of '5_Annotated').",
+        "Flattened view of the database search results: each row is a single compound hit (database "
+        "name, compound name, formula, mass, RT, match error, ...) together with the feature it was "
+        "found in ('Feature_*' columns). Makes it easy to filter/sort hits by compound rather than by "
+        "feature. See the dedicated section below for column details.",
+    ),
+    _entry(
+        "5_Annotated_SumFormulas",
+        "One row per generated sum-formula hit (formula-centric view of '5_Annotated').",
+        "Flattened view of the generated sum formula candidates: each row is a single formula hit for an element combination (CHO, CHON, CHOS, ...) together with the feature it belongs to ('Feature_*' columns).",
+    ),
+    _entry(
         "0_sampleStats",
         "Per-sample summary statistics collected during bracketing.",
         "One row per processed sample file with summary information (e.g. number of chromatographic peaks/feature pairs) collected while building '1_Bracketed'.",
@@ -78,28 +100,6 @@ SHEET_DESCRIPTIONS = [
         "4_Convoluted_doublePeaks",
         "Features flagged as double/split peaks during convolution.",
         "Rows moved out of '4_Convoluted' because they were identified as duplicate (split) chromatographic peaks of an already grouped feature.",
-    ),
-    _entry(
-        "5_Annotated",
-        "Final annotated results: database hits and/or generated sum formulas added.",
-        "The last available feature table (from '4_Convoluted', '3_Reintegrated' or '2_StatColumns', "
-        "whichever completed most recently) with annotation columns appended: 'DBs_*' database search "
-        "hits and/or 'SFs_*' generated sum-formula candidates. See the dedicated section below for "
-        "details on the database annotation columns. This is normally the primary results sheet used "
-        "for further analysis.",
-    ),
-    _entry(
-        "5_Annotated_Compounds",
-        "One row per database hit (compound-centric view of '5_Annotated').",
-        "Flattened view of the database search results: each row is a single compound hit (database "
-        "name, compound name, formula, mass, RT, match error, ...) together with the feature it was "
-        "found in ('Feature_*' columns). Makes it easy to filter/sort hits by compound rather than by "
-        "feature. See the dedicated section below for column details.",
-    ),
-    _entry(
-        "5_Annotated_SumFormulas",
-        "One row per generated sum-formula hit (formula-centric view of '5_Annotated').",
-        "Flattened view of the generated sum formula candidates: each row is a single formula hit for an element combination (CHO, CHON, CHOS, ...) together with the feature it belongs to ('Feature_*' columns).",
     ),
     _entry(
         "Parameters",
@@ -393,7 +393,7 @@ ANNOTATED_DATABASES_DETAIL = [
     _entry(
         "DBs_<database>_count",
         "Number of mass-only hits found in database '<database>'.",
-        "Count of database entries whose (adduct-corrected) mass/m/z matched this feature's MZ/M within the configured ppm tolerance (and, if 'checkXnInHits' is set, a compatible Xn/label count). One pair of 'DBs_<database>_count'/'DBs_<database>' columns is created per imported database file.",
+        "Count of database entries whose (adduct-corrected) mass or m/z matched this feature's MZ/M within the configured ppm tolerance (and, if 'checkXnInHits' is set, a compatible Xn/label count). One pair of 'DBs_<database>_count'/'DBs_<database>' columns is created per imported database file.",
     ),
     _entry(
         "DBs_<database>",
