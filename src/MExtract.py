@@ -1996,6 +1996,15 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     # Fallback only when average peak area is unavailable.
                     exp_ratio_by_num = {row["Num"]: float(row["Relative_peakarea_in_group"]) for row in group_results_df.select(["Num", "Relative_peakarea_in_group"]).to_dicts() if row.get("Relative_peakarea_in_group") is not None}
 
+                # Precompute the list of sample (file) base names present in this result table
+                # (derived from the per-sample "<sample>_Found" columns) and a lookup from
+                # sample name -> defined-group color, used to build the per-sample child rows below.
+                sample_names_in_table = sorted(col[: -len("_Found")] for col in group_results_df.columns if col.endswith("_Found"))
+                sample_color_lookup = {}
+                for sampleGroup in experimentalGroups:
+                    for sample_name in self._sampleNamesForGroup(sampleGroup):
+                        sample_color_lookup.setdefault(sample_name, sampleGroup.color)
+
                 for row_dict in group_results_df.to_dicts():
                     # Count N_found_Samples from per-file _Found columns or use pre-computed value
                     n_found_samples = row_dict.get("N_found_Samples")
@@ -2056,31 +2065,50 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     )
                     featurePair.bunchData = fp
 
-                    ## TODO
-                    if False:
-                        abundances = []
-                        for fileRes in fileMappingData[fp.id]:
-                            fileResNode = QtWidgets.QTreeWidgetItem(
-                                [
-                                    str(fileRes.file),
-                                    "%.2g" % (fileRes.areaN),
-                                    "%.2g" % (fileRes.areaL),
-                                ]
-                            )
-                            fileResNode.bunchData = fileRes
+                    # Add a child row per sample where the feature (native and/or
+                    # labeled form) was detected, either directly or by re-integration.
+                    for sample_name in sample_names_in_table:
+                        found_val = row_dict.get(sample_name + "_Found")
+                        if found_val is None:
+                            continue
+                        detect_type = str(found_val).split(";")[0]
 
-                            color = None
-                            for sampleGroup in experimentalGroups:
-                                for file in sampleGroup.files:
-                                    if str(fileRes.file) in file:
-                                        color = sampleGroup.color
+                        area_n = self._parseAreaCellValue(row_dict.get(sample_name + "_Area_N"))
+                        area_l = self._parseAreaCellValue(row_dict.get(sample_name + "_Area_L"))
 
-                            if color is not None:
-                                fileResNode.setBackground(0, QColor(color))
+                        if area_n is not None and area_l is not None:
+                            form_label = "N/L"
+                        elif area_n is not None:
+                            form_label = "N"
+                        elif area_l is not None:
+                            form_label = "L"
+                        else:
+                            form_label = ""
 
-                            featurePair.addChild(fileResNode)
+                        sampleNode = QtWidgets.QTreeWidgetItem(
+                            [
+                                sample_name,
+                                detect_type,
+                                form_label,
+                                "%.4g" % area_n if area_n is not None else "",
+                                "%.4g" % area_l if area_l is not None else "",
+                            ]
+                        )
+                        sampleNode.bunchData = Bunch(
+                            type="sampleResult",
+                            sampleName=sample_name,
+                            foundType=detect_type,
+                            form=form_label,
+                            areaN=area_n,
+                            areaL=area_l,
+                        )
 
-                            abundances.append(fileRes.areaN)
+                        color = sample_color_lookup.get(sample_name)
+                        if color is not None:
+                            for col in range(5):
+                                sampleNode.setBackground(col, QColor(color))
+
+                        featurePair.addChild(sampleNode)
 
                     kids.append((featurePair, -1, fp.metaboliteGroupID))
 
@@ -2981,6 +3009,15 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.ui.resultsExperimentMSScanPeaks_plot.axes.set_xlabel("M/Z")
             self.ui.resultsExperimentMSScanPeaks_plot.axes.set_ylabel("Normalized Intensity\nSeparated by sample")
 
+            if self.ui.resultsExperimentLogIntensity_checkBox.isChecked():
+                # Mirror-plotted intensities include negative values (labeled form plotted below
+                # zero), so a symmetric log scale is used instead of a plain log scale.
+                self.ui.resultsExperiment_plot.axes.set_yscale("symlog")
+                self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_yscale("symlog")
+            else:
+                self.ui.resultsExperiment_plot.axes.set_yscale("linear")
+                self.ui.resultsExperimentSeparatedPeaks_plot.axes.set_yscale("linear")
+
             rtlim = [
                 mean(meanRT) / 60.0 - borderOffset,
                 mean(meanRT) / 60.0 + borderOffset,
@@ -3034,23 +3071,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if group is None:
             return ("found 0 / 0 / 0", "RSD % n/a / n/a")
 
-        sampleNames = []
-        for f in group.files:
-            fi = str(f).replace("\\", "/")
-            a = fi[fi.rfind("/") + 1 :]
-            for ext in (".mzXML", ".mzxml", ".mzML", ".mzml"):
-                if a.lower().endswith(ext.lower()):
-                    a = a[: -len(ext)]
-                    break
-            sampleNames.append(a)
+        sampleNames = self._sampleNamesForGroup(group)
 
         def parseArea(val):
-            if val is None:
-                return None
-            try:
-                return float(str(val).split(";")[0])
-            except (TypeError, ValueError):
-                return None
+            return self._parseAreaCellValue(val)
 
         nFound = nNative = nLabeled = 0
         areasN = []
@@ -14110,6 +14134,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.ui.expFilter_z.clear()
             self.ui.expFilter_polarity.setCurrentIndex(0)
             self.ui.expFilter_ms2.setCurrentIndex(0)
+            self.ui.expFilter_group.clear()
 
     def _onExpFilterReset(self):
         """Reset all filter fields to default values."""
@@ -14119,6 +14144,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.expFilter_z.clear()
         self.ui.expFilter_polarity.setCurrentIndex(0)
         self.ui.expFilter_ms2.setCurrentIndex(0)
+        self.ui.expFilter_group.clear()
         # Show filter panel when resetting
         if not self.ui.expFilterToggleBtn.isChecked():
             self.ui.expFilterToggleBtn.setChecked(True)
@@ -14186,6 +14212,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         polarity_idx = self.ui.expFilter_polarity.currentIndex()  # 0=both, 1=pos, 2=neg
         ms2_idx = self.ui.expFilter_ms2.currentIndex()
         # 0=all, 1=without MS2, 2=with MS2, 3=with native MS2, 4=with labeled MS2
+        group_text = self.ui.expFilter_group.text().strip()
 
         # Handle MS2 filter change: if user selects non-"all" option, query MS2 forms from files
         prev_ms2_idx = getattr(self, "_prev_ms2_filter_idx", 0)
@@ -14197,11 +14224,39 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             msms_forms = getattr(self, "_exp_msms_feature_forms", {})
         self._prev_ms2_filter_idx = ms2_idx
 
-        no_filters = not any([mz_text, rt_text, xn_text, z_text, polarity_idx != 0, ms2_idx != 0])
+        # Parse the group-presence filter expression (if any). Invalid syntax is
+        # flagged visually and simply disables that particular filter.
+        parsed_group_filter = None
+        if group_text:
+            parsed_group_filter = self._parse_group_presence_filter(group_text)
+        self.ui.expFilter_group.setStyleSheet("background-color: #ffcccc;" if group_text and parsed_group_filter is None else "")
+
+        no_filters = not any([mz_text, rt_text, xn_text, z_text, polarity_idx != 0, ms2_idx != 0, parsed_group_filter is not None])
 
         mz_sub, mz_min, mz_max = self._parse_filter_range(mz_text)
         rt_sub, rt_min, rt_max = self._parse_filter_range(rt_text)
         xn_sub, xn_min, xn_max = self._parse_filter_range(xn_text)
+
+        # Pre-fetch sample names per defined group and the per-feature result
+        # rows required to evaluate the group-presence filter.
+        group_sample_names = {}
+        group_filter_rows_by_num = {}
+        if parsed_group_filter is not None:
+            group_sample_names = {g.name: self._sampleNamesForGroup(g) for g in self.getAllSampleGroups()}
+            if hasattr(self, "experimentResults") and self.experimentResults is not None:
+                selected_table = getattr(self.experimentResults, "selected_table", None)
+                if selected_table is not None and selected_table in self.experimentResults.db_con.tables:
+                    all_ids = []
+                    for i in range(tree.topLevelItemCount()):
+                        top = tree.topLevelItem(i)
+                        for c in range(top.childCount()):
+                            bd = getattr(top.child(c), "bunchData", None)
+                            fid = getattr(bd, "id", None) if bd is not None else None
+                            if fid is not None:
+                                all_ids.append(fid)
+                    if all_ids:
+                        table_df = self.experimentResults.db_con.tables[selected_table]
+                        group_filter_rows_by_num = {row["Num"]: row for row in table_df.filter(pl.col("Num").is_in(all_ids)).to_dicts()}
 
         for i in range(tree.topLevelItemCount()):
             top = tree.topLevelItem(i)
@@ -14283,6 +14338,11 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     elif ms2_idx == 4:
                         show = "labeled" in forms
 
+                # Group-presence filter, e.g. "GroupA:N > 3 AND GroupB:L <= 2"
+                if parsed_group_filter is not None and show:
+                    row = group_filter_rows_by_num.get(getattr(bd, "id", None))
+                    show = row is not None and self._eval_group_presence_filter(row, parsed_group_filter, group_sample_names)
+
                 child.setHidden(not show)
                 if show:
                     any_child_shown = True
@@ -14292,6 +14352,108 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # Sync feature map if it is open
         if self.ui.expFeatureMapContainer.isVisible():
             self._buildFeatureMap()
+
+    # Matches one condition of a group-presence filter expression, e.g. "GroupA:N > 3"
+    _GROUP_FILTER_COND_RE = re.compile(r"^\s*(?P<group>[^:]+?)\s*:\s*(?P<form>[NnLl])\s*(?P<op>>=|<=|==|!=|>|<|=)\s*(?P<val>\d+)\s*$")
+
+    @classmethod
+    def _parse_group_presence_filter(cls, text):
+        """Parse a group-presence filter expression such as
+        "GroupA:N > 3 AND GroupB:L <= 2 OR GroupC:N == 0" into a list of
+        OR-clauses, each a list of (groupName, form, op, value) AND-conditions.
+
+        Returns None if the expression could not be parsed.
+        """
+        text = (text or "").strip()
+        if not text:
+            return None
+
+        or_parts = re.split(r"\bOR\b", text, flags=re.IGNORECASE)
+        parsed_or = []
+        for or_part in or_parts:
+            and_parts = re.split(r"\bAND\b", or_part, flags=re.IGNORECASE)
+            conditions = []
+            for and_part in and_parts:
+                if not and_part.strip():
+                    return None
+                m = cls._GROUP_FILTER_COND_RE.match(and_part)
+                if not m:
+                    return None
+                group_name = m.group("group").strip()
+                if not group_name:
+                    return None
+                op = m.group("op")
+                if op == "=":
+                    op = "=="
+                try:
+                    val = int(m.group("val"))
+                except ValueError:
+                    return None
+                conditions.append((group_name, m.group("form").upper(), op, val))
+            parsed_or.append(conditions)
+        return parsed_or if parsed_or else None
+
+    @staticmethod
+    def _sampleNamesForGroup(group):
+        """Return the list of sample names (file basenames without extension) belonging to a SampleGroup."""
+        sampleNames = []
+        for f in group.files:
+            fi = str(f).replace("\\", "/")
+            a = fi[fi.rfind("/") + 1 :]
+            for ext in (".mzXML", ".mzxml", ".mzML", ".mzml"):
+                if a.lower().endswith(ext.lower()):
+                    a = a[: -len(ext)]
+                    break
+            sampleNames.append(a)
+        return sampleNames
+
+    @staticmethod
+    def _parseAreaCellValue(val):
+        """Parse a (possibly ';'-joined) per-sample Area_N/Area_L cell value; returns a float or None."""
+        if val is None:
+            return None
+        try:
+            return float(str(val).split(";")[0])
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _compareGroupFilterOp(count, op, val):
+        if op == ">":
+            return count > val
+        if op == "<":
+            return count < val
+        if op == ">=":
+            return count >= val
+        if op == "<=":
+            return count <= val
+        if op == "==":
+            return count == val
+        if op == "!=":
+            return count != val
+        return False
+
+    def _eval_group_presence_condition(self, row, condition, group_sample_names):
+        group_name, form, op, val = condition
+        sample_names = group_sample_names.get(group_name)
+        if sample_names is None:
+            for name, samples in group_sample_names.items():
+                if name.lower() == group_name.lower():
+                    sample_names = samples
+                    break
+        if sample_names is None:
+            return False
+
+        col_suffix = "_Area_N" if form == "N" else "_Area_L"
+        count = sum(1 for sample in sample_names if self._parseAreaCellValue(row.get(sample + col_suffix)) is not None)
+        return self._compareGroupFilterOp(count, op, val)
+
+    def _eval_group_presence_filter(self, row, parsed_group_filter, group_sample_names):
+        """Evaluate a parsed group-presence filter (list of OR-clauses of AND-conditions) against one feature's row."""
+        for and_conditions in parsed_group_filter:
+            if all(self._eval_group_presence_condition(row, cond, group_sample_names) for cond in and_conditions):
+                return True
+        return False
 
     def setChromPeakName(self):
         cpName = str(self.ui.chromPeakName.text())
@@ -16329,6 +16491,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.resultsExperimentNormaliseXICs_checkBox.stateChanged.connect(self._refreshExperimentEICs)
         self.ui.resultsExperimentNormaliseXICsSeparately_checkBox.stateChanged.connect(self._refreshExperimentEICs)
         self.ui.showLegend_experiment.stateChanged.connect(self._refreshExperimentEICs)
+        self.ui.resultsExperimentLogIntensity_checkBox.stateChanged.connect(self._refreshExperimentEICs)
         self.ui.doubleSpinBox_resultsExperiment_MSMSRTWindow.valueChanged.connect(self._refreshExperimentMSMS)
         self.ui.doubleSpinBox_resultsExperiment_MSMSPrecIntensPercent.valueChanged.connect(self._refreshExperimentMSMS)
         self.ui.doubleSpinBox_resultsExperiment_MSMSAbsIntensThreshold.valueChanged.connect(self._refreshExperimentMSMS)
@@ -16666,6 +16829,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.expFilter_z.textChanged.connect(self.expFilterEdited)
         self.ui.expFilter_polarity.currentIndexChanged.connect(self.expFilterEdited)
         self.ui.expFilter_ms2.currentIndexChanged.connect(self.expFilterEdited)
+        self.ui.expFilter_group.textChanged.connect(self.expFilterEdited)
         self.ui.res_ExtractedData.itemDoubleClicked.connect(self.res_doubleClick)
         self.ui.msms_SpectraList.itemSelectionChanged.connect(self.plotSelectedMSMSSpectra)
 

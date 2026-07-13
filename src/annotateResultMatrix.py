@@ -501,7 +501,7 @@ def annotateWithDatabases(
         logging.info("No database hits found, skipping compound-focused sheet")
 
     db_info_db = pl.DataFrame(db_info_messages)
-    plDB.set_table("DB_info", db_info_messages)
+    plDB.set_table("DB_info", db_info_db)
     plDB.close()
 
     logging.info(f"Database search annotation completed. Added {len(annotationColumns)} columns")

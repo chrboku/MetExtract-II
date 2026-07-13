@@ -2607,6 +2607,10 @@ class Ui_MainWindow(object):
         self.showLegend_experiment.setChecked(False)
         self.showLegend_experiment.setObjectName(_fromUtf8("showLegend_experiment"))
         self.horizontalLayout_32.addWidget(self.showLegend_experiment)
+        self.resultsExperimentLogIntensity_checkBox = QtWidgets.QCheckBox(self.groupBox_exp_eic)
+        self.resultsExperimentLogIntensity_checkBox.setChecked(False)
+        self.resultsExperimentLogIntensity_checkBox.setObjectName(_fromUtf8("resultsExperimentLogIntensity_checkBox"))
+        self.horizontalLayout_32.addWidget(self.resultsExperimentLogIntensity_checkBox)
         spacerItem61 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self.horizontalLayout_32.addItem(spacerItem61)
         self.verticalLayout_4.addWidget(self.groupBox_exp_eic)
@@ -2844,6 +2848,23 @@ class Ui_MainWindow(object):
         self.expFilter_ms2.addItem(_fromUtf8("features with native MS2 spectra"))
         self.expFilter_ms2.addItem(_fromUtf8("features with labeled MS2 spectra"))
         self.expFilterContent_layout.addRow(self.label_filterMS2, self.expFilter_ms2)
+        self.label_filterGroupPresence = QtWidgets.QLabel(self.expFilterContent)
+        self.label_filterGroupPresence.setObjectName(_fromUtf8("label_filterGroupPresence"))
+        self.label_filterGroupPresence.setText(_fromUtf8("Group presence"))
+        self.expFilter_group = QtWidgets.QLineEdit(self.expFilterContent)
+        self.expFilter_group.setObjectName(_fromUtf8("expFilter_group"))
+        self.expFilter_group.setPlaceholderText(_fromUtf8("e.g. GroupA:N > 3 AND GroupB:L <= 2"))
+        self.expFilter_group.setToolTip(
+            _fromUtf8(
+                "Filter features by their presence in a sample group.\n"
+                "Syntax: <group name>:<N|L> <op> <count>, with <op> one of > < >= <= == !=.\n"
+                "N = native form, L = labeled form. Presence is based on re-integrated Area_N/Area_L values.\n"
+                "Combine several conditions with AND / OR, e.g.:\n"
+                "GroupA:N > 3 AND GroupB:L <= 2\n"
+                "GroupA:N > 3 OR GroupB:N > 3"
+            )
+        )
+        self.expFilterContent_layout.addRow(self.label_filterGroupPresence, self.expFilter_group)
         self.expFilterGroupBox_layout.addWidget(self.expFilterContent)
         self.exp_left_layout.addWidget(self.expFilterGroupBox)
         # Feature map container (hidden by default, shown when Feature Map button is toggled)
@@ -3785,6 +3806,8 @@ class Ui_MainWindow(object):
         self.resultsExperimentNormaliseXICsSeparately_checkBox.setText(_translate("MainWindow", "Normalise separately", None))
         self.resultsExperimentNormaliseXICs_checkBox.setText(_translate("MainWindow", "Normalise to labeled features", None))
         self.showLegend_experiment.setText(_translate("MainWindow", "Show legend", None))
+        self.resultsExperimentLogIntensity_checkBox.setText(_translate("MainWindow", "Log10 intensity axis", None))
+        self.resultsExperimentLogIntensity_checkBox.setToolTip(_translate("MainWindow", "Display the EIC intensity axis on a log10 (symmetric log) scale instead of linear.", None))
         self.label_97.setText(
             _translate(
                 "MainWindow",
