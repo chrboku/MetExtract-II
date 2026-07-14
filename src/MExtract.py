@@ -4348,6 +4348,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 self.ui.spinBox_msmsLib_minMatchedFragments.setValue(self.to_int(sett.value("annotateMetabolites_msmsLibrary_minMatchedFragments")))
             if sett.contains("annotateMetabolites_msmsLibrary_scoreCutoff"):
                 self.ui.doubleSpinBox_msmsLib_scoreCutoff.setValue(self.to_double(sett.value("annotateMetabolites_msmsLibrary_scoreCutoff")))
+            if sett.contains("annotateMetabolites_msmsLibrary_minRelAbundance"):
+                self.ui.doubleSpinBox_msmsLib_minRelAbundance.setValue(self.to_double(sett.value("annotateMetabolites_msmsLibrary_minRelAbundance")))
 
             if sett.contains("generateMSMSInfo_CheckBox"):
                 self.ui.generateMSMSInfo_CheckBox.setChecked(self.to_bool(sett.value("generateMSMSInfo_CheckBox")))
@@ -4628,6 +4630,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             sett.setValue("annotateMetabolites_msmsLibrary_precursorMzTolerance", self.ui.doubleSpinBox_msmsLib_precursorMzTolerance.value())
             sett.setValue("annotateMetabolites_msmsLibrary_minMatchedFragments", self.ui.spinBox_msmsLib_minMatchedFragments.value())
             sett.setValue("annotateMetabolites_msmsLibrary_scoreCutoff", self.ui.doubleSpinBox_msmsLib_scoreCutoff.value())
+            sett.setValue("annotateMetabolites_msmsLibrary_minRelAbundance", self.ui.doubleSpinBox_msmsLib_minRelAbundance.value())
 
             sett.setValue(
                 "generateMSMSInfo_CheckBox",
@@ -5870,6 +5873,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                                     precursor_mz_tolerance=self.ui.doubleSpinBox_msmsLib_precursorMzTolerance.value(),
                                     min_matched_peaks=self.ui.spinBox_msmsLib_minMatchedFragments.value(),
                                     score_cutoff=self.ui.doubleSpinBox_msmsLib_scoreCutoff.value(),
+                                    fragment_min_rel_abundance=self.ui.doubleSpinBox_msmsLib_minRelAbundance.value(),
                                 )
                                 annotationColumns.extend(addedColumns)
                             except Exception as e:

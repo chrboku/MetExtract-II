@@ -520,6 +520,7 @@ def annotateWithMSMSLibrary(
     precursor_mz_tolerance=0.01,
     min_matched_peaks=4,
     score_cutoff=0.8,
+    fragment_min_rel_abundance=0.0,
 ):
     """
     Annotate metabolites by matching their experimental MS/MS spectra against one or more
@@ -636,6 +637,7 @@ def annotateWithMSMSLibrary(
                     precursor_mz_tolerance=precursor_mz_tolerance,
                     min_matched_peaks=min_matched_peaks,
                     score_cutoff=score_cutoff,
+                    fragment_min_rel_abundance=fragment_min_rel_abundance,
                 )
                 for m in matches:
                     col_matches.append(m)

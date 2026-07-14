@@ -457,6 +457,7 @@ def match_spectrum_against_library(
     precursor_mz_tolerance=0.01,
     min_matched_peaks=4,
     score_cutoff=0.8,
+    fragment_min_rel_abundance=0.0,
 ):
     """
     Compare one experimental MS2 spectrum against all library spectra with matching polarity
@@ -478,6 +479,15 @@ def match_spectrum_against_library(
 
     algorithm = get_similarity_algorithm(algorithm_name, mz_tolerance)
     # Provide precursor_mz in the metadata for matchms (some scorers expect this slot)
+    # Optionally pre-filter experimental fragments below the given relative-abundance threshold
+    if fragment_min_rel_abundance and exp_intensities.size > 0:
+        max_int = float(np.max(exp_intensities)) if np.max(exp_intensities) > 0 else 1.0
+        keep_mask = exp_intensities >= (max_int * (float(fragment_min_rel_abundance) / 100.0))
+        # if filtering removes all peaks, keep original arrays to avoid empty spectrum
+        if np.any(keep_mask):
+            exp_mz = exp_mz[keep_mask]
+            exp_intensities = exp_intensities[keep_mask]
+
     exp_meta = {}
     if exp_precursor_mz is not None:
         try:
@@ -497,14 +507,27 @@ def match_spectrum_against_library(
             continue
 
         lib_matchms_spectrum = lib_spec.matchms_spectrum
-        if lib_matchms_spectrum is None:
+        # build a matchms spectrum for the library entry; if a fragment-threshold was given,
+        # create a filtered transient spectrum instead of reusing the cached one so different
+        # thresholds can be applied without mutating the cached object.
+        if lib_matchms_spectrum is None or (fragment_min_rel_abundance and lib_spec.intensities.size > 0):
             lib_meta = dict(lib_spec.metadata) if lib_spec.metadata else {}
             if lib_spec.precursor_mz is not None:
                 try:
                     lib_meta["precursor_mz"] = float(lib_spec.precursor_mz)
                 except Exception:
                     lib_meta["precursor_mz"] = lib_spec.precursor_mz
-            lib_matchms_spectrum = _to_matchms_spectrum(lib_spec.mz, lib_spec.intensities, metadata=lib_meta)
+
+            if fragment_min_rel_abundance and lib_spec.intensities.size > 0:
+                max_lib_int = float(np.max(lib_spec.intensities)) if np.max(lib_spec.intensities) > 0 else 1.0
+                keep_mask_lib = lib_spec.intensities >= (max_lib_int * (float(fragment_min_rel_abundance) / 100.0))
+                if np.any(keep_mask_lib):
+                    lib_matchms_spectrum = _to_matchms_spectrum(lib_spec.mz[keep_mask_lib], lib_spec.intensities[keep_mask_lib], metadata=lib_meta)
+                else:
+                    # if filtering removed all peaks, fall back to original unfiltered spectrum
+                    lib_matchms_spectrum = _to_matchms_spectrum(lib_spec.mz, lib_spec.intensities, metadata=lib_meta)
+            else:
+                lib_matchms_spectrum = _to_matchms_spectrum(lib_spec.mz, lib_spec.intensities, metadata=lib_meta)
 
         try:
             score_result = algorithm.pair(exp_spectrum, lib_matchms_spectrum)
