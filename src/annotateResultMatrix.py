@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division, print_function
 import json
 import logging
+import os
 import pprint
 import polars as pl
 from .formulaTools import formulaTools
@@ -505,6 +506,284 @@ def annotateWithDatabases(
     plDB.close()
 
     logging.info(f"Database search annotation completed. Added {len(annotationColumns)} columns")
+    return annotationColumns
+
+
+def annotateWithMSMSLibrary(
+    file,
+    sheet_name,
+    new_sheet_name,
+    library_files,
+    msms_by_feature,
+    algorithm_name="ModifiedCosineHungarian",
+    mz_tolerance=0.01,
+    precursor_mz_tolerance=0.01,
+    min_matched_peaks=4,
+    score_cutoff=0.8,
+):
+    """
+    Annotate metabolites by matching their experimental MS/MS spectra against one or more
+    MGF/JSON spectral library files using matchms.
+
+    For every feature (row of the results table) and every library file, a column named
+    "MSMS_<library file name>" is added, containing a JSON list of match dicts:
+        {"score", "matched_peaks", "compound_names", "exp_matched_abundances", "db_matched_abundances"}
+    where "exp_matched_abundances"/"db_matched_abundances" are lists of {mz, relative_intensity}
+    (relative to the respective spectrum, i.e. each spectrum's own max peak = 100%).
+
+    A "<new_sheet_name>_MSMS" sheet is also created, with one row per feature-spectrum match
+    (spectra as primary fields, plus score/matched-peaks/etc. and feature meta-information),
+    analogous to "<new_sheet_name>_Compounds" for database hits.
+
+    Args:
+        file: Path to the results file (PolarsDB format)
+        sheet_name: Name of the sheet to read from
+        new_sheet_name: Name of the sheet to write to (e.g. "5_Annotated")
+        library_files: List of library-file info dicts: {"path", "type" ("mgf"/"json"), "precursor_mz_key"}
+        msms_by_feature: dict mapping feature "Num" -> list of experimental spectrum dicts:
+            {"mz": array-like, "intensities": array-like, "polarity": "+"/"-"/None, "precursor_mz": float or None}
+        algorithm_name: matchms similarity algorithm name (see mgfLibrary.MSMS_LIBRARY_ALGORITHMS)
+        mz_tolerance: fragment m/z tolerance (Da) used by the similarity algorithm
+        precursor_mz_tolerance: max allowed precursor m/z deviation (Da) between exp. and db. spectra
+        min_matched_peaks: minimum number of matched fragments required to keep a match
+        score_cutoff: minimum similarity score required to keep a match
+
+    Returns:
+        List of annotation column names added
+    """
+    from .MSMS import mgfLibrary
+
+    logging.info("Starting MS/MS spectral library annotation using PolarsDB")
+
+    plDB = PolarsDB(file, format="xlsx", load_all_tables=True)
+
+    try:
+        results_df = plDB.get_table(sheet_name)
+    except Exception as e:
+        logging.error(f"Failed to load sheet '{sheet_name}': {e}")
+        plDB.close()
+        raise
+
+    # Load libraries (MGF and/or JSON). Store tuple (spectra_list, entry_dict) per library name
+    libraries = {}
+    for library_entry in library_files:
+        lib_path = library_entry["path"]
+        lib_name = os.path.basename(lib_path)
+        lib_name = lib_name[: lib_name.rfind(".")] if "." in lib_name else lib_name
+        try:
+            specs = mgfLibrary.load_library_entry(library_entry)
+            libraries[lib_name] = (specs, library_entry)
+        except Exception as e:
+            logging.error(f"Failed to load spectral library file '{lib_path}': {e}")
+            libraries[lib_name] = ([], library_entry)
+
+    # Build MSMS_info summary: per-library counts and polarity breakdowns
+    msms_info_rows = []
+    for lib_name, (specs, lib_entry) in libraries.items():
+        total = len(specs) if specs is not None else 0
+        pos = sum(1 for s in specs if getattr(s, "polarity", None) == "+") if specs else 0
+        neg = sum(1 for s in specs if getattr(s, "polarity", None) == "-") if specs else 0
+        unspecified = total - pos - neg
+        msms_info_rows.append(
+            {
+                "Library": lib_name,
+                "Path": lib_entry.get("path") if lib_entry else None,
+                "TotalSpectra": total,
+                "PositiveSpectra": pos,
+                "NegativeSpectra": neg,
+                "UnspecifiedSpectra": unspecified,
+            }
+        )
+
+    # Write MSMS_info summary into the output file so it's always present even if there are no matches
+    try:
+        if msms_info_rows:
+            msms_info_df = pl.DataFrame(msms_info_rows)
+            plDB.set_table("MSMS_info", msms_info_df)
+    except Exception as e:
+        logging.warning(f"Failed to write MSMS_info sheet: {e}")
+
+    annotationColumns = []
+    for mgf_name in libraries:
+        col_name = f"MSMS_{mgf_name}"
+        annotationColumns.append(col_name)
+        if col_name not in results_df.columns:
+            results_df = results_df.with_columns(pl.lit("", dtype=pl.Utf8).alias(col_name))
+
+    spectra_rows = []
+    num_col_idx = {row_num: idx for idx, row_num in enumerate(results_df["Num"].to_list())} if "Num" in results_df.columns else {}
+
+    for feature_num, exp_spectra in msms_by_feature.items():
+        row_idx = num_col_idx.get(feature_num)
+        if row_idx is None:
+            continue
+        row = results_df.row(row_idx, named=True)
+
+        for mgf_name, lib_info in libraries.items():
+            library_spectra, lib_entry = lib_info
+            col_name = f"MSMS_{mgf_name}"
+            col_matches = []
+
+            for exp_spec in exp_spectra:
+                matches = mgfLibrary.match_spectrum_against_library(
+                    exp_mz=exp_spec["mz"],
+                    exp_intensities=exp_spec["intensities"],
+                    exp_polarity=exp_spec.get("polarity"),
+                    exp_precursor_mz=exp_spec.get("precursor_mz"),
+                    library_spectra=library_spectra,
+                    algorithm_name=algorithm_name,
+                    mz_tolerance=mz_tolerance,
+                    precursor_mz_tolerance=precursor_mz_tolerance,
+                    min_matched_peaks=min_matched_peaks,
+                    score_cutoff=score_cutoff,
+                )
+                for m in matches:
+                    col_matches.append(m)
+                    # Build spectra row with requested retained metadata fields
+                    base_row = {
+                        "Library": mgf_name,
+                        "Score": m["score"],
+                        "Matched_Fragments": m["matched_peaks"],
+                        "Compound_Name": m.get("compound_name"),
+                        "Compound_ID": m.get("db_spectrum_index"),
+                        "Feature_Num": row.get("Num"),
+                        "Feature_OGroup": row.get("OGroup"),
+                        "Feature_RT": row.get("RT"),
+                        "Feature_MZ": row.get("MZ"),
+                        "Feature_Xn": row.get("Xn"),
+                        "Feature_Ionisation_Mode": row.get("Ionisation_Mode"),
+                        "Feature_Charge": row.get("Charge"),
+                    }
+
+                    # Add retained library metadata keys if present in lib_entry
+                    retain_keys = lib_entry.get("retain_keys", []) if lib_entry else []
+                    try:
+                        db_idx = int(m.get("db_spectrum_index"))
+                    except Exception:
+                        db_idx = None
+                    if db_idx is not None and db_idx is not False:
+                        try:
+                            lib_spec = library_spectra[db_idx] if 0 <= db_idx < len(library_spectra) else None
+                        except Exception:
+                            lib_spec = None
+                    else:
+                        lib_spec = None
+
+                    if lib_spec is not None and retain_keys:
+                        for k in retain_keys:
+                            # store under the original key name
+                            base_row[k] = lib_spec.metadata.get(k) if lib_spec.metadata is not None else None
+
+                    # Add fragment counts for DB and experimental spectra
+                    try:
+                        base_row["DB_NumFragments"] = len(lib_spec.mz) if lib_spec is not None and hasattr(lib_spec, "mz") else None
+                    except Exception:
+                        base_row["DB_NumFragments"] = None
+                    try:
+                        base_row["Exp_NumFragments"] = len(exp_spec.get("mz") if isinstance(exp_spec, dict) else getattr(exp_spec, "mz", []))
+                    except Exception:
+                        base_row["Exp_NumFragments"] = None
+
+                    spectra_rows.append(base_row)
+
+            if col_matches:
+                # Only include the minimal requested fields in the per-row JSON: score, matched_peaks, compound_name, compound_id and library
+                match_summaries = [
+                    {
+                        "score": m["score"],
+                        "matched_peaks": m["matched_peaks"],
+                        "compound_name": m.get("compound_name"),
+                        "compound_id": m.get("db_spectrum_index"),
+                        "library": mgf_name,
+                    }
+                    for m in sorted(col_matches, key=lambda m: m["score"], reverse=True)
+                ]
+                results_df[row_idx, col_name] = json.dumps(match_summaries, ensure_ascii=True)
+
+    logging.info(f"Saving MSMS-library-annotated results to sheet: {new_sheet_name}")
+    plDB.set_table(new_sheet_name, results_df)
+
+    if spectra_rows:
+        msms_sheet_name = f"{new_sheet_name}_MSMS"
+        # Infer schema from present fields; ensure numeric types for Score/Matched_Fragments/Feature_RT/Feature_MZ when possible
+        schema_overrides = {}
+        # attempt to set numeric types if keys exist
+        if any("Score" in r for r in spectra_rows):
+            schema_overrides["Score"] = pl.Float64
+        if any("Matched_Fragments" in r for r in spectra_rows):
+            schema_overrides["Matched_Fragments"] = pl.Int64
+        if any("Feature_RT" in r for r in spectra_rows):
+            schema_overrides["Feature_RT"] = pl.Float64
+        if any("Feature_MZ" in r for r in spectra_rows):
+            schema_overrides["Feature_MZ"] = pl.Float64
+        if any("DB_NumFragments" in r for r in spectra_rows):
+            schema_overrides["DB_NumFragments"] = pl.Int64
+        if any("Exp_NumFragments" in r for r in spectra_rows):
+            schema_overrides["Exp_NumFragments"] = pl.Int64
+
+        # Ensure all user-selected retain_keys are present as columns (even if empty)
+        all_retain_keys = set()
+        for _lib_name, lib_info in libraries.items():
+            # libraries values are (specs, entry_dict)
+            lib_entry = lib_info[1] if isinstance(lib_info, (list, tuple)) and len(lib_info) > 1 else lib_info
+            rk = lib_entry.get("retain_keys", []) if lib_entry and isinstance(lib_entry, dict) else []
+            for k in rk:
+                all_retain_keys.add(k)
+
+        # Create DataFrame
+        spectra_df = pl.DataFrame(spectra_rows, schema_overrides=schema_overrides, infer_schema_length=len(spectra_rows))
+        # Add missing retain-key columns as nulls to ensure they appear in the sheet
+        for rk in sorted(all_retain_keys):
+            if rk not in spectra_df.columns:
+                spectra_df = spectra_df.with_columns(pl.lit(None).alias(rk))
+        # Reorder columns: ensure DB_NumFragments and Exp_NumFragments follow Matched_Fragments
+        try:
+            if "Matched_Fragments" in spectra_rows[0]:
+                # create DataFrame first then reorder if necessary
+                pass
+        except Exception:
+            pass
+
+        sort_cols = [c for c in ["Library", "Score"] if c in spectra_df.columns]
+        # Ensure fragment count columns are placed right after Matched_Fragments
+        cols = list(spectra_df.columns)
+        if "Matched_Fragments" in cols:
+            # Build a new column order: everything up to Matched_Fragments, then Matched_Fragments,
+            # then DB_NumFragments and Exp_NumFragments (if present), then the remaining columns in original order.
+            pre = []
+            seen = set()
+            for c in cols:
+                if c == "Matched_Fragments":
+                    break
+                pre.append(c)
+                seen.add(c)
+            # collect remaining after Matched_Fragments, excluding the fragment-count
+            # columns which are explicitly re-inserted right after Matched_Fragments
+            remaining = [c for c in cols if c not in seen and c not in ("Matched_Fragments", "DB_NumFragments", "Exp_NumFragments")]
+            new_cols = pre + ["Matched_Fragments"]
+            for k in ("DB_NumFragments", "Exp_NumFragments"):
+                if k in spectra_df.columns:
+                    new_cols.append(k)
+            new_cols.extend(remaining)
+            # Select only columns that actually exist, without introducing duplicates
+            seen_final = set()
+            new_cols_dedup = []
+            for c in new_cols:
+                if c in spectra_df.columns and c not in seen_final:
+                    new_cols_dedup.append(c)
+                    seen_final.add(c)
+            spectra_df = spectra_df.select(new_cols_dedup)
+        if sort_cols:
+            spectra_df = spectra_df.sort(sort_cols, descending=[False, True] if len(sort_cols) == 2 else True)
+        logging.info(f"Saving MSMS spectra-focused results to sheet '{msms_sheet_name}' with {len(spectra_df)} matches")
+        plDB.set_table(msms_sheet_name, spectra_df)
+        # MSMS_info already written earlier
+    else:
+        logging.info("No MS/MS library matches found, skipping MSMS-focused sheet")
+
+    plDB.close()
+
+    logging.info(f"MS/MS spectral library annotation completed. Added {len(annotationColumns)} columns")
     return annotationColumns
 
 

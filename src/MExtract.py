@@ -1937,7 +1937,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
                 # show a dialog with a drop-down list asking the user to specify the table to load
                 options = self.experimentResults.db_con.list_tables()
-                options = [opt for opt in options if opt not in ["Parameters", "__dTypes__", "2_StatColumns_FalsePositives", "2_StatColumns_Omitted", "4_Convoluted_doublePeaks", "5_Annotated_Compounds", "5_Annotated_SumFormulas", "0_sampleStats", "DB_info"]][::-1]
+                options = [opt for opt in options if opt not in ["Parameters", "__dTypes__", "2_StatColumns_FalsePositives", "2_StatColumns_Omitted", "4_Convoluted_doublePeaks", "5_Annotated_Compounds", "5_Annotated_SumFormulas", "5_Annotated_MSMS", "0_sampleStats", "DB_info", "MSMS_info"]][::-1]
 
                 mgsBox = QtWidgets.QMessageBox(self)
                 mgsBox.setWindowTitle("Select results to load")
@@ -4266,6 +4266,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
             if sett.contains("annotateMetabolites"):
                 self.ui.annotateMetabolites_CheckBox.setChecked(self.to_bool(sett.value("annotateMetabolites")))
+            if sett.contains("annotateMetabolites_searchDB"):
+                self.ui.searchDB_checkBox.setChecked(self.to_bool(sett.value("annotateMetabolites_searchDB")))
             if sett.contains("annotateMetabolites_generateSumFormulas"):
                 self.ui.generateSumFormulas_CheckBox.setChecked(self.to_bool(sett.value("annotateMetabolites_generateSumFormulas")))
             if sett.contains("annotateMetabolites_sumFormulasMinimumElements"):
@@ -4299,6 +4301,53 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     item = QtGui.QStandardItem("%s" % dbName)
                     item.setData(dbFile)
                     self.ui.dbList_listView.model().appendRow(item)
+
+            if sett.contains("annotateMetabolites_usedMGFs"):
+                usedMGFs = loads(base64.b64decode(sett.value("annotateMetabolites_usedMGFs").encode("utf-8")))
+                for mgfName, mgfEntry in usedMGFs:
+                    if isinstance(mgfEntry, dict):
+                        entry = mgfEntry
+                        entry.setdefault("polarity_key", None)
+                        # Ensure entry has a type based on path if missing
+                        if "type" not in entry or not entry.get("type"):
+                            p = entry.get("path", "")
+                            entry["type"] = "json" if str(p).lower().endswith(".json") else "mgf"
+                    else:
+                        # Legacy format: plain MGF file path string
+                        entry = {"path": mgfEntry, "type": ("json" if str(mgfEntry).lower().endswith(".json") else "mgf"), "precursor_mz_key": None, "polarity_key": None}
+                    # Try to discover properties / count spectra for nicer display
+                    try:
+                        from .MSMS import mgfLibrary
+
+                        mgfLibrary.discover_properties(entry.get("path"), entry.get("type", "mgf"))
+                        try:
+                            spectra = mgfLibrary.load_library_entry(entry)
+                            count = len(spectra)
+                        except Exception:
+                            count = None
+                    except Exception:
+                        count = None
+
+                    display_text = f"{mgfName} ({entry.get('type', 'mgf').upper()}) [{count}]" if count is not None else f"{mgfName} ({entry.get('type', 'mgf').upper()})"
+                    item = QtGui.QStandardItem(display_text)
+                    item.setData(entry)
+                    self.ui.mgfList_listView.model().appendRow(item)
+            if sett.contains("annotateMetabolites_msmsLibrary_checked"):
+                self.ui.searchMSMSLibrary_checkBox.setChecked(self.to_bool(sett.value("annotateMetabolites_msmsLibrary_checked")))
+            if sett.contains("annotateMetabolites_msmsLibrary_filterRegex"):
+                self.ui.lineEdit_msmsLib_filter_regex.setText(str(sett.value("annotateMetabolites_msmsLibrary_filterRegex")))
+            if sett.contains("annotateMetabolites_msmsLibrary_algorithm"):
+                idx = self.ui.comboBox_msmsLib_algorithm.findText(str(sett.value("annotateMetabolites_msmsLibrary_algorithm")))
+                if idx >= 0:
+                    self.ui.comboBox_msmsLib_algorithm.setCurrentIndex(idx)
+            if sett.contains("annotateMetabolites_msmsLibrary_mzTolerance"):
+                self.ui.doubleSpinBox_msmsLib_mzTolerance.setValue(self.to_double(sett.value("annotateMetabolites_msmsLibrary_mzTolerance")))
+            if sett.contains("annotateMetabolites_msmsLibrary_precursorMzTolerance"):
+                self.ui.doubleSpinBox_msmsLib_precursorMzTolerance.setValue(self.to_double(sett.value("annotateMetabolites_msmsLibrary_precursorMzTolerance")))
+            if sett.contains("annotateMetabolites_msmsLibrary_minMatchedFragments"):
+                self.ui.spinBox_msmsLib_minMatchedFragments.setValue(self.to_int(sett.value("annotateMetabolites_msmsLibrary_minMatchedFragments")))
+            if sett.contains("annotateMetabolites_msmsLibrary_scoreCutoff"):
+                self.ui.doubleSpinBox_msmsLib_scoreCutoff.setValue(self.to_double(sett.value("annotateMetabolites_msmsLibrary_scoreCutoff")))
 
             if sett.contains("generateMSMSInfo_CheckBox"):
                 self.ui.generateMSMSInfo_CheckBox.setChecked(self.to_bool(sett.value("generateMSMSInfo_CheckBox")))
@@ -4496,6 +4545,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             sett.setValue("reintegrateIntensityCutoff", self.ui.reintegrateIntensityCutoff.value())
 
             sett.setValue("annotateMetabolites", self.ui.annotateMetabolites_CheckBox.isChecked())
+            sett.setValue("annotateMetabolites_searchDB", self.ui.searchDB_checkBox.isChecked())
             sett.setValue(
                 "annotateMetabolites_generateSumFormulas",
                 self.ui.generateSumFormulas_CheckBox.isChecked(),
@@ -4546,6 +4596,38 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 "annotateMetabolites_usedDatabases",
                 base64.b64encode(dumps(usedDBs)).decode("utf-8"),
             )
+
+            usedMGFs = []
+            for entryInd in range(self.ui.mgfList_listView.model().rowCount()):
+                mgfEntry = self.ui.mgfList_listView.model().item(entryInd, 0).data()
+                # derive a clean library name from the path (no extension, no count suffix)
+                lib_path = None
+                if isinstance(mgfEntry, dict):
+                    lib_path = mgfEntry.get("path")
+                elif isinstance(mgfEntry, str):
+                    lib_path = mgfEntry
+                if lib_path:
+                    mgfName = lib_path[lib_path.rfind("/") + 1 : lib_path.rfind(".")] if "." in lib_path else lib_path[lib_path.rfind("/") + 1 :]
+                else:
+                    # fallback to displayed text without trailing count parts
+                    text = str(self.ui.mgfList_listView.model().item(entryInd, 0).text())
+                    # strip trailing ' [N]' if present
+                    if text.endswith("]") and "[" in text:
+                        mgfName = text[: text.rfind("[")].strip()
+                    else:
+                        mgfName = text
+                usedMGFs.append([mgfName, mgfEntry])
+            sett.setValue(
+                "annotateMetabolites_usedMGFs",
+                base64.b64encode(dumps(usedMGFs)).decode("utf-8"),
+            )
+            sett.setValue("annotateMetabolites_msmsLibrary_checked", self.ui.searchMSMSLibrary_checkBox.isChecked())
+            sett.setValue("annotateMetabolites_msmsLibrary_filterRegex", self.ui.lineEdit_msmsLib_filter_regex.text())
+            sett.setValue("annotateMetabolites_msmsLibrary_algorithm", self.ui.comboBox_msmsLib_algorithm.currentText())
+            sett.setValue("annotateMetabolites_msmsLibrary_mzTolerance", self.ui.doubleSpinBox_msmsLib_mzTolerance.value())
+            sett.setValue("annotateMetabolites_msmsLibrary_precursorMzTolerance", self.ui.doubleSpinBox_msmsLib_precursorMzTolerance.value())
+            sett.setValue("annotateMetabolites_msmsLibrary_minMatchedFragments", self.ui.spinBox_msmsLib_minMatchedFragments.value())
+            sett.setValue("annotateMetabolites_msmsLibrary_scoreCutoff", self.ui.doubleSpinBox_msmsLib_scoreCutoff.value())
 
             sett.setValue(
                 "generateMSMSInfo_CheckBox",
@@ -5747,6 +5829,60 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         )
                         _annotation_error = True
                         errorCount += 1
+                    logging.info("##############################################################\n\n")
+
+                if self.ui.searchMSMSLibrary_checkBox.isChecked():
+                    pw.getCallingFunction()("text")("Searching hits in MS/MS spectral library (MGF/JSON)..")
+
+                    libraryFiles = []
+                    for entryInd in range(self.ui.mgfList_listView.model().rowCount()):
+                        libraryFiles.append(self.ui.mgfList_listView.model().item(entryInd, 0).data())
+
+                    if not libraryFiles:
+                        logging.info("No MS/MS spectral library files configured, skipping MS/MS library annotation.")
+                    else:
+                        if not hasattr(self, "loadedMZXMLs") or not self.loadedMZXMLs:
+                            # Try to auto-load raw mzML/mzXML files from defined groups so MS/MS annotation can run.
+                            logging.info("MS/MS library search requested but no raw mzML/mzXML data loaded — attempting to auto-load sample files from defined groups.")
+                            try:
+                                self.loadAllSamples()
+                            except Exception as e:
+                                logging.warning(f"Automatic loading of raw mzML/mzXML files failed: {e}")
+
+                        if not hasattr(self, "loadedMZXMLs") or not self.loadedMZXMLs:
+                            logging.warning("MS/MS spectral library search is enabled, but no raw mzML/mzXML data is currently loaded in memory (self.loadedMZXMLs); skipping MS/MS library annotation for this run.")
+                        else:
+                            try:
+                                msms_by_feature = self._build_msms_by_feature_for_annotation(
+                                    excel_file,
+                                    annotation_input_sheet,
+                                    self.ui.lineEdit_msmsLib_filter_regex.text(),
+                                    self.ui.annotationMaxPPM_doubleSpinBox.value(),
+                                )
+                                addedColumns = annotateResultMatrix.annotateWithMSMSLibrary(
+                                    file=excel_file,
+                                    sheet_name="5_Annotated" if self.ui.searchDB_checkBox.isChecked() else annotation_input_sheet,
+                                    new_sheet_name="5_Annotated",
+                                    library_files=libraryFiles,
+                                    msms_by_feature=msms_by_feature,
+                                    algorithm_name=self.ui.comboBox_msmsLib_algorithm.currentText(),
+                                    mz_tolerance=self.ui.doubleSpinBox_msmsLib_mzTolerance.value(),
+                                    precursor_mz_tolerance=self.ui.doubleSpinBox_msmsLib_precursorMzTolerance.value(),
+                                    min_matched_peaks=self.ui.spinBox_msmsLib_minMatchedFragments.value(),
+                                    score_cutoff=self.ui.doubleSpinBox_msmsLib_scoreCutoff.value(),
+                                )
+                                annotationColumns.extend(addedColumns)
+                            except Exception as e:
+                                traceback.print_exc()
+                                logging.error(f"Error during MS/MS spectral library search: {e}")
+                                QtWidgets.QMessageBox.warning(
+                                    self,
+                                    "MetExtract",
+                                    f"Error during MS/MS spectral library annotation: {str(e)}",
+                                    QtWidgets.QMessageBox.Ok,
+                                )
+                                _annotation_error = True
+                                errorCount += 1
                     logging.info("##############################################################\n\n")
 
                 if self.ui.generateSumFormulas_CheckBox.isChecked():
@@ -10548,6 +10684,76 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if m.groups():
             replacement = next((g for g in m.groups() if g is not None), None)
         return True, replacement
+
+    def _build_msms_by_feature_for_annotation(self, excel_file, sheet_name, filter_regex_pattern, ppm):
+        """
+        Build a {feature Num: [experimental spectrum dict, ...]} mapping for MS/MS spectral
+        library annotation (step 3), by matching MS2 scans currently held in self.loadedMZXMLs
+        (RT within +/- maxRTErrorInHits_spinnerBox minutes of the feature, precursor m/z within
+        ppm of the feature's native or labeled m/z, and passing the configured filter-string
+        regex), consistent with the existing "Experiment results" MSMS matching logic.
+        """
+        import polars as pl
+
+        msms_by_feature = {}
+
+        try:
+            results_df = pl.read_excel(excel_file, sheet_name=sheet_name)
+        except Exception as e:
+            logging.warning(f"Could not read sheet '{sheet_name}' from '{excel_file}' for MS/MS library matching: {e}")
+            return msms_by_feature
+
+        compiled_regex = self._compile_msms_filter_regex(filter_regex_pattern)
+        rt_window_min = self.ui.maxRTErrorInHits_spinnerBox.value() if hasattr(self.ui, "maxRTErrorInHits_spinnerBox") else 0.15
+
+        for row in results_df.iter_rows(named=True):
+            num = row.get("Num")
+            mz = row.get("MZ")
+            lmz = row.get("L_MZ")
+            rt = row.get("RT")
+            ion_mode = row.get("Ionisation_Mode")
+            if num is None or mz is None or rt is None:
+                continue
+
+            mz_min = mz * (1 - ppm / 1000000.0)
+            mz_max = mz * (1 + ppm / 1000000.0)
+            lmz_min = lmz * (1 - ppm / 1000000.0) if lmz else None
+            lmz_max = lmz * (1 + ppm / 1000000.0) if lmz else None
+            rt_min_s = (rt - rt_window_min) * 60.0
+            rt_max_s = (rt + rt_window_min) * 60.0
+
+            for file_key, chrom in self.loadedMZXMLs.items():
+                if not (hasattr(chrom, "MS2_list") and chrom.MS2_list):
+                    continue
+                for ms2_scan in chrom.MS2_list:
+                    if not (rt_min_s <= ms2_scan.retention_time <= rt_max_s):
+                        continue
+                    if ion_mode and ms2_scan.polarity and ms2_scan.polarity != ion_mode:
+                        continue
+
+                    in_native = mz_min <= ms2_scan.precursor_mz <= mz_max
+                    in_labeled = lmz_min is not None and lmz_min <= ms2_scan.precursor_mz <= lmz_max
+                    if not (in_native or in_labeled):
+                        continue
+
+                    filter_string = self._get_msms_filter_string(ms2_scan)
+                    matched, _ = self._msms_filter_match(filter_string, compiled_regex)
+                    if not matched:
+                        continue
+
+                    if len(ms2_scan.mz_list) == 0:
+                        continue
+
+                    msms_by_feature.setdefault(num, []).append(
+                        {
+                            "mz": ms2_scan.mz_list,
+                            "intensities": ms2_scan.intensity_list,
+                            "polarity": ms2_scan.polarity,
+                            "precursor_mz": ms2_scan.precursor_mz,
+                        }
+                    )
+
+        return msms_by_feature
 
     def updateMSMSList_exp(self, selectedItems):
         """Filter and populate MSMS spectra table for experimental results panel"""
@@ -15868,7 +16074,27 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 dbFile = dbFile.replace("\\", "/")
                 dbName = dbFile[dbFile.rfind("/") + 1 : dbFile.rfind(".")]
 
-                item = QtGui.QStandardItem("%s (Database)" % dbName)
+                # Try to compute number of entries in the database (sum of all sheets' rows)
+                count = None
+                try:
+                    from .PolarsDB import PolarsDB
+
+                    plDB = PolarsDB(dbFile, format="xlsx", load_all_tables=True)
+                    total = 0
+                    for tname, df in plDB.tables.items():
+                        try:
+                            total += int(df.height)
+                        except Exception:
+                            try:
+                                total += len(df)
+                            except Exception:
+                                pass
+                    count = total
+                except Exception:
+                    count = None
+
+                display_text = f"{dbName} (Database) [{count}]" if count is not None else f"{dbName} (Database)"
+                item = QtGui.QStandardItem(display_text)
                 item.setData(dbFile)
                 self.ui.dbList_listView.model().appendRow(item)
 
@@ -15902,6 +16128,304 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 selectedRows = [ind]
         for row in selectedRows:
             self.ui.dbList_listView.model().removeRows(row, 1)
+
+    def addMGF(self, events=None):
+        self._add_library_files("mgf")
+
+    def addJSON(self, events=None):
+        self._add_library_files("json")
+
+    def _add_library_files(self, file_type):
+        from .MSMS import mgfLibrary
+
+        if file_type == "json":
+            caption = "Select MS/MS spectral library file(s) (JSON)"
+            file_filter = "JSON spectral library (*.json);;All files (*.*)"
+            precursor_guess_candidates = ("precursor_m/z", "precursor_mz", "pepmass")
+            polarity_guess_candidates = ("ac$mass_spectrometry_ion_mode",)
+        else:
+            caption = "Select MS/MS spectral library file(s) (MGF)"
+            file_filter = "MGF spectral library (*.mgf);;All files (*.*)"
+            precursor_guess_candidates = ("pepmass", "precursor_mz", "precursormz")
+            polarity_guess_candidates = ("ionmode",)
+
+        selectedFiles = QtWidgets.QFileDialog.getOpenFileNames(caption=caption, dir=self.lastOpenDir, filter=file_filter)
+        selectedFiles = selectedFiles[0] if isinstance(selectedFiles, tuple) else selectedFiles
+
+        added_entries = []
+        for libFile in selectedFiles:
+            libFile = str(libFile)
+            if len(libFile) == 0:
+                continue
+            self.lastOpenDir = libFile.replace("\\", "/")
+            self.lastOpenDir = self.lastOpenDir[: self.lastOpenDir.rfind("/")]
+
+            libFile = libFile.replace("\\", "/")
+            libName = libFile[libFile.rfind("/") + 1 : libFile.rfind(".")]
+
+            try:
+                properties = mgfLibrary.discover_properties(libFile, file_type)
+            except Exception as e:
+                logging.error(f"Could not parse {file_type.upper()} file '{libFile}': {e}")
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "MetExtract",
+                    f"Could not parse '{libFile}':\n{e}",
+                    QtWidgets.QMessageBox.Ok,
+                )
+                continue
+
+            # Ask for precursor m/z and polarity in one combined dialog (polarity optional)
+            combined_prompt = f"Select the field to use as the precursor m/z value and (optionally) the polarity/ion mode for\n'{os.path.basename(libFile)}':"
+            selection = self._prompt_for_field_selection(
+                libFile,
+                properties,
+                combined_prompt,
+                guess_candidates=precursor_guess_candidates,
+                optional=True,
+                polarity_guess_candidates=polarity_guess_candidates,
+            )
+            if selection is None:
+                continue
+            if isinstance(selection, tuple):
+                precursor_mz_key, polarity_key = selection
+            else:
+                precursor_mz_key = selection
+                polarity_key = None
+
+            entry = {
+                "path": libFile,
+                "type": file_type,
+                "precursor_mz_key": precursor_mz_key,
+                "polarity_key": polarity_key,
+            }
+
+            # Ask user which metadata keys to retain for the MSMS sheet
+            retain_keys = None
+            try:
+                # build a simple dialog with a multi-select list
+                dlg = QtWidgets.QDialog(self)
+                dlg.setWindowTitle("Select metadata keys to retain")
+                vlay = QtWidgets.QVBoxLayout(dlg)
+                lbl = QtWidgets.QLabel(f"Select metadata keys from '{os.path.basename(libFile)}' to keep in the MSMS sheet (optional):")
+                vlay.addWidget(lbl)
+                listw = QtWidgets.QListWidget(dlg)
+                listw.setSelectionMode(QtWidgets.QAbstractItemView.MultiSelection)
+                # Default keys to pre-select if present
+                default_keys = [
+                    "MS$FOCUSED_ION///PRECURSOR_M/Z",
+                    "AC$MASS_SPECTROMETRY_ION_MODE",
+                    "AC$MASS_SPECTROMETRY///FRAGMENTATION_MODE",
+                    "AC$MASS_SPECTROMETRY///COLLISION_ENERGY",
+                    "AC$CHROMATOGRAPHY///RETENTION_TIME",
+                    "CH$FORMULA",
+                    "CH$NAME///0",
+                    "CH$NAME///1",
+                    "CH$NAME///2",
+                    "CH$NAME///3",
+                    "CH$SMILES",
+                    "MS$FOCUSED_ION///PRECURSOR_TYPE",
+                    "PEPMASS",
+                    "RTINSECONDS",
+                    "ADDUCT",
+                    "RETENTION_TIME",
+                    "COLLISION_ENERGY",
+                    "NAME",
+                    "SPECTRUMID",
+                    "database_identifier",
+                ]
+                default_keys_lc = {k.lower() for k in default_keys}
+                for p in properties:
+                    p_str = str(p)
+                    p_lc = p_str.lower()
+                    it = QtWidgets.QListWidgetItem(p_str)
+                    listw.addItem(it)
+                    # auto-select known useful keys (exact or contained) or when last segment matches
+                    if p_lc in default_keys_lc:
+                        it.setSelected(True)
+                vlay.addWidget(listw)
+                btns = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
+                vlay.addWidget(btns)
+                btns.accepted.connect(dlg.accept)
+                btns.rejected.connect(dlg.reject)
+                if dlg.exec() == QtWidgets.QDialog.Accepted:
+                    retain_keys = [str(i.text()) for i in listw.selectedItems()]
+                else:
+                    retain_keys = []
+            except Exception:
+                retain_keys = []
+
+            entry["retain_keys"] = retain_keys
+            # Determine number of spectra in the library (if possible) and show it
+            try:
+                spectra = mgfLibrary.load_library_entry(entry)
+                count = len(spectra)
+            except Exception:
+                count = None
+
+            display_text = f"{libName} ({file_type.upper()}) [{count}]" if count is not None else f"{libName} ({file_type.upper()})"
+            item = QtGui.QStandardItem(display_text)
+            item.setData(entry)
+            self.ui.mgfList_listView.model().appendRow(item)
+            added_entries.append(entry)
+
+        self._check_library_polarity_and_confirm(added_entries)
+
+    def _prompt_for_field_selection(self, file_path, properties, prompt_text, guess_candidates=(), optional=False, polarity_guess_candidates=()):
+        """
+        Show a drop-down of all discovered properties/fields in a newly added library file and
+        ask the user which one to use. Returns the selected field name, or None if there are no
+        properties, the user cancelled, or (when ``optional``) the user picked "<Auto-detect>".
+        """
+        if not properties:
+            if optional:
+                return None
+            QtWidgets.QMessageBox.warning(
+                self,
+                "MetExtract",
+                f"No fields/properties found in '{file_path}'.",
+                QtWidgets.QMessageBox.Ok,
+            )
+            return None
+
+        options = list(properties)
+        if optional:
+            options = ["<Auto-detect>"] + options
+
+        default_index = 0
+        guess_candidates_lc = {g.lower() for g in guess_candidates}
+        for i, prop in enumerate(options):
+            last_segment = str(prop).split("///")[-1].strip().lower()
+            if last_segment in guess_candidates_lc:
+                default_index = i
+                break
+
+        # Show a combined dialog with two stacked controls when asking for both precursor and polarity.
+        # If only one selection is needed (optional==False and guess only), fall back to simple getItem.
+        if isinstance(prompt_text, str) and "precursor" in prompt_text.lower() and optional:
+            # Build a small custom dialog with labeled controls laid out horizontally
+            dialog = QtWidgets.QDialog(self)
+            dialog.setWindowTitle("MetExtract")
+            layout = QtWidgets.QVBoxLayout(dialog)
+
+            intro = QtWidgets.QLabel(f"Please select which metadata fields correspond to the requested values for:\n{os.path.basename(file_path)}")
+            layout.addWidget(intro)
+
+            grid = QtWidgets.QGridLayout()
+
+            precursor_lbl = QtWidgets.QLabel("Precursor m/z:")
+            precursor_cb = QtWidgets.QComboBox(dialog)
+            precursor_cb.addItems(options)
+            precursor_cb.setCurrentIndex(default_index)
+            grid.addWidget(precursor_lbl, 0, 0)
+            grid.addWidget(precursor_cb, 0, 1)
+
+            polarity_options = options
+            polarity_lbl = QtWidgets.QLabel("Ion mode / polarity:")
+            polarity_cb = QtWidgets.QComboBox(dialog)
+            polarity_cb.addItems(polarity_options)
+            # Preselect a polarity option if the last segment matches any polarity_guess_candidates
+            try:
+                pol_defaults = {g.lower() for g in polarity_guess_candidates}
+            except Exception:
+                pol_defaults = set()
+            if pol_defaults:
+                for i, opt in enumerate(polarity_options):
+                    last_seg = str(opt).split("///")[-1].strip().lower()
+                    if last_seg in pol_defaults:
+                        polarity_cb.setCurrentIndex(i)
+                        break
+            grid.addWidget(polarity_lbl, 1, 0)
+            grid.addWidget(polarity_cb, 1, 1)
+
+            layout.addLayout(grid)
+
+            btns = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
+            btns.accepted.connect(dialog.accept)
+            btns.rejected.connect(dialog.reject)
+            layout.addWidget(btns)
+            res = dialog.exec()
+            if res != QtWidgets.QDialog.Accepted:
+                return None
+            sel_precursor = precursor_cb.currentText()
+            sel_polarity = polarity_cb.currentText()
+            if optional and sel_polarity == "<Auto-detect>":
+                sel_polarity = None
+            # Return only the precursor field when called for single selection. For our callers we need both,
+            # so pack them into a tuple and the caller will interpret accordingly.
+            return (sel_precursor, sel_polarity)
+
+        field, ok = QtWidgets.QInputDialog.getItem(
+            self,
+            "MetExtract",
+            prompt_text,
+            options,
+            default_index,
+            False,
+        )
+        if not ok or not field:
+            return None
+        if optional and field == "<Auto-detect>":
+            return None
+        return field
+
+    def _check_library_polarity_and_confirm(self, library_entries):
+        """
+        After loading spectral library file(s) (MGF or JSON), warn the user (once, for all files
+        together) about any spectra for which polarity could not be resolved (no ION_MODE/CHARGE
+        and no recognisable adduct), and ask whether to still use them for matching.
+        """
+        from .MSMS import mgfLibrary
+
+        if not library_entries:
+            return
+
+        n_missing = 0
+        n_total = 0
+        for entry in library_entries:
+            try:
+                spectra = mgfLibrary.load_library_entry(entry)
+            except Exception as e:
+                logging.error(f"Could not parse library file '{entry['path']}' to check polarity: {e}")
+                continue
+            n_total += len(spectra)
+            n_missing += len(mgfLibrary.spectra_without_polarity(spectra))
+
+        if n_missing > 0:
+            answer = QtWidgets.QMessageBox.question(
+                self,
+                "MetExtract",
+                f"{n_missing} of {n_total} spectra in the newly added library file(s) have no recognisable polarity (ION_MODE/CHARGE field or adduct). They will be skipped during MS/MS library matching.\n\nDo you still want to use these library file(s)?",
+                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+            )
+            if answer == QtWidgets.QMessageBox.No:
+                paths_to_remove = {entry["path"] for entry in library_entries}
+                for row in range(self.ui.mgfList_listView.model().rowCount() - 1, -1, -1):
+                    data = self.ui.mgfList_listView.model().item(row, 0).data()
+                    if isinstance(data, dict) and data.get("path") in paths_to_remove:
+                        self.ui.mgfList_listView.model().removeRows(row, 1)
+
+    def removeMGF(self, events=None):
+        selectedRows = sorted(
+            {index.row() for index in self.ui.mgfList_listView.selectedIndexes()},
+            reverse=True,
+        )
+        if not selectedRows:
+            ind = self.ui.mgfList_listView.currentIndex().row()
+            if ind >= 0:
+                selectedRows = [ind]
+        for row in selectedRows:
+            self.ui.mgfList_listView.model().removeRows(row, 1)
+
+    def showMSMSSpectraOverviewDialog(self, events=None):
+        from .mePyGuis.msmsSpectraOverviewDialog import MSMSSpectraOverviewDialog
+
+        library_files = []
+        for entryInd in range(self.ui.mgfList_listView.model().rowCount()):
+            library_files.append(self.ui.mgfList_listView.model().item(entryInd, 0).data())
+
+        diag = MSMSSpectraOverviewDialog(library_files, parent=self)
+        diag.exec()
 
     def generateDBTemplate(self, events):
         dbTemplateFile, _ = QtWidgets.QFileDialog.getSaveFileName(
@@ -16543,6 +17067,14 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.generateDBTemplate_pushButton.clicked.connect(self.generateDBTemplate)
         self.ui.testDBs_pushButton.clicked.connect(self.testDBs)
         self.ui.actionDownloadDBTemplate.triggered.connect(self.generateDBTemplate)
+
+        self.mgfListModel = QtGui.QStandardItemModel()
+        self.ui.mgfList_listView.setModel(self.mgfListModel)
+        self.ui.addMGF_pushButton.clicked.connect(self.addMGF)
+        self.ui.addJSON_pushButton.clicked.connect(self.addJSON)
+        self.ui.showMSMSOverview_pushButton.clicked.connect(self.showMSMSSpectraOverviewDialog)
+        self.ui.removeMGF_pushButton.clicked.connect(self.removeMGF)
+        self.ui.actionMSMSSpectraOverview.triggered.connect(self.showMSMSSpectraOverviewDialog)
 
         # setup result plots
         # Setup first plot

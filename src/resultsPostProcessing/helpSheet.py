@@ -59,6 +59,11 @@ SHEET_DESCRIPTIONS = [
         "Flattened view of the generated sum formula candidates: each row is a single formula hit for an element combination (CHO, CHON, CHOS, ...) together with the feature it belongs to ('Feature_*' columns).",
     ),
     _entry(
+        "5_Annotated_MSMS",
+        "One row per MS/MS spectrum hit (spectrum-centric view of '5_Annotated').",
+        "Flattened view of the MS/MS spectra search results: each row is a single MS/MS spectrum hit together with the feature it was found in ('Feature_*' columns).",
+    ),
+    _entry(
         "0_sampleStats",
         "Per-sample summary statistics collected during bracketing.",
         "One row per processed sample file with summary information (e.g. number of chromatographic peaks/feature pairs) collected while building '1_Bracketed'.",
@@ -110,6 +115,16 @@ SHEET_DESCRIPTIONS = [
         "DB_info",
         "Log messages from the database import/search step.",
         "Diagnostic messages produced while importing the compound database file(s) used for annotation (number of imported/skipped entries, parsing errors, SMILES/sum-formula mismatches, ...).",
+    ),
+    _entry(
+        "MSMS_info",
+        "Log messages from the MSMS matching step.",
+        "Diagnostic messages produced while importing the MS/MS spectral library file(s) used for annotation (number of imported/skipped spectra, parsing errors, ...).",
+    ),
+    _entry(
+        "MSMS_info",
+        "Summary of loaded MS/MS spectral libraries.",
+        "Lists the MS/MS spectral library files that were loaded for MS/MS matching, with the number of spectra found in each file and a breakdown by detected polarity/ion mode (e.g., Positive/Negative). Helpful for diagnosing missing or unexpectedly empty libraries.",
     ),
     _entry(
         "__dTypes__",
