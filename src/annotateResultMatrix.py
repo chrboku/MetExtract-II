@@ -201,6 +201,18 @@ def annotateWithDatabases(
         plDB.close()
         raise
 
+    # Clear any stale database-annotation columns and the compound-focused sheet(s) left over from a
+    # previous annotation run before adding the new results, so no old hits (e.g. from a database that
+    # is no longer selected, or from a row that no longer matches) can survive into the new output.
+    stale_cols = [c for c in results_df.columns if c.startswith("DBs_") or c.startswith("DBs_RT_")]
+    if stale_cols:
+        logging.info(f"Clearing {len(stale_cols)} stale database-annotation column(s) from sheet '{sheet_name}': {stale_cols}")
+        results_df = results_df.drop(stale_cols)
+    compound_sheet_name = f"{new_sheet_name}_Compounds"
+    if plDB.has_table(compound_sheet_name):
+        logging.info(f"Clearing stale sheet '{compound_sheet_name}' before database search annotation")
+        plDB.remove_table(compound_sheet_name)
+
     # Initialize database search
     db = searchDatabases.DBSearch()
     dbNames = []
@@ -521,6 +533,9 @@ def annotateWithMSMSLibrary(
     min_matched_peaks=4,
     score_cutoff=0.8,
     fragment_min_rel_abundance=0.0,
+    require_same_precursor_mz=True,
+    pwMaxSet=None,
+    pwValSet=None,
 ):
     """
     Annotate metabolites by matching their experimental MS/MS spectra against one or more
@@ -548,6 +563,8 @@ def annotateWithMSMSLibrary(
         precursor_mz_tolerance: max allowed precursor m/z deviation (Da) between exp. and db. spectra
         min_matched_peaks: minimum number of matched fragments required to keep a match
         score_cutoff: minimum similarity score required to keep a match
+        pwMaxSet: optional progress callback for maximum value
+        pwValSet: optional progress callback for current value
 
     Returns:
         List of annotation column names added
@@ -565,6 +582,17 @@ def annotateWithMSMSLibrary(
         plDB.close()
         raise
 
+    # Clear any stale MSMS-annotation columns and the MSMS-focused sheet left over from a previous
+    # annotation run (e.g. from a library that is no longer selected) before adding the new results.
+    stale_cols = [c for c in results_df.columns if c.startswith("MSMS_")]
+    if stale_cols:
+        logging.info(f"Clearing {len(stale_cols)} stale MSMS-annotation column(s) from sheet '{sheet_name}': {stale_cols}")
+        results_df = results_df.drop(stale_cols)
+    msms_sheet_name_stale = f"{new_sheet_name}_MSMS"
+    if plDB.has_table(msms_sheet_name_stale):
+        logging.info(f"Clearing stale sheet '{msms_sheet_name_stale}' before MSMS library annotation")
+        plDB.remove_table(msms_sheet_name_stale)
+
     # Load libraries (MGF and/or JSON). Store tuple (spectra_list, entry_dict) per library name
     libraries = {}
     for library_entry in library_files:
@@ -573,6 +601,7 @@ def annotateWithMSMSLibrary(
         lib_name = lib_name[: lib_name.rfind(".")] if "." in lib_name else lib_name
         try:
             specs = mgfLibrary.load_library_entry(library_entry)
+            mgfLibrary.prepare_library_spectra(specs, fragment_min_rel_abundance=fragment_min_rel_abundance)
             libraries[lib_name] = (specs, library_entry)
         except Exception as e:
             logging.error(f"Failed to load spectral library file '{lib_path}': {e}")
@@ -613,6 +642,13 @@ def annotateWithMSMSLibrary(
 
     spectra_rows = []
     num_col_idx = {row_num: idx for idx, row_num in enumerate(results_df["Num"].to_list())} if "Num" in results_df.columns else {}
+    total_exp_spectra = sum(len(exp_spectra) for exp_spectra in msms_by_feature.values())
+    if pwMaxSet is not None:
+        pwMaxSet(total_exp_spectra)
+    if pwValSet is not None:
+        pwValSet(0)
+
+    completed_exp_spectra = 0
 
     for feature_num, exp_spectra in msms_by_feature.items():
         row_idx = num_col_idx.get(feature_num)
@@ -626,6 +662,7 @@ def annotateWithMSMSLibrary(
             col_matches = []
 
             for exp_spec in exp_spectra:
+                completed_exp_spectra += 1
                 matches = mgfLibrary.match_spectrum_against_library(
                     exp_mz=exp_spec["mz"],
                     exp_intensities=exp_spec["intensities"],
@@ -635,16 +672,20 @@ def annotateWithMSMSLibrary(
                     algorithm_name=algorithm_name,
                     mz_tolerance=mz_tolerance,
                     precursor_mz_tolerance=precursor_mz_tolerance,
+                    require_same_precursor_mz=require_same_precursor_mz,
                     min_matched_peaks=min_matched_peaks,
                     score_cutoff=score_cutoff,
                     fragment_min_rel_abundance=fragment_min_rel_abundance,
                 )
+                if pwValSet is not None:
+                    pwValSet(completed_exp_spectra)
                 for m in matches:
                     col_matches.append(m)
                     # Build spectra row with requested retained metadata fields
                     base_row = {
                         "Library": mgf_name,
                         "Score": m["score"],
+                        "Precursor_MZ_Diff": None,
                         "Matched_Fragments": m["matched_peaks"],
                         "Compound_Name": m.get("compound_name"),
                         "Compound_ID": m.get("db_spectrum_index"),
@@ -686,6 +727,15 @@ def annotateWithMSMSLibrary(
                     except Exception:
                         base_row["Exp_NumFragments"] = None
 
+                    # compute precursor mz diff (experimental - database) if available
+                    try:
+                        exp_prec = exp_spec.get("precursor_mz")
+                        db_prec = lib_spec.precursor_mz if lib_spec is not None and hasattr(lib_spec, "precursor_mz") else None
+                        if exp_prec is not None and db_prec is not None:
+                            base_row["Precursor_MZ_Diff"] = float(exp_prec) - float(db_prec)
+                    except Exception:
+                        base_row["Precursor_MZ_Diff"] = None
+
                     spectra_rows.append(base_row)
 
             if col_matches:
@@ -718,6 +768,8 @@ def annotateWithMSMSLibrary(
             schema_overrides["Feature_RT"] = pl.Float64
         if any("Feature_MZ" in r for r in spectra_rows):
             schema_overrides["Feature_MZ"] = pl.Float64
+        if any("Precursor_MZ_Diff" in r for r in spectra_rows):
+            schema_overrides["Precursor_MZ_Diff"] = pl.Float64
         if any("DB_NumFragments" in r for r in spectra_rows):
             schema_overrides["DB_NumFragments"] = pl.Int64
         if any("Exp_NumFragments" in r for r in spectra_rows):
@@ -738,7 +790,7 @@ def annotateWithMSMSLibrary(
         for rk in sorted(all_retain_keys):
             if rk not in spectra_df.columns:
                 spectra_df = spectra_df.with_columns(pl.lit(None).alias(rk))
-        # Reorder columns: ensure DB_NumFragments and Exp_NumFragments follow Matched_Fragments
+        # Reorder columns: ensure Precursor_MZ_Diff follows Score and DB_NumFragments/Exp_NumFragments follow Matched_Fragments
         try:
             if "Matched_Fragments" in spectra_rows[0]:
                 # create DataFrame first then reorder if necessary
@@ -749,6 +801,21 @@ def annotateWithMSMSLibrary(
         sort_cols = [c for c in ["Library", "Score"] if c in spectra_df.columns]
         # Ensure fragment count columns are placed right after Matched_Fragments
         cols = list(spectra_df.columns)
+        # Ensure Precursor_MZ_Diff appears right after Score
+        if "Score" in cols:
+            new_cols = []
+            added = set()
+            for c in cols:
+                if c == "Score":
+                    new_cols.append("Score")
+                    added.add("Score")
+                    if "Precursor_MZ_Diff" in cols and "Precursor_MZ_Diff" not in added:
+                        new_cols.append("Precursor_MZ_Diff")
+                        added.add("Precursor_MZ_Diff")
+                elif c not in added:
+                    new_cols.append(c)
+                    added.add(c)
+            cols = new_cols
         if "Matched_Fragments" in cols:
             # Build a new column order: everything up to Matched_Fragments, then Matched_Fragments,
             # then DB_NumFragments and Exp_NumFragments (if present), then the remaining columns in original order.
@@ -877,6 +944,14 @@ def annotateWithSumFormulas(
         logging.error(f"Failed to load sheet '{sheet_name}': {e}")
         plDB.close()
         raise
+
+    # Clear the sum-formula-focused sheet left over from a previous annotation run before adding the
+    # new results. (The SFs_* columns themselves are always fully recomputed/overwritten below for
+    # every row, so no separate column-clearing is needed for those.)
+    sf_sheet_name_stale = f"{sheet_name}_SumFormulas"
+    if plDB.has_table(sf_sheet_name_stale):
+        logging.info(f"Clearing stale sheet '{sf_sheet_name_stale}' before sum formula annotation")
+        plDB.remove_table(sf_sheet_name_stale)
 
     # Use the new Polars-based sum formula generation directly
     logging.info(f"Generating sum formulas with atoms: {useAtoms}")

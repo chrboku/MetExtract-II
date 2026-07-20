@@ -236,6 +236,10 @@ class PolarsDB:
         """Check if a table exists."""
         return table_name in self.tables
 
+    def remove_table(self, table_name):
+        """Remove a table entirely so it is no longer written out on the next commit()/close()."""
+        self.tables.pop(table_name, None)
+
     def delete_rows(self, table_name, condition):
         """Delete rows from a table based on a condition (Polars expression)."""
         if not self.has_table(table_name):

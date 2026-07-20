@@ -183,7 +183,7 @@ class Ui_MainWindow(object):
         self.gridLayout_22.addWidget(self.label_42, 6, 0, 1, 1)
         self.groupsList = QtWidgets.QTableWidget(self.inputTab)
         self.groupsList.setColumnCount(8)
-        self.groupsList.setHorizontalHeaderLabels(["Name", "Files", "Color", "Min Found", "Omit", "Grouping", "False Positive", "MSMS Target"])
+        self.groupsList.setHorizontalHeaderLabels(["Name", "Files", "Color", "Min Found", "Omit", "Grouping", "False Positive", "Processing"])
         self.groupsList.horizontalHeader().setStretchLastSection(False)
         self.groupsList.horizontalHeader().setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
         for col in range(1, 8):
@@ -510,7 +510,8 @@ class Ui_MainWindow(object):
         self.inputSplitter.addWidget(self.ticVisualisationWidget)
         self.inputSplitter.setStretchFactor(0, 1)
         self.inputSplitter.setStretchFactor(1, 4)
-        self.inputSplitter.setSizes([850, 1250])
+        # Increase left pane width by ~33% (was 850 -> now 1131)
+        self.inputSplitter.setSizes([600, 600])
         self.gridLayout_21.addWidget(self.inputSplitter, 0, 0, 2, 1)
         self.tabWidget.addTab(self.inputTab, _fromUtf8(""))
         self.pickingTab = QtWidgets.QWidget()
@@ -1953,10 +1954,17 @@ class Ui_MainWindow(object):
         self.doubleSpinBox_msmsLib_precursorMzTolerance.setObjectName(_fromUtf8("doubleSpinBox_msmsLib_precursorMzTolerance"))
         self.gridLayout_msmsLib.addWidget(self.doubleSpinBox_msmsLib_precursorMzTolerance, 4, 3, 1, 1)
 
+        self.checkBox_msmsLib_requireSamePrecursor = QtWidgets.QCheckBox(self.searchMSMSLibrary_checkBox)
+        self.checkBox_msmsLib_requireSamePrecursor.setChecked(True)
+        self.checkBox_msmsLib_requireSamePrecursor.setObjectName(_fromUtf8("checkBox_msmsLib_requireSamePrecursor"))
+        # place checkbox to the right of the Min. relative fragment abundance controls to avoid overlap
+        self.gridLayout_msmsLib.addWidget(self.checkBox_msmsLib_requireSamePrecursor, 6, 2, 1, 2)
+
         self.label_msmsLibFragThreshold = QtWidgets.QLabel(self.searchMSMSLibrary_checkBox)
         self.label_msmsLibFragThreshold.setText(_fromUtf8("Min. relative fragment abundance (%)"))
         self.label_msmsLibFragThreshold.setObjectName(_fromUtf8("label_msmsLibFragThreshold"))
         self.gridLayout_msmsLib.addWidget(self.label_msmsLibFragThreshold, 6, 0, 1, 1)
+        self.checkBox_msmsLib_requireSamePrecursor.setText(_fromUtf8("Require same precursor m/z"))
         self.doubleSpinBox_msmsLib_minRelAbundance = QtWidgets.QDoubleSpinBox(self.searchMSMSLibrary_checkBox)
         self.doubleSpinBox_msmsLib_minRelAbundance.setDecimals(2)
         self.doubleSpinBox_msmsLib_minRelAbundance.setMinimum(0.0)

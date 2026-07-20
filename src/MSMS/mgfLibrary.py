@@ -63,6 +63,7 @@ class MGFLibrarySpectrum:
         "source_file",
         "spectrum_index",
         "matchms_spectrum",
+        "matchms_prepared_fragment_min_rel_abundance",
     )
 
     def __init__(
@@ -87,6 +88,7 @@ class MGFLibrarySpectrum:
         self.polarity = polarity
         self.polarity_source = polarity_source
         self.matchms_spectrum = None
+        self.matchms_prepared_fragment_min_rel_abundance = None
 
 
 def _find_by_last_segment(metadata, candidates):
@@ -438,6 +440,40 @@ def _to_matchms_spectrum(mz, intensities, metadata=None):
     return MatchmsSpectrum(mz=mz, intensities=intensities, metadata=metadata or {})
 
 
+def prepare_library_spectra(library_spectra, fragment_min_rel_abundance=0.0):
+    """Prepare and cache matchms spectra for a library list exactly once per threshold."""
+    threshold = float(fragment_min_rel_abundance or 0.0)
+    for lib_spec in library_spectra:
+        if lib_spec is None or lib_spec.mz.size == 0:
+            continue
+        if (
+            lib_spec.matchms_spectrum is not None
+            and lib_spec.matchms_prepared_fragment_min_rel_abundance == threshold
+        ):
+            continue
+
+        lib_meta = dict(lib_spec.metadata) if lib_spec.metadata else {}
+        if lib_spec.precursor_mz is not None:
+            try:
+                lib_meta["precursor_mz"] = float(lib_spec.precursor_mz)
+            except Exception:
+                lib_meta["precursor_mz"] = lib_spec.precursor_mz
+
+        mz = lib_spec.mz
+        intensities = lib_spec.intensities
+        if threshold and intensities.size > 0:
+            max_lib_int = float(np.max(intensities)) if np.max(intensities) > 0 else 1.0
+            keep_mask = intensities >= (max_lib_int * (threshold / 100.0))
+            if np.any(keep_mask):
+                mz = mz[keep_mask]
+                intensities = intensities[keep_mask]
+
+        lib_spec.matchms_spectrum = _to_matchms_spectrum(mz, intensities, metadata=lib_meta)
+        lib_spec.matchms_prepared_fragment_min_rel_abundance = threshold
+
+    return library_spectra
+
+
 def _relative_abundances(mz, intensities, matched_mask):
     """Return the relative abundance (%) of matched peaks, normalized so ALL peaks sum/scale to 100%."""
     if intensities.size == 0:
@@ -458,6 +494,7 @@ def match_spectrum_against_library(
     min_matched_peaks=4,
     score_cutoff=0.8,
     fragment_min_rel_abundance=0.0,
+    require_same_precursor_mz=True,
 ):
     """
     Compare one experimental MS2 spectrum against all library spectra with matching polarity
@@ -498,36 +535,20 @@ def match_spectrum_against_library(
 
     results = []
     for lib_spec in library_spectra:
+        # optional polarity check
         if exp_polarity and lib_spec.polarity and lib_spec.polarity != exp_polarity:
             continue
-        if exp_precursor_mz is not None and lib_spec.precursor_mz is not None:
+        # optional precursor m/z matching check (only if both are known and requirement enabled)
+        if require_same_precursor_mz and exp_precursor_mz is not None and lib_spec.precursor_mz is not None:
             if abs(exp_precursor_mz - lib_spec.precursor_mz) > precursor_mz_tolerance:
                 continue
         if lib_spec.mz.size == 0:
             continue
 
         lib_matchms_spectrum = lib_spec.matchms_spectrum
-        # build a matchms spectrum for the library entry; if a fragment-threshold was given,
-        # create a filtered transient spectrum instead of reusing the cached one so different
-        # thresholds can be applied without mutating the cached object.
-        if lib_matchms_spectrum is None or (fragment_min_rel_abundance and lib_spec.intensities.size > 0):
-            lib_meta = dict(lib_spec.metadata) if lib_spec.metadata else {}
-            if lib_spec.precursor_mz is not None:
-                try:
-                    lib_meta["precursor_mz"] = float(lib_spec.precursor_mz)
-                except Exception:
-                    lib_meta["precursor_mz"] = lib_spec.precursor_mz
-
-            if fragment_min_rel_abundance and lib_spec.intensities.size > 0:
-                max_lib_int = float(np.max(lib_spec.intensities)) if np.max(lib_spec.intensities) > 0 else 1.0
-                keep_mask_lib = lib_spec.intensities >= (max_lib_int * (float(fragment_min_rel_abundance) / 100.0))
-                if np.any(keep_mask_lib):
-                    lib_matchms_spectrum = _to_matchms_spectrum(lib_spec.mz[keep_mask_lib], lib_spec.intensities[keep_mask_lib], metadata=lib_meta)
-                else:
-                    # if filtering removed all peaks, fall back to original unfiltered spectrum
-                    lib_matchms_spectrum = _to_matchms_spectrum(lib_spec.mz, lib_spec.intensities, metadata=lib_meta)
-            else:
-                lib_matchms_spectrum = _to_matchms_spectrum(lib_spec.mz, lib_spec.intensities, metadata=lib_meta)
+        if lib_matchms_spectrum is None:
+            prepare_library_spectra([lib_spec], fragment_min_rel_abundance=fragment_min_rel_abundance)
+            lib_matchms_spectrum = lib_spec.matchms_spectrum
 
         try:
             score_result = algorithm.pair(exp_spectrum, lib_matchms_spectrum)
@@ -551,6 +572,14 @@ def match_spectrum_against_library(
                 exp_matched_mask[i] = True
                 db_matched_mask[j] = True
 
+        # include precursor information and precursor difference (exp - db) when available
+        prec_diff = None
+        try:
+            if exp_precursor_mz is not None and lib_spec.precursor_mz is not None:
+                prec_diff = float(exp_precursor_mz) - float(lib_spec.precursor_mz)
+        except Exception:
+            prec_diff = None
+
         results.append(
             {
                 "score": score,
@@ -560,6 +589,9 @@ def match_spectrum_against_library(
                 "source_file": os.path.basename(lib_spec.source_file),
                 "exp_matched_abundances": _relative_abundances(exp_mz, exp_intensities, exp_matched_mask),
                 "db_matched_abundances": _relative_abundances(lib_spec.mz, lib_spec.intensities, db_matched_mask),
+                "db_precursor_mz": lib_spec.precursor_mz,
+                "exp_precursor_mz": exp_precursor_mz,
+                "precursor_mz_diff": prec_diff,
             }
         )
 

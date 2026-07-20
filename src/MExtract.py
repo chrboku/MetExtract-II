@@ -68,6 +68,12 @@ from .utils import (
     CallBackMethod,
     ChromPeakPair,
     FuncProcess,
+    GROUP_LEVEL_EXCLUDE_STEP1,
+    GROUP_LEVEL_MSMS_ONLY,
+    GROUP_LEVEL_NORMAL,
+    GROUP_LEVEL_REINTEGRATION_ONLY,
+    GROUP_PROCESSING_LEVEL_LABELS,
+    GROUP_PROCESSING_LEVEL_ORDER,
     SampleGroup,
     SQLInsert,
     getNormRatio,
@@ -1004,7 +1010,24 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # MSMS target selection is intentionally disabled in the UI.
         useAsMSMSTarget = False
 
-        return SampleGroup(name, files, minFound, omitFeatures, useForMetaboliteGrouping, removeAsFalsePositive, color, useAsMSMSTarget)
+        processingLevel = GROUP_LEVEL_NORMAL
+        procWidget = tbl.cellWidget(row, 7)
+        if procWidget is not None:
+            combo = procWidget.findChild(QComboBox)
+            if combo is not None:
+                processingLevel = combo.currentData()
+
+        return SampleGroup(
+            name,
+            files,
+            minFound,
+            omitFeatures,
+            useForMetaboliteGrouping,
+            removeAsFalsePositive,
+            color,
+            useAsMSMSTarget,
+            processingLevel=processingLevel,
+        )
 
     def _makeCenteredCheckbox(self, checked=False):
         """Return a centred checkbox widget for insertion in the table."""
@@ -1071,7 +1094,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 w.blockSignals(False)
         self.grpFileEdited = True
 
-    def _addGroupRow(self, row, name, files, minGrpFound, omitFeatures, useForMetaboliteGrouping, removeAsFalsePositive, color, useAsMSMSTarget):
+    def _addGroupRow(self, row, name, files, minGrpFound, omitFeatures, useForMetaboliteGrouping, removeAsFalsePositive, color, useAsMSMSTarget, processingLevel=GROUP_LEVEL_NORMAL):
         """Populate a single row in the groups table."""
         tbl = self.ui.groupsList
         tbl.blockSignals(True)
@@ -1120,10 +1143,28 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         cb6.stateChanged.connect(lambda state, cb=cb6: self._propagateCheckboxChange(cb, 6))
         tbl.setCellWidget(row, 6, container6)
 
-        # Col 7 – useAsMSMSTarget (kept for backward compatibility, hidden in UI)
-        container7, cb7 = self._makeCenteredCheckbox(False)
-        cb7.stateChanged.connect(lambda state, cb=cb7: self._propagateCheckboxChange(cb, 7))
-        tbl.setCellWidget(row, 7, container7)
+        # Col 8 – processing level ("Process normally", "Exclude step 1", "Use only for re-integration",
+        # "Do not process (use MSMS spectra only)")
+        procCombo = QComboBox()
+        for levelKey in GROUP_PROCESSING_LEVEL_ORDER:
+            procCombo.addItem(GROUP_PROCESSING_LEVEL_LABELS[levelKey], levelKey)
+        idx = procCombo.findData(processingLevel if processingLevel in GROUP_PROCESSING_LEVEL_LABELS else GROUP_LEVEL_NORMAL)
+        procCombo.setCurrentIndex(idx if idx >= 0 else 0)
+        procCombo.setToolTip(
+            "Process normally: run step 1, bracketing, re-integration and grouping as usual.\n"
+            "Exclude step 1: skip individual file processing (step 1) for this group, but still use it "
+            "(and any existing per-file results) for bracketing and re-integration.\n"
+            "Use only for re-integration: never contributes to step 1 or bracket definition, but its "
+            "files are still re-integrated at the brackets found by other groups.\n"
+            "Do not process (use MSMS spectra only): completely excluded from steps 1-5; the raw files "
+            "remain available for browsing/searching MS/MS spectra."
+        )
+        procCombo.currentIndexChanged.connect(lambda idx, cb=procCombo: self._propagateComboChange(cb, 8))
+        container8 = QWidget()
+        layout8 = QtWidgets.QHBoxLayout(container8)
+        layout8.setContentsMargins(2, 0, 2, 0)
+        layout8.addWidget(procCombo)
+        tbl.setCellWidget(row, 7, container8)
 
         tbl.blockSignals(False)
 
@@ -1170,6 +1211,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         color,
         atPos=None,
         useAsMSMSTarget=False,
+        processingLevel=GROUP_LEVEL_NORMAL,
     ):
         useAsMSMSTarget = False
         self.loadedMZXMLs = None
@@ -1201,7 +1243,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if atPos is None:
                 atPos = tbl.rowCount()
             tbl.insertRow(atPos)
-            self._addGroupRow(atPos, name, files, minGrpFound, omitFeatures, useForMetaboliteGrouping, removeAsFalsePositive, color, useAsMSMSTarget)
+            self._addGroupRow(atPos, name, files, minGrpFound, omitFeatures, useForMetaboliteGrouping, removeAsFalsePositive, color, useAsMSMSTarget, processingLevel=processingLevel)
         else:
             t = []
             for q in failed.keys():
@@ -1548,6 +1590,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 removeAsFalsePositive=t.getRemoveAsFalsePositive(),
                 color=str(t.getGroupColor()),
                 useAsMSMSTarget=False,
+                processingLevel=grp.processingLevel,
                 atPos=row,
             )
             self.updateLCMSSampleSettings()
@@ -1706,6 +1749,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 grps.setValue("Color", group.color)
                 grps.setValue("UseForMetaboliteGrouping", group.useForMetaboliteGrouping)
                 grps.setValue("useAsMSMSTarget", group.useAsMSMSTarget)
+                grps.setValue("ProcessingLevel", group.processingLevel)
                 grps.endGroup()
 
             grps.beginGroup("ExperimentResults")
@@ -1828,6 +1872,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 useForMetaboliteGrouping = True
                 removeAsFalsePositive = False
                 useAsMSMSTarget = False
+                processingLevel = GROUP_LEVEL_NORMAL
                 for kid in grps.childKeys():
                     if str(kid) == "Min_Peaks_Found":
                         minFound = self.to_int(grps.value(kid))
@@ -1841,6 +1886,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         removeAsFalsePositive = self.to_bool(grps.value(kid))
                     elif str(kid) == "useAsMSMSTarget":
                         useAsMSMSTarget = self.to_bool(grps.value(kid))
+                    elif str(kid) == "ProcessingLevel":
+                        _level = str(grps.value(kid))
+                        processingLevel = _level if _level in GROUP_PROCESSING_LEVEL_LABELS else GROUP_LEVEL_NORMAL
                     elif str(kid) == "files":
                         files = self.to_str(grps.value(kid))
                         files = files.strip().split("§")
@@ -1868,6 +1916,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         removeAsFalsePositive=removeAsFalsePositive,
                         color=color,
                         useAsMSMSTarget=useAsMSMSTarget,
+                        processingLevel=processingLevel,
                     )
                 )
 
@@ -1884,6 +1933,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     removeAsFalsePositive=grpToAdd.removeAsFalsePositive,
                     color=grpToAdd.color,
                     useAsMSMSTarget=grpToAdd.useAsMSMSTarget,
+                    processingLevel=grpToAdd.processingLevel,
                 )
 
             grps.beginGroup("ExperimentResults")
@@ -4898,13 +4948,33 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         filter_config = make_peak_filter_config(self._peakPickingSettings)
 
         indGroups = {}
+        # Groups that never contribute to bracket-defining step 1 or bracketing at all (only used to
+        # supply raw MS/MS spectra for browsing/searching) are skipped here entirely.
         for group in definedGroups:
-            grName = str(group.name)
-            indGroups[grName] = []
-            for file in natSort(group.files):
-                indGroups[grName].append(str(file))
-                if file not in files:
-                    files.append(file)
+            if group.processingLevel == GROUP_LEVEL_MSMS_ONLY:
+                logging.info("Group '%s' is set to 'Do not process (use MSMS spectra only)': excluded from steps 1-5.." % group.name)
+                continue
+
+            # Files of groups excluded from step 1 (or used only for re-integration) are not (re-)processed
+            # with FindIsoPairs and are therefore not added to the step-1 "files" list.
+            if group.processingLevel == GROUP_LEVEL_NORMAL:
+                grName = str(group.name)
+                indGroups[grName] = []
+                for file in natSort(group.files):
+                    indGroups[grName].append(str(file))
+                    if file not in files:
+                        files.append(file)
+            elif group.processingLevel == GROUP_LEVEL_EXCLUDE_STEP1:
+                logging.info("Group '%s' is set to 'Exclude step 1': using existing per-file results (if any) for bracketing.." % group.name)
+            elif group.processingLevel == GROUP_LEVEL_REINTEGRATION_ONLY:
+                logging.info("Group '%s' is set to 'Use only for re-integration': excluded from step 1 and bracketing.." % group.name)
+
+        # Groups used to define brackets (bracketResults reads each file's per-file feature-pair results):
+        # "Process normally" (fresh step 1 results) and "Exclude step 1" (existing per-file results) groups.
+        bracketingIndGroups = {}
+        for group in definedGroups:
+            if group.processingLevel in (GROUP_LEVEL_NORMAL, GROUP_LEVEL_EXCLUDE_STEP1):
+                bracketingIndGroups[str(group.name)] = [str(f) for f in natSort(group.files)]
 
         errorCount = 0
 
@@ -4941,7 +5011,10 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         start = time.time()
 
         # process individual files
-        if self.ui.processIndividualFiles.isChecked():
+        if self.ui.processIndividualFiles.isChecked() and len(files) == 0:
+            logging.info("No files with processing level 'Process normally' available: skipping step 1 (individual file processing)..")
+            _step_status["individual_files"] = _ST_SKIPPED_USER
+        elif self.ui.processIndividualFiles.isChecked():
             _ind_step_start = time.time()
             logging.info("")
             logging.info("Processing %d individual LC-HRMS data files on %d CPU core(s).." % (len(files), min(len(files), cpus)))
@@ -5314,7 +5387,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         )
                         procProc = FuncProcess(
                             _target=bracketResults,
-                            indGroups=indGroups,
+                            indGroups=bracketingIndGroups,
                             xCounts=str(self.ui.xCountSearch.text()),
                             groupSizePPM=self.ui.groupPpm.value(),
                             maxTimeDeviation=self.ui.groupingRT.value() * 60.0,
@@ -5377,6 +5450,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         pw.getCallingFunction()("text")("Adding statistics columns\n")
                         grpStats = []
                         for group in definedGroups:
+                            if group.processingLevel == GROUP_LEVEL_MSMS_ONLY:
+                                # Never processed/re-integrated: no per-file columns are added for this group.
+                                continue
                             preFix = "_Stat"
                             grpName = group.name + preFix
                             grpAdd(
@@ -5461,20 +5537,24 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     logging.info("Re-integrating of individual LC-HRMS results..")
 
                     _reintegration_step_start = time.time()
-                    pw = ProgressWrapper(min(len(files), cpus) + 1, showLog=False, parent=self)
+
+                    # Reintegrate missed peaks in files. Groups set to "Do not process (use MSMS spectra
+                    # only)" are excluded entirely - they never get quantitative results.
+                    fDict = {}
+                    for group in definedGroups:
+                        if group.processingLevel == GROUP_LEVEL_MSMS_ONLY:
+                            continue
+                        for grp in natSort(group.files):
+                            f = grp
+                            f = f.replace("\\", "/")
+                            fDict[f] = f[(f.rfind("/") + 1) : max(f.lower().rfind(".mzxml"), f.lower().rfind(".mzml"))]
+
+                    pw = ProgressWrapper(min(len(fDict), cpus) + 1, showLog=False, parent=self)
                     pw.show()
                     pw.getCallingFunction()("text")("Integrating..")
                     pw.getCallingFunction()("header")("Integrating..")
 
                     try:
-                        # Reintegrate missed peaks in files
-                        fDict = {}
-                        for group in definedGroups:
-                            for grp in natSort(group.files):
-                                f = grp
-                                f = f.replace("\\", "/")
-                                fDict[f] = f[(f.rfind("/") + 1) : max(f.lower().rfind(".mzxml"), f.lower().rfind(".mzml"))]
-
                         reIntegrateResultsFile(
                             excel_file,
                             "2_StatColumns",
@@ -5498,7 +5578,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             negativeScanEvent=str(self.ui.negativeScanEvent.currentText()),
                             pw=pw,
                             selfObj=self,
-                            cpus=min(len(files), cpus),
+                            cpus=min(len(fDict), cpus),
                             start=start,
                             peak_filter_config=filter_config,
                             peak_picker=picker,
@@ -5628,7 +5708,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             toFile=excel_file,
                             sheet_name=convolution_input_sheet,
                             new_sheet_name="4_Convoluted",
-                            groups=definedGroups,
+                            groups=[g for g in definedGroups if g.processingLevel != GROUP_LEVEL_MSMS_ONLY],
                             eicPPM=self.ui.wavelet_EICppm.value(),
                             maxAnnotationTimeWindow=self.ui.maxAnnotationTimeWindow.value(),
                             minConnectionsInFiles=self.ui.metaboliteClusterMinConnections.value(),
@@ -5871,9 +5951,12 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                                     algorithm_name=self.ui.comboBox_msmsLib_algorithm.currentText(),
                                     mz_tolerance=self.ui.doubleSpinBox_msmsLib_mzTolerance.value(),
                                     precursor_mz_tolerance=self.ui.doubleSpinBox_msmsLib_precursorMzTolerance.value(),
+                                    require_same_precursor_mz=self.ui.checkBox_msmsLib_requireSamePrecursor.isChecked(),
                                     min_matched_peaks=self.ui.spinBox_msmsLib_minMatchedFragments.value(),
                                     score_cutoff=self.ui.doubleSpinBox_msmsLib_scoreCutoff.value(),
                                     fragment_min_rel_abundance=self.ui.doubleSpinBox_msmsLib_minRelAbundance.value(),
+                                    pwMaxSet=pw.getCallingFunction()("max"),
+                                    pwValSet=pw.getCallingFunction()("value"),
                                 )
                                 annotationColumns.extend(addedColumns)
                             except Exception as e:
@@ -5993,7 +6076,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             definedGroups = self.getAllSampleGroups()
             samplesForMSMS = []
             for group in definedGroups:
-                if group.useAsMSMSTarget:
+                if group.useAsMSMSTarget or group.processingLevel == GROUP_LEVEL_MSMS_ONLY:
                     for i in range(len(group.files)):
                         fi = group.files[i]
                         fi = fi.replace("\\", "/")
@@ -6288,22 +6371,19 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         header.setMinimumSectionSize(55)
         header.setSectionsMovable(False)
 
-        # Keep MSMS target column for backward compatibility but hide it from the UI.
-        self.ui.groupsList.setColumnHidden(7, True)
-
         # Keep all columns user-resizable and apply sensible defaults:
         # Name much wider, other metadata columns compact.
         for col in range(self.ui.groupsList.columnCount()):
             header.setSectionResizeMode(col, QtWidgets.QHeaderView.Interactive)
 
-        self.ui.groupsList.setColumnWidth(0, 160)  # Name
+        self.ui.groupsList.setColumnWidth(0, 120)  # Name
         self.ui.groupsList.setColumnWidth(1, 50)  # Files
         self.ui.groupsList.setColumnWidth(2, 50)  # Color
         self.ui.groupsList.setColumnWidth(3, 70)  # Min Found
         self.ui.groupsList.setColumnWidth(4, 60)  # Omit Features
         self.ui.groupsList.setColumnWidth(5, 60)  # Metabolite Grouping
         self.ui.groupsList.setColumnWidth(6, 80)  # False Positive
-        self.ui.groupsList.setColumnWidth(7, 90)  # MSMS Target (hidden)
+        self.ui.groupsList.setColumnWidth(7, 130)  # Processing
 
     def saveMZXMLChanged(self, sta):
         self.ui.wm_ia.setEnabled(sta)
@@ -12287,7 +12367,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             list_widget.setItem(i, 2, QTableWidgetItem(str(m.get("n_fragments_ref", ""))))
             list_widget.setItem(i, 3, QTableWidgetItem(str(m.get("n_fragments_query", ""))))
             if m["num"] is not None:
-                feat_text = f"Num {m['num']} ({'M\u2032' if m['form'] == 'labeled' else 'M'})"
+                feature_label = "M′" if m["form"] == "labeled" else "M"
+                feat_text = f"Num {m['num']} ({feature_label})"
             else:
                 feat_text = "(no detected feature pair)"
             list_widget.setItem(i, 4, QTableWidgetItem(feat_text))
@@ -12324,7 +12405,8 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             ax.vlines(reference_scan.mz_list, 0, ref_norm, colors="dodgerblue", linewidth=1.2, label="Reference")
             ax.vlines(m["scan"].mz_list, 0, -match_norm, colors="firebrick", linewidth=1.2, label="Match")
             ax.axhline(0, color="black", linewidth=0.8)
-            feat_txt = f"Num {m['num']} ({'M\u2032' if m['form'] == 'labeled' else 'M'})" if m["num"] is not None else "no detected feature pair"
+            feature_label = "M′" if m["form"] == "labeled" else "M"
+            feat_txt = f"Num {m['num']} ({feature_label})" if m["num"] is not None else "no detected feature pair"
             ax.set_title(f"Score={m['score']:.3f} | {feat_txt}", fontsize=10)
             ax.set_xlabel("m/z")
             ax.set_ylabel("Relative intensity (%, each spectrum normalized to its own base peak)")
