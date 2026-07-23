@@ -19,6 +19,7 @@ from __future__ import absolute_import, division, print_function
 import io
 import logging
 import os
+import shutil
 import zipfile
 from json import dumps, loads
 import polars as pl
@@ -235,6 +236,10 @@ class PolarsDB:
         """Check if a table exists."""
         return table_name in self.tables
 
+    def remove_table(self, table_name):
+        """Remove a table entirely so it is no longer written out on the next commit()/close()."""
+        self.tables.pop(table_name, None)
+
     def delete_rows(self, table_name, condition):
         """Delete rows from a table based on a condition (Polars expression)."""
         if not self.has_table(table_name):
@@ -267,12 +272,23 @@ class PolarsDB:
         if not self.tables:
             return
 
+        # copy self.filepath to a temporary file to avoid overwriting in case of errors
+        bkp_filepath = self.filepath + ".bkp"
+        if os.path.exists(bkp_filepath):
+            os.remove(bkp_filepath)
+            shutil.copyfile(self.filepath, bkp_filepath)
+
+        # save tables
         if self.format == "parquet":
             self._save_parquet_tables()
         elif self.format == "xlsx":
             self._save_xlsx_tables()
         elif self.format == "tsv":
             self._save_tsv_tables()
+
+        # remove backup
+        if os.path.exists(bkp_filepath):
+            os.remove(bkp_filepath)
 
     def _save_parquet_tables(self):
         """Save all tables as Parquet files in a ZIP archive."""

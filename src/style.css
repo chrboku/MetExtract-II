@@ -114,7 +114,21 @@ QComboBox:focus {
 }
 
 QComboBox::drop-down {
-    border: none;
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 18px;
+    border-left: 1px solid #c0c4cc;
+    background-color: #e8eaed;
+    border-radius: 0 2px 2px 0;
+}
+
+QComboBox::down-arrow {
+    width: 10px;
+    height: 10px;
+    background-color: #32609E;
+}
+QComboBox::down-arrow:disabled {
+    background-color: #e8eaed;
 }
 
 QComboBox QAbstractItemView {
@@ -458,11 +472,20 @@ QProgressBar {
     text-align: center;
     color: #202124;
     font-size: 11px;
+    min-height: 22px;
 }
 
 QProgressBar::chunk {
     background-color: #32609E;
     border-radius: 2px;
+}
+
+/* -------------------------------------------------------
+   QListView
+------------------------------------------------------- */
+
+QListView {
+    background-color: #ffffff;
 }
 
 /* -------------------------------------------------------
@@ -580,4 +603,8 @@ QTabBar::tab:disabled {
     color: #b0b4b8;
     background-color: #f8f9fa;
     border-color: #e8eaed;
+}
+
+QListView:disabled {
+    background-color: #f8f9fa;
 }
