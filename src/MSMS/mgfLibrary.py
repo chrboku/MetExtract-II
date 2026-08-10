@@ -446,10 +446,7 @@ def prepare_library_spectra(library_spectra, fragment_min_rel_abundance=0.0):
     for lib_spec in library_spectra:
         if lib_spec is None or lib_spec.mz.size == 0:
             continue
-        if (
-            lib_spec.matchms_spectrum is not None
-            and lib_spec.matchms_prepared_fragment_min_rel_abundance == threshold
-        ):
+        if lib_spec.matchms_spectrum is not None and lib_spec.matchms_prepared_fragment_min_rel_abundance == threshold:
             continue
 
         lib_meta = dict(lib_spec.metadata) if lib_spec.metadata else {}

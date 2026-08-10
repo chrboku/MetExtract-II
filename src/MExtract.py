@@ -59,6 +59,7 @@ from .mePyGuis.adductsEdit import adductsEdit, ConfiguredAdduct, ConfiguredEleme
 from .mePyGuis.calcIsoEnrichmentDialog import calcIsoEnrichmentDialog
 from .mePyGuis.groupEdit import groupEdit
 from .mePyGuis.heteroAtomEdit import heteroAtomEdit, ConfiguredHeteroAtom
+from .rawImport import UnsupportedFileError, prepare_import_files
 from .mePyGuis.PeakPickingSettingsDialog import PeakPickingSettingsDialog
 from .mePyGuis.ProgressWrapper import ProgressWrapper
 from .mePyGuis.RegExTestDialog import RegExTestDialog
@@ -16064,10 +16065,21 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     self.loadSettingsFile(link)
 
             else:
+                prepared_links = []
                 incorrectFiles = []
+                raw_links = [file for file in links if file.lower().endswith(".raw")]
+                try:
+                    converted_raw_links = prepare_import_files(raw_links) if raw_links else []
+                except UnsupportedFileError:
+                    return
+                converted_raw_by_source = dict(zip(raw_links, converted_raw_links))
 
                 for file in links:
-                    if not (file.lower().endswith(".mzxml") or file.lower().endswith(".mzml")):
+                    if file.lower().endswith(".raw"):
+                        file = converted_raw_by_source[file]
+                    if file.lower().endswith(".mzxml") or file.lower().endswith(".mzml"):
+                        prepared_links.append(file.replace("\\", "/"))
+                    else:
                         incorrectFiles.append(file)
 
                 if len(incorrectFiles) > 0:
@@ -16077,8 +16089,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         "You are trying to load unknown file types that are not supported: \n\n  * " + "\n  * ".join(incorrectFiles) + "\n\nPlease only load mzXML or mzML files.",
                     )
                 else:
-                    for li in range(len(links)):
-                        links[li] = links[li].replace("\\", "/")
+                    links = prepared_links
 
                     if len(links) > 1:
                         pw = RegExTestDialog(strings=links)
