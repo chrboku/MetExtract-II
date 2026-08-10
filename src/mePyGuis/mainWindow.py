@@ -3734,7 +3734,7 @@ class Ui_MainWindow(object):
         self.label_15.setText(_translate("MainWindow", "Number of isotopologs native", None))
         self.label_29.setText(_translate("MainWindow", "Number of isotopologs labeled", None))
         self.isotopePatternCountB.setPrefix(_translate("MainWindow", "= ", None))
-        self.isoAbundance.setText(_translate("MainWindow", "Check M±1 / M'±1 isotopolog abundance", None))
+        self.isoAbundance.setText(_translate("MainWindow", "Check M±1 / M'±1 isotopolog abundance above threshold", None))
         self.isoAbundance.setToolTip(_translate("MainWindow", "When enabled, checks the abundance of the M+1/M-1 and M'+1/M'-1 isotopolog peaks to verify that the detected feature pair is consistent with expected isotope patterns.", None))
         self.isotopePatternCountA.setPrefix(_translate("MainWindow", "= ", None))
         self.intensityThresholdIsotopologs.setPrefix(_translate("MainWindow", "≥ ", None))
