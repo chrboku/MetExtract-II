@@ -1763,7 +1763,7 @@ class FindIsoPairs:
             lb = max(lb, 0)
             if lb >= rb:
                 return 0.0
-            return float(np.trapz(eic[lb : rb + 1], times[lb : rb + 1]))
+            return float(np.trapezoid(eic[lb : rb + 1], times[lb : rb + 1]))
 
         mass_diffs = self._get_isotopolog_mass_diffs_from_formula_tools()
         m_isotopolog_offsets = [

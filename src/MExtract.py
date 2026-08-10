@@ -3384,7 +3384,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             sample_label = [f"{grp}|{sample}" for grp, sample in sample_entries]
 
             ax.set_xlabel("Sample")
-            cmap = matplotlib.cm.get_cmap("tab10")
+            cmap = plt.get_cmap("tab10")
             feature_color = {fid: cmap(i % 10) for i, fid in enumerate(sorted(set(selected_ids)))}
 
             block_gap = 2.0
@@ -3808,7 +3808,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         axes = fig.subplots(n_rows, n_cols, squeeze=False)
 
         # Build colour map per feature
-        cmap = matplotlib.cm.get_cmap("tab10")
+        cmap = plt.get_cmap("tab10")
         feature_colors = {pi.id: cmap(i % 10) for i, pi in enumerate(plotItems)}
 
         # Legend handles
@@ -14199,7 +14199,9 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 else:
                     ax.set_xlim(xlim[0], xlim[1])
             if self.ui.showLegend.isChecked() and showLegendOverwrite:
-                ax.legend()
+                handles, labels = ax.get_legend_handles_labels()
+                if handles and labels:
+                    ax.legend()
 
         plt.canvas.draw()
 
