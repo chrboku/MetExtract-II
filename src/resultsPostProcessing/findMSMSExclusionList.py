@@ -58,6 +58,8 @@ for si, s in enumerate(data):
 
     data[si][2] = len(bins)
     lastS = [rt, mz]
+if len(curbin) > 0:
+    bins.append(curbin)
 
 
 exclusionList = []
@@ -81,7 +83,7 @@ fileLineArray.append('		<software name="findMSMSExclusionList" version="%s" />' 
 fileLineArray.append('		<processingAction name="Feature pair detection" />')
 # fileLineArray.append('		<UserParam type="string" name="parameter: key" value="value"/>')
 fileLineArray.append("	</dataProcessing>")
-fileLineArray.append('	<featureList count="%d">")' % (len(exclusionList)))
+fileLineArray.append('	<featureList count="%d">' % (len(exclusionList)))
 
 for featurei, feature in enumerate(exclusionList):
     fileLineArray.append('		<feature id="%s">' % (featurei))
