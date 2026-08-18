@@ -456,8 +456,8 @@ def bracketResults(
         excel_data["Tracer"] = []
 
         excel_data_dTypes = OrderedDict()
-        excel_data_dTypes["Num"] = pl.Int64
-        excel_data_dTypes["OGroup"] = pl.Int64
+        excel_data_dTypes["Num"] = pl.Utf8
+        excel_data_dTypes["OGroup"] = pl.Utf8
         excel_data_dTypes["Relative_peakarea_in_group"] = pl.Float64
         excel_data_dTypes["Average_peakarea"] = pl.Float64
         excel_data_dTypes["Comment"] = pl.Utf8
@@ -1101,22 +1101,12 @@ def bracketResults(
                                                     avgLPeakScale = sum(groupedChromPeaksAVGLPeakScale[i]) / len(groupedChromPeaksAVGLPeakScale[i])
 
                                                     # Append data to excel_data dictionary
-                                                    excel_data["Num"].append(curNum)
+                                                    excel_data["Num"].append(f"Fp.{curNum}")
                                                     excel_data["OGroup"].append(None)
                                                     excel_data["Relative_peakarea_in_group"].append(None)
                                                     excel_data["Average_peakarea"].append(None)
                                                     excel_data["Identity"].append(None)
                                                     excel_data["Comment"].append("")
-                                                    excel_data["MZ"].append(avgmz)
-                                                    excel_data["L_MZ"].append(avglmz)
-                                                    excel_data["D_MZ"].append(avgtmz)
-                                                    excel_data["MZ_Range"].append(
-                                                        "%.6f - %.6f"
-                                                        % (
-                                                            min(groupedChromPeaksAVGMz[i]),
-                                                            max(groupedChromPeaksAVGMz[i]),
-                                                        )
-                                                    )
                                                     excel_data["RT"].append(avgtime / 60.0)
                                                     excel_data["RT_Range"].append(
                                                         "%.3f - %.3f"
@@ -1132,11 +1122,21 @@ def bracketResults(
                                                             avgLPeakScale,
                                                         )
                                                     )
-                                                    excel_data["Xn"].append(str(xCount))
-                                                    excel_data["Charge"].append(cLoading)
                                                     excel_data["ScanEvent"].append(scanEvent)
                                                     excel_data["Ionisation_Mode"].append(ionMode)
                                                     excel_data["Tracer"].append(str(tracer))
+                                                    excel_data["MZ"].append(avgmz)
+                                                    excel_data["L_MZ"].append(avglmz)
+                                                    excel_data["D_MZ"].append(avgtmz)
+                                                    excel_data["MZ_Range"].append(
+                                                        "%.6f - %.6f"
+                                                        % (
+                                                            min(groupedChromPeaksAVGMz[i]),
+                                                            max(groupedChromPeaksAVGMz[i]),
+                                                        )
+                                                    )
+                                                    excel_data["Xn"].append(str(xCount))
+                                                    excel_data["Charge"].append(cLoading)
 
                                                     excel_data["Ion"].append(None)
                                                     excel_data["Loss"].append(None)

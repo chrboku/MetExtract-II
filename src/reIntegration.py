@@ -667,7 +667,7 @@ def reIntegrateResultsFile(
     print("Updating results in all_results table")
 
     for row_idx, row in enumerate(results_df.iter_rows()):
-        num = int(results_df[row_idx, "Num"])
+        num = results_df[row_idx, "Num"]
         if num not in all_results.keys():
             pass
         else:
