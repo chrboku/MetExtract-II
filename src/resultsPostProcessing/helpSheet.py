@@ -395,6 +395,21 @@ SAMPLE_COLUMNS = [
         "Isotope pattern abundance ratios in this sample (JSON).",
         "JSON-encoded isotopologue abundance ratios recorded for this feature pair in this sample file, used for isotope-pattern based validation/annotation.",
     ),
+    _entry(
+        "<file>_isoArea",
+        "Peak areas of the isotopologs between M and M' in this sample (JSON).",
+        "JSON-encoded dictionary ('M+x' -> area) of the individual isotopolog peak areas quantified between M and M' (from M+1 up to M'-1) in this sample file. Only isotopologs with an area of at least 1% relative to the less abundant of M/M' are included.",
+    ),
+    _entry(
+        "<file>_isoEnrichment",
+        "Isotopic enrichment of this feature pair in this sample (JSON).",
+        "JSON-encoded dictionary with keys 'M' (enrichment calculated from M and the highest detected M+x isotopolog) and 'M'' (enrichment calculated from M' and M'-1), following the same calculation as the 'Isotopic enrichment' tool.",
+    ),
+    _entry(
+        "<file>_isoCount",
+        "Number of isotopologs detected between M and M' in this sample.",
+        "Count of isotopologs (M+1 up to M'-1) with an area of at least 1% relative to the less abundant of M/M' in this sample file.",
+    ),
 ]
 
 

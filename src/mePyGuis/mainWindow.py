@@ -3277,6 +3277,43 @@ class Ui_MainWindow(object):
         self.gridLayout_sample_peaks.addWidget(self.scrollArea_sample_peaks, 1, 0, 1, 1)
         self.tabWidget_3.addTab(self.tab_sample_peaks, _fromUtf8(""))
 
+        # Isotopic pattern tab
+        self.tab_isotopic_pattern = QtWidgets.QWidget()
+        self.tab_isotopic_pattern.setObjectName(_fromUtf8("tab_isotopic_pattern"))
+        self.gridLayout_isotopic_pattern = QtWidgets.QGridLayout(self.tab_isotopic_pattern)
+        self.gridLayout_isotopic_pattern.setObjectName(_fromUtf8("gridLayout_isotopic_pattern"))
+        self.horizontalLayout_isotopic_pattern_controls = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_isotopic_pattern_controls.setObjectName(_fromUtf8("horizontalLayout_isotopic_pattern_controls"))
+        self.label_isotopicPatternPlotType = QtWidgets.QLabel(self.tab_isotopic_pattern)
+        self.label_isotopicPatternPlotType.setObjectName(_fromUtf8("label_isotopicPatternPlotType"))
+        self.horizontalLayout_isotopic_pattern_controls.addWidget(self.label_isotopicPatternPlotType)
+        self.comboBox_isotopicPatternPlotType = QtWidgets.QComboBox(self.tab_isotopic_pattern)
+        self.comboBox_isotopicPatternPlotType.setObjectName(_fromUtf8("comboBox_isotopicPatternPlotType"))
+        self.comboBox_isotopicPatternPlotType.addItem(_fromUtf8(""))
+        self.comboBox_isotopicPatternPlotType.addItem(_fromUtf8(""))
+        self.comboBox_isotopicPatternPlotType.addItem(_fromUtf8(""))
+        self.horizontalLayout_isotopic_pattern_controls.addWidget(self.comboBox_isotopicPatternPlotType)
+        spacerItem_isotopicPattern = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout_isotopic_pattern_controls.addItem(spacerItem_isotopicPattern)
+        self.gridLayout_isotopic_pattern.addLayout(self.horizontalLayout_isotopic_pattern_controls, 0, 0, 1, 1)
+        self.splitter_isotopic_pattern = QtWidgets.QSplitter(self.tab_isotopic_pattern)
+        self.splitter_isotopic_pattern.setOrientation(QtCore.Qt.Vertical)
+        self.splitter_isotopic_pattern.setObjectName(_fromUtf8("splitter_isotopic_pattern"))
+        self.resultsExperimentIsotopicPattern_widget = QtWidgets.QWidget(self.splitter_isotopic_pattern)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Expanding)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.resultsExperimentIsotopicPattern_widget.sizePolicy().hasHeightForWidth())
+        self.resultsExperimentIsotopicPattern_widget.setSizePolicy(sizePolicy)
+        self.resultsExperimentIsotopicPattern_widget.setMinimumSize(QtCore.QSize(700, 300))
+        self.resultsExperimentIsotopicPattern_widget.setObjectName(_fromUtf8("resultsExperimentIsotopicPattern_widget"))
+        self.tableWidget_isotopicEnrichment = QtWidgets.QTableWidget(self.splitter_isotopic_pattern)
+        self.tableWidget_isotopicEnrichment.setObjectName(_fromUtf8("tableWidget_isotopicEnrichment"))
+        self.tableWidget_isotopicEnrichment.setAlternatingRowColors(True)
+        self.tableWidget_isotopicEnrichment.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        self.gridLayout_isotopic_pattern.addWidget(self.splitter_isotopic_pattern, 1, 0, 1, 1)
+        self.tabWidget_3.addTab(self.tab_isotopic_pattern, _fromUtf8(""))
+
         self.exp_right_layout.addWidget(self.tabWidget_3, 2, 0, 1, 1)
         self.scrollArea.setWidget(self.scrollAreaWidgetContents)
         self.gridLayout_2.addWidget(self.scrollArea, 0, 0, 1, 1)
@@ -3996,6 +4033,10 @@ class Ui_MainWindow(object):
         self.comboBox_abundanceScalingMode.setItemText(0, _translate("MainWindow", "None", None))
         self.comboBox_abundanceScalingMode.setItemText(1, _translate("MainWindow", "Scale to max sample", None))
         self.comboBox_abundanceScalingMode.setItemText(2, _translate("MainWindow", "Scale to max experimental group", None))
+        self.label_isotopicPatternPlotType.setText(_translate("MainWindow", "Visualization", None))
+        self.comboBox_isotopicPatternPlotType.setItemText(0, _translate("MainWindow", "Boxplot per group", None))
+        self.comboBox_isotopicPatternPlotType.setItemText(1, _translate("MainWindow", "Scatterplot per sample", None))
+        self.comboBox_isotopicPatternPlotType.setItemText(2, _translate("MainWindow", "Line plot per sample", None))
         self.tabWidget_3.setTabText(
             self.tabWidget_3.indexOf(self.tab_abundance_profiles),
             _translate("MainWindow", "Abundance profiles", None),
@@ -4003,6 +4044,10 @@ class Ui_MainWindow(object):
         self.tabWidget_3.setTabText(
             self.tabWidget_3.indexOf(self.tab_sample_peaks),
             _translate("MainWindow", "Sample peaks", None),
+        )
+        self.tabWidget_3.setTabText(
+            self.tabWidget_3.indexOf(self.tab_isotopic_pattern),
+            _translate("MainWindow", "Isotopic pattern", None),
         )
         self.tabWidget.setTabText(
             self.tabWidget.indexOf(self.bracketedResultsTab),

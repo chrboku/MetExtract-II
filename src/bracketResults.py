@@ -515,6 +515,9 @@ def bracketResults(
             excel_data[fname + "_FID"] = []
             excel_data[fname + "_GroupID"] = []
             excel_data[fname + "_isotopologRatios"] = []
+            excel_data[fname + "_isoArea"] = []
+            excel_data[fname + "_isoEnrichment"] = []
+            excel_data[fname + "_isoCount"] = []
 
             excel_data_dTypes[fname + "_Found"] = pl.Utf8
             excel_data_dTypes[fname + "_Area_N"] = pl.Utf8
@@ -543,6 +546,9 @@ def bracketResults(
             excel_data_dTypes[fname + "_FID"] = pl.Utf8
             excel_data_dTypes[fname + "_GroupID"] = pl.Utf8
             excel_data_dTypes[fname + "_isotopologRatios"] = pl.Utf8
+            excel_data_dTypes[fname + "_isoArea"] = pl.Utf8
+            excel_data_dTypes[fname + "_isoEnrichment"] = pl.Utf8
+            excel_data_dTypes[fname + "_isoCount"] = pl.Utf8
 
         excel_data["doublePeak"] = []
         excel_data_dTypes["doublePeak"] = pl.Int64
@@ -734,6 +740,9 @@ def bracketResults(
                                             peaksRatio=float(row["peaksRatio"]),
                                             peaksCorr=float(row["peaksCorr"]),
                                             isotopologRatios=pickle_loads(base64.b64decode(row["isotopologRatios"])) if row.get("isotopologRatios") else {},
+                                            isoAreas=pickle_loads(base64.b64decode(row["isoAreas"])) if row.get("isoAreas") else {},
+                                            isoEnrichment=pickle_loads(base64.b64decode(row["isoEnrichment"])) if row.get("isoEnrichment") else {},
+                                            isoCount=row.get("isoCount") or 0,
                                         )
 
                                         assert cp.ionMode in ionModes.keys()
@@ -1187,6 +1196,9 @@ def bracketResults(
                                                             excel_data[fname + "_FID"].append(";".join([str(peak[1].id) for peak in groupedChromPeaks[i][res]]))
                                                             excel_data[fname + "_GroupID"].append(";".join([str(peak[1].fGroupID) for peak in groupedChromPeaks[i][res]]))
                                                             excel_data[fname + "_isotopologRatios"].append(";".join([json.dumps(getattr(peak[1], "isotopologRatios", {})) for peak in groupedChromPeaks[i][res]]))
+                                                            excel_data[fname + "_isoArea"].append(";".join([json.dumps(getattr(peak[1], "isoAreas", {})) for peak in groupedChromPeaks[i][res]]))
+                                                            excel_data[fname + "_isoEnrichment"].append(";".join([json.dumps(getattr(peak[1], "isoEnrichment", {})) for peak in groupedChromPeaks[i][res]]))
+                                                            excel_data[fname + "_isoCount"].append(";".join([str(getattr(peak[1], "isoCount", 0)) for peak in groupedChromPeaks[i][res]]))
 
                                                         else:
                                                             excel_data[fname + "_Found"].append(None)
@@ -1216,6 +1228,9 @@ def bracketResults(
                                                             excel_data[fname + "_FID"].append(None)
                                                             excel_data[fname + "_GroupID"].append(None)
                                                             excel_data[fname + "_isotopologRatios"].append(None)
+                                                            excel_data[fname + "_isoArea"].append(None)
+                                                            excel_data[fname + "_isoEnrichment"].append(None)
+                                                            excel_data[fname + "_isoCount"].append(None)
 
                                                     excel_data["N_found_Samples"].append(nFoundSamples)
 

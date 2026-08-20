@@ -95,7 +95,7 @@ from .MSMS import optimizeMSMSTargets
 from .reIntegration import reIntegrateResultsFile
 from .exportToInclusionList import writeIQXInclusionList, writeQExactiveInclusionList
 from .resultsPostProcessing import searchDatabases as searchDatabases
-from .formulaTools import formulaTools, getElementOfIsotope, getIsotopeMass
+from .formulaTools import formulaTools, getElementOfIsotope, getIsotopeMass, isotopologLabel
 
 try:
     from matchms import Spectrum as MatchmsSpectrum
@@ -2723,13 +2723,16 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.clearPlot(self.ui.resultsExperimentSeparatedPeaks_plot)
         self.clearPlot(self.ui.resultsExperimentMSScanPeaks_plot)
         self.clearPlot(self.ui.resultsExperimentAbundance_plot)
+        self.clearPlot(self.ui.resultsExperimentIsotopicPattern_plot)
 
         if not hasattr(self, "experimentResults") or self.experimentResults is None:
             self.drawCanvas(self.ui.resultsExperiment_plot)
             self.drawCanvas(self.ui.resultsExperimentSeparatedPeaks_plot)
             self.drawCanvas(self.ui.resultsExperimentMSScanPeaks_plot)
             self.drawCanvas(self.ui.resultsExperimentAbundance_plot, showLegendOverwrite=False)
+            self.drawCanvas(self.ui.resultsExperimentIsotopicPattern_plot, showLegendOverwrite=False)
             self.updateSamplePeaksTab([])
+            self.updateIsotopicPatternTab([])
             return
 
         if len(self.ui.resultsExperiment_TreeWidget.selectedItems()) == 0:
@@ -2737,11 +2740,14 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.drawCanvas(self.ui.resultsExperimentSeparatedPeaks_plot)
             self.drawCanvas(self.ui.resultsExperimentMSScanPeaks_plot)
             self.drawCanvas(self.ui.resultsExperimentAbundance_plot, showLegendOverwrite=False)
+            self.drawCanvas(self.ui.resultsExperimentIsotopicPattern_plot, showLegendOverwrite=False)
             self.updateSamplePeaksTab([])
+            self.updateIsotopicPatternTab([])
             return
 
         plotItems = self._getSelectedExperimentPlotItems()
         self.updateExperimentAbundancePlot(plotItems)
+        self.updateIsotopicPatternTab(plotItems)
 
         # Load raw mzXML files if not already loaded
         if not hasattr(self, "loadedMZXMLs") or self.loadedMZXMLs is None:
@@ -3685,6 +3691,273 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def _refreshExperimentAbundancePlot(self, *args):
         self.updateExperimentAbundancePlot(self._getSelectedExperimentPlotItems())
+
+    def _refreshIsotopicPatternTab(self, *args):
+        self.updateIsotopicPatternTab(self._getSelectedExperimentPlotItems())
+
+    def updateIsotopicPatternTab(self, plotItems):
+        """Populate the isotopic pattern tab: a per-group boxplot of the isotopolog
+        areas (M, M+1, ..., M') and a table of the M/M' isotopic enrichment values."""
+        table = self.ui.tableWidget_isotopicEnrichment
+
+        self.clearPlot(self.ui.resultsExperimentIsotopicPattern_plot)
+        ax = self.ui.resultsExperimentIsotopicPattern_plot.axes
+        table.clear()
+        table.setRowCount(0)
+        table.setColumnCount(0)
+
+        if not plotItems or not hasattr(self, "experimentResults") or self.experimentResults is None:
+            self.drawCanvas(self.ui.resultsExperimentIsotopicPattern_plot, showLegendOverwrite=False)
+            return
+
+        selected_table = getattr(self.experimentResults, "selected_table", None)
+        if selected_table is None or selected_table not in self.experimentResults.db_con.tables:
+            self.drawCanvas(self.ui.resultsExperimentIsotopicPattern_plot, showLegendOverwrite=False)
+            return
+
+        table_df = self.experimentResults.db_con.tables[selected_table]
+        selected_ids = [pi.id for pi in plotItems if getattr(pi, "id", None) is not None]
+        if not selected_ids:
+            self.drawCanvas(self.ui.resultsExperimentIsotopicPattern_plot, showLegendOverwrite=False)
+            return
+
+        selected_df = table_df.filter(pl.col("Num").is_in(selected_ids))
+        rows_by_num = {row["Num"]: row for row in selected_df.to_dicts()}
+
+        definedGroups = self.getAllSampleGroups()
+        group_color_map = {str(g.name): str(g.color) for g in definedGroups}
+
+        file_entries = []  # (group_name, sample_name)
+        for group in definedGroups:
+            for sample_name in self._sampleNamesForGroup(group):
+                file_entries.append((str(group.name), sample_name))
+
+        def _isotopolog_sort_key(label):
+            m = re.match(r"^M([+-]\d+)", label.split(" / ")[0])
+            return int(m.group(1)) if m else 0
+
+        def _parse_isotopolog_position(label):
+            """Extract the integer isotopolog position (0=M) from a "M+x / M'-(Xn-x)" label."""
+            m = re.match(r"^M([+-]\d+)$", label.split(" / ")[0])
+            return int(m.group(1)) if m else None
+
+        # feature_id -> group_name -> sample_name -> {isotopolog label: normalized fraction}
+        feature_group_sample_areas = {}
+        all_labels = set()
+        label_side_votes = {}  # label -> {"native": n, "labeled": n}
+        for feature_id in sorted(set(selected_ids)):
+            row = rows_by_num.get(feature_id)
+            if row is None:
+                continue
+            try:
+                xcount = int(row.get("Xn"))
+            except (TypeError, ValueError):
+                xcount = None
+            group_sample_areas = {}
+            for group_name, sample_name in file_entries:
+                areaN = self._parseAreaCellValue(row.get(sample_name + "_Area_N"))
+                areaL = self._parseAreaCellValue(row.get(sample_name + "_Area_L"))
+                isoAreasRaw = self._parseJsonCellValue(row.get(sample_name + "_isoArea"))
+                areas_by_pos = {}
+                for label, area in isoAreasRaw.items():
+                    pos = _parse_isotopolog_position(label)
+                    if pos is None:
+                        continue
+                    try:
+                        areas_by_pos[pos] = float(area)
+                    except (TypeError, ValueError):
+                        continue
+                if 0 not in areas_by_pos and areaN is not None:
+                    areas_by_pos[0] = areaN
+                if xcount and xcount > 0 and xcount not in areas_by_pos and areaL is not None:
+                    areas_by_pos[xcount] = areaL
+                if not areas_by_pos:
+                    continue
+                if xcount and xcount > 0:
+                    # restrict to the canonical M..M' range for normalization/plotting
+                    areas_by_pos = {p: a for p, a in areas_by_pos.items() if 0 <= p <= xcount}
+                    if not areas_by_pos:
+                        continue
+                    normalized_by_pos, native_positions, labeled_positions = self._normalizeIsotopicPattern(areas_by_pos, xcount)
+                    sample_areas = {isotopologLabel(p, xcount): v for p, v in normalized_by_pos.items()}
+                    for pos in native_positions:
+                        label = isotopologLabel(pos, xcount)
+                        label_side_votes.setdefault(label, {"native": 0, "labeled": 0})["native"] += 1
+                    for pos in labeled_positions:
+                        label = isotopologLabel(pos, xcount)
+                        label_side_votes.setdefault(label, {"native": 0, "labeled": 0})["labeled"] += 1
+                else:
+                    sample_areas = {f"M+{p}": a for p, a in areas_by_pos.items()}
+                all_labels.update(sample_areas.keys())
+                group_sample_areas.setdefault(group_name, {})[sample_name] = sample_areas
+            if group_sample_areas:
+                feature_group_sample_areas[feature_id] = group_sample_areas
+
+        feature_ids = sorted(feature_group_sample_areas.keys())
+        group_names = sorted(
+            {g for gsa in feature_group_sample_areas.values() for g in gsa.keys()},
+            key=str.lower,
+        )
+        labels = sorted(all_labels, key=_isotopolog_sort_key)
+
+        ax.set_title("Isotopolog pattern of selected features (native/labeled sides normalized separately)")
+        ax.set_ylabel("Normalized fraction (of native or labeled side)")
+        ax.set_xlabel("Isotopolog")
+
+        # label -> group_name -> feature_id -> {sample_name: value}
+        entries = {}
+        for feature_id, group_sample_areas in feature_group_sample_areas.items():
+            for group_name, sample_areas_map in group_sample_areas.items():
+                for sample_name, sample_areas in sample_areas_map.items():
+                    for label, value in sample_areas.items():
+                        entries.setdefault(label, {}).setdefault(group_name, {}).setdefault(feature_id, {})[sample_name] = value
+
+        plot_mode = self.ui.comboBox_isotopicPatternPlotType.currentIndex()
+
+        any_data = False
+        if feature_ids and group_names and labels:
+            slot_width = 1.0 / max(1, len(feature_ids))
+            box_width = slot_width * 0.7
+            xtick_positions = []
+            xtick_labels = []
+            legend_handles = [patches.Patch(facecolor=group_color_map.get(gn, f"C{gi % 10}"), alpha=0.35, label=gn) for gi, gn in enumerate(group_names)]
+
+            box_data, positions, box_colors = [], [], []
+            median_lines = {}  # (group_name, feature_id) -> [(pos, median), ...]
+            scatter_x, scatter_y, scatter_colors = [], [], []
+            sample_lines = {}  # (group_name, feature_id, sample_name) -> [(pos, value), ...]
+
+            label_gap = 1.5
+            for label_index, label in enumerate(labels):
+                base = label_index * (len(group_names) + label_gap)
+                for group_index, group_name in enumerate(group_names):
+                    group_base = base + group_index
+                    xtick_positions.append(group_base)
+                    xtick_labels.append(f"{label} | {group_name}")
+                    gcolor = group_color_map.get(group_name, f"C{group_index % 10}")
+                    for feature_index, feature_id in enumerate(feature_ids):
+                        sample_map = entries.get(label, {}).get(group_name, {}).get(feature_id, {})
+                        if not sample_map:
+                            continue
+                        offset = -0.5 + (feature_index + 0.5) * slot_width
+                        pos = group_base + offset
+                        vals = list(sample_map.values())
+                        any_data = True
+
+                        if plot_mode == 0:
+                            box_data.append(vals)
+                            positions.append(pos)
+                            box_colors.append(gcolor)
+                            median_lines.setdefault((group_name, feature_id), []).append((pos, float(np.median(vals))))
+                            n_vals = len(vals)
+                            for j, value in enumerate(vals):
+                                jitter = (j / (n_vals - 1) - 0.5) * box_width * 0.6 if n_vals > 1 else 0.0
+                                scatter_x.append(pos + jitter)
+                                scatter_y.append(value)
+                                scatter_colors.append(gcolor)
+                        elif plot_mode == 1:
+                            n_vals = len(vals)
+                            for j, value in enumerate(vals):
+                                jitter = (j / (n_vals - 1) - 0.5) * box_width * 0.6 if n_vals > 1 else 0.0
+                                scatter_x.append(pos + jitter)
+                                scatter_y.append(value)
+                                scatter_colors.append(gcolor)
+                        else:
+                            for sample_name, value in sample_map.items():
+                                sample_lines.setdefault((group_name, feature_id, sample_name), []).append((pos, value))
+
+            if any_data:
+                if plot_mode == 0:
+                    bp = ax.boxplot(box_data, positions=positions, widths=box_width, patch_artist=True, showfliers=False)
+                    for patch, c in zip(bp["boxes"], box_colors):
+                        patch.set_facecolor(c)
+                        patch.set_alpha(0.35)
+                    ax.scatter(scatter_x, scatter_y, c=scatter_colors, s=18, edgecolors="black", linewidths=0.4, alpha=0.9, zorder=3)
+                    for (group_name, feature_id), pts in median_lines.items():
+                        pts.sort(key=lambda p: p[0])
+                        xs, ys = zip(*pts)
+                        gcolor = group_color_map.get(group_name, "gray")
+                        ax.plot(xs, ys, color=gcolor, alpha=0.5, linewidth=1.2, zorder=2)
+                elif plot_mode == 1:
+                    ax.scatter(scatter_x, scatter_y, c=scatter_colors, s=24, edgecolors="black", linewidths=0.4, alpha=0.85, zorder=3)
+                else:
+                    for (group_name, feature_id, sample_name), pts in sample_lines.items():
+                        pts.sort(key=lambda p: p[0])
+                        xs, ys = zip(*pts)
+                        gcolor = group_color_map.get(group_name, "gray")
+                        ax.plot(xs, ys, color=gcolor, alpha=0.7, linewidth=1.2, marker="o", markersize=3, zorder=2)
+
+                ax.set_xticks(xtick_positions)
+                ax.set_xticklabels(xtick_labels, rotation=90, ha="center", fontsize=16)
+                if legend_handles:
+                    ax.legend(handles=legend_handles, loc="best", title="Sample group")
+
+                def _label_side(label):
+                    votes = label_side_votes.get(label)
+                    if votes:
+                        return "labeled" if votes["labeled"] > votes["native"] else "native"
+                    return "native"
+
+                for label_index in range(1, len(labels)):
+                    if _label_side(labels[label_index - 1]) == "native" and _label_side(labels[label_index]) == "labeled":
+                        boundary_x = label_index * (len(group_names) + label_gap) - label_gap / 2.0
+                        ax.axvline(boundary_x, color="black", linewidth=1.5, linestyle="--", alpha=0.6, zorder=4)
+                        break
+
+        if not any_data:
+            ax.text(0.5, 0.5, "No isotopolog area values available", transform=ax.transAxes, ha="center", va="center")
+
+        self.drawCanvas(self.ui.resultsExperimentIsotopicPattern_plot, showLegendOverwrite=False)
+
+        # Enrichment table: one row per sample, M/M' enrichment columns per selected feature
+        headers = ["Sample", "Group"]
+        for pi in plotItems:
+            suffix = f" [{pi.mz:.4f}]" if len(plotItems) > 1 else ""
+            headers.append("M enrichment (%)" + suffix)
+            headers.append("M' enrichment (%)" + suffix)
+
+        group_qcolor_map = {}
+        for grp in definedGroups:
+            qc = QtGui.QColor(str(grp.color))
+            if qc.isValid():
+                qc.setAlpha(77)
+                group_qcolor_map[str(grp.name)] = qc
+
+        row_entries = []
+        for group_name, sample_name in file_entries:
+            cells = []
+            any_value = False
+            for pi in plotItems:
+                row = rows_by_num.get(getattr(pi, "id", None))
+                enrichment = self._parseJsonCellValue(row.get(sample_name + "_isoEnrichment")) if row is not None else {}
+                m_enr = enrichment.get("M")
+                mp_enr = enrichment.get("M'")
+                cells.append("%.2f" % (m_enr * 100.0) if isinstance(m_enr, (int, float)) else "")
+                cells.append("%.2f" % (mp_enr * 100.0) if isinstance(mp_enr, (int, float)) else "")
+                if m_enr is not None or mp_enr is not None:
+                    any_value = True
+            if any_value:
+                row_entries.append((group_name, sample_name, cells))
+
+        table.setSortingEnabled(False)
+        table.setColumnCount(len(headers))
+        table.setHorizontalHeaderLabels(headers)
+        table.setRowCount(len(row_entries))
+        for row_idx, (group_name, sample_name, cells) in enumerate(row_entries):
+            row_color = group_qcolor_map.get(group_name)
+
+            def _cell(text, color=row_color):
+                item = QtWidgets.QTableWidgetItem(text)
+                if color is not None:
+                    item.setBackground(color)
+                return item
+
+            table.setItem(row_idx, 0, _cell(sample_name))
+            table.setItem(row_idx, 1, _cell(group_name))
+            for col_idx, text in enumerate(cells):
+                table.setItem(row_idx, col_idx + 2, _cell(text))
+        table.setSortingEnabled(True)
+        table.resizeColumnsToContents()
 
     def updateSamplePeaksTab(self, plotItems):
         """Prepare data for per-sample peak plots and render the first page."""
@@ -5583,6 +5856,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                             start=start,
                             peak_filter_config=filter_config,
                             peak_picker=picker,
+                            xOffset=self.isotopeBmass - self.isotopeAmass,
                         )
                         convolution_input_sheet = "3_Reintegrated"
                         annotation_input_sheet = "3_Reintegrated"
@@ -14713,6 +14987,51 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             return None
 
     @staticmethod
+    def _parseJsonCellValue(val):
+        """Parse a (possibly ';'-joined) per-sample JSON dict cell value; returns a dict (possibly empty)."""
+        if val is None:
+            return {}
+        try:
+            return json.loads(str(val).split(";")[0])
+        except (TypeError, ValueError):
+            return {}
+
+    @staticmethod
+    def _normalizeIsotopicPattern(sample_areas_by_pos, xcount):
+        """Split an isotopolog area pattern (position 0..xcount, i.e. M..M') into a native
+        (M-side) and labeled (M'-side) part and normalize each part to sum to 1. The border
+        between the two parts is the isotopolog closest to M that is undetected (zero), or
+        otherwise the least abundant detected isotopolog among the internal (non-M/M')
+        positions.
+
+        sample_areas_by_pos is keyed by integer isotopolog position (0=M, xcount=M').
+
+        Returns a tuple (normalized_areas_by_pos, native_positions, labeled_positions) where
+        the latter two list which integer positions were assigned to the native/labeled side.
+        """
+        positions = list(range(0, xcount + 1))
+        values = [sample_areas_by_pos.get(p, 0.0) for p in positions]
+
+        internal = positions[1:-1]
+        if internal:
+            zero_positions = [p for p in internal if values[p] == 0.0]
+            border = min(zero_positions) if zero_positions else min(internal, key=lambda p: values[p])
+        else:
+            border = 0
+
+        native_positions = [p for p in positions if p <= border]
+        labeled_positions = [p for p in positions if p > border]
+        native_sum = sum(values[p] for p in native_positions)
+        labeled_sum = sum(values[p] for p in labeled_positions)
+
+        normalized = {}
+        for p in native_positions:
+            normalized[p] = (values[p] / native_sum) if native_sum > 0 else 0.0
+        for p in labeled_positions:
+            normalized[p] = (values[p] / labeled_sum) if labeled_sum > 0 else 0.0
+        return normalized, native_positions, labeled_positions
+
+    @staticmethod
     def _compareGroupFilterOp(count, op, val):
         if op == ">":
             return count > val
@@ -17124,6 +17443,7 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.comboBox_abundanceScale.currentIndexChanged.connect(self._refreshExperimentAbundancePlot)
         self.ui.comboBox_abundanceScalingMode.currentIndexChanged.connect(self._refreshExperimentAbundancePlot)
         self.ui.comboBox_abundanceValueType.currentIndexChanged.connect(self._refreshExperimentAbundancePlot)
+        self.ui.comboBox_isotopicPatternPlotType.currentIndexChanged.connect(self._refreshIsotopicPatternTab)
         self.ui.pushButton_samplePeaksPrev.clicked.connect(self._samplePeaksPrevPage)
         self.ui.pushButton_samplePeaksNext.clicked.connect(self._samplePeaksNextPage)
         self.ui.spinBox_samplePeaksRows.valueChanged.connect(self._renderSamplePeaksPage)
@@ -17369,6 +17689,26 @@ class mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         vbox.addWidget(self.ui.resultsExperimentAbundance_plot.mpl_toolbar)
         vbox.addWidget(self.ui.resultsExperimentAbundance_plot.canvas)
         self.ui.resultsExperimentAbundance_widget.setLayout(vbox)
+
+        # Setup isotopic pattern plot
+        self.ui.resultsExperimentIsotopicPattern_plot = QtCore.QObject()
+        self.ui.resultsExperimentIsotopicPattern_plot.dpi = 50
+        self.ui.resultsExperimentIsotopicPattern_plot.fig = Figure((5.0, 4.0), dpi=self.ui.resultsExperimentIsotopicPattern_plot.dpi, facecolor="white")
+        self.ui.resultsExperimentIsotopicPattern_plot.fig.subplots_adjust(left=0.08, bottom=0.15, right=0.99, top=0.9)
+        self.ui.resultsExperimentIsotopicPattern_plot.canvas = FigureCanvas(self.ui.resultsExperimentIsotopicPattern_plot.fig)
+        self.ui.resultsExperimentIsotopicPattern_plot.canvas.setParent(self.ui.resultsExperimentIsotopicPattern_widget)
+        self.ui.resultsExperimentIsotopicPattern_plot.axes = self.ui.resultsExperimentIsotopicPattern_plot.fig.add_subplot(111)
+        simpleaxis(self.ui.resultsExperimentIsotopicPattern_plot.axes)
+        self.ui.resultsExperimentIsotopicPattern_plot.twinxs = [self.ui.resultsExperimentIsotopicPattern_plot.axes]
+        self.ui.resultsExperimentIsotopicPattern_plot.mpl_toolbar = NavigationToolbar(
+            self.ui.resultsExperimentIsotopicPattern_plot.canvas,
+            self.ui.resultsExperimentIsotopicPattern_widget,
+        )
+
+        vbox = QtWidgets.QVBoxLayout()
+        vbox.addWidget(self.ui.resultsExperimentIsotopicPattern_plot.mpl_toolbar)
+        vbox.addWidget(self.ui.resultsExperimentIsotopicPattern_plot.canvas)
+        self.ui.resultsExperimentIsotopicPattern_widget.setLayout(vbox)
 
         # Setup sample peaks plot (dynamic per-sample subplot grid)
         self.ui.resultsExperimentSamplePeaks_plot = QtCore.QObject()

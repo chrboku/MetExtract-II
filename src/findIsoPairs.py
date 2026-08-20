@@ -25,7 +25,7 @@ import traceback
 from . import HCA_general, Baseline, exportAsFeatureML
 from .utils import CallBackMethod, getNormRatio, getDBSuffix
 from .Chromatogram import Chromatogram
-from .formulaTools import formulaTools, getIsotopeMass
+from .formulaTools import formulaTools, getIsotopeMass, calcIsoEnrichment, isotopologLabel
 from .mePyGuis.TracerEdit import ConfiguredTracer
 from .MZHCA import HierarchicalClustering, cutTreeSized
 from .PolarsDB import PolarsDB
@@ -585,6 +585,9 @@ class FindIsoPairs:
                 "isotopesRatios": pl.Utf8,
                 "mzDiffErrors": pl.Utf8,
                 "isotopologRatios": pl.Utf8,
+                "isoAreas": pl.Utf8,
+                "isoEnrichment": pl.Utf8,
+                "isoCount": pl.Int64,
                 "peakType": pl.Utf8,
                 "assignedName": pl.Utf8,
                 "correlationsToOthers": pl.Utf8,
@@ -642,6 +645,9 @@ class FindIsoPairs:
                 "isotopesRatios": pl.Utf8,
                 "mzDiffErrors": pl.Utf8,
                 "isotopologRatios": pl.Utf8,
+                "isoAreas": pl.Utf8,
+                "isoEnrichment": pl.Utf8,
+                "isoCount": pl.Int64,
                 "peakType": pl.Utf8,
                 "assignedName": pl.Utf8,
                 "comment": pl.Utf8,
@@ -1839,6 +1845,116 @@ class FindIsoPairs:
             db_con.tables["allChromPeaks"] = db_con.tables["allChromPeaks"].with_columns(pl.when(pl.col("id") == peak.id).then(pl.lit(encoded)).otherwise(pl.col("isotopologRatios")).alias("isotopologRatios"))
 
         self.printMessage("Isotopolog ratio calculation done.", type="info")
+        db_con.commit()
+        db_con.close()
+
+    def calculateIsotopologEnrichmentForFeaturePairs(self, chromPeaks, mzxml, reportFunction=None):
+        """For each detected feature pair, quantify the individual isotopologs from M-2 to M'+2
+        (named "M+x / M'-(Xn-x)", with x the number of labelling atoms), determine how many of
+        them are present (area >= 1% of the less abundant of M/M'), and calculate the isotopic
+        enrichment from the native (M and the highest detected M+x) and labelled (M' and M'-1)
+        isotopolog pairs.
+
+        Results are stored on the peak as isoAreas (dict of "M+x / M'-(Xn-x)" -> area),
+        isoEnrichment (dict with keys "M" and "M'") and isoCount (number of isotopologs detected
+        between M and M').
+        """
+        db_con = PolarsDB(self.file + getDBSuffix(), format=getDBFormat())
+
+        def _peak_area(eic, times, lb, rb):
+            rb = min(rb, len(eic) - 1)
+            lb = max(lb, 0)
+            if lb >= rb:
+                return 0.0
+            return float(np.trapezoid(eic[lb : rb + 1], times[lb : rb + 1]))
+
+        for i, peak in enumerate(chromPeaks):
+            if reportFunction is not None:
+                reportFunction(1.0 * i / len(chromPeaks), "%d features remaining" % (len(chromPeaks) - i))
+
+            peak.isoAreas = {}
+            peak.isoEnrichment = {}
+            peak.isoCount = 0
+
+            try:
+                xCount = int(peak.xCount)
+            except (TypeError, ValueError):
+                continue
+            if xCount < 1:
+                continue
+
+            scanEvent = self.positiveScanEvent if peak.ionMode == "+" else self.negativeScanEvent
+            loading = peak.loading
+
+            # common integration border spanning both the M and M' peak boundaries
+            lb = max(0, min(peak.NPeakCenter - int(peak.NBorderLeft), peak.LPeakCenter - int(peak.LBorderLeft)))
+            rb = max(peak.NPeakCenter + int(peak.NBorderRight), peak.LPeakCenter + int(peak.LBorderRight))
+
+            eic_M, times_M, _, _ = mzxml.getEIC(peak.mz, self.chromPeakPPM, filterLine=scanEvent)
+            eic_Mp, times_Mp, _, _ = mzxml.getEIC(peak.lmz, self.chromPeakPPM, filterLine=scanEvent)
+            eic_M = np.asarray(eic_M, dtype=np.float64)
+            eic_Mp = np.asarray(eic_Mp, dtype=np.float64)
+            times_M = np.asarray(times_M, dtype=np.float64)
+            times_Mp = np.asarray(times_Mp, dtype=np.float64)
+
+            area_M = _peak_area(eic_M, times_M, lb, rb)
+            area_Mp = _peak_area(eic_Mp, times_Mp, lb, rb)
+
+            if area_M <= 0 and area_Mp <= 0:
+                continue
+
+            refArea = min(area_M, area_Mp) if area_M > 0 and area_Mp > 0 else max(area_M, area_Mp)
+            threshold = 0.01 * refArea
+
+            areasByX = {}
+            for x in range(-2, xCount + 3):
+                if x == 0:
+                    areasByX[x] = area_M
+                elif x == xCount:
+                    areasByX[x] = area_Mp
+                else:
+                    target_mz = peak.mz + x * self.xOffset / loading
+                    eic_x, times_x, _, _ = mzxml.getEIC(target_mz, self.chromPeakPPM, filterLine=scanEvent)
+                    eic_x = np.asarray(eic_x, dtype=np.float64)
+                    times_x = np.asarray(times_x, dtype=np.float64)
+                    areasByX[x] = _peak_area(eic_x, times_x, lb, rb)
+
+            isoAreas = {isotopologLabel(x, xCount): a for x, a in areasByX.items() if a >= threshold}
+            peak.isoCount = sum(1 for x in range(1, xCount) if areasByX.get(x, 0.0) >= threshold)
+            peak.isoAreas = isoAreas
+
+            # native-side enrichment: use M and the highest contiguously-detected M+x
+            nativeX = 0
+            for x in range(1, xCount):
+                if areasByX.get(x, 0.0) >= threshold:
+                    nativeX = x
+                else:
+                    break
+
+            isoEnrichment = {}
+            if nativeX >= 1 and area_M > 0:
+                isoEnrichment["M"] = calcIsoEnrichment(xCount, nativeX, areasByX[nativeX] / area_M)
+
+            # labelled-side enrichment: use M' and M'-1 (M itself if xCount == 1)
+            areaMpMinus1 = areasByX.get(xCount - 1, area_M) if xCount >= 2 else area_M
+            if area_Mp > 0 and areaMpMinus1 > 0:
+                isoEnrichment["M'"] = calcIsoEnrichment(xCount, 1, areaMpMinus1 / area_Mp)
+
+            peak.isoEnrichment = isoEnrichment
+
+        # Persist to DB
+        for peak in chromPeaks:
+            encodedAreas = base64.b64encode(dumps(getattr(peak, "isoAreas", {}))).decode("utf-8")
+            encodedEnrichment = base64.b64encode(dumps(getattr(peak, "isoEnrichment", {}))).decode("utf-8")
+            isoCount = getattr(peak, "isoCount", 0)
+            for table in ("chromPeaks", "allChromPeaks"):
+                db_con.tables[table] = db_con.tables[table].with_columns(
+                    pl.when(pl.col("id") == peak.id).then(pl.lit(encodedAreas)).otherwise(pl.col("isoAreas")).alias("isoAreas"),
+                    pl.when(pl.col("id") == peak.id).then(pl.lit(encodedEnrichment)).otherwise(pl.col("isoEnrichment")).alias("isoEnrichment"),
+                    pl.when(pl.col("id") == peak.id).then(pl.lit(isoCount)).otherwise(pl.col("isoCount")).alias("isoCount"),
+                )
+
+        self.printMessage("Isotopolog enrichment calculation done.", type="info")
         db_con.commit()
         db_con.close()
 
@@ -3502,6 +3618,22 @@ class FindIsoPairs:
 
             self.printMessage(
                 "Isotopolog ratio calculation done.",
+                type="info",
+            )
+            # endregion
+
+            # region 7c. Calculate isotopolog enrichment for each feature pair
+            ######################################################################################
+
+            self.postMessageToProgressWrapper("text", "Calculating isotopolog enrichment")
+
+            def reportFunction(curVal, text):
+                self.postMessageToProgressWrapper("text", "Calculating isotopolog enrichment (%s)" % text)
+
+            self.calculateIsotopologEnrichmentForFeaturePairs(chromPeaks, mzxml, reportFunction)
+
+            self.printMessage(
+                "Isotopolog enrichment calculation done.",
                 type="info",
             )
             # endregion
